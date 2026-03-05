@@ -19,6 +19,7 @@ import {
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DownloadIcon from '@mui/icons-material/Download';
 import { MarkdownEditor } from '../components/MarkdownEditor.js';
+import { VersionHistory } from '../components/VersionHistory.js';
 import { useAuth } from '../hooks/useAuth.js';
 import {
   useTemplate,
@@ -293,7 +294,9 @@ export function TemplateEditorPage() {
       )}
 
       {/* Versions tab */}
-      {!isCreateMode && activeTab === 1 && <Typography>Version history</Typography>}
+      {!isCreateMode && activeTab === 1 && templateData != null && (
+        <VersionHistory templateId={id} currentVersion={templateData.template.currentVersion} />
+      )}
 
       {/* Change summary dialog */}
       <Dialog
