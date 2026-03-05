@@ -1,4 +1,4 @@
-import { eq, and, like, sql, desc } from 'drizzle-orm';
+import { eq, and, like, sql, desc, inArray } from 'drizzle-orm';
 import type { BatchItem } from 'drizzle-orm/batch';
 import { createTemplateSchema, updateTemplateSchema, templateQuerySchema } from '@legalcode/shared';
 import type { CreateTemplateInput, UpdateTemplateInput, TemplateQuery } from '@legalcode/shared';
@@ -145,6 +145,14 @@ export async function listTemplates(db: AppDb, query: Partial<TemplateQuery>): P
   if (parsed.country) {
     conditions.push(eq(templates.country, parsed.country));
   }
+  if (parsed.tag) {
+    const taggedIds = db
+      .select({ templateId: templateTags.templateId })
+      .from(templateTags)
+      .innerJoin(tags, eq(templateTags.tagId, tags.id))
+      .where(eq(tags.name, parsed.tag));
+    conditions.push(inArray(templates.id, taggedIds));
+  }
 
   const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
@@ -251,7 +259,7 @@ export async function updateTemplate(
 
   // Determine content for new version
   let content: string;
-  if (parsed.content) {
+  if (parsed.content !== undefined) {
     content = parsed.content;
   } else {
     const currentVersion = await db.query.templateVersions.findFirst({
@@ -308,8 +316,9 @@ export async function updateTemplate(
   ];
 
   // Handle tag sync if tags provided
-  const tagNames: string[] = [];
+  let tagNames: string[];
   if (parsed.tags !== undefined) {
+    tagNames = [];
     // Delete old tags
     ops.push(db.delete(templateTags).where(eq(templateTags.templateId, templateId)));
 
@@ -322,6 +331,14 @@ export async function updateTemplate(
       }
       ops.push(db.insert(templateTags).values({ templateId, tagId: tag.tagId }));
     }
+  } else {
+    // Fetch existing tags when tags not included in update
+    const existingTags = await db
+      .select({ name: tags.name })
+      .from(templateTags)
+      .innerJoin(tags, eq(templateTags.tagId, tags.id))
+      .where(eq(templateTags.templateId, templateId));
+    tagNames = existingTags.map((row) => row.name);
   }
 
   await db.batch(ops as unknown as [BatchItem<'sqlite'>, ...BatchItem<'sqlite'>[]]);
@@ -366,10 +383,10 @@ export async function publishTemplate(
   const auditRow = {
     id: crypto.randomUUID(),
     userId,
-    action: 'update',
+    action: 'publish',
     entityType: 'template',
     entityId: templateId,
-    metadata: JSON.stringify({ action: 'publish', previousStatus: existing.status }),
+    metadata: JSON.stringify({ previousStatus: existing.status }),
     createdAt: now,
   };
 

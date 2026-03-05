@@ -4,7 +4,14 @@ export const roleSchema = z.enum(['admin', 'editor', 'viewer']);
 
 export const templateStatusSchema = z.enum(['draft', 'active', 'archived']);
 
-export const auditActionSchema = z.enum(['create', 'update', 'archive', 'export', 'login']);
+export const auditActionSchema = z.enum([
+  'create',
+  'update',
+  'publish',
+  'archive',
+  'export',
+  'login',
+]);
 
 export const createTemplateSchema = z.object({
   title: z.string().min(1).max(200),

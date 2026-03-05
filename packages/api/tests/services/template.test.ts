@@ -211,8 +211,6 @@ describe('template service', () => {
       const whereSpy = vi.fn().mockReturnValue({ offset: offsetSpy });
       const fromSpy = vi.fn().mockReturnValue({ where: whereSpy });
       vi.spyOn(db, 'select').mockImplementation((...args: unknown[]) => {
-        // Check if it's a count query (first call is count, second is data - or vice versa)
-        // We differentiate by checking if the select arg includes a count field
         const selectArg = args[0] as Record<string, unknown> | undefined;
         if (selectArg && 'count' in selectArg) {
           return {
@@ -220,6 +218,13 @@ describe('template service', () => {
               where: vi.fn().mockResolvedValue([{ count: countResult }]),
             }),
           } as never;
+        }
+        // For tag subquery: select({ templateId }) → from → innerJoin → where
+        if (selectArg && 'templateId' in selectArg) {
+          const subWhere = vi.fn().mockReturnValue({});
+          const subInnerJoin = vi.fn().mockReturnValue({ where: subWhere });
+          const subFrom = vi.fn().mockReturnValue({ innerJoin: subInnerJoin });
+          return { from: subFrom } as never;
         }
         return { from: fromSpy } as never;
       });
@@ -296,6 +301,14 @@ describe('template service', () => {
       setupListMock(db, [], 0);
 
       const result = await listTemplates(db, {});
+      expect(result.templates).toEqual([]);
+      expect(result.total).toBe(0);
+    });
+
+    it('applies tag filter via subquery', async () => {
+      setupListMock(db, [], 0);
+
+      const result = await listTemplates(db, { tag: 'employment' });
       expect(result.templates).toEqual([]);
       expect(result.total).toBe(0);
     });
@@ -440,6 +453,12 @@ describe('template service', () => {
 
       const batchSpy = vi.spyOn(db, 'batch').mockResolvedValue([] as never);
 
+      // Mock select for fetching existing tags (no tags provided in update)
+      const tagWhereSpy = vi.fn().mockResolvedValue([]);
+      const tagInnerJoinSpy = vi.fn().mockReturnValue({ where: tagWhereSpy });
+      const tagFromSpy = vi.fn().mockReturnValue({ innerJoin: tagInnerJoinSpy });
+      vi.spyOn(db, 'select').mockReturnValue({ from: tagFromSpy } as never);
+
       const result = await updateTemplate(
         db,
         't1',
@@ -480,12 +499,57 @@ describe('template service', () => {
 
       vi.spyOn(db, 'batch').mockResolvedValue([] as never);
 
+      // Mock select for fetching existing tags (no tags provided in update)
+      const tagWhereSpy = vi.fn().mockResolvedValue([]);
+      const tagInnerJoinSpy = vi.fn().mockReturnValue({ where: tagWhereSpy });
+      const tagFromSpy = vi.fn().mockReturnValue({ innerJoin: tagInnerJoinSpy });
+      vi.spyOn(db, 'select').mockReturnValue({ from: tagFromSpy } as never);
+
       const result = await updateTemplate(db, 't1', { title: 'Updated Title' }, 'user-1');
 
       expect(result).toHaveProperty('template');
       if ('template' in result) {
         expect(result.template.title).toBe('Updated Title');
         expect(result.template.currentVersion).toBe(2);
+      }
+    });
+
+    it('returns existing tags when tags not provided in update', async () => {
+      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue({
+        id: 't1',
+        title: 'Tagged',
+        slug: 'tagged-abc123',
+        category: 'contracts',
+        country: null,
+        status: 'draft',
+        currentVersion: 1,
+        createdBy: 'user-1',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      });
+
+      vi.spyOn(db.query.templateVersions, 'findFirst').mockResolvedValue({
+        id: 'v1',
+        templateId: 't1',
+        version: 1,
+        content: '# Content',
+        changeSummary: 'Initial version',
+        createdBy: 'user-1',
+        createdAt: '2026-01-01T00:00:00.000Z',
+      });
+
+      vi.spyOn(db, 'batch').mockResolvedValue([] as never);
+
+      const whereSpy = vi.fn().mockResolvedValue([{ name: 'employment' }, { name: 'compliance' }]);
+      const innerJoinSpy = vi.fn().mockReturnValue({ where: whereSpy });
+      const fromSpy = vi.fn().mockReturnValue({ innerJoin: innerJoinSpy });
+      vi.spyOn(db, 'select').mockReturnValue({ from: fromSpy } as never);
+
+      const result = await updateTemplate(db, 't1', { title: 'Updated Title' }, 'user-1');
+
+      expect(result).toHaveProperty('tags');
+      if ('tags' in result) {
+        expect(result.tags).toEqual(['employment', 'compliance']);
       }
     });
 
@@ -504,6 +568,12 @@ describe('template service', () => {
       });
 
       vi.spyOn(db, 'batch').mockResolvedValue([] as never);
+
+      // Mock select for fetching existing tags (no tags provided in update)
+      const tagWhereSpy = vi.fn().mockResolvedValue([]);
+      const tagInnerJoinSpy = vi.fn().mockReturnValue({ where: tagWhereSpy });
+      const tagFromSpy = vi.fn().mockReturnValue({ innerJoin: tagInnerJoinSpy });
+      vi.spyOn(db, 'select').mockReturnValue({ from: tagFromSpy } as never);
 
       const result = await updateTemplate(
         db,

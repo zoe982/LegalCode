@@ -2,7 +2,7 @@ export type Role = 'admin' | 'editor' | 'viewer';
 
 export type TemplateStatus = 'draft' | 'active' | 'archived';
 
-export type AuditAction = 'create' | 'update' | 'archive' | 'export' | 'login';
+export type AuditAction = 'create' | 'update' | 'publish' | 'archive' | 'export' | 'login';
 
 export interface User {
   id: string;
