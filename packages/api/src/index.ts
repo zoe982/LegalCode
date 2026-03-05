@@ -1,15 +1,8 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import type { AppEnv } from './types/env.js';
 
-interface Env {
-  DB: D1Database;
-  AUTH_KV: KVNamespace;
-  JWT_SECRET: string;
-  GOOGLE_CLIENT_ID: string;
-  GOOGLE_CLIENT_SECRET: string;
-}
-
-const app = new Hono<{ Bindings: Env }>();
+const app = new Hono<AppEnv>();
 
 app.use(
   '*',
