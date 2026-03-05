@@ -21,6 +21,10 @@
       "id": "4f085e5be3974ec38f156e5e8c2f2ba3"
     }
   ],
+  "workers_dev": true,
+  "routes": [
+    { "pattern": "legalcode.ax1access.com", "custom_domain": true }
+  ],
   "vars": {
     "ALLOWED_EMAILS": "zoe@marsico.org,joseph.marsico@acasus.com"
   }
