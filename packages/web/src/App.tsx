@@ -1,16 +1,12 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import {
-  ThemeProvider,
-  CssBaseline,
-  Typography,
-  Container,
-  AppBar,
-  Toolbar,
-  Button,
-} from '@mui/material';
+import { ThemeProvider, CssBaseline, Typography, AppBar, Toolbar, Button } from '@mui/material';
+import { createBrowserRouter, RouterProvider, Outlet } from 'react-router';
+import type { RouteObject } from 'react-router';
 import { theme } from './theme/index.js';
 import { AuthGuard } from './components/AuthGuard.js';
 import { useAuth } from './hooks/useAuth.js';
+import { TemplateListPage } from './pages/TemplateListPage.js';
+import { TemplateEditorPage } from './pages/TemplateEditorPage.js';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -18,7 +14,7 @@ const queryClient = new QueryClient({
   },
 });
 
-function AuthenticatedApp() {
+function Layout() {
   const { user, logout, isLoggingOut } = useAuth();
 
   return (
@@ -42,17 +38,24 @@ function AuthenticatedApp() {
           </Button>
         </Toolbar>
       </AppBar>
-      <Container maxWidth="lg" sx={{ py: 4 }}>
-        <Typography variant="h4" component="h1" gutterBottom>
-          Templates
-        </Typography>
-        <Typography variant="body1" color="text.secondary">
-          No templates yet.
-        </Typography>
-      </Container>
+      <Outlet />
     </>
   );
 }
+
+export const routes: RouteObject[] = [
+  {
+    path: '/',
+    element: <Layout />,
+    children: [
+      { index: true, element: <TemplateListPage /> },
+      { path: 'templates/new', element: <TemplateEditorPage /> },
+      { path: 'templates/:id', element: <TemplateEditorPage /> },
+    ],
+  },
+];
+
+const router = createBrowserRouter(routes);
 
 export const App: React.FC = () => {
   return (
@@ -60,7 +63,7 @@ export const App: React.FC = () => {
       <ThemeProvider theme={theme}>
         <CssBaseline />
         <AuthGuard>
-          <AuthenticatedApp />
+          <RouterProvider router={router} />
         </AuthGuard>
       </ThemeProvider>
     </QueryClientProvider>
