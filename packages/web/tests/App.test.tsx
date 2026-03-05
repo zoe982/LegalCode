@@ -98,7 +98,7 @@ describe('App', () => {
     );
     renderWithRouter('/templates/new');
     await waitFor(() => {
-      expect(screen.getByText('Editor')).toBeInTheDocument();
+      expect(screen.getByText('New Template')).toBeInTheDocument();
     });
   });
 
@@ -117,7 +117,7 @@ describe('App', () => {
     );
     renderWithRouter('/templates/t1');
     await waitFor(() => {
-      expect(screen.getByText('Editor')).toBeInTheDocument();
+      expect(screen.getByRole('progressbar')).toBeInTheDocument();
     });
   });
 });
