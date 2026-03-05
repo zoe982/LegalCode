@@ -37,3 +37,5 @@ export const templateQuerySchema = z.object({
 export type CreateTemplateInput = z.infer<typeof createTemplateSchema>;
 export type UpdateTemplateInput = z.infer<typeof updateTemplateSchema>;
 export type TemplateQuery = z.infer<typeof templateQuerySchema>;
+
+export * from './auth.js';

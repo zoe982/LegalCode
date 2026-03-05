@@ -50,3 +50,5 @@ export interface AuditLogEntry {
   metadata: string | null;
   createdAt: string;
 }
+
+export * from './auth.js';
