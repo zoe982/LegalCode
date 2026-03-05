@@ -49,4 +49,11 @@ describe('securityHeaders', () => {
 
     expect(res.headers.get('Permissions-Policy')).toBe('camera=(), microphone=(), geolocation=()');
   });
+
+  it('sets Cache-Control to no-store for API responses', async () => {
+    const app = createTestApp();
+    const res = await app.request('/test');
+
+    expect(res.headers.get('Cache-Control')).toBe('no-store');
+  });
 });

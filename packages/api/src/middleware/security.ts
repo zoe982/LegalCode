@@ -12,4 +12,5 @@ export const securityHeaders = createMiddleware<AppEnv>(async (c, next): Promise
   c.header('X-Frame-Options', 'DENY');
   c.header('Referrer-Policy', 'strict-origin-when-cross-origin');
   c.header('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  c.header('Cache-Control', 'no-store');
 });

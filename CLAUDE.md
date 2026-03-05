@@ -21,6 +21,19 @@ pnpm monorepo: `packages/api` (Hono/Cloudflare Worker), `packages/web` (React/Vi
 - `pnpm db:migrate` — Apply D1 migrations locally
 - `pnpm db:seed` — Seed local D1
 
+## Deployment
+
+- **Domains:** `legalcode.ax1access.com` (primary), `legalcode.acasus.workers.dev` (fallback)
+- **Platform:** Cloudflare Workers with Static Assets (SPA fallback)
+- **Deploy:** `pnpm build && npx wrangler deploy`
+
+## Caching Strategy
+
+- **Hashed assets** (`/assets/*`): `Cache-Control: public, max-age=31536000, immutable` — Vite content-hashes all JS/CSS filenames, so browsers cache aggressively and bust on redeploy
+- **HTML/SPA** (`/`, `/index.html`): `Cache-Control: no-cache` — always revalidated, ensures new deploys are picked up immediately
+- **API responses**: `Cache-Control: no-store` — set via security middleware, prevents caching of auth tokens, template data, or any dynamic content
+- **Config:** Static asset headers in `packages/web/public/_headers`, API headers in `packages/api/src/middleware/security.ts`
+
 ## Architecture
 
 - **Auth:** Google OAuth 2.0 PKCE, JWT in httpOnly cookies
