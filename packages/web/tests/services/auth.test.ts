@@ -10,9 +10,27 @@ describe('authService', () => {
     vi.unstubAllGlobals();
   });
 
-  describe('getLoginUrl', () => {
-    it('returns the Google OAuth initiation URL', () => {
-      expect(authService.getLoginUrl()).toBe('/auth/google');
+  describe('startLogin', () => {
+    it('fetches Google OAuth URL and redirects', async () => {
+      const mockUrl = 'https://accounts.google.com/o/oauth2/v2/auth?test=1';
+      vi.mocked(fetch).mockResolvedValue(
+        new Response(JSON.stringify({ url: mockUrl }), { status: 200 }),
+      );
+      const hrefSetter = vi.fn();
+      Object.defineProperty(window, 'location', {
+        value: { href: '' },
+        writable: true,
+        configurable: true,
+      });
+      Object.defineProperty(window.location, 'href', {
+        set: hrefSetter,
+        get: () => '',
+        configurable: true,
+      });
+
+      await authService.startLogin();
+      expect(fetch).toHaveBeenCalledWith('/auth/google');
+      expect(hrefSetter).toHaveBeenCalledWith(mockUrl);
     });
   });
 

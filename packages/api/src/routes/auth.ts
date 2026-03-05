@@ -36,7 +36,7 @@ authRoutes.get('/google', async (c) => {
     codeChallenge,
   });
 
-  return c.redirect(url);
+  return c.json({ url });
 });
 
 authRoutes.get('/callback', async (c) => {
@@ -45,7 +45,8 @@ authRoutes.get('/callback', async (c) => {
   const error = c.req.query('error');
 
   if (error || !code || !state) {
-    return c.json({ error: 'OAuth authorization failed' }, 400);
+    const reason = error ?? 'missing code or state';
+    return c.html(`<h1>Login failed</h1><p>${reason}</p><a href="/">Try again</a>`, 400);
   }
 
   const pkceData = await c.env.AUTH_KV.get(`pkce:${state}`);
@@ -107,7 +108,9 @@ authRoutes.get('/callback', async (c) => {
   });
 
   const origin = new URL(c.req.url).origin;
-  return c.redirect(origin);
+  return c.html(
+    `<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url=${origin}"></head><body>Signing in...</body></html>`,
+  );
 });
 
 authRoutes.post('/refresh', async (c) => {

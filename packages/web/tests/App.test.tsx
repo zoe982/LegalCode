@@ -1,6 +1,6 @@
 /// <reference types="@testing-library/jest-dom/vitest" />
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, cleanup } from '@testing-library/react';
 import { App } from '../src/App.js';
 import { server } from '../src/mocks/node.js';
 import { http, HttpResponse } from 'msw';
@@ -9,6 +9,7 @@ beforeAll(() => {
   server.listen();
 });
 afterEach(() => {
+  cleanup();
   server.resetHandlers();
 });
 afterAll(() => {
@@ -16,16 +17,6 @@ afterAll(() => {
 });
 
 describe('App', () => {
-  it('shows login page when not authenticated', async () => {
-    server.use(
-      http.get('/auth/me', () => HttpResponse.json({ error: 'Unauthorized' }, { status: 401 })),
-    );
-    render(<App />);
-    await waitFor(() => {
-      expect(screen.getByRole('link', { name: /sign in with google/i })).toBeInTheDocument();
-    });
-  });
-
   it('shows main content when authenticated', async () => {
     server.use(
       http.get('/auth/me', () =>

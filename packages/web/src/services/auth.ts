@@ -5,8 +5,10 @@ interface MeResponse {
 }
 
 export const authService = {
-  getLoginUrl(): string {
-    return '/auth/google';
+  async startLogin(): Promise<void> {
+    const response = await fetch('/auth/google');
+    const data = (await response.json()) as { url: string };
+    window.location.href = data.url;
   },
 
   async getCurrentUser(): Promise<AuthUser | null> {

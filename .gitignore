@@ -10,3 +10,4 @@ coverage/
 .d1/
 test-results/
 playwright-report/
+.claude/

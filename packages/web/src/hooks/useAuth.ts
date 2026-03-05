@@ -23,7 +23,7 @@ export function useAuth() {
     user: user ?? null,
     isLoading,
     isAuthenticated: user != null,
-    loginUrl: authService.getLoginUrl(),
+    login: () => authService.startLogin(),
     logout: logoutMutation.mutate,
     isLoggingOut: logoutMutation.isPending,
   };

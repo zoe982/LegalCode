@@ -59,13 +59,12 @@ function createTestApp() {
 }
 
 describe('GET /auth/google', () => {
-  it('redirects to Google OAuth with PKCE parameters', async () => {
+  it('returns Google OAuth URL with PKCE parameters', async () => {
     const { app } = createTestApp();
     const res = await app.request('/auth/google');
-    expect(res.status).toBe(302);
-    const location = res.headers.get('Location') ?? '';
-    expect(location).not.toBe('');
-    const url = new URL(location);
+    expect(res.status).toBe(200);
+    const body: { url: string } = await res.json();
+    const url = new URL(body.url);
     expect(url.hostname).toBe('accounts.google.com');
     expect(url.searchParams.get('code_challenge_method')).toBe('S256');
     expect(url.searchParams.get('state')).toBeDefined();

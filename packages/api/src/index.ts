@@ -17,11 +17,7 @@ app.use('*', securityHeaders);
 app.use(
   '*',
   cors({
-    origin: [
-      'http://localhost:5173',
-      'https://legalcode.acasus.workers.dev',
-      'https://legalcode.ax1access.com',
-    ],
+    origin: ['https://legalcode.acasus.workers.dev', 'https://legalcode.ax1access.com'],
     credentials: true,
   }),
 );
@@ -29,11 +25,7 @@ app.use(
 app.use(
   '*',
   csrf({
-    origin: [
-      'http://localhost:5173',
-      'https://legalcode.acasus.workers.dev',
-      'https://legalcode.ax1access.com',
-    ],
+    origin: ['https://legalcode.acasus.workers.dev', 'https://legalcode.ax1access.com'],
   }),
 );
 
@@ -42,5 +34,15 @@ app.get('/health', (c) => c.json({ status: 'ok' }));
 app.route('/auth', authRoutes);
 app.route('/admin', adminRoutes);
 app.route('/templates', templateRoutes);
+
+// Serve static assets, with SPA fallback to index.html
+app.all('*', async (c) => {
+  const res = await c.env.ASSETS.fetch(c.req.raw);
+  if (res.status === 404) {
+    const indexUrl = new URL('/index.html', c.req.url);
+    return c.env.ASSETS.fetch(new Request(indexUrl, c.req.raw));
+  }
+  return res;
+});
 
 export default app;

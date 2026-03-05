@@ -30,7 +30,7 @@ describe('AuthGuard', () => {
       user: null,
       isLoading: true,
       isAuthenticated: false,
-      loginUrl: '/auth/google',
+      login: vi.fn(),
       logout: vi.fn(),
       isLoggingOut: false,
     });
@@ -54,7 +54,7 @@ describe('AuthGuard', () => {
       },
       isLoading: false,
       isAuthenticated: true,
-      loginUrl: '/auth/google',
+      login: vi.fn(),
       logout: vi.fn(),
       isLoggingOut: false,
     });
@@ -67,12 +67,12 @@ describe('AuthGuard', () => {
     expect(screen.getByText('Protected Content')).toBeInTheDocument();
   });
 
-  it('shows login page when not authenticated', () => {
+  it('shows sign in button when not authenticated', () => {
     mockUseAuth.mockReturnValue({
       user: null,
       isLoading: false,
       isAuthenticated: false,
-      loginUrl: '/auth/google',
+      login: vi.fn(),
       logout: vi.fn(),
       isLoggingOut: false,
     });
@@ -83,6 +83,6 @@ describe('AuthGuard', () => {
       { wrapper: Wrapper },
     );
     expect(screen.queryByText('Protected Content')).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /sign in/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /sign in with google/i })).toBeInTheDocument();
   });
 });
