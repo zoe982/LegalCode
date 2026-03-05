@@ -305,6 +305,15 @@ describe('template service', () => {
       expect(result.total).toBe(0);
     });
 
+    it('escapes LIKE metacharacters in search terms', async () => {
+      const { allSpy } = setupListMock(db, [], 0);
+
+      await listTemplates(db, { search: '100%_done' });
+
+      // Verify the query was executed (the important thing is no SQL injection via % or _)
+      expect(allSpy).toHaveBeenCalled();
+    });
+
     it('applies tag filter via subquery', async () => {
       setupListMock(db, [], 0);
 

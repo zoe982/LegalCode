@@ -25,7 +25,6 @@ export const updateTemplateSchema = z.object({
   title: z.string().min(1).max(200).optional(),
   category: z.string().min(1).max(100).optional(),
   country: z.string().length(2).nullable().optional(),
-  status: templateStatusSchema.optional(),
   content: z.string().min(1).optional(),
   changeSummary: z.string().max(500).optional(),
   tags: z.array(z.string().min(1)).optional(),

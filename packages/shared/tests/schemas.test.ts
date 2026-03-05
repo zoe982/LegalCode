@@ -63,18 +63,15 @@ describe('updateTemplateSchema', () => {
     expect(result.success).toBe(true);
   });
 
-  it('validates status change', () => {
+  it('does not accept status field', () => {
     const result = updateTemplateSchema.safeParse({
       status: 'active',
     });
+    // status is stripped (not in schema), so parse succeeds but status is not in output
     expect(result.success).toBe(true);
-  });
-
-  it('rejects invalid status', () => {
-    const result = updateTemplateSchema.safeParse({
-      status: 'deleted',
-    });
-    expect(result.success).toBe(false);
+    if (result.success) {
+      expect('status' in result.data).toBe(false);
+    }
   });
 });
 

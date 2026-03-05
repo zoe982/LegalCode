@@ -90,7 +90,7 @@ export async function createTemplate(
     action: 'create',
     entityType: 'template',
     entityId: id,
-    metadata: null,
+    metadata: JSON.stringify({ title: parsed.title, category: parsed.category }),
     createdAt: now,
   };
 
@@ -134,7 +134,8 @@ export async function listTemplates(db: AppDb, query: Partial<TemplateQuery>): P
   const conditions = [];
 
   if (parsed.search) {
-    conditions.push(like(templates.title, `%${parsed.search}%`));
+    const escaped = parsed.search.replace(/%/g, '\\%').replace(/_/g, '\\_');
+    conditions.push(like(templates.title, `%${escaped}%`));
   }
   if (parsed.status) {
     conditions.push(eq(templates.status, parsed.status));
@@ -296,7 +297,10 @@ export async function updateTemplate(
     action: 'update',
     entityType: 'template',
     entityId: templateId,
-    metadata: null,
+    metadata: JSON.stringify({
+      version: newVersion,
+      fields: Object.keys(parsed).filter((k) => parsed[k as keyof typeof parsed] !== undefined),
+    }),
     createdAt: now,
   };
 
