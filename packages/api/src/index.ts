@@ -6,6 +6,7 @@ import { errorHandler } from './middleware/error.js';
 import { securityHeaders } from './middleware/security.js';
 import { authRoutes } from './routes/auth.js';
 import { adminRoutes } from './routes/admin.js';
+import { templateRoutes } from './routes/templates.js';
 
 const app = new Hono<AppEnv>();
 
@@ -32,5 +33,6 @@ app.get('/health', (c) => c.json({ status: 'ok' }));
 
 app.route('/auth', authRoutes);
 app.route('/admin', adminRoutes);
+app.route('/templates', templateRoutes);
 
 export default app;
