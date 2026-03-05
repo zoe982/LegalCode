@@ -24,6 +24,8 @@
     "db:seed": "pnpm --filter @legalcode/api db:seed",
     "deploy:api": "pnpm --filter @legalcode/api deploy",
     "deploy:web": "pnpm --filter @legalcode/web deploy",
+    "security:scan": "semgrep scan --config p/owasp-top-ten --config p/typescript --config p/security-audit packages/",
+    "security:secrets": "gitleaks detect --verbose",
     "prepare": "husky"
   },
   "devDependencies": {

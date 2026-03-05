@@ -1,0 +1,9 @@
+title = "LegalCode Gitleaks Configuration"
+
+[allowlist]
+  paths = [
+    "node_modules",
+    "\\.git",
+    "dist",
+    "\\.wrangler",
+  ]

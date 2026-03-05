@@ -2,10 +2,16 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { csrf } from 'hono/csrf';
 import type { AppEnv } from './types/env.js';
+import { errorHandler } from './middleware/error.js';
+import { securityHeaders } from './middleware/security.js';
 import { authRoutes } from './routes/auth.js';
 import { adminRoutes } from './routes/admin.js';
 
 const app = new Hono<AppEnv>();
+
+app.onError(errorHandler);
+
+app.use('*', securityHeaders);
 
 app.use(
   '*',

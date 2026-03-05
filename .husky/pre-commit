@@ -1,2 +1,10 @@
+if which gitleaks > /dev/null 2>&1; then
+  gitleaks protect --staged --verbose
+fi
+
+if which semgrep > /dev/null 2>&1; then
+  semgrep scan --config p/owasp-top-ten --config p/typescript --error --quiet packages/
+fi
+
 pnpm lint-staged
 pnpm typecheck

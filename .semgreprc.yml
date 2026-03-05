@@ -1,0 +1,10 @@
+# Semgrep configuration
+# Note: Rulesets are passed via --config flags in scripts/hooks.
+# This file documents which rulesets are used and their enforcement level.
+#
+# Errors (blocking CI/pre-commit):
+#   - p/owasp-top-ten
+#   - p/typescript
+#
+# Warnings (non-blocking, review manually):
+#   - p/security-audit
