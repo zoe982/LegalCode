@@ -1,26 +1,28 @@
 import { describe, it, expect, vi } from 'vitest';
 import { Hono } from 'hono';
-import { adminRoutes } from '../../src/routes/admin.js';
 import type { AppEnv } from '../../src/types/env.js';
 import { issueJWT } from '../../src/services/auth.js';
 
+vi.mock('../../src/db/index.js', () => ({
+  getDb: vi.fn().mockReturnValue({}),
+}));
+
+const mockListAllUsers = vi.fn().mockResolvedValue([]);
+const mockCreateUser = vi.fn();
+const mockUpdateUserRole = vi.fn().mockResolvedValue(undefined);
+const mockDeactivateUser = vi.fn().mockResolvedValue(undefined);
+
+vi.mock('../../src/services/user.js', () => ({
+  listAllUsers: (...args: unknown[]) => mockListAllUsers(...args) as unknown,
+  createUser: (...args: unknown[]) => mockCreateUser(...args) as unknown,
+  updateUserRole: (...args: unknown[]) => mockUpdateUserRole(...args) as unknown,
+  deactivateUser: (...args: unknown[]) => mockDeactivateUser(...args) as unknown,
+}));
+
 const JWT_SECRET = 'test-secret-that-is-long-enough-for-hmac-testing';
 
-function createMockDb() {
-  const mockStatement = {
-    bind: vi.fn().mockReturnThis(),
-    first: vi.fn(),
-    all: vi.fn().mockResolvedValue({ results: [] }),
-    run: vi.fn().mockResolvedValue({ success: true }),
-  };
-  return {
-    prepare: vi.fn().mockReturnValue(mockStatement),
-    _stmt: mockStatement,
-  };
-}
-
-function createTestApp() {
-  const db = createMockDb();
+async function importAndCreateApp() {
+  const { adminRoutes } = await import('../../src/routes/admin.js');
   const app = new Hono<AppEnv>();
 
   app.use('*', async (c, next) => {
@@ -31,11 +33,11 @@ function createTestApp() {
     }
     const env = c.env as Record<string, unknown>;
     env.JWT_SECRET = JWT_SECRET;
-    env.DB = db;
+    env.DB = {};
     await next();
   });
   app.route('/admin', adminRoutes);
-  return { app, db };
+  return app;
 }
 
 async function adminToken(): Promise<string> {
@@ -48,13 +50,13 @@ async function viewerToken(): Promise<string> {
 
 describe('GET /admin/users', () => {
   it('returns 401 without auth cookie', async () => {
-    const { app } = createTestApp();
+    const app = await importAndCreateApp();
     const res = await app.request('/admin/users');
     expect(res.status).toBe(401);
   });
 
   it('returns 403 for viewer role', async () => {
-    const { app } = createTestApp();
+    const app = await importAndCreateApp();
     const token = await viewerToken();
     const res = await app.request('/admin/users', {
       headers: { Cookie: `__Host-auth=${token}` },
@@ -63,19 +65,19 @@ describe('GET /admin/users', () => {
   });
 
   it('returns 200 with user list for admin', async () => {
-    const { app, db } = createTestApp();
     const mockUsers = [
       {
         id: 'u-1',
         email: 'alice@acasus.com',
         name: 'Alice',
         role: 'editor',
-        created_at: '2026-01-01',
-        updated_at: '2026-01-01',
+        createdAt: '2026-01-01',
+        updatedAt: '2026-01-01',
       },
     ];
-    db._stmt.all.mockResolvedValueOnce({ results: mockUsers });
+    mockListAllUsers.mockResolvedValueOnce(mockUsers);
 
+    const app = await importAndCreateApp();
     const token = await adminToken();
     const res = await app.request('/admin/users', {
       headers: { Cookie: `__Host-auth=${token}` },
@@ -88,7 +90,16 @@ describe('GET /admin/users', () => {
 
 describe('POST /admin/users', () => {
   it('returns 201 and creates user for admin', async () => {
-    const { app } = createTestApp();
+    mockCreateUser.mockResolvedValueOnce({
+      id: 'new-id',
+      email: 'new@acasus.com',
+      name: 'New User',
+      role: 'editor',
+      createdAt: '2026-01-01',
+      updatedAt: '2026-01-01',
+    });
+
+    const app = await importAndCreateApp();
     const token = await adminToken();
     const res = await app.request('/admin/users', {
       method: 'POST',
@@ -104,7 +115,7 @@ describe('POST /admin/users', () => {
   });
 
   it('returns 400 for invalid input', async () => {
-    const { app } = createTestApp();
+    const app = await importAndCreateApp();
     const token = await adminToken();
     const res = await app.request('/admin/users', {
       method: 'POST',
@@ -118,7 +129,7 @@ describe('POST /admin/users', () => {
   });
 
   it('returns 401 without auth', async () => {
-    const { app } = createTestApp();
+    const app = await importAndCreateApp();
     const res = await app.request('/admin/users', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -130,7 +141,7 @@ describe('POST /admin/users', () => {
 
 describe('PATCH /admin/users/:id', () => {
   it('returns 200 and updates role for admin', async () => {
-    const { app } = createTestApp();
+    const app = await importAndCreateApp();
     const token = await adminToken();
     const res = await app.request('/admin/users/user-123', {
       method: 'PATCH',
@@ -146,7 +157,7 @@ describe('PATCH /admin/users/:id', () => {
   });
 
   it('returns 400 for invalid role', async () => {
-    const { app } = createTestApp();
+    const app = await importAndCreateApp();
     const token = await adminToken();
     const res = await app.request('/admin/users/user-123', {
       method: 'PATCH',
@@ -162,7 +173,7 @@ describe('PATCH /admin/users/:id', () => {
 
 describe('DELETE /admin/users/:id', () => {
   it('returns 200 and deactivates user for admin', async () => {
-    const { app } = createTestApp();
+    const app = await importAndCreateApp();
     const token = await adminToken();
     const res = await app.request('/admin/users/user-456', {
       method: 'DELETE',
@@ -174,7 +185,7 @@ describe('DELETE /admin/users/:id', () => {
   });
 
   it('returns 403 for non-admin', async () => {
-    const { app } = createTestApp();
+    const app = await importAndCreateApp();
     const token = await viewerToken();
     const res = await app.request('/admin/users/user-456', {
       method: 'DELETE',

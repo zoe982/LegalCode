@@ -11,7 +11,8 @@ import {
   isEmailAllowed,
   generateRefreshToken,
 } from '../services/auth.js';
-import { UserService } from '../services/user.js';
+import { getDb } from '../db/index.js';
+import { findUserByEmail } from '../services/user.js';
 
 const ACCESS_TOKEN_TTL = 900;
 const REFRESH_TOKEN_TTL = 604800;
@@ -70,8 +71,8 @@ authRoutes.get('/callback', async (c) => {
     return c.json({ error: 'Email not authorized' }, 403);
   }
 
-  const userService = new UserService(c.env.DB);
-  const user = await userService.findByEmail(googleUser.email);
+  const db = getDb(c.env.DB);
+  const user = await findUserByEmail(db, googleUser.email);
   if (!user) {
     return c.json({ error: 'User not provisioned. Contact an admin.' }, 403);
   }

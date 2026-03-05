@@ -1,113 +1,134 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { UserService } from '../../src/services/user.js';
+import {
+  findUserByEmail,
+  findUserById,
+  listAllUsers,
+  createUser,
+  updateUserRole,
+  deactivateUser,
+} from '../../src/services/user.js';
+import { getDb, type AppDb } from '../../src/db/index.js';
 
-function createMockDb() {
-  const mockStatement = {
-    bind: vi.fn().mockReturnThis(),
-    first: vi.fn(),
-    all: vi.fn(),
-    run: vi.fn(),
-  };
-  const mockDb = {
-    prepare: vi.fn().mockReturnValue(mockStatement),
-  };
-  return { db: mockDb as unknown as D1Database, stmt: mockStatement };
+function createMockD1(): D1Database {
+  return {
+    prepare: vi.fn(),
+    batch: vi.fn(),
+    exec: vi.fn(),
+    dump: vi.fn(),
+  } as unknown as D1Database;
 }
 
-describe('UserService', () => {
-  let db: D1Database;
-  let stmt: ReturnType<typeof createMockDb>['stmt'];
-  let service: UserService;
+describe('user service functions', () => {
+  let db: AppDb;
 
   beforeEach(() => {
-    const mock = createMockDb();
-    db = mock.db;
-    stmt = mock.stmt;
-    service = new UserService(db);
+    db = getDb(createMockD1());
   });
 
-  describe('findByEmail', () => {
+  describe('findUserByEmail', () => {
     it('returns user when found', async () => {
-      const user = {
+      const mockUser = {
         id: '1',
         email: 'alice@acasus.com',
         name: 'Alice',
-        role: 'editor',
-        created_at: '2026-01-01',
-        updated_at: '2026-01-01',
+        role: 'editor' as const,
+        createdAt: '2026-01-01',
+        updatedAt: '2026-01-01',
       };
-      stmt.first.mockResolvedValue(user);
-      const result = await service.findByEmail('alice@acasus.com');
-      expect(result).toEqual(user);
-      expect(stmt.bind).toHaveBeenCalledWith('alice@acasus.com');
+      vi.spyOn(db.query.users, 'findFirst').mockResolvedValue(mockUser);
+      const result = await findUserByEmail(db, 'alice@acasus.com');
+      expect(result).toEqual(mockUser);
     });
 
-    it('returns null when not found', async () => {
-      stmt.first.mockResolvedValue(null);
-      const result = await service.findByEmail('nobody@acasus.com');
-      expect(result).toBeNull();
+    it('returns undefined when not found', async () => {
+      vi.spyOn(db.query.users, 'findFirst').mockResolvedValue(undefined);
+      const result = await findUserByEmail(db, 'nobody@acasus.com');
+      expect(result).toBeUndefined();
     });
   });
 
-  describe('findById', () => {
+  describe('findUserById', () => {
     it('returns user when found', async () => {
-      const user = {
+      const mockUser = {
         id: '1',
         email: 'alice@acasus.com',
         name: 'Alice',
-        role: 'editor',
-        created_at: '2026-01-01',
-        updated_at: '2026-01-01',
+        role: 'editor' as const,
+        createdAt: '2026-01-01',
+        updatedAt: '2026-01-01',
       };
-      stmt.first.mockResolvedValue(user);
-      const result = await service.findById('1');
-      expect(result).toEqual(user);
-      expect(stmt.bind).toHaveBeenCalledWith('1');
+      vi.spyOn(db.query.users, 'findFirst').mockResolvedValue(mockUser);
+      const result = await findUserById(db, '1');
+      expect(result).toEqual(mockUser);
+    });
+
+    it('returns undefined when not found', async () => {
+      vi.spyOn(db.query.users, 'findFirst').mockResolvedValue(undefined);
+      const result = await findUserById(db, 'nonexistent');
+      expect(result).toBeUndefined();
     });
   });
 
-  describe('listAll', () => {
+  describe('listAllUsers', () => {
     it('returns all users', async () => {
-      const users = [
+      const mockUsers = [
         {
           id: '1',
           email: 'alice@acasus.com',
           name: 'Alice',
-          role: 'editor',
-          created_at: '2026-01-01',
-          updated_at: '2026-01-01',
+          role: 'editor' as const,
+          createdAt: '2026-01-01',
+          updatedAt: '2026-01-01',
         },
       ];
-      stmt.all.mockResolvedValue({ results: users });
-      const result = await service.listAll();
-      expect(result).toEqual(users);
+      vi.spyOn(db.query.users, 'findMany').mockResolvedValue(mockUsers);
+      const result = await listAllUsers(db);
+      expect(result).toEqual(mockUsers);
+    });
+
+    it('returns empty array when no users exist', async () => {
+      vi.spyOn(db.query.users, 'findMany').mockResolvedValue([]);
+      const result = await listAllUsers(db);
+      expect(result).toEqual([]);
     });
   });
 
-  describe('create', () => {
+  describe('createUser', () => {
     it('creates a user and returns it', async () => {
-      stmt.run.mockResolvedValue({ success: true });
-      const result = await service.create({ email: 'bob@acasus.com', name: 'Bob', role: 'viewer' });
+      const input = { email: 'bob@acasus.com', name: 'Bob', role: 'viewer' as const };
+      const valuesSpy = vi.fn().mockResolvedValue(undefined);
+      vi.spyOn(db, 'insert').mockReturnValue({ values: valuesSpy } as never);
+
+      const result = await createUser(db, input);
       expect(result.email).toBe('bob@acasus.com');
       expect(result.name).toBe('Bob');
       expect(result.role).toBe('viewer');
       expect(result.id).toBeDefined();
+      expect(result.createdAt).toBeDefined();
+      expect(result.updatedAt).toBeDefined();
+      expect(valuesSpy).toHaveBeenCalled();
     });
   });
 
-  describe('updateRole', () => {
-    it('updates user role', async () => {
-      stmt.run.mockResolvedValue({ success: true });
-      await service.updateRole('1', 'admin');
-      expect(stmt.bind).toHaveBeenCalled();
+  describe('updateUserRole', () => {
+    it('calls update with correct parameters', async () => {
+      const whereSpy = vi.fn().mockResolvedValue(undefined);
+      const setSpy = vi.fn().mockReturnValue({ where: whereSpy });
+      vi.spyOn(db, 'update').mockReturnValue({ set: setSpy } as never);
+
+      await updateUserRole(db, '1', 'admin');
+      expect(setSpy).toHaveBeenCalled();
+      expect(whereSpy).toHaveBeenCalled();
     });
   });
 
-  describe('deactivate', () => {
-    it('deletes user by id', async () => {
-      stmt.run.mockResolvedValue({ success: true });
-      await service.deactivate('1');
-      expect(stmt.bind).toHaveBeenCalledWith('1');
+  describe('deactivateUser', () => {
+    it('calls delete with correct parameters', async () => {
+      const whereSpy = vi.fn().mockResolvedValue(undefined);
+      vi.spyOn(db, 'delete').mockReturnValue({ where: whereSpy } as never);
+
+      await deactivateUser(db, '1');
+      expect(whereSpy).toHaveBeenCalled();
     });
   });
 });
