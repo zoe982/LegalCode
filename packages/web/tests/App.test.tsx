@@ -79,7 +79,7 @@ describe('App', () => {
     );
     renderWithRouter('/');
     await waitFor(() => {
-      expect(screen.getByText('Templates')).toBeInTheDocument();
+      expect(screen.getByRole('textbox', { name: /search/i })).toBeInTheDocument();
     });
   });
 
