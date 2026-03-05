@@ -1,0 +1,24 @@
+{
+  "name": "@legalcode/api",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --local",
+    "build": "tsc -b",
+    "typecheck": "tsc --noEmit",
+    "deploy": "wrangler deploy",
+    "db:seed": "wrangler d1 execute legalcode-db --local --file=./src/db/seed.sql"
+  },
+  "dependencies": {
+    "@legalcode/shared": "workspace:*",
+    "drizzle-orm": "^0.38.0",
+    "hono": "^4.6.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241218.0",
+    "drizzle-kit": "^0.30.0",
+    "wrangler": "^3.99.0"
+  }
+}
