@@ -4,12 +4,7 @@ export default defineConfig({
   testDir: './e2e',
   use: {
     browserName: 'chromium',
-    baseURL: 'http://localhost:5173',
+    baseURL: 'https://legalcode.ax1access.com',
     serviceWorkers: 'allow',
-  },
-  webServer: {
-    command: 'pnpm dev',
-    port: 5173,
-    reuseExistingServer: true,
   },
 });

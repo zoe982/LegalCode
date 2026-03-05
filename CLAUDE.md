@@ -6,9 +6,6 @@ pnpm monorepo: `packages/api` (Hono/Cloudflare Worker), `packages/web` (React/Vi
 
 ## Commands
 
-- `pnpm dev` — Run API + Web concurrently
-- `pnpm dev:api` — API only (wrangler dev --local)
-- `pnpm dev:web` — Frontend only (vite dev)
 - `pnpm build` — Build all packages
 - `pnpm lint` — ESLint (strict-type-checked, zero warnings)
 - `pnpm format` — Prettier format
@@ -16,16 +13,16 @@ pnpm monorepo: `packages/api` (Hono/Cloudflare Worker), `packages/web` (React/Vi
 - `pnpm test` — Vitest (95% coverage threshold)
 - `pnpm test:watch` — Vitest watch mode
 - `pnpm test:coverage` — Coverage report
-- `pnpm test:e2e` — Playwright (Chrome)
+- `pnpm test:e2e` — Playwright (Chrome, runs against production)
 - `pnpm db:generate` — Generate Drizzle migrations
-- `pnpm db:migrate` — Apply D1 migrations locally
-- `pnpm db:seed` — Seed local D1
 
 ## Deployment
 
+- **NEVER run locally.** Always deploy to production and test there.
+- **Deploy:** `pnpm build && npx wrangler deploy`
 - **Domains:** `legalcode.ax1access.com` (primary), `legalcode.acasus.workers.dev` (fallback)
 - **Platform:** Cloudflare Workers with Static Assets (SPA fallback)
-- **Deploy:** `pnpm build && npx wrangler deploy`
+- **Workflow:** Make changes → build → deploy to production → verify on production URL
 
 ## Caching Strategy
 
