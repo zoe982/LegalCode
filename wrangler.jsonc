@@ -1,5 +1,5 @@
 {
-  "name": "legalcode-api",
+  "name": "legalcode",
   "main": "packages/api/src/index.ts",
   "compatibility_date": "2026-03-05",
   "compatibility_flags": ["nodejs_compat"],
@@ -7,21 +7,17 @@
     {
       "binding": "DB",
       "database_name": "legalcode-db",
-      "database_id": "placeholder-id",
+      "database_id": "98bd104e-3ff6-4b2b-9ca5-66202a886c23",
       "migrations_dir": "drizzle"
     }
   ],
   "kv_namespaces": [
     {
       "binding": "AUTH_KV",
-      "id": "placeholder-id",
-      "preview_id": "placeholder-preview-id"
+      "id": "4f085e5be3974ec38f156e5e8c2f2ba3"
     }
   ],
   "vars": {
-    "ALLOWED_EMAILS": "zoe@marsico.org",
-    "GOOGLE_CLIENT_ID": "",
-    "GOOGLE_CLIENT_SECRET": "",
-    "JWT_SECRET": ""
+    "ALLOWED_EMAILS": "zoe@marsico.org,joseph.marsico@acasus.com"
   }
 }

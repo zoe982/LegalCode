@@ -10,7 +10,7 @@ const app = new Hono<AppEnv>();
 app.use(
   '*',
   cors({
-    origin: ['http://localhost:5173'],
+    origin: ['http://localhost:5173', 'https://legalcode.workers.dev'],
     credentials: true,
   }),
 );
@@ -18,7 +18,7 @@ app.use(
 app.use(
   '*',
   csrf({
-    origin: ['http://localhost:5173'],
+    origin: ['http://localhost:5173', 'https://legalcode.workers.dev'],
   }),
 );
 

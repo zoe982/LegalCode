@@ -105,7 +105,8 @@ authRoutes.get('/callback', async (c) => {
     maxAge: REFRESH_TOKEN_TTL,
   });
 
-  return c.redirect('http://localhost:5173');
+  const origin = new URL(c.req.url).origin;
+  return c.redirect(origin);
 });
 
 authRoutes.post('/refresh', async (c) => {
