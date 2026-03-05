@@ -10,7 +10,7 @@ vi.mock('../../src/services/auth.js', () => ({
     getCurrentUser: vi.fn(),
     logout: vi.fn(),
     refresh: vi.fn(),
-    getLoginUrl: vi.fn().mockReturnValue('/api/auth/google'),
+    getLoginUrl: vi.fn().mockReturnValue('/auth/google'),
   },
 }));
 
@@ -66,6 +66,6 @@ describe('useAuth', () => {
 
     const { result } = renderHook(() => useAuth(), { wrapper: createWrapper() });
 
-    expect(result.current.loginUrl).toBe('/api/auth/google');
+    expect(result.current.loginUrl).toBe('/auth/google');
   });
 });

@@ -12,7 +12,7 @@ vi.mock('../../src/hooks/useAuth.js', () => ({
     user: null,
     isLoading: false,
     isAuthenticated: false,
-    loginUrl: '/api/auth/google',
+    loginUrl: '/auth/google',
     logout: vi.fn(),
     isLoggingOut: false,
   }),
@@ -38,6 +38,6 @@ describe('LoginPage', () => {
   it('renders sign in link pointing to Google OAuth', () => {
     render(<LoginPage />, { wrapper: Wrapper });
     const link = screen.getByRole('link', { name: /sign in with google/i });
-    expect(link).toHaveAttribute('href', '/api/auth/google');
+    expect(link).toHaveAttribute('href', '/auth/google');
   });
 });

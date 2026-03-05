@@ -12,7 +12,7 @@ describe('authService', () => {
 
   describe('getLoginUrl', () => {
     it('returns the Google OAuth initiation URL', () => {
-      expect(authService.getLoginUrl()).toBe('/api/auth/google');
+      expect(authService.getLoginUrl()).toBe('/auth/google');
     });
   });
 
@@ -24,7 +24,7 @@ describe('authService', () => {
       vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify(mockUser), { status: 200 }));
       const result = await authService.getCurrentUser();
       expect(result).toEqual(mockUser.user);
-      expect(fetch).toHaveBeenCalledWith('/api/auth/me', { credentials: 'include' });
+      expect(fetch).toHaveBeenCalledWith('/auth/me', { credentials: 'include' });
     });
 
     it('returns null on 401', async () => {
@@ -40,7 +40,7 @@ describe('authService', () => {
         new Response(JSON.stringify({ ok: true }), { status: 200 }),
       );
       await authService.logout();
-      expect(fetch).toHaveBeenCalledWith('/api/auth/logout', {
+      expect(fetch).toHaveBeenCalledWith('/auth/logout', {
         method: 'POST',
         credentials: 'include',
       });
@@ -54,7 +54,7 @@ describe('authService', () => {
       );
       const result = await authService.refresh();
       expect(result).toBe(true);
-      expect(fetch).toHaveBeenCalledWith('/api/auth/refresh', {
+      expect(fetch).toHaveBeenCalledWith('/auth/refresh', {
         method: 'POST',
         credentials: 'include',
       });

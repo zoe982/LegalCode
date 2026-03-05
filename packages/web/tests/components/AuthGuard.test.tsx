@@ -30,7 +30,7 @@ describe('AuthGuard', () => {
       user: null,
       isLoading: true,
       isAuthenticated: false,
-      loginUrl: '/api/auth/google',
+      loginUrl: '/auth/google',
       logout: vi.fn(),
       isLoggingOut: false,
     });
@@ -54,7 +54,7 @@ describe('AuthGuard', () => {
       },
       isLoading: false,
       isAuthenticated: true,
-      loginUrl: '/api/auth/google',
+      loginUrl: '/auth/google',
       logout: vi.fn(),
       isLoggingOut: false,
     });
@@ -72,7 +72,7 @@ describe('AuthGuard', () => {
       user: null,
       isLoading: false,
       isAuthenticated: false,
-      loginUrl: '/api/auth/google',
+      loginUrl: '/auth/google',
       logout: vi.fn(),
       isLoggingOut: false,
     });

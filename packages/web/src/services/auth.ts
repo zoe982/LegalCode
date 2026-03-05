@@ -6,11 +6,11 @@ interface MeResponse {
 
 export const authService = {
   getLoginUrl(): string {
-    return '/api/auth/google';
+    return '/auth/google';
   },
 
   async getCurrentUser(): Promise<AuthUser | null> {
-    const response = await fetch('/api/auth/me', { credentials: 'include' });
+    const response = await fetch('/auth/me', { credentials: 'include' });
     if (!response.ok) {
       return null;
     }
@@ -19,14 +19,14 @@ export const authService = {
   },
 
   async logout(): Promise<void> {
-    await fetch('/api/auth/logout', {
+    await fetch('/auth/logout', {
       method: 'POST',
       credentials: 'include',
     });
   },
 
   async refresh(): Promise<boolean> {
-    const response = await fetch('/api/auth/refresh', {
+    const response = await fetch('/auth/refresh', {
       method: 'POST',
       credentials: 'include',
     });

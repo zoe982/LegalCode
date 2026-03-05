@@ -18,7 +18,7 @@ afterAll(() => {
 describe('App', () => {
   it('shows login page when not authenticated', async () => {
     server.use(
-      http.get('/api/auth/me', () => HttpResponse.json({ error: 'Unauthorized' }, { status: 401 })),
+      http.get('/auth/me', () => HttpResponse.json({ error: 'Unauthorized' }, { status: 401 })),
     );
     render(<App />);
     await waitFor(() => {
@@ -28,7 +28,7 @@ describe('App', () => {
 
   it('shows main content when authenticated', async () => {
     server.use(
-      http.get('/api/auth/me', () =>
+      http.get('/auth/me', () =>
         HttpResponse.json({
           user: {
             id: '1',
