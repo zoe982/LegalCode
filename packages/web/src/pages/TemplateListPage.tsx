@@ -1,28 +1,9 @@
 import { useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router';
-import {
-  Box,
-  TextField,
-  Chip,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
-  Table,
-  TableHead,
-  TableBody,
-  TableRow,
-  TableCell,
-  Typography,
-  CircularProgress,
-  Fab,
-  InputAdornment,
-} from '@mui/material';
+import { Box, TextField, Chip, Typography, CircularProgress, InputAdornment } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import AddIcon from '@mui/icons-material/Add';
-import type { Template, TemplateStatus } from '@legalcode/shared';
+import type { TemplateStatus } from '@legalcode/shared';
 import { useTemplates } from '../hooks/useTemplates.js';
-import { useAuth } from '../hooks/useAuth.js';
 import { StatusChip } from '../components/StatusChip.js';
 
 type StatusFilter = TemplateStatus | 'all';
@@ -34,22 +15,8 @@ const STATUS_OPTIONS: { label: string; value: StatusFilter }[] = [
   { label: 'Archived', value: 'archived' },
 ];
 
-function groupByCategory(templates: Template[]): Record<string, Template[]> {
-  return templates.reduce<Record<string, Template[]>>((groups, template) => {
-    const category = template.category;
-    const existing = groups[category];
-    if (existing) {
-      existing.push(template);
-    } else {
-      groups[category] = [template];
-    }
-    return groups;
-  }, {});
-}
-
 export function TemplateListPage() {
   const navigate = useNavigate();
-  const { user } = useAuth();
 
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -84,11 +51,9 @@ export function TemplateListPage() {
   }
 
   const templates = data?.data ?? [];
-  const grouped = groupByCategory(templates);
-  const categories = Object.keys(grouped);
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ maxWidth: 960, mx: 'auto', p: 3 }}>
       <TextField
         fullWidth
         label="Search templates"
@@ -126,61 +91,62 @@ export function TemplateListPage() {
           <Typography>No templates yet</Typography>
         </Box>
       ) : (
-        categories.map((category) => {
-          const categoryTemplates = grouped[category];
-          if (!categoryTemplates) return null;
-          return (
-            <Accordion key={category} defaultExpanded>
-              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                <Typography variant="h6">{category}</Typography>
-              </AccordionSummary>
-              <AccordionDetails>
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Title</TableCell>
-                      <TableCell>Version</TableCell>
-                      <TableCell>Country</TableCell>
-                      <TableCell>Status</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {categoryTemplates.map((template) => (
-                      <TableRow
-                        key={template.id}
-                        hover
-                        sx={{ cursor: 'pointer' }}
-                        onClick={() => {
-                          void navigate(`/templates/${template.id}`);
-                        }}
-                      >
-                        <TableCell>{template.title}</TableCell>
-                        <TableCell>{`v${String(template.currentVersion)}`}</TableCell>
-                        <TableCell>{template.country ?? '\u2014'}</TableCell>
-                        <TableCell>
-                          <StatusChip status={template.status} />
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </AccordionDetails>
-            </Accordion>
-          );
-        })
-      )}
-
-      {user?.role !== 'viewer' && (
-        <Fab
-          color="primary"
-          aria-label="Add template"
-          sx={{ position: 'fixed', bottom: 24, right: 24 }}
-          onClick={() => {
-            void navigate('/templates/new');
-          }}
-        >
-          <AddIcon />
-        </Fab>
+        <Box>
+          {templates.map((template) => (
+            <Box
+              key={template.id}
+              data-testid={`template-row-${template.id}`}
+              onClick={() => {
+                void navigate(`/templates/${template.id}`);
+              }}
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                px: 2,
+                py: 1.5,
+                cursor: 'pointer',
+                borderBottom: '1px solid',
+                borderColor: 'divider',
+                '&:hover': {
+                  backgroundColor: '#E6D9C6',
+                },
+              }}
+            >
+              <Typography
+                sx={{
+                  fontFamily: '"Source Serif 4", Georgia, "Times New Roman", serif',
+                  fontWeight: 600,
+                  fontSize: '1rem',
+                  color: '#451F61',
+                  flexShrink: 0,
+                  mr: 2,
+                }}
+              >
+                {template.title}
+              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                <StatusChip status={template.status} />
+                <Typography
+                  sx={{
+                    fontSize: '0.75rem',
+                    color: '#6B5A7A',
+                  }}
+                >
+                  {`v${String(template.currentVersion)}`}
+                </Typography>
+                <Typography
+                  sx={{
+                    fontSize: '0.75rem',
+                    color: '#6B5A7A',
+                  }}
+                >
+                  {template.country ?? '\u2014'}
+                </Typography>
+              </Box>
+            </Box>
+          ))}
+        </Box>
       )}
     </Box>
   );

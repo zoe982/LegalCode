@@ -13,7 +13,6 @@ import type { TemplateListResponse } from '../../src/services/templates.js';
 import type { UseQueryResult } from '@tanstack/react-query';
 
 const mockUseTemplates = vi.fn();
-const mockUseAuth = vi.fn();
 const mockNavigate = vi.fn();
 
 vi.mock('react-router', async () => {
@@ -26,10 +25,6 @@ vi.mock('react-router', async () => {
 
 vi.mock('../../src/hooks/useTemplates.js', () => ({
   useTemplates: (...args: unknown[]) => mockUseTemplates(...args) as unknown,
-}));
-
-vi.mock('../../src/hooks/useAuth.js', () => ({
-  useAuth: () => mockUseAuth() as unknown,
 }));
 
 const mockTemplates: Template[] = [
@@ -109,24 +104,6 @@ function createQueryResult(
   } as UseQueryResult<TemplateListResponse>;
 }
 
-const editorAuth = {
-  user: { id: '1', email: 'alice@acasus.com', name: 'Alice', role: 'editor' as const },
-  isLoading: false,
-  isAuthenticated: true,
-  login: vi.fn(),
-  logout: vi.fn(),
-  isLoggingOut: false,
-};
-
-const viewerAuth = {
-  user: { id: '2', email: 'bob@acasus.com', name: 'Bob', role: 'viewer' as const },
-  isLoading: false,
-  isAuthenticated: true,
-  login: vi.fn(),
-  logout: vi.fn(),
-  isLoggingOut: false,
-};
-
 function Wrapper({ children }: { children: ReactNode }) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -143,7 +120,6 @@ function Wrapper({ children }: { children: ReactNode }) {
 describe('TemplateListPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockUseAuth.mockReturnValue(editorAuth);
   });
 
   it('shows loading spinner while fetching', () => {
@@ -173,20 +149,6 @@ describe('TemplateListPage', () => {
     expect(screen.getByText('No templates yet')).toBeInTheDocument();
   });
 
-  it('groups templates by category', () => {
-    mockUseTemplates.mockReturnValue(
-      createQueryResult({
-        data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
-      }),
-    );
-
-    render(<TemplateListPage />, { wrapper: Wrapper });
-
-    // Both category accordion headers should be present
-    expect(screen.getByText('Employment')).toBeInTheDocument();
-    expect(screen.getByText('NDA')).toBeInTheDocument();
-  });
-
   it('each row shows title, version, country, status', () => {
     mockUseTemplates.mockReturnValue(
       createQueryResult({
@@ -196,25 +158,24 @@ describe('TemplateListPage', () => {
 
     render(<TemplateListPage />, { wrapper: Wrapper });
 
-    // Employment Agreement row
-    expect(screen.getByText('Employment Agreement')).toBeInTheDocument();
-    expect(screen.getByText('v2')).toBeInTheDocument();
-    expect(screen.getByText('US')).toBeInTheDocument();
+    // Each template has a row with data-testid
+    const row1 = screen.getByTestId('template-row-t1');
+    expect(within(row1).getByText('Employment Agreement')).toBeInTheDocument();
+    expect(within(row1).getByText('v2')).toBeInTheDocument();
+    expect(within(row1).getByText('US')).toBeInTheDocument();
 
-    // Mutual NDA row (country is null, should show dash)
-    expect(screen.getByText('Mutual NDA')).toBeInTheDocument();
-    // Both Mutual NDA and Offer Letter are v1
-    const v1Elements = screen.getAllByText('v1');
-    expect(v1Elements).toHaveLength(2);
+    const row2 = screen.getByTestId('template-row-t2');
+    expect(within(row2).getByText('Mutual NDA')).toBeInTheDocument();
+    expect(within(row2).getByText('v1')).toBeInTheDocument();
 
-    // Offer Letter row
-    expect(screen.getByText('Offer Letter')).toBeInTheDocument();
-    expect(screen.getByText('UK')).toBeInTheDocument();
+    const row3 = screen.getByTestId('template-row-t3');
+    expect(within(row3).getByText('Offer Letter')).toBeInTheDocument();
+    expect(within(row3).getByText('UK')).toBeInTheDocument();
 
-    // StatusChip renders "Published" for active status (not "Active")
+    // StatusChip renders "Published" for active status
     const publishedChips = screen.getAllByText('Published');
     expect(publishedChips.length).toBeGreaterThanOrEqual(1);
-    // "Draft" appears both as filter chip and as StatusChip in table
+    // "Draft" appears both as filter chip and as StatusChip in row
     const draftChips = screen.getAllByText('Draft');
     expect(draftChips.length).toBeGreaterThanOrEqual(1);
   });
@@ -235,36 +196,8 @@ describe('TemplateListPage', () => {
     render(<TemplateListPage />, { wrapper: Wrapper });
 
     // The NDA row should show an em dash for null country
-    const mutualNdaCell = screen.getByText('Mutual NDA');
-    const row = mutualNdaCell.closest('tr');
-    if (row === null) {
-      throw new Error('Expected row element to exist');
-    }
+    const row = screen.getByTestId('template-row-t2');
     expect(within(row).getByText('\u2014')).toBeInTheDocument();
-  });
-
-  it('FAB visible for editor role', () => {
-    mockUseAuth.mockReturnValue(editorAuth);
-    mockUseTemplates.mockReturnValue(
-      createQueryResult({
-        data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
-      }),
-    );
-
-    render(<TemplateListPage />, { wrapper: Wrapper });
-    expect(screen.getByRole('button', { name: /add template/i })).toBeInTheDocument();
-  });
-
-  it('FAB hidden for viewer role', () => {
-    mockUseAuth.mockReturnValue(viewerAuth);
-    mockUseTemplates.mockReturnValue(
-      createQueryResult({
-        data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
-      }),
-    );
-
-    render(<TemplateListPage />, { wrapper: Wrapper });
-    expect(screen.queryByRole('button', { name: /add template/i })).not.toBeInTheDocument();
   });
 
   it('renders status filter chips', () => {
@@ -276,8 +209,6 @@ describe('TemplateListPage', () => {
 
     render(<TemplateListPage />, { wrapper: Wrapper });
     expect(screen.getByRole('button', { name: 'All' })).toBeInTheDocument();
-    // "Draft" and "Active" also appear in the table as StatusChip labels,
-    // so look specifically in the filter area
     const filterChipDraft = screen.getByRole('button', { name: 'Draft' });
     expect(filterChipDraft).toBeInTheDocument();
     const filterChipActive = screen.getByRole('button', { name: 'Active' });
@@ -306,29 +237,11 @@ describe('TemplateListPage', () => {
 
     render(<TemplateListPage />, { wrapper: Wrapper });
 
-    // Click on Employment Agreement row
-    const row = screen.getByText('Employment Agreement').closest('tr');
-    if (!row) throw new Error('Expected row element');
+    // Click on Employment Agreement row by testid
+    const row = screen.getByTestId('template-row-t1');
     await user.click(row);
 
     expect(mockNavigate).toHaveBeenCalledWith('/templates/t1');
-  });
-
-  it('navigates to /templates/new when FAB is clicked', async () => {
-    const user = userEvent.setup();
-    mockUseAuth.mockReturnValue(editorAuth);
-    mockUseTemplates.mockReturnValue(
-      createQueryResult({
-        data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
-      }),
-    );
-
-    render(<TemplateListPage />, { wrapper: Wrapper });
-
-    const fab = screen.getByRole('button', { name: /add template/i });
-    await user.click(fab);
-
-    expect(mockNavigate).toHaveBeenCalledWith('/templates/new');
   });
 
   it('debounces search input', async () => {
