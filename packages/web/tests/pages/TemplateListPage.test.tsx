@@ -1,6 +1,6 @@
 /// <reference types="@testing-library/jest-dom/vitest" />
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, within, waitFor } from '@testing-library/react';
+import { render, screen, within, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -563,8 +563,7 @@ describe('TemplateListPage', () => {
     expect(hoverMeta).toBeInTheDocument();
   });
 
-  it('navigates to template on Enter keydown', async () => {
-    const user = userEvent.setup();
+  it('navigates to template on Enter keydown', () => {
     mockUseTemplates.mockReturnValue(
       createQueryResult({
         data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
@@ -574,14 +573,12 @@ describe('TemplateListPage', () => {
     render(<TemplateListPage />, { wrapper: Wrapper });
 
     const row = screen.getByTestId('template-row-t1');
-    row.focus();
-    await user.keyboard('{Enter}');
+    fireEvent.keyDown(row, { key: 'Enter' });
 
     expect(mockNavigate).toHaveBeenCalledWith('/templates/t1');
   });
 
-  it('does not navigate on non-Enter keydown', async () => {
-    const user = userEvent.setup();
+  it('does not navigate on non-Enter keydown', () => {
     mockUseTemplates.mockReturnValue(
       createQueryResult({
         data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
@@ -591,8 +588,7 @@ describe('TemplateListPage', () => {
     render(<TemplateListPage />, { wrapper: Wrapper });
 
     const row = screen.getByTestId('template-row-t1');
-    row.focus();
-    await user.keyboard('{Space}');
+    fireEvent.keyDown(row, { key: 'Space' });
 
     // Should not navigate on Space
     expect(mockNavigate).not.toHaveBeenCalled();
