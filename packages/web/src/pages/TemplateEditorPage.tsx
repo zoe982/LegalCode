@@ -34,6 +34,7 @@ import { PresenceAvatars } from '../components/PresenceAvatars.js';
 import { ConnectionStatus } from '../components/ConnectionStatus.js';
 import type { ConnectionStatusType } from '../components/ConnectionStatus.js';
 import { SaveVersionDialog } from '../components/SaveVersionDialog.js';
+import { EditorToolbar } from '../components/EditorToolbar.js';
 import type { Template } from '@legalcode/shared';
 
 interface TemplateDetail {
@@ -72,6 +73,7 @@ export function TemplateEditorPage() {
   // Save version dialog state
   const [saveVersionOpen, setSaveVersionOpen] = useState(false);
   const [savingVersion, setSavingVersion] = useState(false);
+  const [editorMode, setEditorMode] = useState<'source' | 'review'>('source');
 
   // Collaboration — only for existing templates with edit permission
   const collaborationUser =
@@ -164,6 +166,7 @@ export function TemplateEditorPage() {
 
   const status = templateData?.template.status;
   const isReadOnly = isViewer || status === 'archived';
+  const wordCount = content.trim() === '' ? 0 : content.trim().split(/\s+/).length;
 
   // Loading state for edit mode
   if (!isCreateMode && templateQuery.isLoading) {
@@ -213,6 +216,25 @@ export function TemplateEditorPage() {
           <Tab label="Edit" />
           <Tab label="Versions" />
         </Tabs>
+      )}
+
+      {/* Editor toolbar */}
+      {(isCreateMode || activeTab === 0) && (
+        <EditorToolbar
+          mode={editorMode}
+          onModeChange={setEditorMode}
+          wordCount={wordCount}
+          connectionStatus={
+            !isCreateMode && collaboration.status !== 'disconnected'
+              ? (collaboration.status as
+                  | 'connected'
+                  | 'connecting'
+                  | 'disconnected'
+                  | 'reconnecting')
+              : undefined
+          }
+          readOnly={isReadOnly}
+        />
       )}
 
       {/* Edit tab or create form */}
@@ -265,16 +287,34 @@ export function TemplateEditorPage() {
             }
             renderInput={(params) => <TextField {...params} label="Tags" />}
           />
-          <MarkdownEditor
-            defaultValue={isCreateMode ? undefined : templateData?.content}
-            onChange={handleContentChange}
-            readOnly={isReadOnly}
-            collaboration={
-              collaboration.ydoc && collaboration.awareness
-                ? { ydoc: collaboration.ydoc, awareness: collaboration.awareness }
-                : undefined
-            }
-          />
+          {editorMode === 'source' ? (
+            <MarkdownEditor
+              defaultValue={isCreateMode ? undefined : templateData?.content}
+              onChange={handleContentChange}
+              readOnly={isReadOnly}
+              collaboration={
+                collaboration.ydoc && collaboration.awareness
+                  ? { ydoc: collaboration.ydoc, awareness: collaboration.awareness }
+                  : undefined
+              }
+            />
+          ) : (
+            <Box
+              data-testid="review-content"
+              sx={{
+                maxWidth: 860,
+                mx: 'auto',
+                p: 3,
+                backgroundColor: '#F7F0E6',
+                borderRadius: '12px',
+                fontFamily: '"Source Serif 4", Georgia, "Times New Roman", serif',
+                whiteSpace: 'pre-wrap',
+                minHeight: 200,
+              }}
+            >
+              {content || 'No content yet'}
+            </Box>
+          )}
 
           {/* Action buttons */}
           {!isViewer && (

@@ -151,6 +151,40 @@ vi.mock('../../src/components/SaveVersionDialog.js', () => ({
     ) : null,
 }));
 
+vi.mock('../../src/components/EditorToolbar.js', () => ({
+  EditorToolbar: ({
+    mode,
+    onModeChange,
+    wordCount,
+  }: {
+    mode: string;
+    onModeChange: (mode: string) => void;
+    wordCount: number;
+  }) => (
+    <div data-testid="editor-toolbar">
+      <button
+        data-testid="mode-source"
+        onClick={() => {
+          onModeChange('source');
+        }}
+        aria-pressed={mode === 'source'}
+      >
+        Source
+      </button>
+      <button
+        data-testid="mode-review"
+        onClick={() => {
+          onModeChange('review');
+        }}
+        aria-pressed={mode === 'review'}
+      >
+        Review
+      </button>
+      <span data-testid="word-count">{String(wordCount)} words</span>
+    </div>
+  ),
+}));
+
 // ── Helpers ──────────────────────────────────────────────────────────
 
 interface TemplateDetail {
@@ -1345,6 +1379,52 @@ describe('TemplateEditorPage', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
       expect(screen.getByTestId('connection-status')).toHaveTextContent('connecting');
+    });
+  });
+
+  describe('Mode toggle', () => {
+    beforeEach(() => {
+      mockUseParams.mockReturnValue({ id: 't1' });
+      mockUseTemplate.mockReturnValue(
+        createTemplateQueryResult({
+          data: {
+            template: draftTemplate,
+            content: '# Draft content',
+            tags: [],
+          },
+        }),
+      );
+    });
+
+    it('renders EditorToolbar', () => {
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      expect(screen.getByTestId('editor-toolbar')).toBeInTheDocument();
+    });
+
+    it('starts in source mode', () => {
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      expect(screen.getByTestId('mode-source')).toHaveAttribute('aria-pressed', 'true');
+    });
+
+    it('switches to review mode when Review is clicked', async () => {
+      const user = userEvent.setup();
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      await user.click(screen.getByTestId('mode-review'));
+      expect(screen.getByTestId('mode-review')).toHaveAttribute('aria-pressed', 'true');
+    });
+
+    it('hides markdown editor in review mode', async () => {
+      const user = userEvent.setup();
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      await user.click(screen.getByTestId('mode-review'));
+      expect(screen.queryByTestId('markdown-editor')).not.toBeInTheDocument();
+    });
+
+    it('shows read-only content in review mode', async () => {
+      const user = userEvent.setup();
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      await user.click(screen.getByTestId('mode-review'));
+      expect(screen.getByTestId('review-content')).toBeInTheDocument();
     });
   });
 });
