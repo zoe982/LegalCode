@@ -1,0 +1,58 @@
+{
+  "enabledPlugins": {
+    "github@claude-plugins-official": true
+  },
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Analyze the user's prompt. If they are asking to implement a feature, fix a bug, add functionality, refactor behavior, or make any code change that would affect files in packages/*/src/, respond with a systemMessage reminding: 'TDD ENFORCED: Subagents write failing tests FIRST, then implementation code. Cook runs pnpm test DIRECTLY in the main session — NEVER delegate test execution to subagents (tests fail in subagent environments).' If the prompt is purely about reading, exploring, explaining, configuration, or non-code tasks, approve silently with no message.",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash scripts/tdd-check-test-exists.sh",
+            "timeout": 10
+          },
+          {
+            "type": "prompt",
+            "prompt": "Check the file path being written/edited. If the file is inside a packages/*/src/ directory (implementation code, NOT a test file), check the conversation transcript to determine: Has a corresponding test file been created or edited BEFORE this implementation file in this session? If yes, return 'approve'. If the file is a test file, config file, documentation, agent definition (.claude/agents/), or not in packages/*/src/, return 'approve'. If it's implementation code and tests haven't been written first, return 'deny' with reason: 'TDD VIOLATION: You must write test files before writing implementation code. Write the test file first, then come back to this file.'",
+            "timeout": 15
+          }
+        ]
+      },
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Check the Agent tool call prompt text. If the prompt instructs the subagent to run tests (pnpm test, vitest, pnpm typecheck, pnpm lint, pnpm security:scan, or any test/lint/typecheck command), return 'deny' with reason: 'SUBAGENT TEST BAN: Tests and commands must NEVER be run inside subagents — they fail in that environment. Cook must run all commands (pnpm test, pnpm typecheck, pnpm lint, pnpm security:scan) directly in the main session using the Bash tool.' If the prompt does not instruct running tests or commands, return 'approve'.",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Before allowing the agent to stop, check the conversation transcript. If the task involved writing or modifying code in packages/*/src/, verify: (1) Test files were written or updated, (2) 'pnpm test' was run DIRECTLY by Cook (the main session) via the Bash tool — NOT inside a subagent — and output shows tests passing. If both are confirmed in the transcript, approve. If no implementation code was changed (e.g., config-only, docs, exploration), approve. If implementation was written but tests were not run directly by Cook, block with reason: 'Cannot complete: Cook must run pnpm test directly in the main session (not in a subagent) and confirm all tests pass before finishing.'",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  }
+}

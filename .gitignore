@@ -10,4 +10,8 @@ coverage/
 .d1/
 test-results/
 playwright-report/
-.claude/
+# Claude Code local state (sessions, cache)
+.claude/*
+# Track project settings and agent definitions (TDD enforcement, model policy)
+!.claude/settings.json
+!.claude/agents/

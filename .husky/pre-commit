@@ -6,6 +6,9 @@ if which semgrep > /dev/null 2>&1; then
   semgrep scan --config p/owasp-top-ten --config p/typescript --error --quiet packages/
 fi
 
+# TDD enforcement: block commits with implementation files that have no test file
+bash scripts/tdd-precommit-check.sh
+
 pnpm lint-staged
 pnpm typecheck
 pnpm test

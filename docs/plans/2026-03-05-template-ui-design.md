@@ -89,7 +89,34 @@ templateService = {
 - **Viewers**: Read-only. No FAB, disabled form fields, no save/publish/archive buttons.
 - **Editors + Admins**: Full CRUD. FAB visible, form editable, all action buttons.
 
-## Deferred (Next Phase)
+## Phased Roadmap
 
-- Comments (needs backend: comments table, API routes)
-- Google Doc export (needs backend: Google Docs API integration)
+### Phase A: Template UI (this plan)
+
+- Template list grouped by category with search/filters
+- Create & edit with Milkdown editor, metadata, tags
+- Version history tab
+- Markdown export download
+- React Router, TanStack Query hooks, API service
+
+### Phase B: Real-time Collaboration
+
+- Durable Object per template (WebSocket room)
+- Yjs CRDT + y-prosemirror for concurrent editing
+- Cursor presence (see who's editing, colored cursors)
+- Auto-save (replaces manual save button)
+- Awareness protocol (online user avatars)
+
+### Phase C: Inline Comments
+
+- ProseMirror decoration marks for comment anchors
+- Yjs-tracked positions (survive concurrent edits via relative positions)
+- Comment thread sidebar with resolve/unresolve
+- Backend: comments table, comment API routes
+- Notification when tagged/replied to
+
+### Phase D: Google Docs Export
+
+- Backend: Google Docs API integration
+- Export template content as formatted Google Doc
+- OAuth scope for Google Drive write access
