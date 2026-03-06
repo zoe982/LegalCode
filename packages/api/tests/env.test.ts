@@ -9,6 +9,7 @@ describe('AppEnv types', () => {
     expectTypeOf<AppEnv['Bindings']>().toHaveProperty('GOOGLE_CLIENT_ID');
     expectTypeOf<AppEnv['Bindings']>().toHaveProperty('GOOGLE_CLIENT_SECRET');
     expectTypeOf<AppEnv['Bindings']>().toHaveProperty('ALLOWED_EMAILS');
+    expectTypeOf<AppEnv['Bindings']>().toHaveProperty('TEMPLATE_SESSION');
   });
 
   it('has user variable', () => {

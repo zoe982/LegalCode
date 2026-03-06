@@ -15,6 +15,7 @@ export interface AppEnv {
     GOOGLE_CLIENT_SECRET: string;
     ALLOWED_EMAILS: string;
     ASSETS: Fetcher;
+    TEMPLATE_SESSION: DurableObjectNamespace;
   };
   Variables: {
     user: AuthUser;

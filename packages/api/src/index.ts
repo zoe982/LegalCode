@@ -7,6 +7,7 @@ import { securityHeaders } from './middleware/security.js';
 import { authRoutes } from './routes/auth.js';
 import { adminRoutes } from './routes/admin.js';
 import { templateRoutes } from './routes/templates.js';
+import { collaborateRoutes } from './routes/collaborate.js';
 
 const app = new Hono<AppEnv>();
 
@@ -34,6 +35,7 @@ app.get('/health', (c) => c.json({ status: 'ok' }));
 app.route('/auth', authRoutes);
 app.route('/admin', adminRoutes);
 app.route('/templates', templateRoutes);
+app.route('/collaborate', collaborateRoutes);
 
 // Serve static assets, with SPA fallback to index.html
 app.all('*', async (c) => {
@@ -44,5 +46,7 @@ app.all('*', async (c) => {
   }
   return res;
 });
+
+export { TemplateSession } from './durable-objects/template-session.js';
 
 export default app;
