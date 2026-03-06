@@ -42,17 +42,6 @@
         ]
       }
     ],
-    "Stop": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "prompt",
-            "prompt": "Before allowing the agent to stop, check the conversation transcript. If the task involved writing or modifying code in packages/*/src/, verify: (1) Test files were written or updated, (2) 'pnpm test' was run DIRECTLY by Cook (the main session) via the Bash tool — NOT inside a subagent — and output shows tests passing. If both are confirmed in the transcript, approve. If no implementation code was changed (e.g., config-only, docs, exploration), approve. If implementation was written but tests were not run directly by Cook, block with reason: 'Cannot complete: Cook must run pnpm test directly in the main session (not in a subagent) and confirm all tests pass before finishing.'",
-            "timeout": 15
-          }
-        ]
-      }
-    ]
+    "Stop": []
   }
 }
