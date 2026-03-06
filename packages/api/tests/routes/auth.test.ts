@@ -197,9 +197,9 @@ describe('GET /auth/callback', () => {
     expect(text).toContain('meta http-equiv="refresh"');
 
     // Check cookies are set
-    const cookies = res.headers.getSetCookie();
-    const authCookie = cookies.find((c) => c.includes('__Host-auth='));
-    const refreshCookie = cookies.find((c) => c.includes('__Host-refresh='));
+    const cookies = (res.headers as unknown as { getSetCookie(): string[] }).getSetCookie();
+    const authCookie = cookies.find((c: string) => c.includes('__Host-auth='));
+    const refreshCookie = cookies.find((c: string) => c.includes('__Host-refresh='));
     expect(authCookie).toBeDefined();
     expect(refreshCookie).toBeDefined();
   });
@@ -312,9 +312,9 @@ describe('POST /auth/refresh', () => {
     expect(kv.delete).toHaveBeenCalledWith('refresh:valid-refresh-token');
 
     // New cookies should be set
-    const cookies = res.headers.getSetCookie();
-    const authCookie = cookies.find((c) => c.includes('__Host-auth='));
-    const refreshCookie = cookies.find((c) => c.includes('__Host-refresh='));
+    const cookies = (res.headers as unknown as { getSetCookie(): string[] }).getSetCookie();
+    const authCookie = cookies.find((c: string) => c.includes('__Host-auth='));
+    const refreshCookie = cookies.find((c: string) => c.includes('__Host-refresh='));
     expect(authCookie).toBeDefined();
     expect(refreshCookie).toBeDefined();
   });

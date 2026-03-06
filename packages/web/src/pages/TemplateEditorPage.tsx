@@ -108,6 +108,7 @@ export function TemplateEditorPage() {
   }, [createMutation, title, category, country, content, tags, navigate]);
 
   const handleSaveDraft = useCallback(() => {
+    /* v8 ignore next -- guard for TypeScript; id is always defined in edit mode */
     if (!id) return;
     void updateMutation.mutateAsync({
       id,
@@ -126,6 +127,7 @@ export function TemplateEditorPage() {
   }, []);
 
   const handleChangeSummaryConfirm = useCallback(() => {
+    /* v8 ignore next -- guard for TypeScript; id is always defined in edit mode */
     if (!id) return;
     void updateMutation.mutateAsync({
       id,
@@ -143,6 +145,7 @@ export function TemplateEditorPage() {
   }, [updateMutation, id, title, category, country, content, changeSummary, tags]);
 
   const handlePublish = useCallback(() => {
+    /* v8 ignore next -- guard for TypeScript; id is always defined in edit mode */
     if (!id) return;
     void publishMutation.mutateAsync(id);
   }, [publishMutation, id]);
@@ -152,6 +155,7 @@ export function TemplateEditorPage() {
   }, []);
 
   const handleArchiveConfirm = useCallback(() => {
+    /* v8 ignore next -- guard for TypeScript; id is always defined in edit mode */
     if (!id) return;
     void archiveMutation.mutateAsync(id);
     setArchiveDialogOpen(false);

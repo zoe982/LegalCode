@@ -143,8 +143,10 @@ describe('App', () => {
     });
     const signOutButton = screen.getByRole('button', { name: /sign out/i });
     await user.click(signOutButton);
-    // Verify button was clickable (logout was invoked)
-    expect(signOutButton).toBeInTheDocument();
+    // After logout, the sign-out button should be removed (user is no longer authenticated)
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: /sign out/i })).not.toBeInTheDocument();
+    });
   });
 
   it('displays user email in the toolbar', async () => {
