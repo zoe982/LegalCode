@@ -27,7 +27,7 @@
     ]
   },
   "migrations": [
-    { "tag": "v1", "new_classes": ["TemplateSession"] }
+    { "tag": "v1", "new_sqlite_classes": ["TemplateSession"] }
   ],
   "workers_dev": true,
   "routes": [
