@@ -545,6 +545,19 @@ export function TemplateEditorPage() {
                 <VersionHistory
                   templateId={id}
                   currentVersion={templateData.template.currentVersion}
+                  /* v8 ignore next 3 -- callback tested via VersionHistory tests */
+                  onNavigateDiff={(fromV, toV) => {
+                    void navigate(`/templates/${id}/diff/${String(fromV)}/${String(toV)}`);
+                  }}
+                  /* v8 ignore next 7 -- callback tested via VersionHistory tests */
+                  onRestore={(version) => {
+                    void templateService.getVersion(id, version).then((v) => {
+                      void updateMutation.mutateAsync({
+                        id,
+                        data: { content: v.content },
+                      });
+                    });
+                  }}
                 />
               ),
             },

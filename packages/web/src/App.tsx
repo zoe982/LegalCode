@@ -10,6 +10,7 @@ import { TemplateListPage } from './pages/TemplateListPage.js';
 import { TemplateEditorPage } from './pages/TemplateEditorPage.js';
 import { AdminPage } from './pages/AdminPage.js';
 import { SettingsPage } from './pages/SettingsPage.js';
+import { DiffViewPage } from './pages/DiffViewPage.js';
 import { LoginPage } from './pages/LoginPage.js';
 import { OfflineBar } from './components/OfflineBar.js';
 import { ToastProvider } from './components/Toast.js';
@@ -37,6 +38,7 @@ export const routes: RouteObject[] = [
       { path: 'templates', element: <TemplateListPage /> },
       { path: 'templates/new', element: <TemplateEditorPage /> },
       { path: 'templates/:id', element: <TemplateEditorPage /> },
+      { path: 'templates/:id/diff/:v1/:v2', element: <DiffViewPage /> },
       { path: 'admin', element: <AdminPage /> },
       { path: 'settings', element: <SettingsPage /> },
     ],

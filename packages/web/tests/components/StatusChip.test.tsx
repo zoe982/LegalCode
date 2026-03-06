@@ -97,4 +97,31 @@ describe('StatusChip', () => {
       expect(chip).toHaveStyle({ letterSpacing: '0.06em' });
     });
   });
+
+  describe('publishing flash animation', () => {
+    it('applies flash animation class when animate prop is true', () => {
+      render(<StatusChip status="active" animate={true} />);
+      const chip = screen.getByText('Published');
+      expect(chip.classList.toString()).toMatch(/publishing-flash/);
+    });
+
+    it('does not apply flash animation class when animate is false', () => {
+      render(<StatusChip status="active" animate={false} />);
+      const chip = screen.getByText('Published');
+      expect(chip.classList.toString()).not.toMatch(/publishing-flash/);
+    });
+
+    it('does not apply flash animation class when animate is not provided', () => {
+      render(<StatusChip status="active" />);
+      const chip = screen.getByText('Published');
+      expect(chip.classList.toString()).not.toMatch(/publishing-flash/);
+    });
+
+    it('does not apply flash animation for draft status even when animate is true', () => {
+      render(<StatusChip status="draft" animate={true} />);
+      const chip = screen.getByText('Draft');
+      // Flash only triggers for active (published) status
+      expect(chip.classList.toString()).not.toMatch(/publishing-flash/);
+    });
+  });
 });

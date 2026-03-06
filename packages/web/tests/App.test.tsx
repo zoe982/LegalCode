@@ -109,6 +109,15 @@ describe('App', () => {
     });
   });
 
+  it('renders DiffViewPage at /templates/:id/diff/:v1/:v2', async () => {
+    mockAuthenticatedUser();
+    renderWithRouter('/templates/t1/diff/1/2');
+    await waitFor(() => {
+      // DiffViewPage shows a loading spinner while fetching versions
+      expect(screen.getByRole('progressbar')).toBeInTheDocument();
+    });
+  });
+
   it('renders AdminPage at /admin', async () => {
     mockAuthenticatedUser();
     renderWithRouter('/admin');

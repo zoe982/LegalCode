@@ -7,7 +7,13 @@ import {
   Chip,
   CircularProgress,
   Typography,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@mui/material';
+import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
 import type { TemplateVersion } from '@legalcode/shared';
 import { useTemplateVersions } from '../hooks/useTemplates.js';
 import { templateService } from '../services/templates.js';
@@ -16,11 +22,20 @@ import { MarkdownEditor } from './MarkdownEditor.js';
 interface VersionHistoryProps {
   templateId: string;
   currentVersion: number;
+  onNavigateDiff?: ((fromVersion: number, toVersion: number) => void) | undefined;
+  onRestore?: ((version: number) => void) | undefined;
 }
 
-export function VersionHistory({ templateId, currentVersion }: VersionHistoryProps) {
+export function VersionHistory({
+  templateId,
+  currentVersion,
+  onNavigateDiff,
+  onRestore,
+}: VersionHistoryProps) {
   const { data: versions, isLoading } = useTemplateVersions(templateId);
   const [selectedVersion, setSelectedVersion] = useState<TemplateVersion | null>(null);
+  const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
+  const [restoreVersion, setRestoreVersion] = useState<number | null>(null);
 
   const handleVersionClick = useCallback(
     (version: number) => {
@@ -30,6 +45,24 @@ export function VersionHistory({ templateId, currentVersion }: VersionHistoryPro
     },
     [templateId],
   );
+
+  const handleRestoreClick = useCallback((version: number) => {
+    setRestoreVersion(version);
+    setRestoreDialogOpen(true);
+  }, []);
+
+  const handleRestoreConfirm = useCallback(() => {
+    if (restoreVersion != null && onRestore) {
+      onRestore(restoreVersion);
+    }
+    setRestoreDialogOpen(false);
+    setRestoreVersion(null);
+  }, [restoreVersion, onRestore]);
+
+  const handleRestoreCancel = useCallback(() => {
+    setRestoreDialogOpen(false);
+    setRestoreVersion(null);
+  }, []);
 
   if (isLoading) {
     return (
@@ -47,6 +80,31 @@ export function VersionHistory({ templateId, currentVersion }: VersionHistoryPro
 
   return (
     <Box>
+      {/* Compare versions button — only when 2+ versions exist */}
+      {sorted.length >= 2 && onNavigateDiff != null && (
+        <Button
+          aria-label="Compare versions"
+          startIcon={<CompareArrowsIcon />}
+          onClick={() => {
+            const newest = sorted[0];
+            const secondNewest = sorted[1];
+            if (newest && secondNewest) {
+              onNavigateDiff(secondNewest.version, newest.version);
+            }
+          }}
+          sx={{
+            mb: 1.5,
+            color: '#8027FF',
+            textTransform: 'none',
+            fontWeight: 600,
+            fontSize: '0.8125rem',
+          }}
+          size="small"
+        >
+          Compare versions
+        </Button>
+      )}
+
       <Box
         sx={{
           position: 'relative',
@@ -63,8 +121,9 @@ export function VersionHistory({ templateId, currentVersion }: VersionHistoryPro
         }}
       >
         <List disablePadding>
-          {sorted.map((v) => {
+          {sorted.map((v, idx) => {
             const isCurrent = v.version === currentVersion;
+            const prevVersion = sorted[idx + 1];
             return (
               <Box key={v.id} sx={{ position: 'relative' }}>
                 <Box
@@ -126,6 +185,53 @@ export function VersionHistory({ templateId, currentVersion }: VersionHistoryPro
                     }}
                   />
                 </ListItemButton>
+
+                {/* Action buttons below each version item */}
+                <Box sx={{ display: 'flex', gap: 1, ml: 1, mb: 1 }}>
+                  {/* View diff — only when there's a previous version */}
+                  {prevVersion != null && onNavigateDiff != null && (
+                    <Button
+                      aria-label="View diff"
+                      size="small"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onNavigateDiff(prevVersion.version, v.version);
+                      }}
+                      sx={{
+                        color: '#8027FF',
+                        textTransform: 'none',
+                        fontSize: '0.75rem',
+                        fontWeight: 500,
+                        minWidth: 0,
+                        py: 0,
+                      }}
+                    >
+                      View diff
+                    </Button>
+                  )}
+
+                  {/* Restore — only for non-current versions */}
+                  {!isCurrent && onRestore != null && (
+                    <Button
+                      aria-label="Restore"
+                      size="small"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRestoreClick(v.version);
+                      }}
+                      sx={{
+                        color: '#6B5A7A',
+                        textTransform: 'none',
+                        fontSize: '0.75rem',
+                        fontWeight: 500,
+                        minWidth: 0,
+                        py: 0,
+                      }}
+                    >
+                      Restore
+                    </Button>
+                  )}
+                </Box>
               </Box>
             );
           })}
@@ -136,6 +242,34 @@ export function VersionHistory({ templateId, currentVersion }: VersionHistoryPro
           <MarkdownEditor defaultValue={selectedVersion.content} readOnly />
         </Box>
       )}
+
+      {/* Restore confirmation dialog */}
+      <Dialog open={restoreDialogOpen} onClose={handleRestoreCancel}>
+        <DialogTitle>Restore this version?</DialogTitle>
+        <DialogContent>
+          <Typography>
+            This will create a new version with the content from version{' '}
+            {restoreVersion != null ? String(restoreVersion) : ''}. The current content will not be
+            lost.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleRestoreCancel} sx={{ color: '#451F61' }}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleRestoreConfirm}
+            aria-label="Confirm"
+            variant="contained"
+            sx={{
+              backgroundColor: '#8027FF',
+              '&:hover': { backgroundColor: '#6B1FD6' },
+            }}
+          >
+            Confirm
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

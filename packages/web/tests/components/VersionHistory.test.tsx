@@ -199,4 +199,133 @@ describe('VersionHistory', () => {
 
     expect(screen.getByText('No versions')).toBeInTheDocument();
   });
+
+  it('shows "View diff" links for non-first versions', () => {
+    mockUseTemplateVersions.mockReturnValue(
+      makeQueryResult({
+        isSuccess: true,
+        isFetched: true,
+        data: mockVersions,
+        status: 'success',
+      }),
+    );
+
+    const onNavigateDiff = vi.fn();
+    render(<VersionHistory templateId="t1" currentVersion={2} onNavigateDiff={onNavigateDiff} />);
+
+    // Version 2 should have a "View diff" link (comparing against version 1)
+    const diffLinks = screen.getAllByRole('button', { name: /view diff/i });
+    expect(diffLinks.length).toBeGreaterThan(0);
+  });
+
+  it('"View diff" link calls onNavigateDiff with correct versions', async () => {
+    const user = userEvent.setup();
+    mockUseTemplateVersions.mockReturnValue(
+      makeQueryResult({
+        isSuccess: true,
+        isFetched: true,
+        data: mockVersions,
+        status: 'success',
+      }),
+    );
+
+    const onNavigateDiff = vi.fn();
+    render(<VersionHistory templateId="t1" currentVersion={2} onNavigateDiff={onNavigateDiff} />);
+
+    const diffLinks = screen.getAllByRole('button', { name: /view diff/i });
+    const firstDiffLink = diffLinks[0];
+    if (!firstDiffLink) throw new Error('No diff link found');
+    await user.click(firstDiffLink);
+
+    // Should be called with previous and current version numbers
+    expect(onNavigateDiff).toHaveBeenCalledWith(1, 2);
+  });
+
+  it('"Compare versions" button calls onNavigateDiff with two most recent versions', async () => {
+    const user = userEvent.setup();
+    mockUseTemplateVersions.mockReturnValue(
+      makeQueryResult({
+        isSuccess: true,
+        isFetched: true,
+        data: mockVersions,
+        status: 'success',
+      }),
+    );
+
+    const onNavigateDiff = vi.fn();
+    render(<VersionHistory templateId="t1" currentVersion={2} onNavigateDiff={onNavigateDiff} />);
+
+    const compareBtn = screen.getByRole('button', { name: /compare versions/i });
+    await user.click(compareBtn);
+
+    expect(onNavigateDiff).toHaveBeenCalledWith(1, 2);
+  });
+
+  it('"Restore" button shows confirmation dialog', async () => {
+    const user = userEvent.setup();
+    mockUseTemplateVersions.mockReturnValue(
+      makeQueryResult({
+        isSuccess: true,
+        isFetched: true,
+        data: mockVersions,
+        status: 'success',
+      }),
+    );
+
+    const onRestore = vi.fn();
+    render(<VersionHistory templateId="t1" currentVersion={2} onRestore={onRestore} />);
+
+    // Version 1 (not current) should have a Restore button
+    const restoreButtons = screen.getAllByRole('button', { name: /restore/i });
+    expect(restoreButtons.length).toBeGreaterThan(0);
+
+    const restoreBtn = restoreButtons[0];
+    if (!restoreBtn) throw new Error('No restore button');
+    await user.click(restoreBtn);
+
+    // Confirmation dialog should appear
+    expect(screen.getByText(/restore this version/i)).toBeInTheDocument();
+  });
+
+  it('confirming restore calls onRestore callback', async () => {
+    const user = userEvent.setup();
+    mockUseTemplateVersions.mockReturnValue(
+      makeQueryResult({
+        isSuccess: true,
+        isFetched: true,
+        data: mockVersions,
+        status: 'success',
+      }),
+    );
+
+    const onRestore = vi.fn();
+    render(<VersionHistory templateId="t1" currentVersion={2} onRestore={onRestore} />);
+
+    const restoreButtons = screen.getAllByRole('button', { name: /restore/i });
+    const restoreBtn = restoreButtons[0];
+    if (!restoreBtn) throw new Error('No restore button');
+    await user.click(restoreBtn);
+
+    // Click confirm in dialog
+    const confirmBtn = screen.getByRole('button', { name: /confirm/i });
+    await user.click(confirmBtn);
+
+    expect(onRestore).toHaveBeenCalledWith(1);
+  });
+
+  it('does not show "Compare versions" button when only one version exists', () => {
+    const singleVersion = [mockVersions[0]].filter(Boolean) as TemplateVersion[];
+    mockUseTemplateVersions.mockReturnValue(
+      makeQueryResult({
+        isSuccess: true,
+        isFetched: true,
+        data: singleVersion,
+        status: 'success',
+      }),
+    );
+
+    render(<VersionHistory templateId="t1" currentVersion={1} />);
+
+    expect(screen.queryByRole('button', { name: /compare versions/i })).not.toBeInTheDocument();
+  });
 });

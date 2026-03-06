@@ -26,15 +26,18 @@ const statusConfig: Record<TemplateStatus, StatusConfig> = {
   },
 };
 
-interface StatusChipProps {
+export interface StatusChipProps {
   status: TemplateStatus;
+  animate?: boolean | undefined;
 }
 
-export function StatusChip({ status }: StatusChipProps) {
+export function StatusChip({ status, animate }: StatusChipProps) {
   const config = statusConfig[status];
+  const showFlash = animate === true && status === 'active';
   return (
     <Box
       component="span"
+      className={showFlash ? 'publishing-flash' : undefined}
       sx={{
         display: 'inline-block',
         borderRadius: '9999px',
