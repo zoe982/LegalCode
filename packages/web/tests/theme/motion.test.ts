@@ -5,6 +5,9 @@ import {
   springStandardSlow,
   springExpressive,
   cssTransition,
+  springTransition,
+  springTransitions,
+  reducedMotionQuery,
 } from '../../src/theme/motion.js';
 
 describe('motion constants', () => {
@@ -50,5 +53,39 @@ describe('motion constants', () => {
 
   it('cssTransition returns expressive transition string', () => {
     expect(cssTransition('expressive')).toBe('cubic-bezier(0.34, 1.56, 0.64, 1) 400ms');
+  });
+
+  it('springTransition returns property with expressive spring', () => {
+    expect(springTransition('width', 'expressive')).toBe(
+      'width cubic-bezier(0.34, 1.56, 0.64, 1) 400ms',
+    );
+  });
+
+  it('springTransition returns property with standard spring', () => {
+    expect(springTransition('background-color', 'standard')).toBe(
+      'background-color cubic-bezier(0.2, 0, 0, 1) 200ms',
+    );
+  });
+
+  it('springTransition returns property with standard-fast spring', () => {
+    expect(springTransition('opacity', 'standard-fast')).toBe(
+      'opacity cubic-bezier(0.2, 0, 0, 1) 150ms',
+    );
+  });
+
+  it('springTransitions joins multiple properties with commas', () => {
+    expect(springTransitions(['width', 'opacity'], 'expressive')).toBe(
+      'width cubic-bezier(0.34, 1.56, 0.64, 1) 400ms, opacity cubic-bezier(0.34, 1.56, 0.64, 1) 400ms',
+    );
+  });
+
+  it('springTransitions with single property matches springTransition', () => {
+    expect(springTransitions(['background-color'], 'standard')).toBe(
+      springTransition('background-color', 'standard'),
+    );
+  });
+
+  it('reducedMotionQuery exports the correct media query string', () => {
+    expect(reducedMotionQuery).toBe('(prefers-reduced-motion: reduce)');
   });
 });

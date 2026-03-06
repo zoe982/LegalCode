@@ -25,3 +25,13 @@ export type SpringName = keyof typeof CSS_SPRINGS;
 export function cssTransition(name: SpringName): string {
   return CSS_SPRINGS[name];
 }
+
+export function springTransition(property: string, spring: SpringName): string {
+  return `${property} ${CSS_SPRINGS[spring]}`;
+}
+
+export function springTransitions(properties: string[], spring: SpringName): string {
+  return properties.map((p) => springTransition(p, spring)).join(', ');
+}
+
+export const reducedMotionQuery = '(prefers-reduced-motion: reduce)';

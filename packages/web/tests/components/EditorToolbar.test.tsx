@@ -98,4 +98,114 @@ describe('EditorToolbar', () => {
     renderToolbar({ connectionStatus: 'connected' });
     expect(screen.getByText('Saved')).toBeInTheDocument();
   });
+
+  it('shows ordered list button in source mode', () => {
+    renderToolbar();
+    expect(screen.getByRole('button', { name: 'Ordered List' })).toBeInTheDocument();
+  });
+
+  it('shows clause reference button in source mode', () => {
+    renderToolbar();
+    expect(screen.getByRole('button', { name: 'Clause Reference' })).toBeInTheDocument();
+  });
+
+  it('shows variable button in source mode', () => {
+    renderToolbar();
+    expect(screen.getByRole('button', { name: 'Variable' })).toBeInTheDocument();
+  });
+
+  it('shows horizontal rule button in source mode', () => {
+    renderToolbar();
+    expect(screen.getByRole('button', { name: 'Horizontal Rule' })).toBeInTheDocument();
+  });
+
+  it('calls onInsertMarkdown with heading prefix when Heading is clicked', async () => {
+    const user = userEvent.setup();
+    const onInsertMarkdown = vi.fn();
+    renderToolbar({ onInsertMarkdown });
+    await user.click(screen.getByRole('button', { name: 'Heading' }));
+    expect(onInsertMarkdown).toHaveBeenCalledWith('## ', '');
+  });
+
+  it('calls onInsertMarkdown with bold markers when Bold is clicked', async () => {
+    const user = userEvent.setup();
+    const onInsertMarkdown = vi.fn();
+    renderToolbar({ onInsertMarkdown });
+    await user.click(screen.getByRole('button', { name: 'Bold' }));
+    expect(onInsertMarkdown).toHaveBeenCalledWith('**', '**');
+  });
+
+  it('calls onInsertMarkdown with italic markers when Italic is clicked', async () => {
+    const user = userEvent.setup();
+    const onInsertMarkdown = vi.fn();
+    renderToolbar({ onInsertMarkdown });
+    await user.click(screen.getByRole('button', { name: 'Italic' }));
+    expect(onInsertMarkdown).toHaveBeenCalledWith('*', '*');
+  });
+
+  it('calls onInsertMarkdown with link syntax when Link is clicked', async () => {
+    const user = userEvent.setup();
+    const onInsertMarkdown = vi.fn();
+    renderToolbar({ onInsertMarkdown });
+    await user.click(screen.getByRole('button', { name: 'Link' }));
+    expect(onInsertMarkdown).toHaveBeenCalledWith('[', '](url)');
+  });
+
+  it('calls onInsertMarkdown with list prefix when List is clicked', async () => {
+    const user = userEvent.setup();
+    const onInsertMarkdown = vi.fn();
+    renderToolbar({ onInsertMarkdown });
+    await user.click(screen.getByRole('button', { name: 'List' }));
+    expect(onInsertMarkdown).toHaveBeenCalledWith('- ', '');
+  });
+
+  it('calls onInsertMarkdown with table template when Table is clicked', async () => {
+    const user = userEvent.setup();
+    const onInsertMarkdown = vi.fn();
+    renderToolbar({ onInsertMarkdown });
+    await user.click(screen.getByRole('button', { name: 'Table' }));
+    expect(onInsertMarkdown).toHaveBeenCalledWith(
+      '| Header | Header |\n| --- | --- |\n| Cell | Cell |',
+      '',
+    );
+  });
+
+  it('calls onInsertMarkdown with ordered list prefix when Ordered List is clicked', async () => {
+    const user = userEvent.setup();
+    const onInsertMarkdown = vi.fn();
+    renderToolbar({ onInsertMarkdown });
+    await user.click(screen.getByRole('button', { name: 'Ordered List' }));
+    expect(onInsertMarkdown).toHaveBeenCalledWith('1. ', '');
+  });
+
+  it('calls onInsertMarkdown with clause reference when Clause Reference is clicked', async () => {
+    const user = userEvent.setup();
+    const onInsertMarkdown = vi.fn();
+    renderToolbar({ onInsertMarkdown });
+    await user.click(screen.getByRole('button', { name: 'Clause Reference' }));
+    expect(onInsertMarkdown).toHaveBeenCalledWith('{{clause:', '}}');
+  });
+
+  it('calls onInsertMarkdown with variable syntax when Variable is clicked', async () => {
+    const user = userEvent.setup();
+    const onInsertMarkdown = vi.fn();
+    renderToolbar({ onInsertMarkdown });
+    await user.click(screen.getByRole('button', { name: 'Variable' }));
+    expect(onInsertMarkdown).toHaveBeenCalledWith('{{var:', '}}');
+  });
+
+  it('calls onInsertMarkdown with horizontal rule when Horizontal Rule is clicked', async () => {
+    const user = userEvent.setup();
+    const onInsertMarkdown = vi.fn();
+    renderToolbar({ onInsertMarkdown });
+    await user.click(screen.getByRole('button', { name: 'Horizontal Rule' }));
+    expect(onInsertMarkdown).toHaveBeenCalledWith('\n---\n', '');
+  });
+
+  it('does not crash when onInsertMarkdown is not provided', async () => {
+    const user = userEvent.setup();
+    renderToolbar(); // no onInsertMarkdown
+    await user.click(screen.getByRole('button', { name: 'Bold' }));
+    // Should not throw
+  });
 });

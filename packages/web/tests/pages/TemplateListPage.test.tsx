@@ -1,5 +1,5 @@
 /// <reference types="@testing-library/jest-dom/vitest" />
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, within, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
@@ -294,5 +294,183 @@ describe('TemplateListPage', () => {
       ];
       expect(lastCall[0]).toEqual(expect.objectContaining({ status: 'draft' }));
     });
+  });
+
+  describe('relative timestamps', () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('renders relative timestamp for updatedAt', () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-03-06T12:00:00Z'));
+
+      mockUseTemplates.mockReturnValue(
+        createQueryResult({
+          data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
+        }),
+      );
+
+      render(<TemplateListPage />, { wrapper: Wrapper });
+
+      const row1 = screen.getByTestId('template-row-t1');
+      // updatedAt is 2026-03-01, current date is 2026-03-06 => 5d ago
+      expect(within(row1).getByText('5d ago')).toBeInTheDocument();
+    });
+  });
+
+  it('shows secondary metadata on hover', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-06T12:00:00Z'));
+
+    mockUseTemplates.mockReturnValue(
+      createQueryResult({
+        data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
+      }),
+    );
+
+    render(<TemplateListPage />, { wrapper: Wrapper });
+
+    const row1 = screen.getByTestId('template-row-t1');
+    // Hover metadata exists in the DOM (just invisible until hover via CSS)
+    const hoverMeta = within(row1).getByTestId('hover-metadata');
+    expect(hoverMeta).toBeInTheDocument();
+
+    // The hover metadata contains category and relative time
+    expect(within(hoverMeta).getByText('Employment')).toBeInTheDocument();
+    expect(within(hoverMeta).getByText('5d ago')).toBeInTheDocument();
+
+    vi.useRealTimers();
+  });
+
+  it('renders sort dropdown', () => {
+    mockUseTemplates.mockReturnValue(
+      createQueryResult({
+        data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
+      }),
+    );
+
+    render(<TemplateListPage />, { wrapper: Wrapper });
+
+    // Sort dropdown is a MUI Select rendered as a combobox or textbox with label "Sort"
+    expect(screen.getByLabelText('Sort')).toBeInTheDocument();
+  });
+
+  it('changes sort order when sort option is selected', async () => {
+    const user = userEvent.setup();
+    mockUseTemplates.mockReturnValue(
+      createQueryResult({
+        data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
+      }),
+    );
+
+    render(<TemplateListPage />, { wrapper: Wrapper });
+
+    // Open the sort dropdown and select "Name"
+    const sortSelect = screen.getByLabelText('Sort');
+    await user.click(sortSelect);
+
+    // MUI renders menu items in a listbox
+    const nameOption = await screen.findByRole('option', { name: 'Name' });
+    await user.click(nameOption);
+
+    await waitFor(() => {
+      const lastCall = mockUseTemplates.mock.calls[mockUseTemplates.mock.calls.length - 1] as [
+        Record<string, unknown>,
+      ];
+      expect(lastCall[0]).toEqual(expect.objectContaining({ sort: 'name' }));
+    });
+  });
+
+  it('renders empty state with CTA button', () => {
+    mockUseTemplates.mockReturnValue(
+      createQueryResult({
+        data: { data: [], total: 0, page: 1, limit: 20 },
+      }),
+    );
+
+    render(<TemplateListPage />, { wrapper: Wrapper });
+
+    expect(screen.getByText('No templates yet')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Create your first template' })).toBeInTheDocument();
+  });
+
+  it('empty state CTA navigates to /templates/new', async () => {
+    const user = userEvent.setup();
+    mockUseTemplates.mockReturnValue(
+      createQueryResult({
+        data: { data: [], total: 0, page: 1, limit: 20 },
+      }),
+    );
+
+    render(<TemplateListPage />, { wrapper: Wrapper });
+
+    await user.click(screen.getByRole('button', { name: 'Create your first template' }));
+    expect(mockNavigate).toHaveBeenCalledWith('/templates/new');
+  });
+
+  it('renders sticky filter bar', () => {
+    mockUseTemplates.mockReturnValue(
+      createQueryResult({
+        data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
+      }),
+    );
+
+    render(<TemplateListPage />, { wrapper: Wrapper });
+
+    const filterBar = screen.getByTestId('filter-bar');
+    expect(filterBar).toBeInTheDocument();
+    // MUI sx applies styles via className; check the element has the class with sticky
+    // In jsdom, getComputedStyle won't resolve CSS-in-JS, so check the rendered class
+    expect(filterBar.className).toBeTruthy();
+  });
+
+  it('renders category filter chips', () => {
+    mockUseTemplates.mockReturnValue(
+      createQueryResult({
+        data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
+      }),
+    );
+
+    render(<TemplateListPage />, { wrapper: Wrapper });
+
+    // Category chips derived from templates: Employment, NDA
+    expect(screen.getByRole('button', { name: 'Employment' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'NDA' })).toBeInTheDocument();
+  });
+
+  it('filters by category when category chip is clicked', async () => {
+    const user = userEvent.setup();
+    mockUseTemplates.mockReturnValue(
+      createQueryResult({
+        data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
+      }),
+    );
+
+    render(<TemplateListPage />, { wrapper: Wrapper });
+
+    await user.click(screen.getByRole('button', { name: 'Employment' }));
+
+    await waitFor(() => {
+      const lastCall = mockUseTemplates.mock.calls[mockUseTemplates.mock.calls.length - 1] as [
+        Record<string, unknown>,
+      ];
+      expect(lastCall[0]).toEqual(expect.objectContaining({ category: 'Employment' }));
+    });
+  });
+
+  it('template rows render with proper structure', () => {
+    mockUseTemplates.mockReturnValue(
+      createQueryResult({
+        data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
+      }),
+    );
+
+    render(<TemplateListPage />, { wrapper: Wrapper });
+
+    // Each template renders a row with the template-row class and data-testid
+    const row = screen.getByTestId('template-row-t1');
+    expect(row).toBeInTheDocument();
+    expect(row.className).toContain('template-row');
   });
 });

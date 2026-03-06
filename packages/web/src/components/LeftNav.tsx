@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { NavLink } from 'react-router';
 import { Box, Avatar, Typography, Menu, MenuItem } from '@mui/material';
+import { springTransition } from '../theme/motion.js';
 import DescriptionIcon from '@mui/icons-material/Description';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import SettingsIcon from '@mui/icons-material/Settings';
@@ -132,7 +133,7 @@ export function LeftNav({ user, onLogout }: LeftNavProps) {
                 backgroundColor: 'transparent',
                 fontWeight: isActive ? 600 : 400,
                 fontSize: '0.875rem',
-                transition: 'background-color 0.15s',
+                transition: springTransition('background-color', 'standard-fast'),
               })}
               onMouseEnter={(e) => {
                 (e.currentTarget as HTMLElement).style.backgroundColor = HOVER_BG;

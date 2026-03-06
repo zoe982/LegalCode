@@ -1,5 +1,6 @@
 import { Box } from '@mui/material';
 import type { TemplateStatus } from '@legalcode/shared';
+import { springTransitions, reducedMotionQuery } from '../theme/motion.js';
 
 interface StatusConfig {
   label: string;
@@ -46,6 +47,10 @@ export function StatusChip({ status }: StatusChipProps) {
         textTransform: 'uppercase',
         letterSpacing: '0.06em',
         lineHeight: 1.4,
+        transition: springTransitions(['color', 'background-color'], 'standard'),
+        [`@media ${reducedMotionQuery}`]: {
+          transition: 'none',
+        },
       }}
     >
       {config.label}

@@ -12,6 +12,7 @@ export interface TemplateListParams {
   country?: string;
   status?: TemplateStatus;
   tag?: string;
+  sort?: string;
   page?: number;
   limit?: number;
 }
@@ -42,6 +43,7 @@ export const templateService = {
     if (params.country) searchParams.set('country', params.country);
     if (params.status) searchParams.set('status', params.status);
     if (params.tag) searchParams.set('tag', params.tag);
+    if (params.sort) searchParams.set('sort', params.sort);
     if (params.page != null) searchParams.set('page', String(params.page));
     if (params.limit != null) searchParams.set('limit', String(params.limit));
 

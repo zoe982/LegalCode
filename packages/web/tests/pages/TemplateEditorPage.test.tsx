@@ -1,7 +1,7 @@
 /// <reference types="@testing-library/jest-dom/vitest" />
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/unbound-method */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -185,6 +185,81 @@ vi.mock('../../src/components/EditorToolbar.js', () => ({
   ),
 }));
 
+const mockUseKeyboardShortcuts = vi.fn();
+vi.mock('../../src/hooks/useKeyboardShortcuts.js', () => ({
+  useKeyboardShortcuts: (actions: unknown) => {
+    mockUseKeyboardShortcuts(actions);
+  },
+}));
+
+vi.mock('../../src/components/KeyboardShortcutHelp.js', () => ({
+  KeyboardShortcutHelp: ({ open, onClose }: { open: boolean; onClose: () => void }) =>
+    open ? (
+      <div data-testid="keyboard-shortcut-help">
+        <span>Keyboard Shortcuts</span>
+        <button onClick={onClose} data-testid="close-shortcut-help">
+          Close
+        </button>
+      </div>
+    ) : null,
+}));
+
+vi.mock('../../src/components/MetadataTab.js', () => ({
+  MetadataTab: (props: Record<string, unknown>) => (
+    <div data-testid="metadata-tab">
+      <span data-testid="metadata-category">{String(props.category)}</span>
+      <span data-testid="metadata-country">{String(props.country)}</span>
+      <span data-testid="metadata-status">{String(props.status)}</span>
+      {typeof props.onPublish === 'function' && (
+        <button onClick={props.onPublish as () => void} data-testid="metadata-publish">
+          Publish
+        </button>
+      )}
+      {typeof props.onArchive === 'function' && (
+        <button onClick={props.onArchive as () => void} data-testid="metadata-archive">
+          Archive
+        </button>
+      )}
+    </div>
+  ),
+}));
+
+vi.mock('../../src/components/CommentsTab.js', () => ({
+  CommentsTab: ({ templateId }: { templateId: string }) => (
+    <div data-testid="comments-tab">{templateId}</div>
+  ),
+}));
+
+vi.mock('../../src/components/RightPane.js', () => ({
+  RightPane: ({
+    open,
+    onToggle,
+    tabs,
+  }: {
+    open: boolean;
+    onToggle: () => void;
+    tabs: { label: string; content: React.ReactNode }[];
+  }) =>
+    open ? (
+      <div data-testid="right-pane">
+        <button onClick={onToggle} data-testid="toggle-pane">
+          Toggle
+        </button>
+        {tabs.map((tab) => (
+          <div key={tab.label} data-testid={`pane-tab-${tab.label.toLowerCase()}`}>
+            {tab.content}
+          </div>
+        ))}
+      </div>
+    ) : (
+      <div data-testid="right-pane-closed">
+        <button onClick={onToggle} data-testid="toggle-pane">
+          Toggle
+        </button>
+      </div>
+    ),
+}));
+
 // ── Helpers ──────────────────────────────────────────────────────────
 
 interface TemplateDetail {
@@ -359,14 +434,22 @@ describe('TemplateEditorPage', () => {
       expect(screen.getByText('New Template')).toBeInTheDocument();
     });
 
-    it('does not show Versions tab', () => {
+    it('does not show RightPane in create mode', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-      expect(screen.queryByRole('tab', { name: /versions/i })).not.toBeInTheDocument();
+      expect(screen.queryByTestId('right-pane')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('right-pane-closed')).not.toBeInTheDocument();
     });
 
     it('does not show Export button', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
       expect(screen.queryByRole('button', { name: /export/i })).not.toBeInTheDocument();
+    });
+
+    it('shows review content in create mode when mode is review', async () => {
+      const user = userEvent.setup();
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      await user.click(screen.getByTestId('mode-review'));
+      expect(screen.getByTestId('review-content')).toBeInTheDocument();
     });
   });
 
@@ -384,14 +467,11 @@ describe('TemplateEditorPage', () => {
       );
     });
 
-    it('loads template data into form and shows Save Draft and Publish buttons', () => {
+    it('shows title in the top area and Save Draft button', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
       expect(screen.getByLabelText(/title/i)).toHaveValue('Employment Agreement');
-      expect(screen.getByLabelText(/category/i)).toHaveValue('Employment');
-      expect(screen.getByLabelText(/country/i)).toHaveValue('US');
       expect(screen.getByRole('button', { name: /save draft/i })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /publish/i })).toBeInTheDocument();
     });
 
     it('shows template title in the top bar', () => {
@@ -399,10 +479,52 @@ describe('TemplateEditorPage', () => {
       expect(screen.getByText('Employment Agreement')).toBeInTheDocument();
     });
 
-    it('shows Edit and Versions tabs', () => {
+    it('shows RightPane with Metadata tab', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-      expect(screen.getByRole('tab', { name: /edit/i })).toBeInTheDocument();
-      expect(screen.getByRole('tab', { name: /versions/i })).toBeInTheDocument();
+      expect(screen.getByTestId('right-pane')).toBeInTheDocument();
+      expect(screen.getByTestId('pane-tab-metadata')).toBeInTheDocument();
+      expect(screen.getByTestId('metadata-tab')).toBeInTheDocument();
+    });
+
+    it('MetadataTab receives template data as props', () => {
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      expect(screen.getByTestId('metadata-category')).toHaveTextContent('Employment');
+      expect(screen.getByTestId('metadata-country')).toHaveTextContent('US');
+      expect(screen.getByTestId('metadata-status')).toHaveTextContent('draft');
+    });
+
+    it('shows Comments tab in RightPane', () => {
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      expect(screen.getByTestId('pane-tab-comments')).toBeInTheDocument();
+      expect(screen.getByTestId('comments-tab')).toBeInTheDocument();
+    });
+
+    it('shows Versions tab in RightPane', () => {
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      expect(screen.getByTestId('pane-tab-versions')).toBeInTheDocument();
+      expect(screen.getByTestId('version-history')).toBeInTheDocument();
+    });
+
+    it('does not show inline category/country/tags fields in edit mode', () => {
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      // Category, country, tags are now in MetadataTab (mocked), not as inline TextFields
+      expect(screen.queryByLabelText(/category/i)).not.toBeInTheDocument();
+      expect(screen.queryByLabelText(/country/i)).not.toBeInTheDocument();
+      expect(screen.queryByLabelText(/tags/i)).not.toBeInTheDocument();
+    });
+
+    it('shows Publish button via MetadataTab for draft templates', () => {
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      expect(screen.getByTestId('metadata-publish')).toBeInTheDocument();
+    });
+
+    it('allows title editing in edit mode', async () => {
+      const user = userEvent.setup();
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      const titleField = screen.getByLabelText(/title/i);
+      await user.clear(titleField);
+      await user.type(titleField, 'Updated Title');
+      expect(titleField).toHaveValue('Updated Title');
     });
   });
 
@@ -420,16 +542,19 @@ describe('TemplateEditorPage', () => {
       );
     });
 
-    it('shows Save Version and Archive buttons', () => {
+    it('shows Save Version button in central workspace', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
       expect(screen.getByRole('button', { name: /save version/i })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /archive/i })).toBeInTheDocument();
     });
 
-    it('does not show Publish or Save Draft buttons', () => {
+    it('shows Archive button via MetadataTab for active templates', () => {
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      expect(screen.getByTestId('metadata-archive')).toBeInTheDocument();
+    });
+
+    it('does not show Save Draft or inline Publish buttons', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
       expect(screen.queryByRole('button', { name: /save draft/i })).not.toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: /publish/i })).not.toBeInTheDocument();
     });
   });
 
@@ -450,8 +575,8 @@ describe('TemplateEditorPage', () => {
     it('does not show action buttons', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
       expect(screen.queryByRole('button', { name: /save/i })).not.toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: /publish/i })).not.toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: /archive/i })).not.toBeInTheDocument();
+      expect(screen.queryByTestId('metadata-publish')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('metadata-archive')).not.toBeInTheDocument();
     });
   });
 
@@ -491,8 +616,10 @@ describe('TemplateEditorPage', () => {
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
       expect(screen.queryByRole('button', { name: /save/i })).not.toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: /publish/i })).not.toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: /archive/i })).not.toBeInTheDocument();
+      // Publish/Archive are in MetadataTab, but with readOnly the MetadataTab
+      // mock won't render them (onPublish/onArchive won't be passed)
+      expect(screen.queryByTestId('metadata-publish')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('metadata-archive')).not.toBeInTheDocument();
     });
   });
 
@@ -621,12 +748,12 @@ describe('TemplateEditorPage', () => {
       expect(mockUpdateMutateAsync).toHaveBeenCalledTimes(1);
     });
 
-    it('calls publishMutation when Publish is clicked', async () => {
+    it('calls publishMutation when Publish is clicked via MetadataTab', async () => {
       const user = userEvent.setup();
       mockPublishMutateAsync.mockResolvedValue(activeTemplate);
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-      await user.click(screen.getByRole('button', { name: /publish/i }));
+      await user.click(screen.getByTestId('metadata-publish'));
       expect(mockPublishMutateAsync).toHaveBeenCalledWith('t1');
     });
   });
@@ -684,11 +811,11 @@ describe('TemplateEditorPage', () => {
       });
     });
 
-    it('opens archive confirmation dialog when Archive is clicked', async () => {
+    it('opens archive confirmation dialog when Archive is clicked via MetadataTab', async () => {
       const user = userEvent.setup();
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
-      await user.click(screen.getByRole('button', { name: /archive/i }));
+      await user.click(screen.getByTestId('metadata-archive'));
 
       expect(screen.getByText('Archive Template')).toBeInTheDocument();
       expect(
@@ -702,8 +829,8 @@ describe('TemplateEditorPage', () => {
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
-      // Open archive dialog
-      await user.click(screen.getByRole('button', { name: /archive/i }));
+      // Open archive dialog via MetadataTab
+      await user.click(screen.getByTestId('metadata-archive'));
 
       // Confirm archive - find the Archive button inside the dialog
       const archiveButtons = screen.getAllByRole('button', { name: /archive/i });
@@ -718,8 +845,8 @@ describe('TemplateEditorPage', () => {
       const user = userEvent.setup();
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
-      // Open archive dialog
-      await user.click(screen.getByRole('button', { name: /archive/i }));
+      // Open archive dialog via MetadataTab
+      await user.click(screen.getByTestId('metadata-archive'));
       expect(screen.getByText('Archive Template')).toBeInTheDocument();
 
       // Click Cancel
@@ -727,29 +854,6 @@ describe('TemplateEditorPage', () => {
       await waitFor(() => {
         expect(screen.queryByText('Archive Template')).not.toBeInTheDocument();
       });
-    });
-  });
-
-  describe('Versions tab', () => {
-    it('shows version history when Versions tab is clicked', async () => {
-      const user = userEvent.setup();
-      mockUseParams.mockReturnValue({ id: 't1' });
-      mockUseTemplate.mockReturnValue(
-        createTemplateQueryResult({
-          data: {
-            template: draftTemplate,
-            content: '# Draft content',
-            tags: [],
-          },
-        }),
-      );
-
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-
-      const versionsTab = screen.getByRole('tab', { name: /versions/i });
-      await user.click(versionsTab);
-
-      expect(screen.getByTestId('version-history')).toBeInTheDocument();
     });
   });
 
@@ -855,7 +959,7 @@ describe('TemplateEditorPage', () => {
     });
   });
 
-  describe('Active mode — publish', () => {
+  describe('Active mode — publish via MetadataTab', () => {
     beforeEach(() => {
       mockUseParams.mockReturnValue({ id: 't1' });
       mockUseTemplate.mockReturnValue(
@@ -865,18 +969,18 @@ describe('TemplateEditorPage', () => {
       );
     });
 
-    it('calls publishMutation when Publish is clicked', async () => {
+    it('calls publishMutation when Publish is clicked in MetadataTab', async () => {
       const user = userEvent.setup();
       mockPublishMutateAsync.mockResolvedValue({});
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-      await user.click(screen.getByRole('button', { name: /publish/i }));
+      await user.click(screen.getByTestId('metadata-publish'));
 
       expect(mockPublishMutateAsync).toHaveBeenCalledWith('t1');
     });
   });
 
-  describe('Active mode — archive flow', () => {
+  describe('Active mode — archive flow via MetadataTab', () => {
     beforeEach(() => {
       mockUseParams.mockReturnValue({ id: 't2' });
       mockUseTemplate.mockReturnValue(
@@ -891,7 +995,7 @@ describe('TemplateEditorPage', () => {
       mockArchiveMutateAsync.mockResolvedValue({});
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-      await user.click(screen.getByRole('button', { name: /archive/i }));
+      await user.click(screen.getByTestId('metadata-archive'));
 
       // Archive dialog should be open
       expect(screen.getByText('Archive Template')).toBeInTheDocument();
@@ -899,7 +1003,7 @@ describe('TemplateEditorPage', () => {
 
       // Click the Archive button in the dialog
       const archiveButtons = screen.getAllByRole('button', { name: /archive/i });
-      // The second Archive button is in the dialog
+      // The last Archive button is in the dialog
       const confirmBtn = archiveButtons[archiveButtons.length - 1];
       if (!confirmBtn) throw new Error('Expected archive confirm button');
       await user.click(confirmBtn);
@@ -911,7 +1015,7 @@ describe('TemplateEditorPage', () => {
       const user = userEvent.setup();
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-      await user.click(screen.getByRole('button', { name: /archive/i }));
+      await user.click(screen.getByTestId('metadata-archive'));
 
       expect(screen.getByText('Archive Template')).toBeInTheDocument();
 
@@ -972,27 +1076,7 @@ describe('TemplateEditorPage', () => {
     });
   });
 
-  describe('Edit mode — versions tab', () => {
-    beforeEach(() => {
-      mockUseParams.mockReturnValue({ id: 't2' });
-      mockUseTemplate.mockReturnValue(
-        createTemplateQueryResult({
-          data: { template: activeTemplate, content: '# Active', tags: [] },
-        }),
-      );
-    });
-
-    it('shows VersionHistory when Versions tab is clicked', async () => {
-      const user = userEvent.setup();
-
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-      await user.click(screen.getByRole('tab', { name: /versions/i }));
-
-      expect(screen.getByTestId('version-history')).toBeInTheDocument();
-    });
-  });
-
-  describe('Viewer role', () => {
+  describe('Viewer role — edit mode', () => {
     beforeEach(() => {
       mockUseAuth.mockReturnValue(viewerAuth);
       mockUseParams.mockReturnValue({ id: 't2' });
@@ -1006,7 +1090,7 @@ describe('TemplateEditorPage', () => {
     it('hides action buttons for viewer role', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
       expect(screen.queryByRole('button', { name: /save/i })).not.toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: /archive/i })).not.toBeInTheDocument();
+      expect(screen.queryByTestId('metadata-archive')).not.toBeInTheDocument();
     });
   });
 
@@ -1020,14 +1104,14 @@ describe('TemplateEditorPage', () => {
       );
     });
 
-    it('makes fields read-only for archived templates', () => {
+    it('makes title field read-only for archived templates', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
       const titleField = screen.getByLabelText(/title/i);
       expect(titleField).toBeDisabled();
     });
   });
 
-  describe('Loading state', () => {
+  describe('Loading state — duplicate', () => {
     it('shows loading spinner for edit mode while loading', () => {
       mockUseParams.mockReturnValue({ id: 't1' });
       mockUseTemplate.mockReturnValue(
@@ -1057,7 +1141,7 @@ describe('TemplateEditorPage', () => {
       await user.type(tagsInput, 'employment{Enter}');
 
       // The Autocomplete freeSolo should have accepted the input
-      // The key thing is the onChange callback (line 245-247) fires
+      // The key thing is the onChange callback fires
     });
   });
 
@@ -1072,8 +1156,8 @@ describe('TemplateEditorPage', () => {
       );
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-      const countryField = screen.getByLabelText(/country/i);
-      expect(countryField).toHaveValue('');
+      // Country is now in MetadataTab; check it receives empty string
+      expect(screen.getByTestId('metadata-country')).toHaveTextContent('');
     });
   });
 
@@ -1097,7 +1181,6 @@ describe('TemplateEditorPage', () => {
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
-      // Clear country (already empty from null)
       await user.click(screen.getByRole('button', { name: /save draft/i }));
 
       expect(mockUpdateMutateAsync).toHaveBeenCalledWith(
@@ -1208,31 +1291,6 @@ describe('TemplateEditorPage', () => {
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
       expect(screen.getByText('Loading...')).toBeInTheDocument();
-    });
-  });
-
-  describe('Tab navigation', () => {
-    it('switches between Edit and Versions tabs', async () => {
-      const user = userEvent.setup();
-      mockUseParams.mockReturnValue({ id: 't2' });
-      mockUseTemplate.mockReturnValue(
-        createTemplateQueryResult({
-          data: { template: activeTemplate, content: '# Active', tags: [] },
-        }),
-      );
-
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-
-      // Initially on Edit tab
-      expect(screen.getByLabelText(/title/i)).toBeInTheDocument();
-
-      // Switch to Versions tab
-      await user.click(screen.getByRole('tab', { name: /versions/i }));
-      expect(screen.getByTestId('version-history')).toBeInTheDocument();
-
-      // Switch back to Edit tab
-      await user.click(screen.getByRole('tab', { name: /edit/i }));
-      expect(screen.getByLabelText(/title/i)).toBeInTheDocument();
     });
   });
 
@@ -1425,6 +1483,148 @@ describe('TemplateEditorPage', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
       await user.click(screen.getByTestId('mode-review'));
       expect(screen.getByTestId('review-content')).toBeInTheDocument();
+    });
+  });
+
+  describe('RightPane integration', () => {
+    beforeEach(() => {
+      mockUseParams.mockReturnValue({ id: 't1' });
+      mockUseTemplate.mockReturnValue(
+        createTemplateQueryResult({
+          data: {
+            template: draftTemplate,
+            content: '# Draft content',
+            tags: ['employment', 'legal'],
+          },
+        }),
+      );
+    });
+
+    it('RightPane is open by default in edit mode', () => {
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      expect(screen.getByTestId('right-pane')).toBeInTheDocument();
+    });
+
+    it('pane toggle changes RightPane visibility', async () => {
+      const user = userEvent.setup();
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      // Pane is open by default
+      expect(screen.getByTestId('right-pane')).toBeInTheDocument();
+
+      // Click toggle to close
+      await user.click(screen.getByTestId('toggle-pane'));
+
+      // Now pane should be closed
+      expect(screen.queryByTestId('right-pane')).not.toBeInTheDocument();
+      expect(screen.getByTestId('right-pane-closed')).toBeInTheDocument();
+
+      // Toggle open again
+      await user.click(screen.getByTestId('toggle-pane'));
+      expect(screen.getByTestId('right-pane')).toBeInTheDocument();
+    });
+
+    it('useKeyboardShortcuts is called with pane toggle handler', () => {
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      expect(mockUseKeyboardShortcuts).toHaveBeenCalledWith(
+        expect.objectContaining({
+          onTogglePane: expect.any(Function),
+          onEscape: expect.any(Function),
+        }),
+      );
+    });
+
+    it('useKeyboardShortcuts receives onShowHelp callback', () => {
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      expect(mockUseKeyboardShortcuts).toHaveBeenCalledWith(
+        expect.objectContaining({
+          onShowHelp: expect.any(Function),
+        }),
+      );
+    });
+
+    it('onShowHelp opens keyboard shortcut help dialog', () => {
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      // Help dialog should not be visible initially
+      expect(screen.queryByTestId('keyboard-shortcut-help')).not.toBeInTheDocument();
+
+      // Invoke the onShowHelp callback passed to useKeyboardShortcuts
+      const callArgs = mockUseKeyboardShortcuts.mock.calls.at(-1) as [{ onShowHelp: () => void }];
+      act(() => {
+        callArgs[0].onShowHelp();
+      });
+
+      // Re-render picks up the state change
+      expect(screen.getByTestId('keyboard-shortcut-help')).toBeInTheDocument();
+    });
+
+    it('closing keyboard shortcut help dialog hides it', async () => {
+      const user = userEvent.setup();
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      // Open it
+      const callArgs = mockUseKeyboardShortcuts.mock.calls.at(-1) as [{ onShowHelp: () => void }];
+      act(() => {
+        callArgs[0].onShowHelp();
+      });
+      expect(screen.getByTestId('keyboard-shortcut-help')).toBeInTheDocument();
+
+      // Close it
+      await user.click(screen.getByTestId('close-shortcut-help'));
+      expect(screen.queryByTestId('keyboard-shortcut-help')).not.toBeInTheDocument();
+    });
+
+    it('VersionHistory receives correct props in RightPane', () => {
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      expect(screen.getByTestId('version-history')).toHaveTextContent('Version history for t1 v1');
+    });
+
+    it('CommentsTab receives templateId in RightPane', () => {
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      expect(screen.getByTestId('comments-tab')).toHaveTextContent('t1');
+    });
+  });
+
+  describe('Four-zone layout', () => {
+    it('renders flex row layout in edit mode', () => {
+      mockUseParams.mockReturnValue({ id: 't1' });
+      mockUseTemplate.mockReturnValue(
+        createTemplateQueryResult({
+          data: {
+            template: draftTemplate,
+            content: '# Draft',
+            tags: [],
+          },
+        }),
+      );
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      // Both central workspace and right pane should be rendered
+      expect(screen.getByTestId('right-pane')).toBeInTheDocument();
+      expect(screen.getByTestId('editor-toolbar')).toBeInTheDocument();
+      expect(screen.getByLabelText(/title/i)).toBeInTheDocument();
+    });
+
+    it('does not render flex row in create mode (no RightPane)', () => {
+      mockUseParams.mockReturnValue({});
+      mockUseTemplate.mockReturnValue(
+        createTemplateQueryResult({
+          data: undefined,
+          isLoading: false,
+          isPending: true,
+          isSuccess: false,
+          status: 'pending',
+        }),
+      );
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      expect(screen.queryByTestId('right-pane')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('right-pane-closed')).not.toBeInTheDocument();
+      // But form fields should still be present
+      expect(screen.getByLabelText(/title/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/category/i)).toBeInTheDocument();
     });
   });
 });

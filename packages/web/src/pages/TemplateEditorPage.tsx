@@ -6,8 +6,6 @@ import {
   TextField,
   Button,
   IconButton,
-  Tab,
-  Tabs,
   Autocomplete,
   Chip,
   Dialog,
@@ -20,6 +18,9 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DownloadIcon from '@mui/icons-material/Download';
 import { MarkdownEditor } from '../components/MarkdownEditor.js';
 import { VersionHistory } from '../components/VersionHistory.js';
+import { RightPane } from '../components/RightPane.js';
+import { MetadataTab } from '../components/MetadataTab.js';
+import { CommentsTab } from '../components/CommentsTab.js';
 import { useAuth } from '../hooks/useAuth.js';
 import {
   useTemplate,
@@ -35,6 +36,9 @@ import { ConnectionStatus } from '../components/ConnectionStatus.js';
 import type { ConnectionStatusType } from '../components/ConnectionStatus.js';
 import { SaveVersionDialog } from '../components/SaveVersionDialog.js';
 import { EditorToolbar } from '../components/EditorToolbar.js';
+import { KeyboardShortcutHelp } from '../components/KeyboardShortcutHelp.js';
+import { markdownToHtml } from '../utils/markdownToHtml.js';
+import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts.js';
 import type { Template } from '@legalcode/shared';
 
 interface TemplateDetail {
@@ -59,7 +63,7 @@ export function TemplateEditorPage() {
   const publishMutation = usePublishTemplate();
   const archiveMutation = useArchiveTemplate();
 
-  const [activeTab, setActiveTab] = useState(0);
+  const [rightPaneOpen, setRightPaneOpen] = useState(true);
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState('');
   const [country, setCountry] = useState('');
@@ -74,6 +78,20 @@ export function TemplateEditorPage() {
   const [saveVersionOpen, setSaveVersionOpen] = useState(false);
   const [savingVersion, setSavingVersion] = useState(false);
   const [editorMode, setEditorMode] = useState<'source' | 'review'>('source');
+  const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false);
+
+  // Keyboard shortcuts for pane toggle and help dialog
+  useKeyboardShortcuts({
+    onTogglePane: useCallback(() => {
+      setRightPaneOpen((prev) => !prev);
+    }, []),
+    onEscape: useCallback(() => {
+      setRightPaneOpen(false);
+    }, []),
+    onShowHelp: useCallback(() => {
+      setShortcutHelpOpen(true);
+    }, []),
+  });
 
   // Collaboration — only for existing templates with edit permission
   const collaborationUser =
@@ -164,6 +182,10 @@ export function TemplateEditorPage() {
     [collaboration.saveVersion],
   );
 
+  const handleTogglePane = useCallback(() => {
+    setRightPaneOpen((prev) => !prev);
+  }, []);
+
   const status = templateData?.template.status;
   const isReadOnly = isViewer || status === 'archived';
   const wordCount = content.trim() === '' ? 0 : content.trim().split(/\s+/).length;
@@ -182,44 +204,40 @@ export function TemplateEditorPage() {
     : (templateData?.template.title ?? 'Loading...');
 
   return (
-    <Box sx={{ p: 3 }}>
-      {/* Top bar */}
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 3, gap: 1 }}>
-        <IconButton onClick={handleBack} aria-label="back">
-          <ArrowBackIcon />
-        </IconButton>
-        <Typography variant="h5" sx={{ flexGrow: 1 }}>
-          {headerTitle}
-        </Typography>
-        {!isCreateMode && collaboration.status !== 'disconnected' && (
-          <>
-            <ConnectionStatus status={collaboration.status as ConnectionStatusType} />
-            <PresenceAvatars users={collaboration.connectedUsers} />
-          </>
-        )}
-        {!isCreateMode && (
-          <IconButton onClick={handleExport} aria-label="export">
-            <DownloadIcon />
+    <Box sx={{ display: 'flex', height: '100%' }}>
+      {/* Central workspace */}
+      <Box
+        sx={{
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          minWidth: 0,
+          overflow: 'auto',
+          p: 3,
+        }}
+      >
+        {/* Top bar */}
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 3, gap: 1 }}>
+          <IconButton onClick={handleBack} aria-label="back">
+            <ArrowBackIcon />
           </IconButton>
-        )}
-      </Box>
+          <Typography variant="h5" sx={{ flexGrow: 1 }}>
+            {headerTitle}
+          </Typography>
+          {!isCreateMode && collaboration.status !== 'disconnected' && (
+            <>
+              <ConnectionStatus status={collaboration.status as ConnectionStatusType} />
+              <PresenceAvatars users={collaboration.connectedUsers} />
+            </>
+          )}
+          {!isCreateMode && (
+            <IconButton onClick={handleExport} aria-label="export">
+              <DownloadIcon />
+            </IconButton>
+          )}
+        </Box>
 
-      {/* Tabs (edit mode only) */}
-      {!isCreateMode && (
-        <Tabs
-          value={activeTab}
-          onChange={(_e, val: number) => {
-            setActiveTab(val);
-          }}
-          sx={{ mb: 3 }}
-        >
-          <Tab label="Edit" />
-          <Tab label="Versions" />
-        </Tabs>
-      )}
-
-      {/* Editor toolbar */}
-      {(isCreateMode || activeTab === 0) && (
+        {/* Editor toolbar */}
         <EditorToolbar
           mode={editorMode}
           onModeChange={setEditorMode}
@@ -235,107 +253,190 @@ export function TemplateEditorPage() {
           }
           readOnly={isReadOnly}
         />
-      )}
 
-      {/* Edit tab or create form */}
-      {(isCreateMode || activeTab === 0) && (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <TextField
-            label="Title"
-            value={title}
-            onChange={(e) => {
-              setTitle(e.target.value);
-            }}
-            required
-            disabled={isReadOnly}
-            fullWidth
-          />
-          <TextField
-            label="Category"
-            value={category}
-            onChange={(e) => {
-              setCategory(e.target.value);
-            }}
-            required
-            disabled={isReadOnly}
-            fullWidth
-          />
-          <TextField
-            label="Country"
-            value={country}
-            onChange={(e) => {
-              setCountry(e.target.value);
-            }}
-            placeholder="e.g. US, UK"
-            disabled={isReadOnly}
-            fullWidth
-          />
-          <Autocomplete
-            multiple
-            freeSolo
-            options={[]}
-            value={tags}
-            onChange={(_e, newValue: string[]) => {
-              setTags(newValue);
-            }}
-            disabled={isReadOnly}
-            renderValue={(value: string[], getItemProps) =>
-              value.map((option: string, index: number) => {
-                const { key, ...itemProps } = getItemProps({ index });
-                return <Chip key={key} label={option} size="small" {...itemProps} />;
-              })
-            }
-            renderInput={(params) => <TextField {...params} label="Tags" />}
-          />
-          {editorMode === 'source' ? (
-            <MarkdownEditor
-              defaultValue={isCreateMode ? undefined : templateData?.content}
-              onChange={handleContentChange}
-              readOnly={isReadOnly}
-              collaboration={
-                collaboration.ydoc && collaboration.awareness
-                  ? { ydoc: collaboration.ydoc, awareness: collaboration.awareness }
-                  : undefined
-              }
-            />
-          ) : (
-            <Box
-              data-testid="review-content"
-              sx={{
-                maxWidth: 860,
-                mx: 'auto',
-                p: 3,
-                backgroundColor: '#F7F0E6',
-                borderRadius: '12px',
-                fontFamily: '"Source Serif 4", Georgia, "Times New Roman", serif',
-                whiteSpace: 'pre-wrap',
-                minHeight: 200,
+        {/* Create mode: inline form with all fields */}
+        {isCreateMode && (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <TextField
+              label="Title"
+              value={title}
+              onChange={(e) => {
+                setTitle(e.target.value);
               }}
-            >
-              {content || 'No content yet'}
-            </Box>
-          )}
+              required
+              disabled={isReadOnly}
+              fullWidth
+            />
+            <TextField
+              label="Category"
+              value={category}
+              onChange={(e) => {
+                setCategory(e.target.value);
+              }}
+              required
+              disabled={isReadOnly}
+              fullWidth
+            />
+            <TextField
+              label="Country"
+              value={country}
+              onChange={(e) => {
+                setCountry(e.target.value);
+              }}
+              placeholder="e.g. US, UK"
+              disabled={isReadOnly}
+              fullWidth
+            />
+            <Autocomplete
+              multiple
+              freeSolo
+              options={[]}
+              value={tags}
+              onChange={(_e, newValue: string[]) => {
+                setTags(newValue);
+              }}
+              disabled={isReadOnly}
+              renderValue={(value: string[], getItemProps) =>
+                value.map((option: string, index: number) => {
+                  const { key, ...itemProps } = getItemProps({ index });
+                  return <Chip key={key} label={option} size="small" {...itemProps} />;
+                })
+              }
+              renderInput={(params) => <TextField {...params} label="Tags" />}
+            />
+            {editorMode === 'source' ? (
+              <MarkdownEditor
+                defaultValue={undefined}
+                onChange={handleContentChange}
+                readOnly={isReadOnly}
+                collaboration={undefined}
+              />
+            ) : (
+              <Box
+                data-testid="review-content"
+                sx={{
+                  maxWidth: 860,
+                  mx: 'auto',
+                  p: 3,
+                  backgroundColor: '#F7F0E6',
+                  borderRadius: '12px',
+                  fontFamily: '"Source Serif 4", Georgia, "Times New Roman", serif',
+                  lineHeight: 1.6,
+                  minHeight: 200,
+                  '& h1, & h2, & h3, & h4, & h5, & h6': {
+                    fontFamily: '"Source Serif 4", Georgia, "Times New Roman", serif',
+                    color: '#451F61',
+                    fontWeight: 600,
+                  },
+                  '& .template-var': {
+                    backgroundColor: '#8027FF1A',
+                    color: '#8027FF',
+                    padding: '2px 4px',
+                    borderRadius: '4px',
+                  },
+                  '& .clause-ref': {
+                    backgroundColor: '#8027FF1A',
+                    color: '#8027FF',
+                    padding: '2px 4px',
+                    borderRadius: '4px',
+                    fontStyle: 'italic',
+                  },
+                  '& a': { color: '#8027FF' },
+                  '& hr': { border: 'none', borderTop: '1px solid #D4C5B2', margin: '24px 0' },
+                  '& table': { borderCollapse: 'collapse', width: '100%' },
+                  '& td, & th': { border: '1px solid #D4C5B2', padding: '8px' },
+                }}
+                dangerouslySetInnerHTML={{
+                  __html: content ? markdownToHtml(content) : '<p>No content yet</p>',
+                }}
+              />
+            )}
 
-          {/* Action buttons */}
-          {!isViewer && (
-            <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
-              {isCreateMode && (
+            {/* Action buttons — create mode */}
+            {!isViewer && (
+              <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
                 <Button variant="contained" onClick={handleCreateDraft}>
                   Save Draft
                 </Button>
-              )}
-              {!isCreateMode && status === 'draft' && (
-                <>
+              </Box>
+            )}
+          </Box>
+        )}
+
+        {/* Edit mode: title + editor + action buttons (no inline category/country/tags) */}
+        {!isCreateMode && (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <TextField
+              label="Title"
+              value={title}
+              onChange={(e) => {
+                setTitle(e.target.value);
+              }}
+              required
+              disabled={isReadOnly}
+              fullWidth
+            />
+            {editorMode === 'source' ? (
+              <MarkdownEditor
+                defaultValue={templateData?.content}
+                onChange={handleContentChange}
+                readOnly={isReadOnly}
+                collaboration={
+                  collaboration.ydoc && collaboration.awareness
+                    ? { ydoc: collaboration.ydoc, awareness: collaboration.awareness }
+                    : undefined
+                }
+              />
+            ) : (
+              <Box
+                data-testid="review-content"
+                sx={{
+                  maxWidth: 860,
+                  mx: 'auto',
+                  p: 3,
+                  backgroundColor: '#F7F0E6',
+                  borderRadius: '12px',
+                  fontFamily: '"Source Serif 4", Georgia, "Times New Roman", serif',
+                  lineHeight: 1.6,
+                  minHeight: 200,
+                  '& h1, & h2, & h3, & h4, & h5, & h6': {
+                    fontFamily: '"Source Serif 4", Georgia, "Times New Roman", serif',
+                    color: '#451F61',
+                    fontWeight: 600,
+                  },
+                  '& .template-var': {
+                    backgroundColor: '#8027FF1A',
+                    color: '#8027FF',
+                    padding: '2px 4px',
+                    borderRadius: '4px',
+                  },
+                  '& .clause-ref': {
+                    backgroundColor: '#8027FF1A',
+                    color: '#8027FF',
+                    padding: '2px 4px',
+                    borderRadius: '4px',
+                    fontStyle: 'italic',
+                  },
+                  '& a': { color: '#8027FF' },
+                  '& hr': { border: 'none', borderTop: '1px solid #D4C5B2', margin: '24px 0' },
+                  '& table': { borderCollapse: 'collapse', width: '100%' },
+                  '& td, & th': { border: '1px solid #D4C5B2', padding: '8px' },
+                }}
+                dangerouslySetInnerHTML={{
+                  __html: content ? markdownToHtml(content) : '<p>No content yet</p>',
+                }}
+              />
+            )}
+
+            {/* Action buttons — edit mode */}
+            {!isViewer && (
+              <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
+                {status === 'draft' && (
                   <Button variant="contained" onClick={handleSaveDraft}>
                     Save Draft
                   </Button>
-                  <Button variant="outlined" onClick={handlePublish}>
-                    Publish
-                  </Button>
-                </>
-              )}
-              {!isCreateMode && status === 'active' && (
-                <>
+                )}
+                {status === 'active' && (
                   <Button
                     variant="contained"
                     onClick={() => {
@@ -344,19 +445,50 @@ export function TemplateEditorPage() {
                   >
                     Save Version
                   </Button>
-                  <Button variant="outlined" color="warning" onClick={handleArchiveClick}>
-                    Archive
-                  </Button>
-                </>
-              )}
-            </Box>
-          )}
-        </Box>
-      )}
+                )}
+              </Box>
+            )}
+          </Box>
+        )}
+      </Box>
 
-      {/* Versions tab */}
-      {!isCreateMode && activeTab === 1 && templateData != null && (
-        <VersionHistory templateId={id} currentVersion={templateData.template.currentVersion} />
+      {/* Right pane — edit mode only */}
+      {!isCreateMode && templateData != null && (
+        <RightPane
+          open={rightPaneOpen}
+          onToggle={handleTogglePane}
+          tabs={[
+            {
+              label: 'Metadata',
+              content: (
+                <MetadataTab
+                  category={templateData.template.category}
+                  country={templateData.template.country ?? ''}
+                  tags={templateData.tags}
+                  status={templateData.template.status}
+                  createdAt={templateData.template.createdAt}
+                  updatedAt={templateData.template.updatedAt}
+                  readOnly={isReadOnly}
+                  onPublish={!isReadOnly && status === 'draft' ? handlePublish : undefined}
+                  onArchive={!isReadOnly && status === 'active' ? handleArchiveClick : undefined}
+                />
+              ),
+            },
+            {
+              label: 'Comments',
+              content: <CommentsTab templateId={id} />,
+            },
+            {
+              label: 'Versions',
+              content: (
+                <VersionHistory
+                  templateId={id}
+                  currentVersion={templateData.template.currentVersion}
+                />
+              ),
+            },
+          ]}
+        />
       )}
 
       {/* Save version dialog */}
@@ -395,6 +527,14 @@ export function TemplateEditorPage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Keyboard shortcut help dialog */}
+      <KeyboardShortcutHelp
+        open={shortcutHelpOpen}
+        onClose={() => {
+          setShortcutHelpOpen(false);
+        }}
+      />
     </Box>
   );
 }

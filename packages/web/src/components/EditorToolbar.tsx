@@ -5,6 +5,10 @@ import FormatItalicOutlined from '@mui/icons-material/FormatItalicOutlined';
 import InsertLinkOutlined from '@mui/icons-material/InsertLinkOutlined';
 import FormatListBulletedOutlined from '@mui/icons-material/FormatListBulletedOutlined';
 import TableChartOutlined from '@mui/icons-material/TableChartOutlined';
+import FormatListNumberedOutlined from '@mui/icons-material/FormatListNumberedOutlined';
+import BookmarkBorderOutlined from '@mui/icons-material/BookmarkBorderOutlined';
+import CodeOutlined from '@mui/icons-material/CodeOutlined';
+import HorizontalRuleOutlined from '@mui/icons-material/HorizontalRuleOutlined';
 import { ConnectionStatus } from './ConnectionStatus.js';
 import type { ConnectionStatusType } from './ConnectionStatus.js';
 
@@ -14,6 +18,7 @@ interface EditorToolbarProps {
   wordCount: number;
   connectionStatus?: ConnectionStatusType | undefined;
   readOnly?: boolean | undefined;
+  onInsertMarkdown?: ((prefix: string, suffix?: string) => void) | undefined;
 }
 
 const activeButtonStyle = {
@@ -51,6 +56,7 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
   wordCount,
   connectionStatus,
   readOnly,
+  onInsertMarkdown,
 }) => {
   const showMarkdownHelpers = mode === 'source' && !readOnly;
 
@@ -100,23 +106,95 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
       {/* Center: Markdown helper buttons */}
       {showMarkdownHelpers && (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <IconButton aria-label="Heading" sx={helperButtonStyle}>
+          <IconButton
+            aria-label="Heading"
+            sx={helperButtonStyle}
+            onClick={() => {
+              onInsertMarkdown?.('## ', '');
+            }}
+          >
             <TitleOutlined />
           </IconButton>
-          <IconButton aria-label="Bold" sx={helperButtonStyle}>
+          <IconButton
+            aria-label="Bold"
+            sx={helperButtonStyle}
+            onClick={() => {
+              onInsertMarkdown?.('**', '**');
+            }}
+          >
             <FormatBoldOutlined />
           </IconButton>
-          <IconButton aria-label="Italic" sx={helperButtonStyle}>
+          <IconButton
+            aria-label="Italic"
+            sx={helperButtonStyle}
+            onClick={() => {
+              onInsertMarkdown?.('*', '*');
+            }}
+          >
             <FormatItalicOutlined />
           </IconButton>
-          <IconButton aria-label="Link" sx={helperButtonStyle}>
+          <IconButton
+            aria-label="Link"
+            sx={helperButtonStyle}
+            onClick={() => {
+              onInsertMarkdown?.('[', '](url)');
+            }}
+          >
             <InsertLinkOutlined />
           </IconButton>
-          <IconButton aria-label="List" sx={helperButtonStyle}>
+          <IconButton
+            aria-label="List"
+            sx={helperButtonStyle}
+            onClick={() => {
+              onInsertMarkdown?.('- ', '');
+            }}
+          >
             <FormatListBulletedOutlined />
           </IconButton>
-          <IconButton aria-label="Table" sx={helperButtonStyle}>
+          <IconButton
+            aria-label="Ordered List"
+            sx={helperButtonStyle}
+            onClick={() => {
+              onInsertMarkdown?.('1. ', '');
+            }}
+          >
+            <FormatListNumberedOutlined />
+          </IconButton>
+          <IconButton
+            aria-label="Table"
+            sx={helperButtonStyle}
+            onClick={() => {
+              onInsertMarkdown?.('| Header | Header |\n| --- | --- |\n| Cell | Cell |', '');
+            }}
+          >
             <TableChartOutlined />
+          </IconButton>
+          <IconButton
+            aria-label="Clause Reference"
+            sx={helperButtonStyle}
+            onClick={() => {
+              onInsertMarkdown?.('{{clause:', '}}');
+            }}
+          >
+            <BookmarkBorderOutlined />
+          </IconButton>
+          <IconButton
+            aria-label="Variable"
+            sx={helperButtonStyle}
+            onClick={() => {
+              onInsertMarkdown?.('{{var:', '}}');
+            }}
+          >
+            <CodeOutlined />
+          </IconButton>
+          <IconButton
+            aria-label="Horizontal Rule"
+            sx={helperButtonStyle}
+            onClick={() => {
+              onInsertMarkdown?.('\n---\n', '');
+            }}
+          >
+            <HorizontalRuleOutlined />
           </IconButton>
         </Box>
       )}

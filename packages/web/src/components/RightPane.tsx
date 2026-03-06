@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { Box, Tabs, Tab, IconButton } from '@mui/material';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import { springTransition, reducedMotionQuery } from '../theme/motion.js';
 
 interface RightPaneTab {
   label: string;
@@ -41,7 +42,10 @@ export function RightPane({ open, onToggle, tabs, defaultTab = 0 }: RightPanePro
         flexDirection: 'column',
         flexShrink: 0,
         zIndex: 40,
-        transition: 'width cubic-bezier(0.34, 1.56, 0.64, 1) 400ms',
+        transition: springTransition('width', 'expressive'),
+        [`@media ${reducedMotionQuery}`]: {
+          transition: 'none',
+        },
       }}
     >
       {/* Tab bar with collapse button */}
@@ -89,7 +93,10 @@ export function RightPane({ open, onToggle, tabs, defaultTab = 0 }: RightPanePro
           flex: 1,
           overflow: 'auto',
           p: 2,
-          transition: 'opacity cubic-bezier(0.2, 0, 0, 1) 150ms',
+          transition: springTransition('opacity', 'standard-fast'),
+          [`@media ${reducedMotionQuery}`]: {
+            transition: 'none',
+          },
         }}
       >
         {tabs[activeTab]?.content}
