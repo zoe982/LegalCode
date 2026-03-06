@@ -18,7 +18,15 @@ export default defineConfig({
         statements: 95,
       },
       include: ['packages/*/src/**/*.{ts,tsx}'],
-      exclude: ['node_modules/', 'e2e/', '**/*.d.ts', '**/*.config.*', '**/mocks/**'],
+      exclude: [
+        'node_modules/',
+        'e2e/',
+        '**/*.d.ts',
+        '**/*.config.*',
+        '**/mocks/**',
+        '**/main.tsx', // React entry point — not unit-testable
+        '**/types/**', // Pure type files — no runtime code
+      ],
     },
   },
 });

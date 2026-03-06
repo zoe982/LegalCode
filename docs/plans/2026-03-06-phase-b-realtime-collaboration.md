@@ -12,6 +12,50 @@
 
 ---
 
+## Testing Requirements (Standing — Applies to Every Task)
+
+These are non-negotiable quality gates. Every task must satisfy all of them before marking complete.
+
+### Per-File Coverage, Not Aggregate
+
+Vitest is configured with **95% per-file thresholds** (lines, functions, branches, statements). A 95% project-wide number can hide an untested module behind a well-tested one. The config enforces per-file — do not circumvent this. Every new file must have a corresponding test file that meets the threshold independently.
+
+### UI State Coverage Means Every State
+
+Every component with multiple visual states must have a test for **each state**, not just the happy path. Examples:
+
+- `ConnectionStatus` has 4 states (`connected`, `connecting`, `disconnected`, `reconnecting`) — 4 tests minimum
+- `SaveVersionDialog` has open/closed and saving/not-saving states — test each combination
+- `PresenceAvatars` must cover 0 users, 1 user, and multiple users
+- `useCollaboration` must cover all `ConnectionStatus` transitions including reconnection with exponential backoff
+
+A component that "renders" is not a tested component. A component where every branch is exercised is.
+
+### Integration Tests Are Mandatory, Not Stretch Goals
+
+Unit tests with mocked Yjs will not catch timing issues in the checkpoint-shutdown-recovery flow. The following integration tests are required:
+
+- **DO lifecycle**: Spin-up with checkpoint recovery vs D1 recovery (whichever is newer wins)
+- **Grace period**: Last editor disconnects → 30s alarm → version persisted to D1 → DO storage cleared
+- **Grace period cancellation**: Editor reconnects within 30s → alarm cancelled → sync resumes
+- **Connection limits**: 5 connections accepted, 6th rejected with 429 + `MAX_EDITORS`
+- **Checkpoint timing**: Verify checkpoint writes to DO storage every 5 minutes during active editing
+- **Crash recovery**: Simulate DO restart mid-edit → verify state recovered from checkpoint
+
+Use miniflare or equivalent for DO integration tests. Mock-only tests are acceptable for pure logic but not for lifecycle behavior.
+
+### Run All Quality Gates After Every Task
+
+```bash
+pnpm typecheck    # TypeScript strict
+pnpm lint         # ESLint strict-type-checked, zero warnings
+pnpm test         # Vitest 95% per-file coverage
+```
+
+If any gate fails, fix before committing. Do not defer fixes to Task 12.
+
+---
+
 ### Task 1: Install Yjs Dependencies
 
 **Files:**
