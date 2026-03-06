@@ -88,7 +88,7 @@ export function TemplateListPage() {
           zIndex: 10,
           backgroundColor: 'background.paper',
           pb: 2,
-          boxShadow: '0 2px 4px -1px rgba(0,0,0,0.06)',
+          boxShadow: '0 2px 4px -1px rgba(69,31,97,0.06)',
         }}
       >
         <Box sx={{ display: 'flex', gap: 2, mb: 2, alignItems: 'flex-start' }}>
@@ -188,13 +188,20 @@ export function TemplateListPage() {
         </Box>
       ) : (
         <Box>
-          {templates.map((template) => (
+          {templates.map((template, index) => (
             <Box
               key={template.id}
               className="template-row"
               data-testid={`template-row-${template.id}`}
+              tabIndex={0}
+              role="button"
               onClick={() => {
                 void navigate(`/templates/${template.id}`);
+              }}
+              onKeyDown={(e: React.KeyboardEvent) => {
+                if (e.key === 'Enter') {
+                  void navigate(`/templates/${template.id}`);
+                }
               }}
               sx={{
                 display: 'flex',
@@ -206,8 +213,26 @@ export function TemplateListPage() {
                 cursor: 'pointer',
                 borderBottom: '1px solid',
                 borderColor: 'divider',
+                animation: 'fadeSlideIn 200ms cubic-bezier(0.2, 0, 0, 1) both',
+                animationDelay: `${String(index * 40)}ms`,
+                '@keyframes fadeSlideIn': {
+                  from: {
+                    opacity: 0,
+                    transform: 'translateY(8px)',
+                  },
+                  to: {
+                    opacity: 1,
+                    transform: 'translateY(0)',
+                  },
+                },
                 '&:hover': {
-                  backgroundColor: '#E6D9C6',
+                  backgroundColor: '#DDD0BC',
+                  boxShadow: '0 1px 3px rgba(69,31,97,0.06)',
+                },
+                '&:focus-visible': {
+                  borderLeft: '3px solid #8027FF',
+                  backgroundColor: '#8027FF1A',
+                  outline: 'none',
                 },
               }}
             >
@@ -228,7 +253,7 @@ export function TemplateListPage() {
                   sx={{
                     opacity: 0,
                     transition: 'opacity cubic-bezier(0.2, 0, 0, 1) 150ms',
-                    '.template-row:hover &': { opacity: 1 },
+                    '.template-row:hover &, .template-row:focus-visible &': { opacity: 1 },
                     display: 'flex',
                     gap: 1.5,
                     alignItems: 'center',

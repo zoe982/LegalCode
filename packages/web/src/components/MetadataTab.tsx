@@ -1,4 +1,6 @@
-import { Box, Typography, Chip, Button } from '@mui/material';
+import { useState, useCallback } from 'react';
+import type { KeyboardEvent } from 'react';
+import { Box, Typography, Chip, Button, TextField } from '@mui/material';
 import { StatusChip } from './StatusChip.js';
 
 interface MetadataTabProps {
@@ -9,8 +11,12 @@ interface MetadataTabProps {
   createdAt: string;
   updatedAt: string;
   readOnly?: boolean | undefined;
+  createdBy?: string | undefined;
   onPublish?: (() => void) | undefined;
   onArchive?: (() => void) | undefined;
+  onCategoryChange?: ((value: string) => void) | undefined;
+  onCountryChange?: ((value: string) => void) | undefined;
+  onTagsChange?: ((tags: string[]) => void) | undefined;
 }
 
 const labelStyle = {
@@ -27,6 +33,97 @@ const valueStyle = {
   color: '#451F61',
 };
 
+interface InlineEditFieldProps {
+  label: string;
+  value: string;
+  editable: boolean;
+  onChange?: ((value: string) => void) | undefined;
+}
+
+function InlineEditField({ label, value, editable, onChange }: InlineEditFieldProps) {
+  const [editing, setEditing] = useState(false);
+  const [editValue, setEditValue] = useState(value);
+
+  const handleClick = useCallback(() => {
+    if (editable && onChange) {
+      setEditValue(value);
+      setEditing(true);
+    }
+  }, [editable, onChange, value]);
+
+  const handleSave = useCallback(() => {
+    setEditing(false);
+    if (onChange && editValue !== value) {
+      onChange(editValue);
+    }
+  }, [editValue, value, onChange]);
+
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        setEditing(false);
+        if (onChange) {
+          onChange(editValue);
+        }
+      }
+    },
+    [editValue, onChange],
+  );
+
+  return (
+    <Box>
+      <Typography sx={labelStyle}>{label}</Typography>
+      {editing ? (
+        <TextField
+          value={editValue}
+          onChange={(e) => {
+            setEditValue(e.target.value);
+          }}
+          onBlur={handleSave}
+          onKeyDown={handleKeyDown}
+          variant="standard"
+          size="small"
+          autoFocus
+          slotProps={{
+            input: {
+              sx: {
+                ...valueStyle,
+                padding: 0,
+              },
+            },
+            htmlInput: {
+              'aria-label': label.toLowerCase(),
+            },
+          }}
+          fullWidth
+        />
+      ) : (
+        <Typography
+          sx={{
+            ...valueStyle,
+            ...(editable && onChange != null
+              ? {
+                  cursor: 'text',
+                  '&:hover': {
+                    backgroundColor: 'rgba(128,39,255,0.06)',
+                    borderRadius: '4px',
+                  },
+                  px: 0.5,
+                  py: 0.25,
+                  mx: -0.5,
+                }
+              : {}),
+          }}
+          onClick={handleClick}
+        >
+          {value}
+        </Typography>
+      )}
+    </Box>
+  );
+}
+
 export function MetadataTab({
   category,
   country,
@@ -35,26 +132,47 @@ export function MetadataTab({
   createdAt,
   updatedAt,
   readOnly,
+  createdBy,
   onPublish,
   onArchive,
+  onCategoryChange,
+  onCountryChange,
+  onTagsChange,
 }: MetadataTabProps) {
+  const isEditable = readOnly !== true;
+
   return (
     <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-      <Box>
-        <Typography sx={labelStyle}>Category</Typography>
-        <Typography sx={valueStyle}>{category}</Typography>
-      </Box>
+      <InlineEditField
+        label="Category"
+        value={category}
+        editable={isEditable}
+        onChange={onCategoryChange}
+      />
 
-      <Box>
-        <Typography sx={labelStyle}>Country</Typography>
-        <Typography sx={valueStyle}>{country}</Typography>
-      </Box>
+      <InlineEditField
+        label="Country"
+        value={country}
+        editable={isEditable}
+        onChange={onCountryChange}
+      />
 
       <Box>
         <Typography sx={labelStyle}>Tags</Typography>
         <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
           {tags.map((tag) => (
-            <Chip key={tag} label={tag} size="small" />
+            <Chip
+              key={tag}
+              label={tag}
+              size="small"
+              onDelete={
+                isEditable && onTagsChange
+                  ? () => {
+                      onTagsChange(tags.filter((t) => t !== tag));
+                    }
+                  : undefined
+              }
+            />
           ))}
         </Box>
       </Box>
@@ -63,6 +181,20 @@ export function MetadataTab({
         <Typography sx={labelStyle}>Status</Typography>
         <StatusChip status={status} />
       </Box>
+
+      {createdBy != null && (
+        <Box>
+          <Typography sx={labelStyle}>Created By</Typography>
+          <Typography
+            sx={{
+              fontSize: '0.75rem',
+              color: '#6B5A7A',
+            }}
+          >
+            {createdBy}
+          </Typography>
+        </Box>
+      )}
 
       <Box>
         <Typography sx={labelStyle}>Created</Typography>

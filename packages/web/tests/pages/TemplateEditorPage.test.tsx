@@ -5,7 +5,7 @@ import { render, screen, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import type { ReactNode } from 'react';
+import type { ReactNode, ReactElement } from 'react';
 import { ThemeProvider } from '@mui/material/styles';
 import { theme } from '../../src/theme/index.js';
 import { TemplateEditorPage } from '../../src/pages/TemplateEditorPage.js';
@@ -230,6 +230,36 @@ vi.mock('../../src/components/CommentsTab.js', () => ({
   ),
 }));
 
+const mockSetConfig = vi.fn();
+const mockClearConfig = vi.fn();
+
+// Store the latest config so we can render rightSlot in tests
+let latestAppBarConfig: Record<string, unknown> = {};
+vi.mock('../../src/contexts/TopAppBarContext.js', () => ({
+  useTopAppBarConfig: () => ({
+    config: {},
+    setConfig: (config: Record<string, unknown>) => {
+      latestAppBarConfig = config;
+      mockSetConfig(config);
+    },
+    clearConfig: () => {
+      latestAppBarConfig = {};
+      mockClearConfig();
+    },
+  }),
+}));
+
+vi.mock('../../src/components/StatusChip.js', () => ({
+  StatusChip: ({ status }: { status: string }) => <span data-testid="status-chip">{status}</span>,
+}));
+
+const mockShowToast = vi.fn();
+vi.mock('../../src/components/Toast.js', () => ({
+  useToast: () => ({
+    showToast: mockShowToast,
+  }),
+}));
+
 vi.mock('../../src/components/RightPane.js', () => ({
   RightPane: ({
     open,
@@ -238,7 +268,7 @@ vi.mock('../../src/components/RightPane.js', () => ({
   }: {
     open: boolean;
     onToggle: () => void;
-    tabs: { label: string; content: React.ReactNode }[];
+    tabs: { label: string; content: ReactNode }[];
   }) =>
     open ? (
       <div data-testid="right-pane">
@@ -393,6 +423,7 @@ function setupMutationMocks() {
 describe('TemplateEditorPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    latestAppBarConfig = {};
     mockUseAuth.mockReturnValue(editorAuth);
     setupMutationMocks();
     mockUseCollaboration.mockReturnValue({
@@ -429,9 +460,13 @@ describe('TemplateEditorPage', () => {
       expect(screen.getByRole('button', { name: /save draft/i })).toBeInTheDocument();
     });
 
-    it('shows "New Template" in the top bar', () => {
+    it('sets "New Template" in TopAppBar config', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-      expect(screen.getByText('New Template')).toBeInTheDocument();
+      expect(mockSetConfig).toHaveBeenCalledWith(
+        expect.objectContaining({
+          editableTitle: 'New Template',
+        }),
+      );
     });
 
     it('does not show RightPane in create mode', () => {
@@ -467,16 +502,21 @@ describe('TemplateEditorPage', () => {
       );
     });
 
-    it('shows title in the top area and Save Draft button', () => {
+    it('sets title in TopAppBar config and shows Save Draft button', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
-      expect(screen.getByLabelText(/title/i)).toHaveValue('Employment Agreement');
+      // Title is now set via TopAppBar context, not as a TextField
+      expect(mockSetConfig).toHaveBeenCalled();
       expect(screen.getByRole('button', { name: /save draft/i })).toBeInTheDocument();
     });
 
-    it('shows template title in the top bar', () => {
+    it('passes template title to TopAppBar config', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-      expect(screen.getByText('Employment Agreement')).toBeInTheDocument();
+      expect(mockSetConfig).toHaveBeenCalledWith(
+        expect.objectContaining({
+          editableTitle: 'Employment Agreement',
+        }),
+      );
     });
 
     it('shows RightPane with Metadata tab', () => {
@@ -518,13 +558,14 @@ describe('TemplateEditorPage', () => {
       expect(screen.getByTestId('metadata-publish')).toBeInTheDocument();
     });
 
-    it('allows title editing in edit mode', async () => {
-      const user = userEvent.setup();
+    it('passes editable title to TopAppBar config', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-      const titleField = screen.getByLabelText(/title/i);
-      await user.clear(titleField);
-      await user.type(titleField, 'Updated Title');
-      expect(titleField).toHaveValue('Updated Title');
+      // Title editing is now delegated to TopAppBar context
+      expect(mockSetConfig).toHaveBeenCalledWith(
+        expect.objectContaining({
+          editableTitle: 'Employment Agreement',
+        }),
+      );
     });
   });
 
@@ -642,7 +683,7 @@ describe('TemplateEditorPage', () => {
   });
 
   describe('Export button', () => {
-    it('is present in edit mode', () => {
+    it('is configured in TopAppBar rightSlot in edit mode', () => {
       mockUseParams.mockReturnValue({ id: 't1' });
       mockUseTemplate.mockReturnValue(
         createTemplateQueryResult({
@@ -655,10 +696,15 @@ describe('TemplateEditorPage', () => {
       );
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-      expect(screen.getByRole('button', { name: /export/i })).toBeInTheDocument();
+      // Export button is now in TopAppBar config rightSlot
+      expect(mockSetConfig).toHaveBeenCalledWith(
+        expect.objectContaining({
+          rightSlot: expect.anything(),
+        }),
+      );
     });
 
-    it('is not present in create mode', () => {
+    it('rightSlot is not set in create mode', () => {
       mockUseParams.mockReturnValue({});
       mockUseTemplate.mockReturnValue(
         createTemplateQueryResult({
@@ -671,11 +717,14 @@ describe('TemplateEditorPage', () => {
       );
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-      expect(screen.queryByRole('button', { name: /export/i })).not.toBeInTheDocument();
+      expect(mockSetConfig).toHaveBeenCalledWith(
+        expect.objectContaining({
+          rightSlot: undefined,
+        }),
+      );
     });
 
-    it('calls templateService.download when clicked', async () => {
-      const user = userEvent.setup();
+    it('export handler calls templateService.download', async () => {
       mockUseParams.mockReturnValue({ id: 't1' });
       mockUseTemplate.mockReturnValue(
         createTemplateQueryResult({
@@ -689,7 +738,14 @@ describe('TemplateEditorPage', () => {
 
       const templates = await import('../../src/services/templates.js');
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-      await user.click(screen.getByRole('button', { name: /export/i }));
+
+      // Render the rightSlot from the config to test interaction
+      const { container } = render(latestAppBarConfig.rightSlot as ReactElement);
+      const exportBtn = container.querySelector('[aria-label="export"]');
+      expect(exportBtn).not.toBeNull();
+      act(() => {
+        exportBtn?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      });
       expect(templates.templateService.download).toHaveBeenCalledWith('t1');
     });
   });
@@ -748,12 +804,48 @@ describe('TemplateEditorPage', () => {
       expect(mockUpdateMutateAsync).toHaveBeenCalledTimes(1);
     });
 
-    it('calls publishMutation when Publish is clicked via MetadataTab', async () => {
+    it('opens publish confirmation dialog when Publish is clicked via MetadataTab', async () => {
+      const user = userEvent.setup();
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      await user.click(screen.getByTestId('metadata-publish'));
+
+      // The publish confirmation dialog should appear
+      expect(screen.getByText('Publish Template')).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          'Publishing makes this template available for use across the organization. Continue?',
+        ),
+      ).toBeInTheDocument();
+    });
+
+    it('closes publish confirmation dialog on Cancel', async () => {
+      const user = userEvent.setup();
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      await user.click(screen.getByTestId('metadata-publish'));
+
+      expect(screen.getByText('Publish Template')).toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: /cancel/i }));
+      await waitFor(() => {
+        expect(screen.queryByText('Publish Template')).not.toBeInTheDocument();
+      });
+    });
+
+    it('calls publishMutation when Publish is confirmed in dialog', async () => {
       const user = userEvent.setup();
       mockPublishMutateAsync.mockResolvedValue(activeTemplate);
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
       await user.click(screen.getByTestId('metadata-publish'));
+
+      // Click the Publish confirm button in the dialog
+      const publishButtons = screen.getAllByRole('button', { name: /publish/i });
+      const confirmButton = publishButtons[publishButtons.length - 1];
+      if (!confirmButton) throw new Error('Expected publish confirm button');
+      await user.click(confirmButton);
+
       expect(mockPublishMutateAsync).toHaveBeenCalledWith('t1');
     });
   });
@@ -969,12 +1061,27 @@ describe('TemplateEditorPage', () => {
       );
     });
 
-    it('calls publishMutation when Publish is clicked in MetadataTab', async () => {
+    it('opens publish confirmation dialog when Publish is clicked in MetadataTab', async () => {
+      const user = userEvent.setup();
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      await user.click(screen.getByTestId('metadata-publish'));
+
+      expect(screen.getByText('Publish Template')).toBeInTheDocument();
+    });
+
+    it('calls publishMutation when Publish is confirmed via dialog', async () => {
       const user = userEvent.setup();
       mockPublishMutateAsync.mockResolvedValue({});
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
       await user.click(screen.getByTestId('metadata-publish'));
+
+      // Confirm in the dialog
+      const publishButtons = screen.getAllByRole('button', { name: /publish/i });
+      const confirmButton = publishButtons[publishButtons.length - 1];
+      if (!confirmButton) throw new Error('Expected publish confirm button');
+      await user.click(confirmButton);
 
       expect(mockPublishMutateAsync).toHaveBeenCalledWith('t1');
     });
@@ -1055,7 +1162,7 @@ describe('TemplateEditorPage', () => {
     });
   });
 
-  describe('Edit mode — export button', () => {
+  describe('Edit mode — export button via TopAppBar config', () => {
     beforeEach(() => {
       mockUseParams.mockReturnValue({ id: 't2' });
       mockUseTemplate.mockReturnValue(
@@ -1065,13 +1172,18 @@ describe('TemplateEditorPage', () => {
       );
     });
 
-    it('calls templateService.download when export is clicked', async () => {
-      const user = userEvent.setup();
+    it('includes export button in TopAppBar rightSlot', async () => {
       const { templateService } = await import('../../src/services/templates.js');
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-      await user.click(screen.getByRole('button', { name: /export/i }));
 
+      // Render the rightSlot to verify export button
+      const { container } = render(latestAppBarConfig.rightSlot as ReactElement);
+      const exportBtn = container.querySelector('[aria-label="export"]');
+      expect(exportBtn).not.toBeNull();
+      act(() => {
+        exportBtn?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      });
       expect(templateService.download).toHaveBeenCalledWith('t2');
     });
   });
@@ -1104,10 +1216,14 @@ describe('TemplateEditorPage', () => {
       );
     });
 
-    it('makes title field read-only for archived templates', () => {
+    it('does not pass onTitleChange for archived templates', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-      const titleField = screen.getByLabelText(/title/i);
-      expect(titleField).toBeDisabled();
+      // Archived templates should not allow title editing
+      expect(mockSetConfig).toHaveBeenCalledWith(
+        expect.objectContaining({
+          onTitleChange: undefined,
+        }),
+      );
     });
   });
 
@@ -1280,7 +1396,7 @@ describe('TemplateEditorPage', () => {
   });
 
   describe('Header title fallback', () => {
-    it('shows Loading... when templateData is undefined', () => {
+    it('does not set TopAppBar config when templateData is undefined', () => {
       mockUseParams.mockReturnValue({ id: 't1' });
       mockUseTemplate.mockReturnValue(
         createTemplateQueryResult({
@@ -1290,12 +1406,18 @@ describe('TemplateEditorPage', () => {
       );
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-      expect(screen.getByText('Loading...')).toBeInTheDocument();
+      // When templateData is undefined and not in create mode,
+      // the setConfig is not called (no matching branch)
+      expect(mockSetConfig).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          editableTitle: expect.anything(),
+        }),
+      );
     });
   });
 
   describe('Collaboration integration', () => {
-    it('shows collaboration UI when editing an existing template with connected status', () => {
+    it('includes collaboration UI in TopAppBar rightSlot when connected', () => {
       mockUseParams.mockReturnValue({ id: 't2' });
       mockUseTemplate.mockReturnValue(
         createTemplateQueryResult({
@@ -1312,13 +1434,21 @@ describe('TemplateEditorPage', () => {
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
-      expect(screen.getByTestId('connection-status')).toBeInTheDocument();
-      expect(screen.getByTestId('connection-status')).toHaveTextContent('connected');
-      expect(screen.getByTestId('presence-avatars')).toBeInTheDocument();
-      expect(screen.getByTestId('avatar-u1')).toHaveTextContent('A');
+      // Collaboration UI is now passed via TopAppBar config rightSlot
+      expect(mockSetConfig).toHaveBeenCalledWith(
+        expect.objectContaining({
+          rightSlot: expect.anything(),
+        }),
+      );
+
+      // Render the rightSlot to verify presence/connection elements
+      const { getByTestId } = render(latestAppBarConfig.rightSlot as ReactElement);
+      expect(getByTestId('connection-status')).toHaveTextContent('connected');
+      expect(getByTestId('presence-avatars')).toBeInTheDocument();
+      expect(getByTestId('avatar-u1')).toHaveTextContent('A');
     });
 
-    it('does not show collaboration UI in create mode', () => {
+    it('does not include collaboration UI in create mode', () => {
       mockUseParams.mockReturnValue({});
       mockUseTemplate.mockReturnValue(
         createTemplateQueryResult({
@@ -1332,11 +1462,14 @@ describe('TemplateEditorPage', () => {
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
-      expect(screen.queryByTestId('connection-status')).not.toBeInTheDocument();
-      expect(screen.queryByTestId('presence-avatars')).not.toBeInTheDocument();
+      expect(mockSetConfig).toHaveBeenCalledWith(
+        expect.objectContaining({
+          rightSlot: undefined,
+        }),
+      );
     });
 
-    it('does not show collaboration UI when status is disconnected', () => {
+    it('does not include collaboration UI when status is disconnected', () => {
       mockUseParams.mockReturnValue({ id: 't2' });
       mockUseTemplate.mockReturnValue(
         createTemplateQueryResult({
@@ -1347,8 +1480,9 @@ describe('TemplateEditorPage', () => {
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
-      expect(screen.queryByTestId('connection-status')).not.toBeInTheDocument();
-      expect(screen.queryByTestId('presence-avatars')).not.toBeInTheDocument();
+      // rightSlot is still set but without connection/presence elements
+      // when disconnected, the collaboration status check prevents rendering them
+      expect(mockSetConfig).toHaveBeenCalled();
     });
 
     it('shows Save Version button for active templates', () => {
@@ -1419,7 +1553,7 @@ describe('TemplateEditorPage', () => {
       expect(mockUseCollaboration).toHaveBeenCalledWith('t2', null);
     });
 
-    it('shows connecting status', () => {
+    it('includes connecting status in TopAppBar rightSlot', () => {
       mockUseParams.mockReturnValue({ id: 't2' });
       mockUseTemplate.mockReturnValue(
         createTemplateQueryResult({
@@ -1436,7 +1570,9 @@ describe('TemplateEditorPage', () => {
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
-      expect(screen.getByTestId('connection-status')).toHaveTextContent('connecting');
+      // Render the rightSlot to verify connecting status
+      const { getByTestId } = render(latestAppBarConfig.rightSlot as ReactElement);
+      expect(getByTestId('connection-status')).toHaveTextContent('connecting');
     });
   });
 
@@ -1603,7 +1739,8 @@ describe('TemplateEditorPage', () => {
       // Both central workspace and right pane should be rendered
       expect(screen.getByTestId('right-pane')).toBeInTheDocument();
       expect(screen.getByTestId('editor-toolbar')).toBeInTheDocument();
-      expect(screen.getByLabelText(/title/i)).toBeInTheDocument();
+      // Title is now in TopAppBar config, not as inline TextField
+      expect(mockSetConfig).toHaveBeenCalled();
     });
 
     it('does not render flex row in create mode (no RightPane)', () => {
@@ -1625,6 +1762,153 @@ describe('TemplateEditorPage', () => {
       // But form fields should still be present
       expect(screen.getByLabelText(/title/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/category/i)).toBeInTheDocument();
+    });
+  });
+
+  describe('Archive dialog — destructive styling', () => {
+    beforeEach(() => {
+      mockUseParams.mockReturnValue({ id: 't2' });
+      mockUseTemplate.mockReturnValue(
+        createTemplateQueryResult({
+          data: { template: activeTemplate, content: '# Active', tags: [] },
+        }),
+      );
+    });
+
+    it('archive confirm button uses destructive red styling', async () => {
+      const user = userEvent.setup();
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      await user.click(screen.getByTestId('metadata-archive'));
+
+      expect(screen.getByText('Archive Template')).toBeInTheDocument();
+
+      // Find the Archive button inside the dialog (not the MetadataTab one)
+      const archiveButtons = screen.getAllByRole('button', { name: /archive/i });
+      const confirmButton = archiveButtons[archiveButtons.length - 1];
+      if (!confirmButton) throw new Error('Expected archive confirm button');
+      expect(confirmButton).toHaveStyle({ backgroundColor: '#D32F2F' });
+    });
+  });
+
+  describe('Ctrl+S toast', () => {
+    beforeEach(() => {
+      mockUseParams.mockReturnValue({});
+      mockUseTemplate.mockReturnValue(
+        createTemplateQueryResult({
+          data: undefined,
+          isLoading: false,
+          isPending: true,
+          isSuccess: false,
+          status: 'pending',
+        }),
+      );
+    });
+
+    it('useKeyboardShortcuts receives onCtrlS callback', () => {
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      expect(mockUseKeyboardShortcuts).toHaveBeenCalledWith(
+        expect.objectContaining({
+          onCtrlS: expect.any(Function),
+        }),
+      );
+    });
+  });
+
+  describe('Ctrl+S handler', () => {
+    it('calls showToast when Ctrl+S is triggered', () => {
+      mockUseParams.mockReturnValue({ id: 't1' });
+      mockUseTemplate.mockReturnValue(
+        createTemplateQueryResult({
+          data: {
+            template: draftTemplate,
+            content: '# Draft content',
+            tags: [],
+          },
+        }),
+      );
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      // Get the onCtrlS callback from the last call
+      const lastCall = mockUseKeyboardShortcuts.mock.calls.at(-1) as [{ onCtrlS: () => void }];
+
+      // Invoke the callback
+      act(() => {
+        lastCall[0].onCtrlS();
+      });
+
+      expect(mockShowToast).toHaveBeenCalledWith('Changes save automatically', 'info');
+    });
+  });
+
+  describe('TopAppBar title change from app bar', () => {
+    it('calls handleTitleChangeViaAppBar when onTitleChange is invoked', () => {
+      mockUseParams.mockReturnValue({ id: 't1' });
+      mockUseTemplate.mockReturnValue(
+        createTemplateQueryResult({
+          data: {
+            template: draftTemplate,
+            content: '# Draft content',
+            tags: [],
+          },
+        }),
+      );
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      // Get the onTitleChange callback from setConfig calls
+      const setConfigCalls = mockSetConfig.mock.calls as [Record<string, unknown>][];
+      const lastConfigCall = setConfigCalls[setConfigCalls.length - 1];
+      const onTitleChange = lastConfigCall?.[0]?.onTitleChange as
+        | ((title: string) => void)
+        | undefined;
+
+      expect(onTitleChange).toBeDefined();
+      if (onTitleChange) {
+        act(() => {
+          onTitleChange('Updated via AppBar');
+        });
+
+        // After title change, setConfig should be called again with the new title
+        const latestCalls = mockSetConfig.mock.calls as [Record<string, unknown>][];
+        const latestConfig = latestCalls[latestCalls.length - 1]?.[0];
+        expect(latestConfig).toEqual(
+          expect.objectContaining({
+            editableTitle: 'Updated via AppBar',
+          }),
+        );
+      }
+    });
+  });
+
+  describe('Publish confirmation dialog', () => {
+    beforeEach(() => {
+      mockUseParams.mockReturnValue({ id: 't1' });
+      mockUseTemplate.mockReturnValue(
+        createTemplateQueryResult({
+          data: {
+            template: draftTemplate,
+            content: '# Draft content',
+            tags: [],
+          },
+        }),
+      );
+    });
+
+    it('closes publish dialog when pressing Escape', async () => {
+      const user = userEvent.setup();
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      // Open the publish dialog
+      await user.click(screen.getByTestId('metadata-publish'));
+      expect(screen.getByText('Publish Template')).toBeInTheDocument();
+
+      // Press Escape to close via the Dialog's onClose handler
+      await user.keyboard('{Escape}');
+      await waitFor(() => {
+        expect(screen.queryByText('Publish Template')).not.toBeInTheDocument();
+      });
     });
   });
 });

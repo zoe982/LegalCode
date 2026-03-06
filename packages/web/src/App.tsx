@@ -10,6 +10,9 @@ import { TemplateListPage } from './pages/TemplateListPage.js';
 import { TemplateEditorPage } from './pages/TemplateEditorPage.js';
 import { AdminPage } from './pages/AdminPage.js';
 import { SettingsPage } from './pages/SettingsPage.js';
+import { LoginPage } from './pages/LoginPage.js';
+import { OfflineBar } from './components/OfflineBar.js';
+import { ToastProvider } from './components/Toast.js';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -19,8 +22,16 @@ const queryClient = new QueryClient({
 
 export const routes: RouteObject[] = [
   {
+    path: '/login',
+    element: <LoginPage />,
+  },
+  {
     path: '/',
-    element: <AppShell />,
+    element: (
+      <AuthGuard>
+        <AppShell />
+      </AuthGuard>
+    ),
     children: [
       { index: true, element: <Navigate to="/templates" replace /> },
       { path: 'templates', element: <TemplateListPage /> },
@@ -40,9 +51,10 @@ export const App: React.FC = () => {
       <QueryClientProvider client={queryClient}>
         <ThemeProvider theme={theme}>
           <CssBaseline />
-          <AuthGuard>
+          <OfflineBar />
+          <ToastProvider>
             <RouterProvider router={router} />
-          </AuthGuard>
+          </ToastProvider>
         </ThemeProvider>
       </QueryClientProvider>
     </ErrorBoundary>

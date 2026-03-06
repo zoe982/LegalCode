@@ -1,14 +1,19 @@
 /// <reference types="@testing-library/jest-dom/vitest" />
-import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
 import { render, screen, waitFor, cleanup } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider, CssBaseline } from '@mui/material';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { theme } from '../src/theme/index.js';
-import { AuthGuard } from '../src/components/AuthGuard.js';
 import { App, routes } from '../src/App.js';
+import { ToastProvider } from '../src/components/Toast.js';
 import { server } from '../src/mocks/node.js';
 import { http, HttpResponse } from 'msw';
+
+// Mock useMediaQuery to simulate desktop viewport (>= 900px)
+vi.mock('@mui/material/useMediaQuery', () => ({
+  default: () => true,
+}));
 
 beforeAll(() => {
   server.listen();
@@ -36,9 +41,9 @@ function renderWithRouter(initialRoute = '/') {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <AuthGuard>
+        <ToastProvider>
           <RouterProvider router={router} />
-        </AuthGuard>
+        </ToastProvider>
       </ThemeProvider>
     </QueryClientProvider>,
   );
@@ -90,8 +95,9 @@ describe('App', () => {
     mockAuthenticatedUser();
     renderWithRouter('/templates/new');
     await waitFor(() => {
-      // The page heading says "New Template" — find it by heading role
-      expect(screen.getByRole('heading', { name: /new template/i })).toBeInTheDocument();
+      // "New Template" appears in both LeftNav CTA and TopAppBar title
+      const elements = screen.getAllByText('New Template');
+      expect(elements.length).toBeGreaterThanOrEqual(1);
     });
   });
 

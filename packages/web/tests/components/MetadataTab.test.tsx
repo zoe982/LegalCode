@@ -95,4 +95,134 @@ describe('MetadataTab', () => {
     expect(screen.queryByRole('button', { name: /publish/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /archive/i })).not.toBeInTheDocument();
   });
+
+  it('clicking category value shows input when not readOnly', async () => {
+    const user = userEvent.setup();
+    const onCategoryChange = vi.fn();
+    renderTab({ onCategoryChange });
+
+    // Click the category value to enter edit mode
+    const categoryValue = screen.getByText('Employment');
+    await user.click(categoryValue);
+
+    // An input should appear with the category value
+    const input = await screen.findByRole('textbox', { name: /category/i });
+    expect(input).toBeInTheDocument();
+    expect(input).toHaveValue('Employment');
+  });
+
+  it('editing category and blurring calls onCategoryChange', async () => {
+    const user = userEvent.setup();
+    const onCategoryChange = vi.fn();
+    renderTab({ onCategoryChange });
+
+    // Click to enter edit mode
+    const categoryValue = screen.getByText('Employment');
+    await user.click(categoryValue);
+
+    const input = screen.getByRole('textbox', { name: /category/i });
+    await user.clear(input);
+    await user.type(input, 'Compliance');
+    await user.tab();
+
+    expect(onCategoryChange).toHaveBeenCalledWith('Compliance');
+  });
+
+  it('clicking country value shows input when not readOnly', async () => {
+    const user = userEvent.setup();
+    const onCountryChange = vi.fn();
+    renderTab({ onCountryChange });
+
+    const countryValue = screen.getByText('US');
+    await user.click(countryValue);
+
+    const input = screen.getByRole('textbox', { name: /country/i });
+    expect(input).toBeInTheDocument();
+    expect(input).toHaveValue('US');
+  });
+
+  it('editing country and blurring calls onCountryChange', async () => {
+    const user = userEvent.setup();
+    const onCountryChange = vi.fn();
+    renderTab({ onCountryChange });
+
+    const countryValue = screen.getByText('US');
+    await user.click(countryValue);
+
+    const input = screen.getByRole('textbox', { name: /country/i });
+    await user.clear(input);
+    await user.type(input, 'UK');
+    await user.tab();
+
+    expect(onCountryChange).toHaveBeenCalledWith('UK');
+  });
+
+  it('shows "Created by" when createdBy prop is provided', () => {
+    renderTab({ createdBy: 'john@example.com' });
+    expect(screen.getByText('Created By')).toBeInTheDocument();
+    expect(screen.getByText('john@example.com')).toBeInTheDocument();
+  });
+
+  it('does not show "Created by" when createdBy prop is not provided', () => {
+    renderTab();
+    expect(screen.queryByText('Created By')).not.toBeInTheDocument();
+  });
+
+  it('fields are not editable when readOnly is true', async () => {
+    const user = userEvent.setup();
+    const onCategoryChange = vi.fn();
+    const onCountryChange = vi.fn();
+    renderTab({ readOnly: true, onCategoryChange, onCountryChange });
+
+    // Click the category value — it should NOT become an input
+    const categoryValue = screen.getByText('Employment');
+    await user.click(categoryValue);
+    expect(screen.queryByRole('textbox', { name: /category/i })).not.toBeInTheDocument();
+
+    // Click the country value — it should NOT become an input
+    const countryValue = screen.getByText('US');
+    await user.click(countryValue);
+    expect(screen.queryByRole('textbox', { name: /country/i })).not.toBeInTheDocument();
+  });
+
+  it('pressing Enter on category input saves and exits edit mode', async () => {
+    const user = userEvent.setup();
+    const onCategoryChange = vi.fn();
+    renderTab({ onCategoryChange });
+
+    const categoryValue = screen.getByText('Employment');
+    await user.click(categoryValue);
+
+    const input = screen.getByRole('textbox', { name: /category/i });
+    await user.clear(input);
+    await user.type(input, 'Tax{Enter}');
+
+    expect(onCategoryChange).toHaveBeenCalledWith('Tax');
+    // Input should be gone, back to display mode
+    expect(screen.queryByRole('textbox', { name: /category/i })).not.toBeInTheDocument();
+  });
+
+  it('deleting a tag calls onTagsChange with remaining tags', async () => {
+    const user = userEvent.setup();
+    const onTagsChange = vi.fn();
+    renderTab({ onTagsChange });
+
+    // MUI Chip with onDelete renders a delete icon; find the chip's delete button via its SVG
+    const cancelIcons = screen.getAllByTestId('CancelIcon');
+    expect(cancelIcons.length).toBe(2); // 'legal' and 'hr'
+    // The CancelIcon SVG is inside the clickable element — click the SVG itself
+    const firstIcon = cancelIcons[0];
+    if (firstIcon === undefined) throw new Error('Expected cancel icon');
+    await user.click(firstIcon);
+
+    expect(onTagsChange).toHaveBeenCalledWith(['hr']);
+  });
+
+  it('does not show delete on tags when readOnly', () => {
+    const onTagsChange = vi.fn();
+    renderTab({ readOnly: true, onTagsChange });
+
+    // No delete icons should be present
+    expect(screen.queryAllByTestId('CancelIcon').length).toBe(0);
+  });
 });

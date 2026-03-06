@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import {
   Box,
@@ -39,7 +39,10 @@ import { EditorToolbar } from '../components/EditorToolbar.js';
 import { KeyboardShortcutHelp } from '../components/KeyboardShortcutHelp.js';
 import { markdownToHtml } from '../utils/markdownToHtml.js';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts.js';
+import { useToast } from '../components/Toast.js';
 import type { Template } from '@legalcode/shared';
+import { useTopAppBarConfig } from '../contexts/TopAppBarContext.js';
+import { StatusChip } from '../components/StatusChip.js';
 
 interface TemplateDetail {
   template: Template;
@@ -80,6 +83,11 @@ export function TemplateEditorPage() {
   const [editorMode, setEditorMode] = useState<'source' | 'review'>('source');
   const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false);
 
+  // Publish confirmation dialog state
+  const [publishDialogOpen, setPublishDialogOpen] = useState(false);
+
+  const { showToast } = useToast();
+
   // Keyboard shortcuts for pane toggle and help dialog
   useKeyboardShortcuts({
     onTogglePane: useCallback(() => {
@@ -91,6 +99,9 @@ export function TemplateEditorPage() {
     onShowHelp: useCallback(() => {
       setShortcutHelpOpen(true);
     }, []),
+    onCtrlS: useCallback(() => {
+      showToast('Changes save automatically', 'info');
+    }, [showToast]),
   });
 
   // Collaboration — only for existing templates with edit permission
@@ -99,6 +110,65 @@ export function TemplateEditorPage() {
       ? { userId: user.id, email: user.email, color: '#1976d2' }
       : null;
   const collaboration = useCollaboration(!isCreateMode ? id : null, collaborationUser);
+
+  const status = templateData?.template.status;
+  const isReadOnly = isViewer || status === 'archived';
+
+  const handleExport = useCallback(() => {
+    if (id) {
+      void templateService.download(id);
+    }
+  }, [id]);
+
+  // Sync TopAppBar config for editor view
+  const { setConfig, clearConfig } = useTopAppBarConfig();
+
+  const handleTitleChangeViaAppBar = useCallback((newTitle: string) => {
+    setTitle(newTitle);
+  }, []);
+
+  useEffect(() => {
+    if (!isCreateMode && templateData) {
+      setConfig({
+        editableTitle: title || templateData.template.title,
+        onTitleChange: isReadOnly ? undefined : handleTitleChangeViaAppBar,
+        statusBadge: <StatusChip status={templateData.template.status} />,
+        rightSlot: (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            {collaboration.status !== 'disconnected' && (
+              <>
+                <ConnectionStatus status={collaboration.status as ConnectionStatusType} />
+                <PresenceAvatars users={collaboration.connectedUsers} />
+              </>
+            )}
+            <IconButton onClick={handleExport} aria-label="export">
+              <DownloadIcon />
+            </IconButton>
+          </Box>
+        ),
+      });
+    } else if (isCreateMode) {
+      setConfig({
+        editableTitle: 'New Template',
+        statusBadge: undefined,
+        rightSlot: undefined,
+      });
+    }
+    return () => {
+      clearConfig();
+    };
+  }, [
+    isCreateMode,
+    templateData,
+    title,
+    isReadOnly,
+    collaboration.status,
+    collaboration.connectedUsers,
+    setConfig,
+    clearConfig,
+    handleTitleChangeViaAppBar,
+    handleExport,
+  ]);
 
   // Initialize form when template data loads
   if (!isCreateMode && templateData && !formInitialized) {
@@ -117,12 +187,6 @@ export function TemplateEditorPage() {
   const handleBack = useCallback(() => {
     void navigate('/');
   }, [navigate]);
-
-  const handleExport = useCallback(() => {
-    if (id) {
-      void templateService.download(id);
-    }
-  }, [id]);
 
   const handleCreateDraft = useCallback(() => {
     void createMutation
@@ -154,10 +218,15 @@ export function TemplateEditorPage() {
     });
   }, [updateMutation, id, title, category, country, content, tags]);
 
-  const handlePublish = useCallback(() => {
+  const handlePublishClick = useCallback(() => {
+    setPublishDialogOpen(true);
+  }, []);
+
+  const handlePublishConfirm = useCallback(() => {
     /* v8 ignore next -- guard for TypeScript; id is always defined in edit mode */
     if (!id) return;
     void publishMutation.mutateAsync(id);
+    setPublishDialogOpen(false);
   }, [publishMutation, id]);
 
   const handleArchiveClick = useCallback(() => {
@@ -186,8 +255,6 @@ export function TemplateEditorPage() {
     setRightPaneOpen((prev) => !prev);
   }, []);
 
-  const status = templateData?.template.status;
-  const isReadOnly = isViewer || status === 'archived';
   const wordCount = content.trim() === '' ? 0 : content.trim().split(/\s+/).length;
 
   // Loading state for edit mode
@@ -198,10 +265,6 @@ export function TemplateEditorPage() {
       </Box>
     );
   }
-
-  const headerTitle = isCreateMode
-    ? 'New Template'
-    : (templateData?.template.title ?? 'Loading...');
 
   return (
     <Box sx={{ display: 'flex', height: '100%' }}>
@@ -216,25 +279,11 @@ export function TemplateEditorPage() {
           p: 3,
         }}
       >
-        {/* Top bar */}
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 3, gap: 1 }}>
-          <IconButton onClick={handleBack} aria-label="back">
+        {/* Back button */}
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, gap: 1 }}>
+          <IconButton onClick={handleBack} aria-label="back" size="small">
             <ArrowBackIcon />
           </IconButton>
-          <Typography variant="h5" sx={{ flexGrow: 1 }}>
-            {headerTitle}
-          </Typography>
-          {!isCreateMode && collaboration.status !== 'disconnected' && (
-            <>
-              <ConnectionStatus status={collaboration.status as ConnectionStatusType} />
-              <PresenceAvatars users={collaboration.connectedUsers} />
-            </>
-          )}
-          {!isCreateMode && (
-            <IconButton onClick={handleExport} aria-label="export">
-              <DownloadIcon />
-            </IconButton>
-          )}
         </Box>
 
         {/* Editor toolbar */}
@@ -305,12 +354,23 @@ export function TemplateEditorPage() {
               renderInput={(params) => <TextField {...params} label="Tags" />}
             />
             {editorMode === 'source' ? (
-              <MarkdownEditor
-                defaultValue={undefined}
-                onChange={handleContentChange}
-                readOnly={isReadOnly}
-                collaboration={undefined}
-              />
+              <Box
+                data-testid="source-editor-surface"
+                sx={{
+                  backgroundColor: '#F5EEE3',
+                  px: { xs: 3, lg: 6 },
+                  py: 2,
+                  borderRadius: '8px',
+                  flex: 1,
+                }}
+              >
+                <MarkdownEditor
+                  defaultValue={undefined}
+                  onChange={handleContentChange}
+                  readOnly={isReadOnly}
+                  collaboration={undefined}
+                />
+              </Box>
             ) : (
               <Box
                 data-testid="review-content"
@@ -363,30 +423,31 @@ export function TemplateEditorPage() {
           </Box>
         )}
 
-        {/* Edit mode: title + editor + action buttons (no inline category/country/tags) */}
+        {/* Edit mode: editor + action buttons (title moved to TopAppBar) */}
         {!isCreateMode && (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <TextField
-              label="Title"
-              value={title}
-              onChange={(e) => {
-                setTitle(e.target.value);
-              }}
-              required
-              disabled={isReadOnly}
-              fullWidth
-            />
             {editorMode === 'source' ? (
-              <MarkdownEditor
-                defaultValue={templateData?.content}
-                onChange={handleContentChange}
-                readOnly={isReadOnly}
-                collaboration={
-                  collaboration.ydoc && collaboration.awareness
-                    ? { ydoc: collaboration.ydoc, awareness: collaboration.awareness }
-                    : undefined
-                }
-              />
+              <Box
+                data-testid="source-editor-surface"
+                sx={{
+                  backgroundColor: '#F5EEE3',
+                  px: { xs: 3, lg: 6 },
+                  py: 2,
+                  borderRadius: '8px',
+                  flex: 1,
+                }}
+              >
+                <MarkdownEditor
+                  defaultValue={templateData?.content}
+                  onChange={handleContentChange}
+                  readOnly={isReadOnly}
+                  collaboration={
+                    collaboration.ydoc && collaboration.awareness
+                      ? { ydoc: collaboration.ydoc, awareness: collaboration.awareness }
+                      : undefined
+                  }
+                />
+              </Box>
             ) : (
               <Box
                 data-testid="review-content"
@@ -469,7 +530,7 @@ export function TemplateEditorPage() {
                   createdAt={templateData.template.createdAt}
                   updatedAt={templateData.template.updatedAt}
                   readOnly={isReadOnly}
-                  onPublish={!isReadOnly && status === 'draft' ? handlePublish : undefined}
+                  onPublish={!isReadOnly && status === 'draft' ? handlePublishClick : undefined}
                   onArchive={!isReadOnly && status === 'active' ? handleArchiveClick : undefined}
                 />
               ),
@@ -501,6 +562,62 @@ export function TemplateEditorPage() {
         saving={savingVersion}
       />
 
+      {/* Publish confirmation dialog */}
+      <Dialog
+        open={publishDialogOpen}
+        onClose={() => {
+          setPublishDialogOpen(false);
+        }}
+        slotProps={{
+          paper: {
+            sx: {
+              maxWidth: 480,
+              backgroundColor: '#F7F0E6',
+              borderRadius: '16px',
+            },
+          },
+          backdrop: {
+            sx: { backdropFilter: 'blur(4px)' },
+          },
+        }}
+      >
+        <DialogTitle
+          sx={{
+            fontFamily: '"Source Serif 4", Georgia, "Times New Roman", serif',
+            fontWeight: 600,
+            color: '#451F61',
+          }}
+        >
+          Publish Template
+        </DialogTitle>
+        <DialogContent>
+          <Typography>
+            Publishing makes this template available for use across the organization. Continue?
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
+              setPublishDialogOpen(false);
+            }}
+            sx={{ color: '#451F61' }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handlePublishConfirm}
+            sx={{
+              backgroundColor: '#8027FF',
+              color: '#fff',
+              '&:hover': { backgroundColor: '#6B1FD6' },
+            }}
+          >
+            Publish
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* Archive confirmation dialog */}
       <Dialog
         open={archiveDialogOpen}
@@ -522,7 +639,15 @@ export function TemplateEditorPage() {
           >
             Cancel
           </Button>
-          <Button variant="contained" color="warning" onClick={handleArchiveConfirm}>
+          <Button
+            variant="contained"
+            onClick={handleArchiveConfirm}
+            sx={{
+              backgroundColor: '#D32F2F',
+              color: '#fff',
+              '&:hover': { backgroundColor: '#B71C1C' },
+            }}
+          >
             Archive
           </Button>
         </DialogActions>

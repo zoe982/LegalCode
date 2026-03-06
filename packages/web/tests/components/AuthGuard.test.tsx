@@ -1,10 +1,9 @@
 /// <reference types="@testing-library/jest-dom/vitest" />
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import type { ReactNode } from 'react';
 import { ThemeProvider } from '@mui/material/styles';
+import { MemoryRouter, Routes, Route } from 'react-router';
 import { theme } from '../../src/theme/index.js';
 import { AuthGuard } from '../../src/components/AuthGuard.js';
 
@@ -14,14 +13,28 @@ vi.mock('../../src/hooks/useAuth.js', () => ({
   useAuth: () => mockUseAuth() as unknown,
 }));
 
-function Wrapper({ children }: { children: ReactNode }) {
+function renderWithRouter(initialRoute = '/protected') {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
-  return (
+  return render(
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider theme={theme}>{children}</ThemeProvider>
-    </QueryClientProvider>
+      <ThemeProvider theme={theme}>
+        <MemoryRouter initialEntries={[initialRoute]}>
+          <Routes>
+            <Route path="/login" element={<div data-testid="login-page">Login Page</div>} />
+            <Route
+              path="/protected"
+              element={
+                <AuthGuard>
+                  <div>Protected Content</div>
+                </AuthGuard>
+              }
+            />
+          </Routes>
+        </MemoryRouter>
+      </ThemeProvider>
+    </QueryClientProvider>,
   );
 }
 
@@ -35,12 +48,7 @@ describe('AuthGuard', () => {
       logout: vi.fn(),
       isLoggingOut: false,
     });
-    render(
-      <AuthGuard>
-        <div>Protected Content</div>
-      </AuthGuard>,
-      { wrapper: Wrapper },
-    );
+    renderWithRouter();
     expect(screen.getByRole('progressbar')).toBeInTheDocument();
     expect(screen.queryByText('Protected Content')).not.toBeInTheDocument();
   });
@@ -59,16 +67,11 @@ describe('AuthGuard', () => {
       logout: vi.fn(),
       isLoggingOut: false,
     });
-    render(
-      <AuthGuard>
-        <div>Protected Content</div>
-      </AuthGuard>,
-      { wrapper: Wrapper },
-    );
+    renderWithRouter();
     expect(screen.getByText('Protected Content')).toBeInTheDocument();
   });
 
-  it('shows sign in button when not authenticated', () => {
+  it('redirects to /login when not authenticated', () => {
     mockUseAuth.mockReturnValue({
       user: null,
       isLoading: false,
@@ -77,39 +80,12 @@ describe('AuthGuard', () => {
       logout: vi.fn(),
       isLoggingOut: false,
     });
-    render(
-      <AuthGuard>
-        <div>Protected Content</div>
-      </AuthGuard>,
-      { wrapper: Wrapper },
-    );
+    renderWithRouter();
     expect(screen.queryByText('Protected Content')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /sign in with google/i })).toBeInTheDocument();
+    expect(screen.getByTestId('login-page')).toBeInTheDocument();
   });
 
-  it('calls login when Sign in with Google button is clicked', async () => {
-    const user = userEvent.setup();
-    const mockLogin = vi.fn().mockResolvedValue(undefined);
-    mockUseAuth.mockReturnValue({
-      user: null,
-      isLoading: false,
-      isAuthenticated: false,
-      login: mockLogin,
-      logout: vi.fn(),
-      isLoggingOut: false,
-    });
-    render(
-      <AuthGuard>
-        <div>Protected Content</div>
-      </AuthGuard>,
-      { wrapper: Wrapper },
-    );
-    const signInButton = screen.getByRole('button', { name: /sign in with google/i });
-    await user.click(signInButton);
-    expect(mockLogin).toHaveBeenCalledTimes(1);
-  });
-
-  it('shows LegalCode heading and description when not authenticated', () => {
+  it('does not show protected content when not authenticated', () => {
     mockUseAuth.mockReturnValue({
       user: null,
       isLoading: false,
@@ -118,54 +94,35 @@ describe('AuthGuard', () => {
       logout: vi.fn(),
       isLoggingOut: false,
     });
-    render(
-      <AuthGuard>
-        <div>Protected Content</div>
-      </AuthGuard>,
-      { wrapper: Wrapper },
-    );
-    expect(screen.getByRole('heading', { name: /legalcode/i })).toBeInTheDocument();
-    expect(screen.getByText('by Acasus')).toBeInTheDocument();
+    renderWithRouter();
+    expect(screen.queryByText('Protected Content')).not.toBeInTheDocument();
   });
 
-  it('shows "by Acasus" subtitle on login screen', () => {
+  it('does not redirect when loading', () => {
     mockUseAuth.mockReturnValue({
       user: null,
-      isLoading: false,
+      isLoading: true,
       isAuthenticated: false,
       login: vi.fn(),
       logout: vi.fn(),
       isLoggingOut: false,
     });
-    render(
-      <AuthGuard>
-        <div>Protected Content</div>
-      </AuthGuard>,
-      { wrapper: Wrapper },
-    );
-    expect(screen.getByText('by Acasus')).toBeInTheDocument();
+    renderWithRouter();
+    expect(screen.queryByTestId('login-page')).not.toBeInTheDocument();
+    expect(screen.getByRole('progressbar')).toBeInTheDocument();
   });
 
-  it('login screen uses brand styling', () => {
+  it('uses beige background while loading', () => {
     mockUseAuth.mockReturnValue({
       user: null,
-      isLoading: false,
+      isLoading: true,
       isAuthenticated: false,
       login: vi.fn(),
       logout: vi.fn(),
       isLoggingOut: false,
     });
-    render(
-      <AuthGuard>
-        <div>Protected Content</div>
-      </AuthGuard>,
-      { wrapper: Wrapper },
-    );
-    const heading = screen.getByRole('heading', { name: /legalcode/i });
-    const headingStyles = window.getComputedStyle(heading);
-    expect(headingStyles.fontFamily).toContain('Source Serif 4');
-
-    const button = screen.getByRole('button', { name: /sign in with google/i });
-    expect(button).toHaveStyle({ backgroundColor: '#8027FF' });
+    renderWithRouter();
+    const container = screen.getByRole('progressbar').parentElement;
+    expect(container).toHaveStyle({ backgroundColor: '#EFE3D3' });
   });
 });

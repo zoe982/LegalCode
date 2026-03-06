@@ -4,6 +4,7 @@ interface ShortcutActions {
   onTogglePane?: (() => void) | undefined;
   onEscape?: (() => void) | undefined;
   onShowHelp?: (() => void) | undefined;
+  onCtrlS?: (() => void) | undefined;
 }
 
 export function useKeyboardShortcuts(actions: ShortcutActions): void {
@@ -21,6 +22,13 @@ export function useKeyboardShortcuts(actions: ShortcutActions): void {
       // Escape → close pane / dismiss dialog
       if (e.key === 'Escape') {
         actions.onEscape?.();
+        return;
+      }
+
+      // Ctrl/Cmd + S → save shortcut intercept
+      if (mod && e.key === 's') {
+        e.preventDefault();
+        actions.onCtrlS?.();
         return;
       }
 

@@ -9,7 +9,7 @@
         "hooks": [
           {
             "type": "prompt",
-            "prompt": "Analyze the user's prompt. If they are asking to implement a feature, fix a bug, add functionality, refactor behavior, or make any code change that would affect files in packages/*/src/, respond with a systemMessage reminding: 'TDD ENFORCED: Subagents write failing tests FIRST, then implementation code. Cook runs pnpm test DIRECTLY in the main session — NEVER delegate test execution to subagents (tests fail in subagent environments).' If the prompt is purely about reading, exploring, explaining, configuration, or non-code tasks, approve silently with no message.",
+            "prompt": "Analyze the user's prompt. APPROVE SILENTLY (no message) if the prompt is about: reading, exploring, explaining, verifying, checking, reviewing, auditing, configuration, documentation, or any non-code-writing task — including 'check if X is implemented' or 'verify X was done'. ONLY add a systemMessage if the user is explicitly requesting to WRITE new code, implement a feature, fix a bug, add functionality, or refactor — i.e., tasks that will CREATE or MODIFY source files. In that case, respond with systemMessage: 'TDD ENFORCED: Subagents write failing tests FIRST, then implementation code. Cook runs pnpm test DIRECTLY in the main session — NEVER delegate test execution to subagents (tests fail in subagent environments).' When in doubt, approve silently.",
             "timeout": 15
           }
         ]

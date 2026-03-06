@@ -7,6 +7,11 @@ import { ThemeProvider } from '@mui/material';
 import { theme } from '../../src/theme/index.js';
 import { AppShell } from '../../src/components/AppShell.js';
 
+// Mock useMediaQuery to simulate desktop viewport (>= 900px)
+vi.mock('@mui/material/useMediaQuery', () => ({
+  default: () => true,
+}));
+
 const mockUseAuth = vi.fn().mockReturnValue({
   user: { id: 'u1', email: 'alice@acasus.com', name: 'Alice', role: 'editor' as const },
   logout: vi.fn(),

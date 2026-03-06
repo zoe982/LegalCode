@@ -88,6 +88,25 @@ describe('useKeyboardShortcuts', () => {
       fireKey('P', { ctrlKey: true, shiftKey: true });
       fireKey('Escape');
       fireKey('/', { ctrlKey: true });
+      fireKey('s', { ctrlKey: true });
     }).not.toThrow();
+  });
+
+  it('calls onCtrlS on Ctrl+S', () => {
+    const onCtrlS = vi.fn();
+    renderHook(() => {
+      useKeyboardShortcuts({ onCtrlS });
+    });
+    fireKey('s', { ctrlKey: true });
+    expect(onCtrlS).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls onCtrlS on Meta+S (Mac)', () => {
+    const onCtrlS = vi.fn();
+    renderHook(() => {
+      useKeyboardShortcuts({ onCtrlS });
+    });
+    fireKey('s', { metaKey: true });
+    expect(onCtrlS).toHaveBeenCalledTimes(1);
   });
 });
