@@ -23,7 +23,9 @@ vi.mock('@milkdown/crepe', () => {
   return { Crepe: CrepeClass };
 });
 
-let capturedEditorCallback: ((root: HTMLElement) => unknown) | null = null;
+const captured: { editorCallback: ((root: HTMLElement) => unknown) | null } = {
+  editorCallback: null,
+};
 
 vi.mock('@milkdown/react', () => ({
   MilkdownProvider: ({ children }: { children: React.ReactNode }) => (
@@ -31,7 +33,7 @@ vi.mock('@milkdown/react', () => ({
   ),
   Milkdown: () => <div data-testid="milkdown-editor" />,
   useEditor: (cb: (root: HTMLElement) => unknown) => {
-    capturedEditorCallback = cb;
+    captured.editorCallback = cb;
     return { get: () => null };
   },
 }));
@@ -88,78 +90,74 @@ describe('MarkdownEditor', () => {
 
   it('invokes onChange callback when markdownUpdated fires', () => {
     const onChange = vi.fn();
-    capturedEditorCallback = null;
+    captured.editorCallback = null;
 
     render(<MarkdownEditor defaultValue="# Hello" onChange={onChange} />);
 
     // The useEditor mock captures the callback; invoke it with a fake root element
-    expect(capturedEditorCallback).not.toBeNull();
-    if (capturedEditorCallback) {
-      const fakeRoot = document.createElement('div');
-      capturedEditorCallback(fakeRoot);
+    const editorCb = captured.editorCallback as ((root: HTMLElement) => unknown) | null;
+    expect(editorCb).not.toBeNull();
+    const fakeRoot = document.createElement('div');
+    editorCb?.(fakeRoot);
 
-      // Crepe constructor was called; the `on` mock was called with a listener setup fn
-      expect(mockOn).toHaveBeenCalledTimes(1);
-      const listenerSetupFn = mockOn.mock.calls[0]![0] as (listener: {
-        markdownUpdated: (cb: (ctx: unknown, md: string) => void) => void;
-      }) => void;
+    // Crepe constructor was called; the `on` mock was called with a listener setup fn
+    expect(mockOn).toHaveBeenCalledTimes(1);
+    const listenerSetupFn = (mockOn.mock.calls[0] as unknown[])[0] as (listener: {
+      markdownUpdated: (cb: (ctx: unknown, md: string) => void) => void;
+    }) => void;
 
-      // Simulate the listener being called
-      const mockMarkdownUpdated = vi.fn();
-      listenerSetupFn({ markdownUpdated: mockMarkdownUpdated });
+    // Simulate the listener being called
+    const mockMarkdownUpdated = vi.fn();
+    listenerSetupFn({ markdownUpdated: mockMarkdownUpdated });
 
-      // The markdownUpdated callback should have been registered
-      expect(mockMarkdownUpdated).toHaveBeenCalledTimes(1);
-      const registeredCb = mockMarkdownUpdated.mock.calls[0]![0] as (
-        ctx: unknown,
-        md: string,
-      ) => void;
+    // The markdownUpdated callback should have been registered
+    expect(mockMarkdownUpdated).toHaveBeenCalledTimes(1);
+    const registeredCb = (mockMarkdownUpdated.mock.calls[0] as unknown[])[0] as (
+      ctx: unknown,
+      md: string,
+    ) => void;
 
-      // Simulate markdown update
-      registeredCb(null, '# Updated');
-      expect(onChange).toHaveBeenCalledWith('# Updated');
-    }
+    // Simulate markdown update
+    registeredCb(null, '# Updated');
+    expect(onChange).toHaveBeenCalledWith('# Updated');
   });
 
   it('calls setReadonly(true) when readOnly is true', () => {
-    capturedEditorCallback = null;
+    captured.editorCallback = null;
 
     render(<MarkdownEditor readOnly={true} />);
 
-    expect(capturedEditorCallback).not.toBeNull();
-    if (capturedEditorCallback) {
-      const fakeRoot = document.createElement('div');
-      capturedEditorCallback(fakeRoot);
+    const editorCb = captured.editorCallback as ((root: HTMLElement) => unknown) | null;
+    expect(editorCb).not.toBeNull();
+    const fakeRoot = document.createElement('div');
+    editorCb?.(fakeRoot);
 
-      expect(mockSetReadonly).toHaveBeenCalledWith(true);
-    }
+    expect(mockSetReadonly).toHaveBeenCalledWith(true);
   });
 
   it('does not call setReadonly when readOnly is false or undefined', () => {
-    capturedEditorCallback = null;
+    captured.editorCallback = null;
 
     render(<MarkdownEditor readOnly={false} />);
 
-    expect(capturedEditorCallback).not.toBeNull();
-    if (capturedEditorCallback) {
-      const fakeRoot = document.createElement('div');
-      capturedEditorCallback(fakeRoot);
+    const editorCb = captured.editorCallback as ((root: HTMLElement) => unknown) | null;
+    expect(editorCb).not.toBeNull();
+    const fakeRoot = document.createElement('div');
+    editorCb?.(fakeRoot);
 
-      expect(mockSetReadonly).not.toHaveBeenCalled();
-    }
+    expect(mockSetReadonly).not.toHaveBeenCalled();
   });
 
   it('does not call on() when onChange is not provided', () => {
-    capturedEditorCallback = null;
+    captured.editorCallback = null;
 
     render(<MarkdownEditor />);
 
-    expect(capturedEditorCallback).not.toBeNull();
-    if (capturedEditorCallback) {
-      const fakeRoot = document.createElement('div');
-      capturedEditorCallback(fakeRoot);
+    const editorCb = captured.editorCallback as ((root: HTMLElement) => unknown) | null;
+    expect(editorCb).not.toBeNull();
+    const fakeRoot = document.createElement('div');
+    editorCb?.(fakeRoot);
 
-      expect(mockOn).not.toHaveBeenCalled();
-    }
+    expect(mockOn).not.toHaveBeenCalled();
   });
 });

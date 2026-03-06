@@ -75,7 +75,13 @@ vi.mock('../../src/services/templates.js', () => ({
 }));
 
 vi.mock('../../src/components/VersionHistory.js', () => ({
-  VersionHistory: ({ templateId, currentVersion }: { templateId: string; currentVersion: number }) => (
+  VersionHistory: ({
+    templateId,
+    currentVersion,
+  }: {
+    templateId: string;
+    currentVersion: number;
+  }) => (
     <div data-testid="version-history">
       Version history for {templateId} v{String(currentVersion)}
     </div>
@@ -450,10 +456,11 @@ describe('TemplateEditorPage', () => {
         }),
       );
 
-      const { templateService } = await import('../../src/services/templates.js');
+      const templates = await import('../../src/services/templates.js');
       render(<TemplateEditorPage />, { wrapper: Wrapper });
       await user.click(screen.getByRole('button', { name: /export/i }));
-      expect(templateService.download).toHaveBeenCalledWith('t1');
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(templates.templateService.download).toHaveBeenCalledWith('t1');
     });
   });
 
@@ -752,7 +759,8 @@ describe('TemplateEditorPage', () => {
 
       await user.click(screen.getByRole('button', { name: /save draft/i }));
 
-      const callArgs = mockCreateMutateAsync.mock.calls[0]![0] as Record<string, unknown>;
+      const firstCall = mockCreateMutateAsync.mock.calls[0] as unknown[];
+      const callArgs = firstCall[0] as Record<string, unknown>;
       expect(callArgs.country).toBe('US');
     });
   });

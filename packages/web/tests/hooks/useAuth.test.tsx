@@ -104,9 +104,13 @@ describe('useAuth', () => {
       role: 'editor',
     });
     // Make logout hang so isPending stays true
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
     let resolveLogout: () => void = () => {};
     mockedAuthService.logout.mockImplementation(
-      () => new Promise<void>((resolve) => { resolveLogout = resolve; }),
+      () =>
+        new Promise<void>((resolve) => {
+          resolveLogout = resolve;
+        }),
     );
 
     const { result } = renderHook(() => useAuth(), { wrapper: createWrapper() });
@@ -141,6 +145,7 @@ describe('useAuth', () => {
     });
 
     void result.current.login();
+    // eslint-disable-next-line @typescript-eslint/unbound-method
     expect(mockedAuthService.startLogin).toHaveBeenCalledTimes(1);
   });
 });
