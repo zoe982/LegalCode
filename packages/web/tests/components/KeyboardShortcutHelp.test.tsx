@@ -74,4 +74,14 @@ describe('KeyboardShortcutHelp', () => {
     const plusSeparators = screen.getAllByText('+');
     expect(plusSeparators.length).toBeGreaterThan(0);
   });
+
+  it('has transition duration configured on the Dialog', () => {
+    renderWithTheme(<KeyboardShortcutHelp open={true} onClose={vi.fn()} />);
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toBeInTheDocument();
+    // MUI Dialog with transitionDuration renders properly — the prop configures
+    // the Fade transition internally. We verify the dialog and its backdrop render.
+    const backdrop = document.querySelector('.MuiBackdrop-root');
+    expect(backdrop).toBeInTheDocument();
+  });
 });

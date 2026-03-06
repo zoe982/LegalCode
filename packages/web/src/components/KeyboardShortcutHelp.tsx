@@ -74,6 +74,7 @@ export function KeyboardShortcutHelp({ open, onClose }: KeyboardShortcutHelpProp
       open={open}
       onClose={onClose}
       maxWidth={false}
+      transitionDuration={{ enter: 200, exit: 150 }}
       slotProps={{
         paper: {
           sx: {

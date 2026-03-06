@@ -37,6 +37,7 @@ export const SaveVersionDialog: React.FC<SaveVersionDialogProps> = ({
     <Dialog
       open={open}
       onClose={handleClose}
+      transitionDuration={{ enter: 200, exit: 150 }}
       slotProps={{
         paper: {
           sx: {
