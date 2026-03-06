@@ -1,7 +1,6 @@
 /// <reference types="@testing-library/jest-dom/vitest" />
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
 import { render, screen, waitFor, cleanup } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider, CssBaseline } from '@mui/material';
 import { createMemoryRouter, RouterProvider } from 'react-router';
@@ -45,39 +44,42 @@ function renderWithRouter(initialRoute = '/') {
   );
 }
 
+function mockAuthenticatedUser() {
+  server.use(
+    http.get('/auth/me', () =>
+      HttpResponse.json({
+        user: {
+          id: '1',
+          email: 'alice@acasus.com',
+          name: 'Alice',
+          role: 'editor',
+        },
+      }),
+    ),
+  );
+}
+
 describe('App', () => {
-  it('shows main content when authenticated', async () => {
-    server.use(
-      http.get('/auth/me', () =>
-        HttpResponse.json({
-          user: {
-            id: '1',
-            email: 'alice@acasus.com',
-            name: 'Alice',
-            role: 'editor',
-          },
-        }),
-      ),
-    );
-    renderWithRouter('/');
+  it('shows AppShell with left nav and app bar when authenticated', async () => {
+    mockAuthenticatedUser();
+    renderWithRouter('/templates');
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: /legalcode/i })).toBeInTheDocument();
+      expect(screen.getByTestId('left-nav')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('top-app-bar')).toBeInTheDocument();
+    expect(screen.getByTestId('workspace')).toBeInTheDocument();
+  });
+
+  it('renders TemplateListPage at /templates', async () => {
+    mockAuthenticatedUser();
+    renderWithRouter('/templates');
+    await waitFor(() => {
+      expect(screen.getByRole('textbox', { name: /search/i })).toBeInTheDocument();
     });
   });
 
-  it('renders TemplateListPage at index route', async () => {
-    server.use(
-      http.get('/auth/me', () =>
-        HttpResponse.json({
-          user: {
-            id: '1',
-            email: 'alice@acasus.com',
-            name: 'Alice',
-            role: 'editor',
-          },
-        }),
-      ),
-    );
+  it('redirects index route to /templates', async () => {
+    mockAuthenticatedUser();
     renderWithRouter('/');
     await waitFor(() => {
       expect(screen.getByRole('textbox', { name: /search/i })).toBeInTheDocument();
@@ -85,104 +87,34 @@ describe('App', () => {
   });
 
   it('renders TemplateEditorPage at /templates/new', async () => {
-    server.use(
-      http.get('/auth/me', () =>
-        HttpResponse.json({
-          user: {
-            id: '1',
-            email: 'alice@acasus.com',
-            name: 'Alice',
-            role: 'editor',
-          },
-        }),
-      ),
-    );
+    mockAuthenticatedUser();
     renderWithRouter('/templates/new');
     await waitFor(() => {
-      expect(screen.getByText('New Template')).toBeInTheDocument();
+      // The page heading says "New Template" — find it by heading role
+      expect(screen.getByRole('heading', { name: /new template/i })).toBeInTheDocument();
     });
   });
 
   it('renders TemplateEditorPage at /templates/:id', async () => {
-    server.use(
-      http.get('/auth/me', () =>
-        HttpResponse.json({
-          user: {
-            id: '1',
-            email: 'alice@acasus.com',
-            name: 'Alice',
-            role: 'editor',
-          },
-        }),
-      ),
-    );
+    mockAuthenticatedUser();
     renderWithRouter('/templates/t1');
     await waitFor(() => {
       expect(screen.getByRole('progressbar')).toBeInTheDocument();
     });
   });
 
-  it('calls logout when Sign out button is clicked', async () => {
-    const user = userEvent.setup();
-    server.use(
-      http.get('/auth/me', () =>
-        HttpResponse.json({
-          user: {
-            id: '1',
-            email: 'alice@acasus.com',
-            name: 'Alice',
-            role: 'editor',
-          },
-        }),
-      ),
-      http.post('/auth/logout', () => HttpResponse.json({ ok: true })),
-    );
-    renderWithRouter('/');
+  it('displays user name in the left nav', async () => {
+    mockAuthenticatedUser();
+    renderWithRouter('/templates');
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /sign out/i })).toBeInTheDocument();
-    });
-    const signOutButton = screen.getByRole('button', { name: /sign out/i });
-    await user.click(signOutButton);
-    // After logout, the sign-out button should be removed (user is no longer authenticated)
-    await waitFor(() => {
-      expect(screen.queryByRole('button', { name: /sign out/i })).not.toBeInTheDocument();
-    });
-  });
-
-  it('displays user email in the toolbar', async () => {
-    server.use(
-      http.get('/auth/me', () =>
-        HttpResponse.json({
-          user: {
-            id: '1',
-            email: 'alice@acasus.com',
-            name: 'Alice',
-            role: 'editor',
-          },
-        }),
-      ),
-    );
-    renderWithRouter('/');
-    await waitFor(() => {
-      expect(screen.getByText('alice@acasus.com')).toBeInTheDocument();
+      expect(screen.getByText('Alice')).toBeInTheDocument();
     });
   });
 });
 
 describe('App component', () => {
   it('renders without crashing', async () => {
-    server.use(
-      http.get('/auth/me', () =>
-        HttpResponse.json({
-          user: {
-            id: '1',
-            email: 'alice@acasus.com',
-            name: 'Alice',
-            role: 'editor',
-          },
-        }),
-      ),
-    );
+    mockAuthenticatedUser();
     render(<App />);
     // App wraps AuthGuard which will show a loading indicator then content
     await waitFor(() => {

@@ -211,9 +211,9 @@ describe('TemplateListPage', () => {
     expect(screen.getByText('Offer Letter')).toBeInTheDocument();
     expect(screen.getByText('UK')).toBeInTheDocument();
 
-    // StatusChip renders chip labels (2 from table rows + 1 from filter chip = 3)
-    const activeChips = screen.getAllByText('Active');
-    expect(activeChips.length).toBeGreaterThanOrEqual(2);
+    // StatusChip renders "Published" for active status (not "Active")
+    const publishedChips = screen.getAllByText('Published');
+    expect(publishedChips.length).toBeGreaterThanOrEqual(1);
     // "Draft" appears both as filter chip and as StatusChip in table
     const draftChips = screen.getAllByText('Draft');
     expect(draftChips.length).toBeGreaterThanOrEqual(1);

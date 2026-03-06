@@ -36,7 +36,7 @@
         "hooks": [
           {
             "type": "prompt",
-            "prompt": "Check the Agent tool call prompt text. ONLY deny if the prompt explicitly tells the subagent to EXECUTE test commands — meaning it instructs the subagent to RUN 'pnpm test', 'vitest', 'pnpm typecheck', 'pnpm lint', or 'pnpm security:scan' as a shell command. Writing test FILES, editing test code, or discussing test coverage is ALWAYS allowed — subagents are expected to write test files. The ban is ONLY on executing/running test commands. If the prompt tells the subagent to run any of these commands, return 'deny' with reason: 'SUBAGENT TEST BAN: Test commands must NEVER be run inside subagents. Cook runs all commands directly in the main session.' Otherwise return 'approve'.",
+            "prompt": "Check the Agent tool call prompt text. ONLY deny if the prompt contains an explicit instruction for the subagent to EXECUTE a shell command — specifically strings like 'run pnpm test', 'run vitest', 'run pnpm typecheck', 'run pnpm lint', 'execute pnpm', or 'run pnpm security:scan'. Writing test FILES, editing test code, discussing test strategy, mentioning coverage requirements, or asking the subagent to 'write tests' is ALWAYS allowed and must ALWAYS be approved. The ban is strictly on instructing the subagent to execute commands in a shell. If no shell execution instruction is present, return 'approve'.",
             "timeout": 15
           }
         ]

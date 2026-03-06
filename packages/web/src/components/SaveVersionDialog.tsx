@@ -34,8 +34,35 @@ export const SaveVersionDialog: React.FC<SaveVersionDialogProps> = ({
   };
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Save Version</DialogTitle>
+    <Dialog
+      open={open}
+      onClose={handleClose}
+      slotProps={{
+        paper: {
+          sx: {
+            maxWidth: '480px',
+            borderRadius: '16px',
+            backgroundColor: '#F7F0E6',
+          },
+        },
+        backdrop: {
+          sx: {
+            backgroundColor: 'rgba(239, 227, 211, 0.5)',
+            backdropFilter: 'blur(8px)',
+          },
+        },
+      }}
+    >
+      <DialogTitle
+        sx={{
+          fontFamily: '"Source Serif 4", serif',
+          fontSize: '1.5rem',
+          fontWeight: 600,
+          color: '#451F61',
+        }}
+      >
+        Create Version
+      </DialogTitle>
       <DialogContent>
         <TextField
           autoFocus
@@ -47,16 +74,45 @@ export const SaveVersionDialog: React.FC<SaveVersionDialogProps> = ({
           onChange={(e) => {
             setSummary(e.target.value);
           }}
-          sx={{ mt: 1 }}
+          sx={{
+            mt: 1,
+            '& .MuiOutlinedInput-root': {
+              borderRadius: '12px',
+              '& fieldset': {
+                borderColor: '#D4C5B2',
+              },
+            },
+            '& .MuiOutlinedInput-input': {
+              padding: '12px 16px',
+            },
+          }}
           slotProps={{ htmlInput: { maxLength: 500 } }}
         />
       </DialogContent>
       <DialogActions>
-        <Button onClick={handleClose} disabled={saving}>
+        <Button
+          onClick={handleClose}
+          disabled={saving}
+          sx={{
+            color: '#451F61',
+          }}
+        >
           Cancel
         </Button>
-        <Button onClick={handleSave} variant="contained" disabled={saving}>
-          {saving ? 'Saving...' : 'Save'}
+        <Button
+          onClick={handleSave}
+          variant="contained"
+          disabled={saving}
+          sx={{
+            backgroundColor: '#8027FF',
+            color: '#FFFFFF',
+            borderRadius: '12px',
+            '&:hover': {
+              backgroundColor: '#6B1FDB',
+            },
+          }}
+        >
+          {saving ? 'Creating...' : 'Create Version'}
         </Button>
       </DialogActions>
     </Dialog>

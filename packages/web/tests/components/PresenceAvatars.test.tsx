@@ -34,10 +34,36 @@ describe('PresenceAvatars', () => {
     expect(screen.getByText('Z')).toBeInTheDocument();
   });
 
-  it('applies user color as avatar background', () => {
+  it('renders avatars at 28px size', () => {
+    const users = [{ userId: 'u1', email: 'alice@example.com', color: '#ff0000' }];
+    render(<PresenceAvatars users={users} />);
+    const avatar = screen.getByText('A').closest('.MuiAvatar-root');
+    expect(avatar).toHaveStyle({ width: '28px', height: '28px' });
+  });
+
+  it('applies user cursor color as 2px border', () => {
     const users = [{ userId: 'u1', email: 'alice@example.com', color: 'rgb(255, 0, 0)' }];
     render(<PresenceAvatars users={users} />);
     const avatar = screen.getByText('A').closest('.MuiAvatar-root');
-    expect(avatar).toHaveStyle({ backgroundColor: 'rgb(255, 0, 0)' });
+    expect(avatar).toHaveStyle({ border: '2px solid rgb(255, 0, 0)' });
+  });
+
+  it('uses white background with cursor-colored text', () => {
+    const users = [{ userId: 'u1', email: 'alice@example.com', color: 'rgb(0, 0, 255)' }];
+    render(<PresenceAvatars users={users} />);
+    const avatar = screen.getByText('A').closest('.MuiAvatar-root');
+    expect(avatar).toHaveStyle({ backgroundColor: 'rgb(255, 255, 255)' });
+    expect(avatar).toHaveStyle({ color: 'rgb(0, 0, 255)' });
+  });
+
+  it('shows max 5 avatars with overflow count', () => {
+    const users = Array.from({ length: 7 }, (_, i) => ({
+      userId: `u${String(i)}`,
+      email: `user${String(i)}@example.com`,
+      color: '#ff0000',
+    }));
+    render(<PresenceAvatars users={users} />);
+    // AvatarGroup max=5 renders 5 avatars + 1 overflow indicator showing "+3"
+    expect(screen.getByText('+3')).toBeInTheDocument();
   });
 });

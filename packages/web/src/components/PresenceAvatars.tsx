@@ -21,9 +21,11 @@ export const PresenceAvatars: React.FC<PresenceAvatarsProps> = ({ users }) => {
         <Tooltip key={user.userId} title={user.email}>
           <Avatar
             sx={{
-              bgcolor: user.color,
-              width: 32,
-              height: 32,
+              bgcolor: '#ffffff',
+              color: user.color,
+              border: `2px solid ${user.color}`,
+              width: 28,
+              height: 28,
               fontSize: '0.875rem',
             }}
           >

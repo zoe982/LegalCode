@@ -15,3 +15,4 @@ playwright-report/
 # Track project settings and agent definitions (TDD enforcement, model policy)
 !.claude/settings.json
 !.claude/agents/
+!.claude/skills/
