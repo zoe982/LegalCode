@@ -2,27 +2,36 @@ import { useRef, useCallback } from 'react';
 import { Crepe } from '@milkdown/crepe';
 import { Milkdown, MilkdownProvider, useEditor } from '@milkdown/react';
 import { Box } from '@mui/material';
+import type { Doc as YDoc } from 'yjs';
+import type { Awareness } from 'y-protocols/awareness';
 
 import '@milkdown/crepe/theme/common/style.css';
 import '@milkdown/crepe/theme/frame.css';
+
+interface CollaborationConfig {
+  ydoc: YDoc;
+  awareness: Awareness;
+}
 
 interface MarkdownEditorProps {
   defaultValue?: string | undefined;
   onChange?: ((markdown: string) => void) | undefined;
   readOnly?: boolean | undefined;
+  collaboration?: CollaborationConfig | undefined;
 }
 
-function MilkdownEditor({ defaultValue, onChange, readOnly }: MarkdownEditorProps) {
+function MilkdownEditor({ defaultValue, onChange, readOnly, collaboration }: MarkdownEditorProps) {
   const crepeRef = useRef<Crepe | null>(null);
+  const isCollaborative = collaboration !== undefined;
 
   const editorCallback = useCallback(
     (root: HTMLElement) => {
       const crepe = new Crepe({
         root,
-        defaultValue: defaultValue ?? '',
+        defaultValue: isCollaborative ? '' : (defaultValue ?? ''),
       });
 
-      if (onChange) {
+      if (onChange && !isCollaborative) {
         crepe.on(
           (listener: { markdownUpdated: (cb: (ctx: unknown, md: string) => void) => void }) => {
             listener.markdownUpdated((_ctx: unknown, md: string) => {
@@ -40,7 +49,7 @@ function MilkdownEditor({ defaultValue, onChange, readOnly }: MarkdownEditorProp
 
       return crepe;
     },
-    [defaultValue, onChange, readOnly],
+    [defaultValue, onChange, readOnly, isCollaborative],
   );
 
   useEditor(editorCallback, []);
@@ -65,6 +74,7 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
           defaultValue={props.defaultValue}
           onChange={props.onChange}
           readOnly={props.readOnly}
+          collaboration={props.collaboration}
         />
       </MilkdownProvider>
     </Box>

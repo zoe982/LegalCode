@@ -29,6 +29,11 @@ import {
   useArchiveTemplate,
 } from '../hooks/useTemplates.js';
 import { templateService } from '../services/templates.js';
+import { useCollaboration } from '../hooks/useCollaboration.js';
+import { PresenceAvatars } from '../components/PresenceAvatars.js';
+import { ConnectionStatus } from '../components/ConnectionStatus.js';
+import type { ConnectionStatusType } from '../components/ConnectionStatus.js';
+import { SaveVersionDialog } from '../components/SaveVersionDialog.js';
 import type { Template } from '@legalcode/shared';
 
 interface TemplateDetail {
@@ -61,12 +66,19 @@ export function TemplateEditorPage() {
   const [content, setContent] = useState('');
   const [formInitialized, setFormInitialized] = useState(false);
 
-  // Change summary dialog state
-  const [changeSummaryOpen, setChangeSummaryOpen] = useState(false);
-  const [changeSummary, setChangeSummary] = useState('');
-
   // Archive confirmation dialog state
   const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
+
+  // Save version dialog state
+  const [saveVersionOpen, setSaveVersionOpen] = useState(false);
+  const [savingVersion, setSavingVersion] = useState(false);
+
+  // Collaboration — only for existing templates with edit permission
+  const collaborationUser =
+    !isCreateMode && !isViewer && user
+      ? { userId: user.id, email: user.email, color: '#1976d2' }
+      : null;
+  const collaboration = useCollaboration(!isCreateMode ? id : null, collaborationUser);
 
   // Initialize form when template data loads
   if (!isCreateMode && templateData && !formInitialized) {
@@ -122,28 +134,6 @@ export function TemplateEditorPage() {
     });
   }, [updateMutation, id, title, category, country, content, tags]);
 
-  const handleSaveActive = useCallback(() => {
-    setChangeSummaryOpen(true);
-  }, []);
-
-  const handleChangeSummaryConfirm = useCallback(() => {
-    /* v8 ignore next -- guard for TypeScript; id is always defined in edit mode */
-    if (!id) return;
-    void updateMutation.mutateAsync({
-      id,
-      data: {
-        title,
-        category,
-        country: country || undefined,
-        content,
-        changeSummary: changeSummary || undefined,
-        tags: tags.length > 0 ? tags : undefined,
-      },
-    });
-    setChangeSummaryOpen(false);
-    setChangeSummary('');
-  }, [updateMutation, id, title, category, country, content, changeSummary, tags]);
-
   const handlePublish = useCallback(() => {
     /* v8 ignore next -- guard for TypeScript; id is always defined in edit mode */
     if (!id) return;
@@ -160,6 +150,17 @@ export function TemplateEditorPage() {
     void archiveMutation.mutateAsync(id);
     setArchiveDialogOpen(false);
   }, [archiveMutation, id]);
+
+  const handleSaveVersion = useCallback(
+    (summary: string) => {
+      setSavingVersion(true);
+      void collaboration.saveVersion(summary).finally(() => {
+        setSavingVersion(false);
+        setSaveVersionOpen(false);
+      });
+    },
+    [collaboration.saveVersion],
+  );
 
   const status = templateData?.template.status;
   const isReadOnly = isViewer || status === 'archived';
@@ -187,6 +188,12 @@ export function TemplateEditorPage() {
         <Typography variant="h5" sx={{ flexGrow: 1 }}>
           {headerTitle}
         </Typography>
+        {!isCreateMode && collaboration.status !== 'disconnected' && (
+          <>
+            <ConnectionStatus status={collaboration.status as ConnectionStatusType} />
+            <PresenceAvatars users={collaboration.connectedUsers} />
+          </>
+        )}
         {!isCreateMode && (
           <IconButton onClick={handleExport} aria-label="export">
             <DownloadIcon />
@@ -262,6 +269,11 @@ export function TemplateEditorPage() {
             defaultValue={isCreateMode ? undefined : templateData?.content}
             onChange={handleContentChange}
             readOnly={isReadOnly}
+            collaboration={
+              collaboration.ydoc && collaboration.awareness
+                ? { ydoc: collaboration.ydoc, awareness: collaboration.awareness }
+                : undefined
+            }
           />
 
           {/* Action buttons */}
@@ -284,8 +296,13 @@ export function TemplateEditorPage() {
               )}
               {!isCreateMode && status === 'active' && (
                 <>
-                  <Button variant="contained" onClick={handleSaveActive}>
-                    Save
+                  <Button
+                    variant="contained"
+                    onClick={() => {
+                      setSaveVersionOpen(true);
+                    }}
+                  >
+                    Save Version
                   </Button>
                   <Button variant="outlined" color="warning" onClick={handleArchiveClick}>
                     Archive
@@ -302,41 +319,15 @@ export function TemplateEditorPage() {
         <VersionHistory templateId={id} currentVersion={templateData.template.currentVersion} />
       )}
 
-      {/* Change summary dialog */}
-      <Dialog
-        open={changeSummaryOpen}
+      {/* Save version dialog */}
+      <SaveVersionDialog
+        open={saveVersionOpen}
         onClose={() => {
-          setChangeSummaryOpen(false);
+          setSaveVersionOpen(false);
         }}
-      >
-        <DialogTitle>Change Summary</DialogTitle>
-        <DialogContent>
-          <TextField
-            autoFocus
-            label="Describe your changes"
-            value={changeSummary}
-            onChange={(e) => {
-              setChangeSummary(e.target.value);
-            }}
-            fullWidth
-            multiline
-            rows={3}
-            sx={{ mt: 1 }}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button
-            onClick={() => {
-              setChangeSummaryOpen(false);
-            }}
-          >
-            Cancel
-          </Button>
-          <Button variant="contained" onClick={handleChangeSummaryConfirm}>
-            Save
-          </Button>
-        </DialogActions>
-      </Dialog>
+        onSave={handleSaveVersion}
+        saving={savingVersion}
+      />
 
       {/* Archive confirmation dialog */}
       <Dialog

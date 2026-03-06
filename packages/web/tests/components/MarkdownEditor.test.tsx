@@ -1,6 +1,8 @@
 /// <reference types="@testing-library/jest-dom/vitest" />
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import type { Doc as YDoc } from 'yjs';
+import type { Awareness } from 'y-protocols/awareness';
 
 // Mock CSS imports that Milkdown uses
 vi.mock('@milkdown/crepe/theme/common/style.css', () => ({}));
@@ -159,5 +161,63 @@ describe('MarkdownEditor', () => {
     editorCb?.(fakeRoot);
 
     expect(mockOn).not.toHaveBeenCalled();
+  });
+
+  it('renders with collaboration prop without error', () => {
+    render(
+      <MarkdownEditor
+        collaboration={{
+          ydoc: {} as YDoc,
+          awareness: {} as Awareness,
+        }}
+      />,
+    );
+    expect(screen.getByTestId('milkdown-editor')).toBeInTheDocument();
+  });
+
+  it('does not register onChange listener when collaboration is provided', () => {
+    captured.editorCallback = null;
+    const onChange = vi.fn();
+
+    render(
+      <MarkdownEditor
+        onChange={onChange}
+        collaboration={{
+          ydoc: {} as YDoc,
+          awareness: {} as Awareness,
+        }}
+      />,
+    );
+
+    const editorCb = captured.editorCallback as ((root: HTMLElement) => unknown) | null;
+    expect(editorCb).not.toBeNull();
+    const fakeRoot = document.createElement('div');
+    editorCb?.(fakeRoot);
+
+    // In collaboration mode, onChange should NOT be registered
+    expect(mockOn).not.toHaveBeenCalled();
+  });
+
+  it('uses empty string as defaultValue in collaboration mode', async () => {
+    captured.editorCallback = null;
+
+    render(
+      <MarkdownEditor
+        defaultValue="# Should be ignored"
+        collaboration={{
+          ydoc: {} as YDoc,
+          awareness: {} as Awareness,
+        }}
+      />,
+    );
+
+    const editorCb = captured.editorCallback as ((root: HTMLElement) => unknown) | null;
+    expect(editorCb).not.toBeNull();
+    const fakeRoot = document.createElement('div');
+    editorCb?.(fakeRoot);
+
+    // Verify Crepe was called with empty string, not the defaultValue
+    const { Crepe: CrepeMock } = await import('@milkdown/crepe');
+    expect(CrepeMock).toHaveBeenCalledWith(expect.objectContaining({ defaultValue: '' }));
   });
 });

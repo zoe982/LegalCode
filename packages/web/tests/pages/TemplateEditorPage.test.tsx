@@ -89,6 +89,68 @@ vi.mock('../../src/components/VersionHistory.js', () => ({
   ),
 }));
 
+const mockSaveVersion = vi.fn<(summary: string) => Promise<void>>().mockResolvedValue(undefined);
+
+const mockUseCollaboration = vi.fn().mockReturnValue({
+  ydoc: null,
+  awareness: null,
+  status: 'disconnected',
+  connectedUsers: [],
+  saveVersion: mockSaveVersion,
+});
+
+vi.mock('../../src/hooks/useCollaboration.js', () => ({
+  useCollaboration: (...args: unknown[]) => mockUseCollaboration(...args) as unknown,
+}));
+
+vi.mock('../../src/components/PresenceAvatars.js', () => ({
+  PresenceAvatars: ({ users }: { users: { userId: string; email: string; color: string }[] }) => (
+    <div data-testid="presence-avatars">
+      {users.map((u) => (
+        <span key={u.userId} data-testid={`avatar-${u.userId}`}>
+          {u.email.charAt(0).toUpperCase()}
+        </span>
+      ))}
+    </div>
+  ),
+}));
+
+vi.mock('../../src/components/ConnectionStatus.js', () => ({
+  ConnectionStatus: ({ status }: { status: string }) => (
+    <span data-testid="connection-status">{status}</span>
+  ),
+}));
+
+vi.mock('../../src/components/SaveVersionDialog.js', () => ({
+  SaveVersionDialog: ({
+    open,
+    onClose,
+    onSave,
+    saving,
+  }: {
+    open: boolean;
+    onClose: () => void;
+    onSave: (summary: string) => void;
+    saving: boolean;
+  }) =>
+    open ? (
+      <div data-testid="save-version-dialog">
+        <span>{saving ? 'Saving...' : 'Save Version Dialog'}</span>
+        <button
+          onClick={() => {
+            onSave('test change');
+          }}
+          data-testid="save-version-confirm"
+        >
+          Save
+        </button>
+        <button onClick={onClose} data-testid="save-version-cancel">
+          Cancel
+        </button>
+      </div>
+    ) : null,
+}));
+
 // ── Helpers ──────────────────────────────────────────────────────────
 
 interface TemplateDetail {
@@ -224,6 +286,13 @@ describe('TemplateEditorPage', () => {
     vi.clearAllMocks();
     mockUseAuth.mockReturnValue(editorAuth);
     setupMutationMocks();
+    mockUseCollaboration.mockReturnValue({
+      ydoc: null,
+      awareness: null,
+      status: 'disconnected',
+      connectedUsers: [],
+      saveVersion: mockSaveVersion,
+    });
   });
 
   describe('Create mode', () => {
@@ -317,9 +386,9 @@ describe('TemplateEditorPage', () => {
       );
     });
 
-    it('shows Save and Archive buttons', () => {
+    it('shows Save Version and Archive buttons', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-      expect(screen.getByRole('button', { name: /^save$/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /save version/i })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /archive/i })).toBeInTheDocument();
     });
 
@@ -542,55 +611,42 @@ describe('TemplateEditorPage', () => {
       );
     });
 
-    it('opens change summary dialog when Save is clicked', async () => {
+    it('opens save version dialog when Save Version is clicked', async () => {
       const user = userEvent.setup();
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
-      await user.click(screen.getByRole('button', { name: /^save$/i }));
+      await user.click(screen.getByRole('button', { name: /save version/i }));
 
-      // Dialog should be visible
-      expect(screen.getByText('Change Summary')).toBeInTheDocument();
-      expect(screen.getByLabelText(/describe your changes/i)).toBeInTheDocument();
+      // SaveVersionDialog should be visible
+      expect(screen.getByTestId('save-version-dialog')).toBeInTheDocument();
     });
 
-    it('submits change summary and calls updateMutation', async () => {
+    it('calls saveVersion via SaveVersionDialog confirm', async () => {
       const user = userEvent.setup();
-      mockUpdateMutateAsync.mockResolvedValue(activeTemplate);
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
       // Open dialog
-      await user.click(screen.getByRole('button', { name: /^save$/i }));
-
-      // Type change summary
-      await user.type(screen.getByLabelText(/describe your changes/i), 'Updated clause 5');
+      await user.click(screen.getByRole('button', { name: /save version/i }));
 
       // Click Save in dialog
-      const dialogButtons = screen.getAllByRole('button', { name: /^save$/i });
-      // The dialog Save button is the last one
-      const dialogSaveButton = dialogButtons[dialogButtons.length - 1];
-      if (!dialogSaveButton) throw new Error('Expected dialog save button');
-      await user.click(dialogSaveButton);
+      await user.click(screen.getByTestId('save-version-confirm'));
 
-      expect(mockUpdateMutateAsync).toHaveBeenCalledTimes(1);
-      // Dialog should close
-      await waitFor(() => {
-        expect(screen.queryByText('Change Summary')).not.toBeInTheDocument();
-      });
+      expect(mockSaveVersion).toHaveBeenCalledWith('test change');
     });
 
-    it('closes change summary dialog on Cancel', async () => {
+    it('closes save version dialog on Cancel', async () => {
       const user = userEvent.setup();
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
       // Open dialog
-      await user.click(screen.getByRole('button', { name: /^save$/i }));
-      expect(screen.getByText('Change Summary')).toBeInTheDocument();
+      await user.click(screen.getByRole('button', { name: /save version/i }));
+      expect(screen.getByTestId('save-version-dialog')).toBeInTheDocument();
 
       // Click Cancel
-      await user.click(screen.getByRole('button', { name: /cancel/i }));
+      await user.click(screen.getByTestId('save-version-cancel'));
       await waitFor(() => {
-        expect(screen.queryByText('Change Summary')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('save-version-dialog')).not.toBeInTheDocument();
       });
     });
 
@@ -834,7 +890,7 @@ describe('TemplateEditorPage', () => {
     });
   });
 
-  describe('Active mode — change summary dialog onClose', () => {
+  describe('Active mode — save version dialog onClose', () => {
     beforeEach(() => {
       mockUseParams.mockReturnValue({ id: 't2' });
       mockUseTemplate.mockReturnValue(
@@ -844,19 +900,19 @@ describe('TemplateEditorPage', () => {
       );
     });
 
-    it('closes change summary dialog via onClose (backdrop/escape)', async () => {
+    it('closes save version dialog via cancel button', async () => {
       const user = userEvent.setup();
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-      await user.click(screen.getByRole('button', { name: /^save$/i }));
+      await user.click(screen.getByRole('button', { name: /save version/i }));
 
-      expect(screen.getByText('Change Summary')).toBeInTheDocument();
+      expect(screen.getByTestId('save-version-dialog')).toBeInTheDocument();
 
-      // Press Escape to close
-      await user.keyboard('{Escape}');
+      // Click cancel
+      await user.click(screen.getByTestId('save-version-cancel'));
 
       await waitFor(() => {
-        expect(screen.queryByText('Change Summary')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('save-version-dialog')).not.toBeInTheDocument();
       });
     });
   });
@@ -1021,7 +1077,7 @@ describe('TemplateEditorPage', () => {
     });
   });
 
-  describe('Active mode — change summary save with optional fields', () => {
+  describe('Active mode — save version with collaboration', () => {
     beforeEach(() => {
       mockUseParams.mockReturnValue({ id: 't2' });
       mockUseTemplate.mockReturnValue(
@@ -1035,94 +1091,45 @@ describe('TemplateEditorPage', () => {
       );
     });
 
-    it('sends country and tags when present', async () => {
+    it('calls collaboration.saveVersion via SaveVersionDialog', async () => {
       const user = userEvent.setup();
-      mockUpdateMutateAsync.mockResolvedValue({});
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
-      // Open change summary dialog
-      await user.click(screen.getByRole('button', { name: /^save$/i }));
-      expect(screen.getByText('Change Summary')).toBeInTheDocument();
+      // Open save version dialog
+      await user.click(screen.getByRole('button', { name: /save version/i }));
+      expect(screen.getByTestId('save-version-dialog')).toBeInTheDocument();
 
-      // Type a summary
-      await user.type(screen.getByLabelText(/describe your changes/i), 'Updated terms');
+      // Click confirm
+      await user.click(screen.getByTestId('save-version-confirm'));
 
-      // Click Save in dialog
-      const saveButtons = screen.getAllByRole('button', { name: /^save$/i });
-      const dialogSaveBtn = saveButtons[saveButtons.length - 1];
-      if (!dialogSaveBtn) throw new Error('Expected dialog save button');
-      await user.click(dialogSaveBtn);
-
-      expect(mockUpdateMutateAsync).toHaveBeenCalledWith(
-        expect.objectContaining({
-          id: 't2',
-          data: expect.objectContaining({
-            changeSummary: 'Updated terms',
-            tags: ['contract', 'legal'],
-            country: 'US',
-          }),
-        }),
-      );
+      expect(mockSaveVersion).toHaveBeenCalledWith('test change');
     });
 
-    it('sends undefined country/tags when empty in change summary save', async () => {
+    it('closes save version dialog after successful save', async () => {
       const user = userEvent.setup();
-      mockUpdateMutateAsync.mockResolvedValue({});
-
-      // Use a template with no country and no tags
-      mockUseTemplate.mockReturnValue(
-        createTemplateQueryResult({
-          data: {
-            template: { ...activeTemplate, country: null },
-            content: '# Active',
-            tags: [],
-          },
-        }),
-      );
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
-      // Open change summary
-      await user.click(screen.getByRole('button', { name: /^save$/i }));
+      await user.click(screen.getByRole('button', { name: /save version/i }));
+      await user.click(screen.getByTestId('save-version-confirm'));
 
-      // Save without summary
-      const saveButtons = screen.getAllByRole('button', { name: /^save$/i });
-      const dialogSaveBtn = saveButtons[saveButtons.length - 1];
-      if (!dialogSaveBtn) throw new Error('Expected dialog save button');
-      await user.click(dialogSaveBtn);
-
-      expect(mockUpdateMutateAsync).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            country: undefined,
-            tags: undefined,
-          }),
-        }),
-      );
+      await waitFor(() => {
+        expect(screen.queryByTestId('save-version-dialog')).not.toBeInTheDocument();
+      });
     });
 
-    it('sends undefined changeSummary when empty', async () => {
+    it('closes save version dialog on cancel', async () => {
       const user = userEvent.setup();
-      mockUpdateMutateAsync.mockResolvedValue({});
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
-      await user.click(screen.getByRole('button', { name: /^save$/i }));
+      await user.click(screen.getByRole('button', { name: /save version/i }));
+      await user.click(screen.getByTestId('save-version-cancel'));
 
-      // Click Save without typing a summary
-      const saveButtons = screen.getAllByRole('button', { name: /^save$/i });
-      const dialogSaveBtn = saveButtons[saveButtons.length - 1];
-      if (!dialogSaveBtn) throw new Error('Expected dialog save button');
-      await user.click(dialogSaveBtn);
-
-      expect(mockUpdateMutateAsync).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            changeSummary: undefined,
-          }),
-        }),
-      );
+      await waitFor(() => {
+        expect(screen.queryByTestId('save-version-dialog')).not.toBeInTheDocument();
+      });
     });
   });
 
@@ -1192,6 +1199,152 @@ describe('TemplateEditorPage', () => {
       // Switch back to Edit tab
       await user.click(screen.getByRole('tab', { name: /edit/i }));
       expect(screen.getByLabelText(/title/i)).toBeInTheDocument();
+    });
+  });
+
+  describe('Collaboration integration', () => {
+    it('shows collaboration UI when editing an existing template with connected status', () => {
+      mockUseParams.mockReturnValue({ id: 't2' });
+      mockUseTemplate.mockReturnValue(
+        createTemplateQueryResult({
+          data: { template: activeTemplate, content: '# Active', tags: [] },
+        }),
+      );
+      mockUseCollaboration.mockReturnValue({
+        ydoc: {},
+        awareness: {},
+        status: 'connected',
+        connectedUsers: [{ userId: 'u1', email: 'alice@example.com', color: '#ff0000' }],
+        saveVersion: mockSaveVersion,
+      });
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      expect(screen.getByTestId('connection-status')).toBeInTheDocument();
+      expect(screen.getByTestId('connection-status')).toHaveTextContent('connected');
+      expect(screen.getByTestId('presence-avatars')).toBeInTheDocument();
+      expect(screen.getByTestId('avatar-u1')).toHaveTextContent('A');
+    });
+
+    it('does not show collaboration UI in create mode', () => {
+      mockUseParams.mockReturnValue({});
+      mockUseTemplate.mockReturnValue(
+        createTemplateQueryResult({
+          data: undefined,
+          isLoading: false,
+          isPending: true,
+          isSuccess: false,
+          status: 'pending',
+        }),
+      );
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      expect(screen.queryByTestId('connection-status')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('presence-avatars')).not.toBeInTheDocument();
+    });
+
+    it('does not show collaboration UI when status is disconnected', () => {
+      mockUseParams.mockReturnValue({ id: 't2' });
+      mockUseTemplate.mockReturnValue(
+        createTemplateQueryResult({
+          data: { template: activeTemplate, content: '# Active', tags: [] },
+        }),
+      );
+      // Default mock is 'disconnected'
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      expect(screen.queryByTestId('connection-status')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('presence-avatars')).not.toBeInTheDocument();
+    });
+
+    it('shows Save Version button for active templates', () => {
+      mockUseParams.mockReturnValue({ id: 't2' });
+      mockUseTemplate.mockReturnValue(
+        createTemplateQueryResult({
+          data: { template: activeTemplate, content: '# Active', tags: [] },
+        }),
+      );
+      mockUseCollaboration.mockReturnValue({
+        ydoc: {},
+        awareness: {},
+        status: 'connected',
+        connectedUsers: [],
+        saveVersion: mockSaveVersion,
+      });
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      expect(screen.getByRole('button', { name: /save version/i })).toBeInTheDocument();
+    });
+
+    it('passes collaboration to useCollaboration with correct arguments', () => {
+      mockUseParams.mockReturnValue({ id: 't2' });
+      mockUseTemplate.mockReturnValue(
+        createTemplateQueryResult({
+          data: { template: activeTemplate, content: '# Active', tags: [] },
+        }),
+      );
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      expect(mockUseCollaboration).toHaveBeenCalledWith('t2', {
+        userId: '1',
+        email: 'alice@acasus.com',
+        color: '#1976d2',
+      });
+    });
+
+    it('passes null templateId to useCollaboration in create mode', () => {
+      mockUseParams.mockReturnValue({});
+      mockUseTemplate.mockReturnValue(
+        createTemplateQueryResult({
+          data: undefined,
+          isLoading: false,
+          isPending: true,
+          isSuccess: false,
+          status: 'pending',
+        }),
+      );
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      expect(mockUseCollaboration).toHaveBeenCalledWith(null, null);
+    });
+
+    it('passes null user to useCollaboration for viewer role', () => {
+      mockUseAuth.mockReturnValue(viewerAuth);
+      mockUseParams.mockReturnValue({ id: 't2' });
+      mockUseTemplate.mockReturnValue(
+        createTemplateQueryResult({
+          data: { template: activeTemplate, content: '# Active', tags: [] },
+        }),
+      );
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      expect(mockUseCollaboration).toHaveBeenCalledWith('t2', null);
+    });
+
+    it('shows connecting status', () => {
+      mockUseParams.mockReturnValue({ id: 't2' });
+      mockUseTemplate.mockReturnValue(
+        createTemplateQueryResult({
+          data: { template: activeTemplate, content: '# Active', tags: [] },
+        }),
+      );
+      mockUseCollaboration.mockReturnValue({
+        ydoc: null,
+        awareness: null,
+        status: 'connecting',
+        connectedUsers: [],
+        saveVersion: mockSaveVersion,
+      });
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      expect(screen.getByTestId('connection-status')).toHaveTextContent('connecting');
     });
   });
 });
