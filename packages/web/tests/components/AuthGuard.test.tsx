@@ -125,6 +125,47 @@ describe('AuthGuard', () => {
       { wrapper: Wrapper },
     );
     expect(screen.getByRole('heading', { name: /legalcode/i })).toBeInTheDocument();
-    expect(screen.getByText('Template Management System')).toBeInTheDocument();
+    expect(screen.getByText('by Acasus')).toBeInTheDocument();
+  });
+
+  it('shows "by Acasus" subtitle on login screen', () => {
+    mockUseAuth.mockReturnValue({
+      user: null,
+      isLoading: false,
+      isAuthenticated: false,
+      login: vi.fn(),
+      logout: vi.fn(),
+      isLoggingOut: false,
+    });
+    render(
+      <AuthGuard>
+        <div>Protected Content</div>
+      </AuthGuard>,
+      { wrapper: Wrapper },
+    );
+    expect(screen.getByText('by Acasus')).toBeInTheDocument();
+  });
+
+  it('login screen uses brand styling', () => {
+    mockUseAuth.mockReturnValue({
+      user: null,
+      isLoading: false,
+      isAuthenticated: false,
+      login: vi.fn(),
+      logout: vi.fn(),
+      isLoggingOut: false,
+    });
+    render(
+      <AuthGuard>
+        <div>Protected Content</div>
+      </AuthGuard>,
+      { wrapper: Wrapper },
+    );
+    const heading = screen.getByRole('heading', { name: /legalcode/i });
+    const headingStyles = window.getComputedStyle(heading);
+    expect(headingStyles.fontFamily).toContain('Source Serif 4');
+
+    const button = screen.getByRole('button', { name: /sign in with google/i });
+    expect(button).toHaveStyle({ backgroundColor: '#8027FF' });
   });
 });

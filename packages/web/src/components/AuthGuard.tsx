@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Box, CircularProgress, Button, Typography, Paper, Container } from '@mui/material';
+import { Box, CircularProgress, Button, Typography } from '@mui/material';
 import { useAuth } from '../hooks/useAuth.js';
 
 interface AuthGuardProps {
@@ -17,6 +17,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
           justifyContent: 'center',
           alignItems: 'center',
           minHeight: '100vh',
+          backgroundColor: '#EFE3D3',
         }}
       >
         <CircularProgress />
@@ -26,35 +27,66 @@ export function AuthGuard({ children }: AuthGuardProps) {
 
   if (!isAuthenticated) {
     return (
-      <Container maxWidth="sm">
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          minHeight: '100vh',
+          backgroundColor: '#EFE3D3',
+        }}
+      >
         <Box
           sx={{
-            mt: 8,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
+            backgroundColor: '#F7F0E6',
+            borderRadius: '16px',
+            boxShadow: '0 4px 16px rgba(69,31,97,0.14)',
+            p: 5,
+            maxWidth: 400,
+            width: '100%',
+            textAlign: 'center',
           }}
         >
-          <Paper elevation={2} sx={{ p: 4, width: '100%', textAlign: 'center' }}>
-            <Typography variant="h4" component="h1" gutterBottom>
-              LegalCode
-            </Typography>
-            <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-              Template Management System
-            </Typography>
-            <Button
-              variant="contained"
-              size="large"
-              fullWidth
-              onClick={() => {
-                void login();
-              }}
-            >
-              Sign in with Google
-            </Button>
-          </Paper>
+          <Typography
+            variant="h4"
+            component="h1"
+            gutterBottom
+            sx={{
+              fontFamily: '"Source Serif 4", Georgia, "Times New Roman", serif',
+              fontWeight: 600,
+              color: '#451F61',
+            }}
+          >
+            LegalCode
+          </Typography>
+          <Typography
+            sx={{
+              fontSize: '0.75rem',
+              color: '#6B5A7A',
+              mb: 4,
+            }}
+          >
+            by Acasus
+          </Typography>
+          <Button
+            variant="contained"
+            size="large"
+            fullWidth
+            onClick={() => {
+              void login();
+            }}
+            sx={{
+              backgroundColor: '#8027FF',
+              borderRadius: '12px',
+              '&:hover': {
+                backgroundColor: '#6B1FD6',
+              },
+            }}
+          >
+            Sign in with Google
+          </Button>
         </Box>
-      </Container>
+      </Box>
     );
   }
 
