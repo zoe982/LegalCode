@@ -30,4 +30,11 @@ describe('MSW handlers', () => {
     const paths = handlers.map((h) => h.info.path);
     expect(paths).toContain('/health');
   });
+
+  it('includes comment handlers', () => {
+    const paths = handlers.map((h) => h.info.path);
+    expect(paths).toContain('/api/templates/:id/comments');
+    expect(paths).toContain('/api/templates/:id/comments/:commentId/resolve');
+    expect(paths).toContain('/api/templates/:id/comments/:commentId');
+  });
 });

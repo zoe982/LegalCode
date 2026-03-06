@@ -1,5 +1,6 @@
 import { http, HttpResponse } from 'msw';
 import type { Template, TemplateVersion } from '@legalcode/shared';
+import type { Comment } from '../types/comments.js';
 
 const mockTemplates: Template[] = [
   {
@@ -60,6 +61,56 @@ const mockVersions: TemplateVersion[] = [
     createdAt: '2026-03-01T00:00:00Z',
   },
 ];
+
+const mockComments: Comment[] = [
+  {
+    id: 'c1',
+    templateId: 't1',
+    parentId: null,
+    authorId: 'u1',
+    authorName: 'Joseph Marsico',
+    authorEmail: 'joseph.marsico@acasus.com',
+    content: 'Should we add a non-compete clause here?',
+    anchorBlockId: 'block-3',
+    anchorText: 'the parties agree to the following terms',
+    resolved: false,
+    resolvedBy: null,
+    createdAt: '2026-03-01T10:00:00Z',
+    updatedAt: '2026-03-01T10:00:00Z',
+  },
+  {
+    id: 'c2',
+    templateId: 't1',
+    parentId: 'c1',
+    authorId: 'u2',
+    authorName: 'Legal Reviewer',
+    authorEmail: 'reviewer@acasus.com',
+    content: 'Yes, I think that would strengthen this section.',
+    anchorBlockId: null,
+    anchorText: null,
+    resolved: false,
+    resolvedBy: null,
+    createdAt: '2026-03-01T11:30:00Z',
+    updatedAt: '2026-03-01T11:30:00Z',
+  },
+  {
+    id: 'c3',
+    templateId: 't1',
+    parentId: null,
+    authorId: 'u2',
+    authorName: 'Legal Reviewer',
+    authorEmail: 'reviewer@acasus.com',
+    content: 'Typo in the preamble — "agrrement" should be "agreement".',
+    anchorBlockId: 'block-1',
+    anchorText: 'This agrrement',
+    resolved: true,
+    resolvedBy: 'u1',
+    createdAt: '2026-02-28T09:00:00Z',
+    updatedAt: '2026-03-01T08:00:00Z',
+  },
+];
+
+let commentIdCounter = 4;
 
 export const handlers = [
   http.get('/health', () => {
@@ -181,5 +232,56 @@ export const handlers = [
       status: 'archived',
       updatedAt: '2026-03-06T00:00:00Z',
     });
+  }),
+
+  // Comment handlers
+  http.get('/api/templates/:id/comments', ({ params }) => {
+    const comments = mockComments.filter((c) => c.templateId === params.id);
+    return HttpResponse.json(comments);
+  }),
+
+  http.post('/api/templates/:id/comments', async ({ params, request }) => {
+    const body = (await request.json()) as Record<string, unknown>;
+    const newComment: Comment = {
+      id: `c${String(commentIdCounter++)}`,
+      templateId: params.id as string,
+      parentId: (body.parentId as string | null) ?? null,
+      authorId: 'u1',
+      authorName: 'Joseph Marsico',
+      authorEmail: 'joseph.marsico@acasus.com',
+      content: (body.content as string) || '',
+      anchorBlockId: (body.anchorBlockId as string | null) ?? null,
+      anchorText: (body.anchorText as string | null) ?? null,
+      resolved: false,
+      resolvedBy: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    mockComments.push(newComment);
+    return HttpResponse.json(newComment, { status: 201 });
+  }),
+
+  http.patch('/api/templates/:id/comments/:commentId/resolve', ({ params }) => {
+    const comment = mockComments.find(
+      (c) => c.templateId === params.id && c.id === params.commentId,
+    );
+    if (!comment) {
+      return HttpResponse.json({ error: 'Not found' }, { status: 404 });
+    }
+    comment.resolved = true;
+    comment.resolvedBy = 'u1';
+    comment.updatedAt = new Date().toISOString();
+    return new HttpResponse(null, { status: 204 });
+  }),
+
+  http.delete('/api/templates/:id/comments/:commentId', ({ params }) => {
+    const index = mockComments.findIndex(
+      (c) => c.templateId === params.id && c.id === params.commentId,
+    );
+    if (index === -1) {
+      return HttpResponse.json({ error: 'Not found' }, { status: 404 });
+    }
+    mockComments.splice(index, 1);
+    return new HttpResponse(null, { status: 204 });
   }),
 ];
