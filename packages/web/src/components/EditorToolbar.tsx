@@ -21,23 +21,13 @@ interface EditorToolbarProps {
   onInsertMarkdown?: ((prefix: string, suffix?: string) => void) | undefined;
 }
 
-const activeButtonStyle = {
-  backgroundColor: '#8027FF',
-  color: '#fff',
-  borderRadius: '8px',
-  fontSize: '0.8125rem',
-  fontWeight: 600,
-  '&:hover': {
-    backgroundColor: '#8027FF',
-  },
-} as const;
-
-const inactiveButtonStyle = {
+const modeButtonStyle = {
   backgroundColor: 'transparent',
-  color: '#451F61',
   borderRadius: '8px',
   fontSize: '0.8125rem',
   fontWeight: 600,
+  position: 'relative' as const,
+  zIndex: 1,
   '&:hover': {
     backgroundColor: 'transparent',
   },
@@ -81,11 +71,31 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
           borderRadius: '10px',
           padding: '2px',
           display: 'inline-flex',
+          position: 'relative',
         }}
       >
+        {/* Sliding pill indicator */}
+        <Box
+          data-testid="mode-toggle-indicator"
+          sx={{
+            position: 'absolute',
+            top: '2px',
+            bottom: '2px',
+            width: '50%',
+            backgroundColor: '#8027FF',
+            borderRadius: '8px',
+            transition: 'transform cubic-bezier(0.2, 0, 0, 1) 200ms',
+          }}
+          style={{
+            transform: mode === 'source' ? 'translateX(0)' : 'translateX(100%)',
+          }}
+        />
         <Button
           size="small"
-          sx={mode === 'source' ? activeButtonStyle : inactiveButtonStyle}
+          sx={{
+            ...modeButtonStyle,
+            color: mode === 'source' ? '#fff' : '#451F61',
+          }}
           onClick={() => {
             onModeChange('source');
           }}
@@ -94,7 +104,10 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
         </Button>
         <Button
           size="small"
-          sx={mode === 'review' ? activeButtonStyle : inactiveButtonStyle}
+          sx={{
+            ...modeButtonStyle,
+            color: mode === 'review' ? '#fff' : '#451F61',
+          }}
           onClick={() => {
             onModeChange('review');
           }}

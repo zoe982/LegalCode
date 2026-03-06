@@ -124,6 +124,12 @@ describe('LeftNav', () => {
     expect(screen.getByText('alice@acasus.com')).toBeInTheDocument();
   });
 
+  it('renders two dividers (hr elements)', () => {
+    renderLeftNav();
+    const dividers = screen.getByTestId('left-nav').querySelectorAll('hr');
+    expect(dividers).toHaveLength(2);
+  });
+
   it('applies hover background on mouse enter and removes on mouse leave', async () => {
     const user = userEvent.setup();
     renderLeftNav();

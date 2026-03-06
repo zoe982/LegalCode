@@ -116,6 +116,16 @@ export function LeftNav({ user, onLogout }: LeftNavProps) {
         </Box>
       )}
 
+      {/* Divider between New Template and nav items */}
+      <Box
+        component="hr"
+        sx={{
+          border: 'none',
+          borderTop: '1px solid #5E3D7A',
+          margin: '12px 0',
+        }}
+      />
+
       {/* Navigation items */}
       <Box component="ul" sx={{ listStyle: 'none', m: 0, p: 0, flex: 1 }}>
         {navItems.map((item) => (
@@ -148,6 +158,16 @@ export function LeftNav({ user, onLogout }: LeftNavProps) {
           </Box>
         ))}
       </Box>
+
+      {/* Divider between nav items and footer */}
+      <Box
+        component="hr"
+        sx={{
+          border: 'none',
+          borderTop: '1px solid #5E3D7A',
+          margin: '12px 0',
+        }}
+      />
 
       {/* Footer - User info */}
       <Box

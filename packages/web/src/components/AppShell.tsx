@@ -1,14 +1,16 @@
-import { Outlet } from 'react-router';
+import { Outlet, useLocation } from 'react-router';
 import { Box } from '@mui/material';
 import { LeftNav } from './LeftNav.js';
 import { TopAppBar } from './TopAppBar.js';
 import { ResponsiveGuard } from './ResponsiveGuard.js';
+import { PageTransition } from './PageTransition.js';
 import { useAuth } from '../hooks/useAuth.js';
 import { TopAppBarProvider, useTopAppBarConfig } from '../contexts/TopAppBarContext.js';
 
 function AppShellInner() {
   const { user, logout } = useAuth();
   const { config } = useTopAppBarConfig();
+  const location = useLocation();
 
   // user should always be present inside AppShell (behind AuthGuard)
   if (!user) return null;
@@ -40,7 +42,9 @@ function AppShellInner() {
               backgroundColor: 'var(--surface-primary)',
             }}
           >
-            <Outlet />
+            <PageTransition key={location.pathname}>
+              <Outlet />
+            </PageTransition>
           </Box>
         </Box>
       </Box>

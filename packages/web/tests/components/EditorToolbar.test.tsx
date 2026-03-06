@@ -26,16 +26,28 @@ describe('EditorToolbar', () => {
     expect(screen.getByRole('button', { name: 'Review' })).toBeInTheDocument();
   });
 
-  it('highlights Source button when mode is source', () => {
+  it('has a sliding indicator element', () => {
     renderToolbar({ mode: 'source' });
-    const sourceBtn = screen.getByRole('button', { name: 'Source' });
-    expect(sourceBtn).toHaveStyle({ backgroundColor: '#8027FF' });
+    const indicator = screen.getByTestId('mode-toggle-indicator');
+    expect(indicator).toBeInTheDocument();
   });
 
-  it('highlights Review button when mode is review', () => {
-    renderToolbar({ mode: 'review' });
-    const reviewBtn = screen.getByRole('button', { name: 'Review' });
-    expect(reviewBtn).toHaveStyle({ backgroundColor: '#8027FF' });
+  it('indicator position changes when mode changes', () => {
+    const { rerender } = render(
+      <ThemeProvider theme={theme}>
+        <EditorToolbar mode="source" onModeChange={vi.fn()} wordCount={10} />
+      </ThemeProvider>,
+    );
+    const indicator = screen.getByTestId('mode-toggle-indicator');
+    const sourceTransform = indicator.style.transform;
+
+    rerender(
+      <ThemeProvider theme={theme}>
+        <EditorToolbar mode="review" onModeChange={vi.fn()} wordCount={10} />
+      </ThemeProvider>,
+    );
+    const reviewTransform = indicator.style.transform;
+    expect(sourceTransform).not.toBe(reviewTransform);
   });
 
   it('calls onModeChange when Review is clicked', async () => {
