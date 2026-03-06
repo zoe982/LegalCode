@@ -110,6 +110,24 @@ pnpm monorepo: `packages/api` (Hono/Cloudflare Worker), `packages/web` (React/Vi
 - Unit/Integration: Vitest + React Testing Library + MSW
 - E2E: Playwright (Chrome only)
 - Use accessibility-first queries (getByRole, getByLabelText)
+- **`pnpm test` always runs with `--coverage`** — per-file thresholds are enforced on every run, not just in CI
+
+### Per-File Coverage (MANDATORY)
+
+Coverage is enforced **per file**, not aggregate. Vitest is configured with `perFile: true` and 95% thresholds for lines, functions, branches, and statements. A well-tested module cannot compensate for an untested one. Every implementation file must independently meet the threshold.
+
+### UI State Coverage
+
+Every component with multiple visual states must have a test for **each state**. A component that "renders" is not a tested component. A component where every branch is exercised is. Examples:
+
+- A status indicator with 4 states needs 4 tests minimum
+- A dialog with open/closed and loading/idle needs tests for each combination
+- A list component must cover 0 items, 1 item, and multiple items
+- Hooks with state transitions must cover all transitions including error/reconnection paths
+
+### Integration Tests Are Mandatory
+
+Integration tests for lifecycle behavior (e.g., Durable Object spin-up, crash recovery, grace periods) are **mandatory, not stretch goals**. Unit tests with mocked dependencies are acceptable for pure logic but not for lifecycle or timing behavior. Use miniflare or equivalent for integration tests that exercise the real runtime.
 
 ## TDD Workflow (MANDATORY)
 
