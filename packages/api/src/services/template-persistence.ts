@@ -40,9 +40,7 @@ export async function persistVersion(
     .bind(versionId, templateId, newVersion, content, changeSummary, createdBy, now);
 
   const updateStmt = db
-    .prepare(
-      'UPDATE templates SET current_version = ?, updated_at = ? WHERE id = ?',
-    )
+    .prepare('UPDATE templates SET current_version = ?, updated_at = ? WHERE id = ?')
     .bind(newVersion, now, templateId);
 
   await db.batch([insertStmt, updateStmt]);

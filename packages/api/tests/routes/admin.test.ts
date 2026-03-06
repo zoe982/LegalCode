@@ -3,8 +3,34 @@ import { Hono } from 'hono';
 import type { AppEnv } from '../../src/types/env.js';
 import { issueJWT } from '../../src/services/auth.js';
 
+const mockLimit = vi.fn().mockResolvedValue([]);
+const mockDbChain = {
+  from: vi.fn().mockReturnThis(),
+  where: vi.fn().mockReturnThis(),
+  orderBy: vi.fn().mockReturnThis(),
+  limit: mockLimit,
+};
+
 vi.mock('../../src/db/index.js', () => ({
-  getDb: vi.fn().mockReturnValue({}),
+  getDb: vi.fn().mockReturnValue({
+    select: vi.fn().mockReturnValue(mockDbChain),
+    insert: vi.fn().mockReturnValue({ values: vi.fn().mockResolvedValue(undefined) }),
+  }),
+}));
+
+const mockLogAudit = vi.fn().mockResolvedValue(undefined);
+
+vi.mock('../../src/services/audit.js', () => ({
+  logAudit: (...args: unknown[]) => mockLogAudit(...args) as unknown,
+}));
+
+vi.mock('../../src/db/schema.js', () => ({
+  auditLog: { action: 'action', createdAt: 'created_at' },
+}));
+
+vi.mock('drizzle-orm', () => ({
+  eq: vi.fn((...args: unknown[]) => args),
+  desc: vi.fn((col: unknown) => col),
 }));
 
 const mockListAllUsers = vi.fn().mockResolvedValue([]);
@@ -192,5 +218,65 @@ describe('DELETE /admin/users/:id', () => {
       headers: { Cookie: `__Host-auth=${token}` },
     });
     expect(res.status).toBe(403);
+  });
+});
+
+describe('POST /admin/errors', () => {
+  it('returns 200 and logs client error for admin', async () => {
+    const app = await importAndCreateApp();
+    const token = await adminToken();
+    const res = await app.request('/admin/errors', {
+      method: 'POST',
+      headers: {
+        Cookie: `__Host-auth=${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ message: 'Test error', stack: 'Error at line 1' }),
+    });
+    expect(res.status).toBe(200);
+    const body: { ok: boolean } = await res.json();
+    expect(body.ok).toBe(true);
+    expect(mockLogAudit).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        action: 'client_error',
+        entityType: 'app',
+        entityId: 'frontend',
+      }),
+    );
+  });
+
+  it('returns 403 for non-admin', async () => {
+    const app = await importAndCreateApp();
+    const token = await viewerToken();
+    const res = await app.request('/admin/errors', {
+      method: 'POST',
+      headers: {
+        Cookie: `__Host-auth=${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ message: 'error' }),
+    });
+    expect(res.status).toBe(403);
+  });
+});
+
+describe('GET /admin/errors', () => {
+  it('returns 200 with error list for admin', async () => {
+    const app = await importAndCreateApp();
+    const token = await adminToken();
+    const res = await app.request('/admin/errors', {
+      headers: { Cookie: `__Host-auth=${token}` },
+    });
+    expect(res.status).toBe(200);
+    const body: { errors: unknown[] } = await res.json();
+    expect(body).toHaveProperty('errors');
+    expect(Array.isArray(body.errors)).toBe(true);
+  });
+
+  it('returns 401 without auth', async () => {
+    const app = await importAndCreateApp();
+    const res = await app.request('/admin/errors');
+    expect(res.status).toBe(401);
   });
 });

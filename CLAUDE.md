@@ -141,6 +141,12 @@ Every component with multiple visual states must have a test for **each state**.
 
 Integration tests for lifecycle behavior (e.g., Durable Object spin-up, crash recovery, grace periods) are **mandatory, not stretch goals**. Unit tests with mocked dependencies are acceptable for pure logic but not for lifecycle or timing behavior. Use miniflare or equivalent for integration tests that exercise the real runtime.
 
+## API Contract Testing (MANDATORY)
+
+- **Every API endpoint that returns data consumed by the frontend MUST have a contract test** that validates the response against the shared Zod schema (e.g., `loginResponseSchema.safeParse(body)`). This catches type mismatches between API responses and frontend expectations.
+- **Frontend MSW mocks MUST match actual API response shapes.** Never hardcode fields in mocks that the real API doesn't return. When in doubt, check the API route handler to verify the response shape.
+- **Defensive property access:** Any property from an API response that is displayed in the UI must use a fallback (e.g., `user.name || user.email`) to prevent crashes from unexpected undefined values.
+
 ## TDD Workflow (MANDATORY)
 
 **Every feature and bugfix MUST follow strict test-driven development. No exceptions.**

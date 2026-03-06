@@ -162,9 +162,21 @@ authRoutes.post('/refresh', async (c) => {
   return c.json({ ok: true });
 });
 
-authRoutes.get('/me', authMiddleware, (c) => {
-  const user = c.get('user');
-  return c.json({ user });
+authRoutes.get('/me', authMiddleware, async (c) => {
+  const jwtUser = c.get('user');
+  const db = getDb(c.env.DB);
+  const fullUser = await findUserByEmail(db, jwtUser.email);
+  if (!fullUser) {
+    return c.json({ error: 'User not found' }, 404);
+  }
+  return c.json({
+    user: {
+      id: fullUser.id,
+      email: fullUser.email,
+      name: fullUser.name,
+      role: fullUser.role,
+    },
+  });
 });
 
 authRoutes.post('/logout', authMiddleware, async (c) => {

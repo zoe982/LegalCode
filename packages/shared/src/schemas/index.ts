@@ -11,6 +11,7 @@ export const auditActionSchema = z.enum([
   'archive',
   'export',
   'login',
+  'client_error',
 ]);
 
 export const createTemplateSchema = z.object({

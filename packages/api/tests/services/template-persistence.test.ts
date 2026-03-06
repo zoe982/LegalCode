@@ -77,9 +77,7 @@ describe('template-persistence', () => {
         changeSummary: 'test summary',
       });
 
-      const prepareCalls = db.prepare.mock.calls.map(
-        (call) => call[0] as string,
-      );
+      const prepareCalls = db.prepare.mock.calls.map((call) => call[0] as string);
 
       // SELECT should reference current_version
       expect(prepareCalls[0]).toMatch(/current_version/);
@@ -123,10 +121,7 @@ describe('template-persistence', () => {
         createdAt: '2026-01-01T00:00:00Z',
       });
 
-      const result = await getLatestVersionContent(
-        db as unknown as D1Database,
-        'tmpl-1',
-      );
+      const result = await getLatestVersionContent(db as unknown as D1Database, 'tmpl-1');
 
       expect(result).toEqual({
         content: '# Latest',
@@ -139,10 +134,7 @@ describe('template-persistence', () => {
     it('returns null if no versions exist', async () => {
       db._stmt.first.mockResolvedValue(null);
 
-      const result = await getLatestVersionContent(
-        db as unknown as D1Database,
-        'tmpl-1',
-      );
+      const result = await getLatestVersionContent(db as unknown as D1Database, 'tmpl-1');
 
       expect(result).toBeNull();
     });

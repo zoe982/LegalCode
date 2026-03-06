@@ -74,6 +74,12 @@ export const handlers = [
   http.post('/auth/refresh', () => {
     return HttpResponse.json({ ok: true });
   }),
+  http.get('/admin/errors', () => {
+    return HttpResponse.json({ errors: [] });
+  }),
+  http.post('/admin/errors', () => {
+    return HttpResponse.json({ ok: true });
+  }),
 
   // Template handlers
   http.get('/templates', () => {

@@ -177,7 +177,7 @@ export function LeftNav({ user, onLogout }: LeftNavProps) {
             fontSize: '0.875rem',
           }}
         >
-          {user.name.charAt(0).toUpperCase()}
+          {(user.name || user.email).charAt(0).toUpperCase()}
         </Avatar>
         <Box sx={{ overflow: 'hidden' }}>
           <Typography
@@ -191,7 +191,7 @@ export function LeftNav({ user, onLogout }: LeftNavProps) {
               textOverflow: 'ellipsis',
             }}
           >
-            {user.name}
+            {user.name || user.email}
           </Typography>
           <Typography
             variant="caption"

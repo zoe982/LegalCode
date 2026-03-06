@@ -3,6 +3,7 @@ import { Hono } from 'hono';
 import { authRoutes } from '../../src/routes/auth.js';
 import type { AppEnv } from '../../src/types/env.js';
 import { issueJWT } from '../../src/services/auth.js';
+import { loginResponseSchema } from '@legalcode/shared';
 
 vi.mock('../../src/services/auth.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../src/services/auth.js')>();
@@ -242,6 +243,14 @@ describe('GET /auth/me', () => {
 
   it('returns user data with valid auth cookie', async () => {
     const { app } = createTestApp();
+    vi.mocked(findUserByEmail).mockResolvedValue({
+      id: 'user-1',
+      email: 'alice@acasus.com',
+      name: 'Alice',
+      role: 'editor',
+      createdAt: '2026-01-01',
+      updatedAt: '2026-01-01',
+    });
     const token = await issueJWT(
       { sub: 'user-1', email: 'alice@acasus.com', role: 'editor' },
       JWT_SECRET,
@@ -251,8 +260,51 @@ describe('GET /auth/me', () => {
       headers: { Cookie: `__Host-auth=${token}` },
     });
     expect(res.status).toBe(200);
-    const body: { user: { email: string } } = await res.json();
-    expect(body.user.email).toBe('alice@acasus.com');
+    const body: { user: { id: string; email: string; name: string; role: string } } =
+      await res.json();
+    expect(body.user).toEqual({
+      id: 'user-1',
+      email: 'alice@acasus.com',
+      name: 'Alice',
+      role: 'editor',
+    });
+  });
+
+  it('returns response matching loginResponseSchema shape', async () => {
+    const { app } = createTestApp();
+    vi.mocked(findUserByEmail).mockResolvedValue({
+      id: 'user-1',
+      email: 'alice@acasus.com',
+      name: 'Alice',
+      role: 'editor',
+      createdAt: '2026-01-01',
+      updatedAt: '2026-01-01',
+    });
+    const token = await issueJWT(
+      { sub: 'user-1', email: 'alice@acasus.com', role: 'editor' },
+      JWT_SECRET,
+      900,
+    );
+    const res = await app.request('/auth/me', {
+      headers: { Cookie: `__Host-auth=${token}` },
+    });
+    const body: unknown = await res.json();
+    const parsed = loginResponseSchema.safeParse(body);
+    expect(parsed.success).toBe(true);
+  });
+
+  it('returns 404 when authenticated user is not in DB', async () => {
+    const { app } = createTestApp();
+    vi.mocked(findUserByEmail).mockResolvedValue(undefined);
+    const token = await issueJWT(
+      { sub: 'user-1', email: 'alice@acasus.com', role: 'editor' },
+      JWT_SECRET,
+      900,
+    );
+    const res = await app.request('/auth/me', {
+      headers: { Cookie: `__Host-auth=${token}` },
+    });
+    expect(res.status).toBe(404);
   });
 });
 

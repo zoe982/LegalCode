@@ -151,9 +151,9 @@ describe('fetchGoogleUserInfo', () => {
       name: 'Alice',
       picture: 'http://example.com/pic.jpg',
     };
-    const mockFetch = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify(mockUserInfo), { status: 200 }),
-    );
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify(mockUserInfo), { status: 200 }));
     vi.stubGlobal('fetch', mockFetch);
 
     const result = await fetchGoogleUserInfo('test-access-token');
@@ -169,7 +169,10 @@ describe('fetchGoogleUserInfo', () => {
   });
 
   it('throws on non-200 response', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('Unauthorized', { status: 401 })));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response('Unauthorized', { status: 401 })),
+    );
 
     await expect(fetchGoogleUserInfo('bad-token')).rejects.toThrow('Google userinfo failed: 401');
 

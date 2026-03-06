@@ -113,6 +113,17 @@ describe('LeftNav', () => {
     expect(screen.getByText('A')).toBeInTheDocument();
   });
 
+  it('falls back to email when name is empty', () => {
+    renderLeftNav({ user: { ...mockUser, name: '' } });
+    // Avatar shows first char of email, uppercased
+    const avatar = screen
+      .getByRole('button', { name: /user menu/i })
+      .querySelector('.MuiAvatar-root');
+    expect(avatar).toHaveTextContent('A');
+    // Display name falls back to email
+    expect(screen.getByText('alice@acasus.com')).toBeInTheDocument();
+  });
+
   it('applies hover background on mouse enter and removes on mouse leave', async () => {
     const user = userEvent.setup();
     renderLeftNav();

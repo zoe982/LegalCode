@@ -3,6 +3,7 @@ import { ThemeProvider, CssBaseline } from '@mui/material';
 import { createBrowserRouter, RouterProvider, Navigate } from 'react-router';
 import type { RouteObject } from 'react-router';
 import { theme } from './theme/index.js';
+import { ErrorBoundary } from './components/ErrorBoundary.js';
 import { AuthGuard } from './components/AuthGuard.js';
 import { AppShell } from './components/AppShell.js';
 import { TemplateListPage } from './pages/TemplateListPage.js';
@@ -35,13 +36,15 @@ const router = createBrowserRouter(routes);
 
 export const App: React.FC = () => {
   return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
-        <AuthGuard>
-          <RouterProvider router={router} />
-        </AuthGuard>
-      </ThemeProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider theme={theme}>
+          <CssBaseline />
+          <AuthGuard>
+            <RouterProvider router={router} />
+          </AuthGuard>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 };

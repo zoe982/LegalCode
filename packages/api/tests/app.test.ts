@@ -65,7 +65,8 @@ describe('app', () => {
 
   it('falls back to index.html when ASSETS.fetch returns 404', async () => {
     const indexResponse = new Response('<html>SPA</html>', { status: 200 });
-    const assetsFetch = vi.fn()
+    const assetsFetch = vi
+      .fn()
       .mockResolvedValueOnce(new Response('Not Found', { status: 404 }))
       .mockResolvedValueOnce(indexResponse);
     const res = await app.request('/unknown-route', undefined, {
