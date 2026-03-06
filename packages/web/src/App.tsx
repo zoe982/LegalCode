@@ -7,6 +7,8 @@ import { AuthGuard } from './components/AuthGuard.js';
 import { AppShell } from './components/AppShell.js';
 import { TemplateListPage } from './pages/TemplateListPage.js';
 import { TemplateEditorPage } from './pages/TemplateEditorPage.js';
+import { AdminPage } from './pages/AdminPage.js';
+import { SettingsPage } from './pages/SettingsPage.js';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -23,6 +25,8 @@ export const routes: RouteObject[] = [
       { path: 'templates', element: <TemplateListPage /> },
       { path: 'templates/new', element: <TemplateEditorPage /> },
       { path: 'templates/:id', element: <TemplateEditorPage /> },
+      { path: 'admin', element: <AdminPage /> },
+      { path: 'settings', element: <SettingsPage /> },
     ],
   },
 ];

@@ -103,6 +103,22 @@ describe('App', () => {
     });
   });
 
+  it('renders AdminPage at /admin', async () => {
+    mockAuthenticatedUser();
+    renderWithRouter('/admin');
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: /admin/i })).toBeInTheDocument();
+    });
+  });
+
+  it('renders SettingsPage at /settings', async () => {
+    mockAuthenticatedUser();
+    renderWithRouter('/settings');
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: /settings/i })).toBeInTheDocument();
+    });
+  });
+
   it('displays user name in the left nav', async () => {
     mockAuthenticatedUser();
     renderWithRouter('/templates');
