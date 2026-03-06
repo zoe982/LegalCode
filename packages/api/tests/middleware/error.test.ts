@@ -87,6 +87,38 @@ describe('errorHandler', () => {
     consoleSpy.mockRestore();
   });
 
+  it('returns generic message for HTTPException with status 500', async () => {
+    const app = createTestApp();
+    app.get('/server-error', () => {
+      throw new HTTPException(500, { message: 'Database crashed' });
+    });
+
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const res = await app.request('/server-error');
+
+    expect(res.status).toBe(500);
+    const body: unknown = await res.json();
+    expect(body).toEqual({ error: 'Internal server error' });
+    // Should log structured error for 500 HTTPException
+    expect(consoleSpy).toHaveBeenCalledOnce();
+    consoleSpy.mockRestore();
+  });
+
+  it('returns generic message for HTTPException with status 502', async () => {
+    const app = createTestApp();
+    app.get('/bad-gateway', () => {
+      throw new HTTPException(502, { message: 'Upstream failed' });
+    });
+
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const res = await app.request('/bad-gateway');
+
+    expect(res.status).toBe(502);
+    const body: unknown = await res.json();
+    expect(body).toEqual({ error: 'Internal server error' });
+    consoleSpy.mockRestore();
+  });
+
   it('does not log structured error for 4xx errors', async () => {
     const app = createTestApp();
     app.get('/bad', () => {

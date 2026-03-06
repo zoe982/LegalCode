@@ -3,6 +3,7 @@ import {
   generatePKCE,
   buildGoogleAuthUrl,
   exchangeCodeForTokens,
+  fetchGoogleUserInfo,
   issueJWT,
   verifyJWT,
   isEmailAllowed,
@@ -134,6 +135,43 @@ describe('exchangeCodeForTokens', () => {
         codeVerifier: 'verifier',
       }),
     ).rejects.toThrow();
+
+    vi.unstubAllGlobals();
+  });
+});
+
+describe('fetchGoogleUserInfo', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('calls Google userinfo endpoint with access token', async () => {
+    const mockUserInfo = {
+      email: 'alice@acasus.com',
+      name: 'Alice',
+      picture: 'http://example.com/pic.jpg',
+    };
+    const mockFetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(mockUserInfo), { status: 200 }),
+    );
+    vi.stubGlobal('fetch', mockFetch);
+
+    const result = await fetchGoogleUserInfo('test-access-token');
+
+    expect(mockFetch).toHaveBeenCalledOnce();
+    const [url, options] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('https://www.googleapis.com/oauth2/v2/userinfo');
+    expect(options.headers).toEqual({ Authorization: 'Bearer test-access-token' });
+    expect(result.email).toBe('alice@acasus.com');
+    expect(result.name).toBe('Alice');
+
+    vi.unstubAllGlobals();
+  });
+
+  it('throws on non-200 response', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('Unauthorized', { status: 401 })));
+
+    await expect(fetchGoogleUserInfo('bad-token')).rejects.toThrow('Google userinfo failed: 401');
 
     vi.unstubAllGlobals();
   });

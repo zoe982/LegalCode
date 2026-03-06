@@ -1,6 +1,7 @@
 /// <reference types="@testing-library/jest-dom/vitest" />
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, within, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
@@ -13,6 +14,15 @@ import type { UseQueryResult } from '@tanstack/react-query';
 
 const mockUseTemplates = vi.fn();
 const mockUseAuth = vi.fn();
+const mockNavigate = vi.fn();
+
+vi.mock('react-router', async () => {
+  const actual = await vi.importActual<typeof import('react-router')>('react-router');
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+  };
+});
 
 vi.mock('../../src/hooks/useTemplates.js', () => ({
   useTemplates: (...args: unknown[]) => mockUseTemplates(...args) as unknown,
@@ -284,5 +294,92 @@ describe('TemplateListPage', () => {
 
     render(<TemplateListPage />, { wrapper: Wrapper });
     expect(screen.getByRole('textbox', { name: /search/i })).toBeInTheDocument();
+  });
+
+  it('navigates to template detail when row is clicked', async () => {
+    const user = userEvent.setup();
+    mockUseTemplates.mockReturnValue(
+      createQueryResult({
+        data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
+      }),
+    );
+
+    render(<TemplateListPage />, { wrapper: Wrapper });
+
+    // Click on Employment Agreement row
+    const row = screen.getByText('Employment Agreement').closest('tr');
+    if (!row) throw new Error('Expected row element');
+    await user.click(row);
+
+    expect(mockNavigate).toHaveBeenCalledWith('/templates/t1');
+  });
+
+  it('navigates to /templates/new when FAB is clicked', async () => {
+    const user = userEvent.setup();
+    mockUseAuth.mockReturnValue(editorAuth);
+    mockUseTemplates.mockReturnValue(
+      createQueryResult({
+        data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
+      }),
+    );
+
+    render(<TemplateListPage />, { wrapper: Wrapper });
+
+    const fab = screen.getByRole('button', { name: /add template/i });
+    await user.click(fab);
+
+    expect(mockNavigate).toHaveBeenCalledWith('/templates/new');
+  });
+
+  it('debounces search input', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    mockUseTemplates.mockReturnValue(
+      createQueryResult({
+        data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
+      }),
+    );
+
+    render(<TemplateListPage />, { wrapper: Wrapper });
+
+    const searchField = screen.getByRole('textbox', { name: /search/i });
+    await user.type(searchField, 'employment');
+
+    // Before debounce fires, useTemplates should have been called with empty filters
+    expect(mockUseTemplates).toHaveBeenCalled();
+
+    // Advance timers to trigger debounce
+    vi.advanceTimersByTime(300);
+
+    // After debounce, it should be called with search filter
+    await waitFor(() => {
+      const lastCall = mockUseTemplates.mock.calls[mockUseTemplates.mock.calls.length - 1] as [
+        Record<string, unknown>,
+      ];
+      expect(lastCall[0]).toEqual(expect.objectContaining({ search: 'employment' }));
+    });
+
+    vi.useRealTimers();
+  });
+
+  it('filters by status when status chip is clicked', async () => {
+    const user = userEvent.setup();
+    mockUseTemplates.mockReturnValue(
+      createQueryResult({
+        data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
+      }),
+    );
+
+    render(<TemplateListPage />, { wrapper: Wrapper });
+
+    // Click the Draft filter chip
+    await user.click(screen.getByRole('button', { name: 'Draft' }));
+
+    await waitFor(() => {
+      const lastCall = mockUseTemplates.mock.calls[mockUseTemplates.mock.calls.length - 1] as [
+        Record<string, unknown>,
+      ];
+      expect(lastCall[0]).toEqual(expect.objectContaining({ status: 'draft' }));
+    });
   });
 });

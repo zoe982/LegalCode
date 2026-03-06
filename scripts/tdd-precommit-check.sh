@@ -16,7 +16,7 @@ MISSING=()
 
 while IFS= read -r impl_file; do
   # Derive test file path: packages/<pkg>/src/<path>/<file>.ts -> packages/<pkg>/tests/<path>/<file>.test.ts
-  test_file=$(echo "$impl_file" | sed -E 's|^(packages/[^/]+)/src/(.+)\.(ts|tsx)$|\1/tests/\2.test.\3|')
+  test_file=$(echo "$impl_file" | sed -E 's#^(packages/[^/]+)/src/(.+)\.(ts|tsx)$#\1/tests/\2.test.\3#')
 
   # Check if the test file exists (either staged or on disk)
   if ! git ls-files --cached --others "$test_file" 2>/dev/null | grep -q .; then

@@ -68,4 +68,79 @@ describe('useAuth', () => {
 
     expect(typeof result.current.login).toBe('function');
   });
+
+  it('clears user data on successful logout', async () => {
+    mockedAuthService.getCurrentUser.mockResolvedValue({
+      id: '1',
+      email: 'alice@acasus.com',
+      name: 'Alice',
+      role: 'editor',
+    });
+    mockedAuthService.logout.mockResolvedValue(undefined);
+
+    const { result } = renderHook(() => useAuth(), { wrapper: createWrapper() });
+
+    // Wait for initial auth data to load
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+    expect(result.current.isAuthenticated).toBe(true);
+
+    // Trigger logout
+    result.current.logout();
+
+    // After logout succeeds, user should be null
+    await waitFor(() => {
+      expect(result.current.user).toBeNull();
+    });
+    expect(result.current.isAuthenticated).toBe(false);
+  });
+
+  it('exposes isLoggingOut while logout is pending', async () => {
+    mockedAuthService.getCurrentUser.mockResolvedValue({
+      id: '1',
+      email: 'alice@acasus.com',
+      name: 'Alice',
+      role: 'editor',
+    });
+    // Make logout hang so isPending stays true
+    let resolveLogout: () => void = () => {};
+    mockedAuthService.logout.mockImplementation(
+      () => new Promise<void>((resolve) => { resolveLogout = resolve; }),
+    );
+
+    const { result } = renderHook(() => useAuth(), { wrapper: createWrapper() });
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    // Trigger logout
+    result.current.logout();
+
+    await waitFor(() => {
+      expect(result.current.isLoggingOut).toBe(true);
+    });
+
+    // Resolve logout
+    resolveLogout();
+
+    await waitFor(() => {
+      expect(result.current.isLoggingOut).toBe(false);
+    });
+  });
+
+  it('login calls authService.startLogin', async () => {
+    mockedAuthService.getCurrentUser.mockResolvedValue(null);
+    mockedAuthService.startLogin.mockResolvedValue(undefined);
+
+    const { result } = renderHook(() => useAuth(), { wrapper: createWrapper() });
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    void result.current.login();
+    expect(mockedAuthService.startLogin).toHaveBeenCalledTimes(1);
+  });
 });

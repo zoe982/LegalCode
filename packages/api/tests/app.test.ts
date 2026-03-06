@@ -35,4 +35,65 @@ describe('app', () => {
     const res = await app.request('/admin/users');
     expect(res.status).toBe(401);
   });
+
+  it('serves static assets via ASSETS.fetch for non-API routes', async () => {
+    const mockAssetResponse = new Response('asset content', { status: 200 });
+    const res = await app.request('/some-asset.js', undefined, {
+      JWT_SECRET: 'test',
+      GOOGLE_CLIENT_ID: 'test',
+      GOOGLE_CLIENT_SECRET: 'test',
+      ALLOWED_EMAILS: 'test@test.com',
+      AUTH_KV: {
+        get: vi.fn(),
+        put: vi.fn().mockResolvedValue(undefined),
+        delete: vi.fn(),
+      },
+      DB: {
+        prepare: vi.fn().mockReturnValue({
+          bind: vi.fn().mockReturnThis(),
+          first: vi.fn(),
+        }),
+      },
+      ASSETS: {
+        fetch: vi.fn().mockResolvedValue(mockAssetResponse),
+      },
+    });
+    expect(res.status).toBe(200);
+    const text = await res.text();
+    expect(text).toBe('asset content');
+  });
+
+  it('falls back to index.html when ASSETS.fetch returns 404', async () => {
+    const indexResponse = new Response('<html>SPA</html>', { status: 200 });
+    const assetsFetch = vi.fn()
+      .mockResolvedValueOnce(new Response('Not Found', { status: 404 }))
+      .mockResolvedValueOnce(indexResponse);
+    const res = await app.request('/unknown-route', undefined, {
+      JWT_SECRET: 'test',
+      GOOGLE_CLIENT_ID: 'test',
+      GOOGLE_CLIENT_SECRET: 'test',
+      ALLOWED_EMAILS: 'test@test.com',
+      AUTH_KV: {
+        get: vi.fn(),
+        put: vi.fn().mockResolvedValue(undefined),
+        delete: vi.fn(),
+      },
+      DB: {
+        prepare: vi.fn().mockReturnValue({
+          bind: vi.fn().mockReturnThis(),
+          first: vi.fn(),
+        }),
+      },
+      ASSETS: {
+        fetch: assetsFetch,
+      },
+    });
+    expect(res.status).toBe(200);
+    const text = await res.text();
+    expect(text).toBe('<html>SPA</html>');
+    expect(assetsFetch).toHaveBeenCalledTimes(2);
+    // Second call should be for /index.html
+    const secondCallArg = assetsFetch.mock.calls[1]?.[0] as Request;
+    expect(new URL(secondCallArg.url).pathname).toBe('/index.html');
+  });
 });

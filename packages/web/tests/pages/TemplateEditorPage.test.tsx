@@ -1,6 +1,7 @@
 /// <reference types="@testing-library/jest-dom/vitest" />
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
@@ -71,6 +72,14 @@ vi.mock('../../src/services/templates.js', () => ({
   templateService: {
     download: vi.fn(),
   },
+}));
+
+vi.mock('../../src/components/VersionHistory.js', () => ({
+  VersionHistory: ({ templateId, currentVersion }: { templateId: string; currentVersion: number }) => (
+    <div data-testid="version-history">
+      Version history for {templateId} v{String(currentVersion)}
+    </div>
+  ),
 }));
 
 // ── Helpers ──────────────────────────────────────────────────────────
@@ -426,6 +435,325 @@ describe('TemplateEditorPage', () => {
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
       expect(screen.queryByRole('button', { name: /export/i })).not.toBeInTheDocument();
+    });
+
+    it('calls templateService.download when clicked', async () => {
+      const user = userEvent.setup();
+      mockUseParams.mockReturnValue({ id: 't1' });
+      mockUseTemplate.mockReturnValue(
+        createTemplateQueryResult({
+          data: {
+            template: draftTemplate,
+            content: '# Draft content',
+            tags: [],
+          },
+        }),
+      );
+
+      const { templateService } = await import('../../src/services/templates.js');
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      await user.click(screen.getByRole('button', { name: /export/i }));
+      expect(templateService.download).toHaveBeenCalledWith('t1');
+    });
+  });
+
+  describe('Create mode actions', () => {
+    beforeEach(() => {
+      mockUseParams.mockReturnValue({});
+      mockUseTemplate.mockReturnValue(
+        createTemplateQueryResult({
+          data: undefined,
+          isLoading: false,
+          isPending: true,
+          isSuccess: false,
+          status: 'pending',
+        }),
+      );
+    });
+
+    it('calls createMutation when Save Draft is clicked', async () => {
+      const user = userEvent.setup();
+      mockCreateMutateAsync.mockResolvedValue({
+        template: { ...draftTemplate, id: 'new-1' },
+      });
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      // Fill in required fields
+      await user.type(screen.getByLabelText(/title/i), 'New Agreement');
+      await user.type(screen.getByLabelText(/category/i), 'Employment');
+
+      await user.click(screen.getByRole('button', { name: /save draft/i }));
+      expect(mockCreateMutateAsync).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('Draft mode actions', () => {
+    beforeEach(() => {
+      mockUseParams.mockReturnValue({ id: 't1' });
+      mockUseTemplate.mockReturnValue(
+        createTemplateQueryResult({
+          data: {
+            template: draftTemplate,
+            content: '# Draft content',
+            tags: ['employment', 'legal'],
+          },
+        }),
+      );
+    });
+
+    it('calls updateMutation when Save Draft is clicked', async () => {
+      const user = userEvent.setup();
+      mockUpdateMutateAsync.mockResolvedValue(draftTemplate);
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      await user.click(screen.getByRole('button', { name: /save draft/i }));
+      expect(mockUpdateMutateAsync).toHaveBeenCalledTimes(1);
+    });
+
+    it('calls publishMutation when Publish is clicked', async () => {
+      const user = userEvent.setup();
+      mockPublishMutateAsync.mockResolvedValue(activeTemplate);
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      await user.click(screen.getByRole('button', { name: /publish/i }));
+      expect(mockPublishMutateAsync).toHaveBeenCalledWith('t1');
+    });
+  });
+
+  describe('Active mode actions', () => {
+    beforeEach(() => {
+      mockUseParams.mockReturnValue({ id: 't2' });
+      mockUseTemplate.mockReturnValue(
+        createTemplateQueryResult({
+          data: {
+            template: activeTemplate,
+            content: '# Active content',
+            tags: [],
+          },
+        }),
+      );
+    });
+
+    it('opens change summary dialog when Save is clicked', async () => {
+      const user = userEvent.setup();
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      await user.click(screen.getByRole('button', { name: /^save$/i }));
+
+      // Dialog should be visible
+      expect(screen.getByText('Change Summary')).toBeInTheDocument();
+      expect(screen.getByLabelText(/describe your changes/i)).toBeInTheDocument();
+    });
+
+    it('submits change summary and calls updateMutation', async () => {
+      const user = userEvent.setup();
+      mockUpdateMutateAsync.mockResolvedValue(activeTemplate);
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      // Open dialog
+      await user.click(screen.getByRole('button', { name: /^save$/i }));
+
+      // Type change summary
+      await user.type(screen.getByLabelText(/describe your changes/i), 'Updated clause 5');
+
+      // Click Save in dialog
+      const dialogButtons = screen.getAllByRole('button', { name: /^save$/i });
+      // The dialog Save button is the last one
+      const dialogSaveButton = dialogButtons[dialogButtons.length - 1];
+      if (!dialogSaveButton) throw new Error('Expected dialog save button');
+      await user.click(dialogSaveButton);
+
+      expect(mockUpdateMutateAsync).toHaveBeenCalledTimes(1);
+      // Dialog should close
+      await waitFor(() => {
+        expect(screen.queryByText('Change Summary')).not.toBeInTheDocument();
+      });
+    });
+
+    it('closes change summary dialog on Cancel', async () => {
+      const user = userEvent.setup();
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      // Open dialog
+      await user.click(screen.getByRole('button', { name: /^save$/i }));
+      expect(screen.getByText('Change Summary')).toBeInTheDocument();
+
+      // Click Cancel
+      await user.click(screen.getByRole('button', { name: /cancel/i }));
+      await waitFor(() => {
+        expect(screen.queryByText('Change Summary')).not.toBeInTheDocument();
+      });
+    });
+
+    it('opens archive confirmation dialog when Archive is clicked', async () => {
+      const user = userEvent.setup();
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      await user.click(screen.getByRole('button', { name: /archive/i }));
+
+      expect(screen.getByText('Archive Template')).toBeInTheDocument();
+      expect(
+        screen.getByText(/are you sure you want to archive this template/i),
+      ).toBeInTheDocument();
+    });
+
+    it('calls archiveMutation on archive confirm', async () => {
+      const user = userEvent.setup();
+      mockArchiveMutateAsync.mockResolvedValue(archivedTemplate);
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      // Open archive dialog
+      await user.click(screen.getByRole('button', { name: /archive/i }));
+
+      // Confirm archive - find the Archive button inside the dialog
+      const archiveButtons = screen.getAllByRole('button', { name: /archive/i });
+      const confirmButton = archiveButtons[archiveButtons.length - 1];
+      if (!confirmButton) throw new Error('Expected archive confirm button');
+      await user.click(confirmButton);
+
+      expect(mockArchiveMutateAsync).toHaveBeenCalledWith('t2');
+    });
+
+    it('closes archive dialog on Cancel', async () => {
+      const user = userEvent.setup();
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      // Open archive dialog
+      await user.click(screen.getByRole('button', { name: /archive/i }));
+      expect(screen.getByText('Archive Template')).toBeInTheDocument();
+
+      // Click Cancel
+      await user.click(screen.getByRole('button', { name: /cancel/i }));
+      await waitFor(() => {
+        expect(screen.queryByText('Archive Template')).not.toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('Versions tab', () => {
+    it('shows version history when Versions tab is clicked', async () => {
+      const user = userEvent.setup();
+      mockUseParams.mockReturnValue({ id: 't1' });
+      mockUseTemplate.mockReturnValue(
+        createTemplateQueryResult({
+          data: {
+            template: draftTemplate,
+            content: '# Draft content',
+            tags: [],
+          },
+        }),
+      );
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      const versionsTab = screen.getByRole('tab', { name: /versions/i });
+      await user.click(versionsTab);
+
+      expect(screen.getByTestId('version-history')).toBeInTheDocument();
+    });
+  });
+
+  describe('Loading state', () => {
+    it('shows loading spinner in edit mode while template is loading', () => {
+      mockUseParams.mockReturnValue({ id: 't1' });
+      mockUseTemplate.mockReturnValue(
+        createTemplateQueryResult({
+          data: undefined,
+          isLoading: true,
+          isPending: true,
+          isSuccess: false,
+          status: 'pending',
+          fetchStatus: 'fetching',
+        }),
+      );
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      expect(screen.getByRole('progressbar')).toBeInTheDocument();
+    });
+  });
+
+  describe('Back navigation', () => {
+    it('calls navigate on back button click', async () => {
+      const user = userEvent.setup();
+      mockUseParams.mockReturnValue({});
+      mockUseTemplate.mockReturnValue(
+        createTemplateQueryResult({
+          data: undefined,
+          isLoading: false,
+          isPending: true,
+          isSuccess: false,
+          status: 'pending',
+        }),
+      );
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      await user.click(screen.getByRole('button', { name: /back/i }));
+      expect(mockNavigate).toHaveBeenCalledWith('/');
+    });
+  });
+
+  describe('Content change', () => {
+    it('updates content state when MarkdownEditor changes', async () => {
+      const user = userEvent.setup();
+      mockUseParams.mockReturnValue({});
+      mockUseTemplate.mockReturnValue(
+        createTemplateQueryResult({
+          data: undefined,
+          isLoading: false,
+          isPending: true,
+          isSuccess: false,
+          status: 'pending',
+        }),
+      );
+      mockCreateMutateAsync.mockResolvedValue({
+        template: { ...draftTemplate, id: 'new-1' },
+      });
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      // Type in the markdown editor (mocked as textarea)
+      const editor = screen.getByTestId('markdown-editor');
+      await user.type(editor, '# Test Content');
+
+      // Fill required fields and save to verify content was captured
+      await user.type(screen.getByLabelText(/title/i), 'Test');
+      await user.type(screen.getByLabelText(/category/i), 'Legal');
+      await user.click(screen.getByRole('button', { name: /save draft/i }));
+
+      expect(mockCreateMutateAsync).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('Country and Tags fields', () => {
+    it('sends country and tags when provided in create mode', async () => {
+      const user = userEvent.setup();
+      mockUseParams.mockReturnValue({});
+      mockUseTemplate.mockReturnValue(
+        createTemplateQueryResult({
+          data: undefined,
+          isLoading: false,
+          isPending: true,
+          isSuccess: false,
+          status: 'pending',
+        }),
+      );
+      mockCreateMutateAsync.mockResolvedValue({
+        template: { ...draftTemplate, id: 'new-1' },
+      });
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      await user.type(screen.getByLabelText(/title/i), 'Test');
+      await user.type(screen.getByLabelText(/category/i), 'Legal');
+      await user.type(screen.getByLabelText(/country/i), 'US');
+
+      await user.click(screen.getByRole('button', { name: /save draft/i }));
+
+      const callArgs = mockCreateMutateAsync.mock.calls[0]![0] as Record<string, unknown>;
+      expect(callArgs.country).toBe('US');
     });
   });
 });

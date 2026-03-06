@@ -91,6 +91,25 @@ describe('user service functions', () => {
       const result = await listAllUsers(db);
       expect(result).toEqual([]);
     });
+
+    it('passes orderBy callback that sorts by createdAt descending', async () => {
+      const mockDesc = vi.fn().mockReturnValue('desc(createdAt)');
+      let capturedOrderBy: ((u: Record<string, unknown>, helpers: { desc: typeof mockDesc }) => unknown[]) | undefined;
+
+      vi.spyOn(db.query.users, 'findMany').mockImplementation((opts?: Record<string, unknown>) => {
+        if (opts && typeof opts.orderBy === 'function') {
+          capturedOrderBy = opts.orderBy as typeof capturedOrderBy;
+        }
+        return Promise.resolve([]);
+      });
+
+      await listAllUsers(db);
+
+      expect(capturedOrderBy).toBeDefined();
+      const result = capturedOrderBy!({ createdAt: 'createdAt' }, { desc: mockDesc });
+      expect(mockDesc).toHaveBeenCalledWith('createdAt');
+      expect(result).toEqual(['desc(createdAt)']);
+    });
   });
 
   describe('createUser', () => {
