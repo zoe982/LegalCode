@@ -1,0 +1,118 @@
+:root {
+  /* Brand Colors */
+  --brand-beige: #EFE3D3;
+  --brand-light-purple: #8027FF;
+  --brand-dark-purple: #451F61;
+  --brand-orange: #FF0000;
+
+  /* Surfaces */
+  --surface-primary: #EFE3D3;
+  --surface-secondary: #E6D9C6;
+  --surface-tertiary: #DDD0BC;
+  --surface-elevated: #F7F0E6;
+  --surface-editor: #F5EEE3;
+
+  /* Text */
+  --text-primary: #451F61;
+  --text-body: #2A1A35;
+  --text-secondary: #6B5A7A;
+  --text-tertiary: #9A8DA6;
+  --text-on-purple: #FFFFFF;
+  --text-on-beige-subtle: #78695A;
+
+  /* Interactive */
+  --accent-primary: #8027FF;
+  --accent-primary-hover: #6B1FDB;
+  --accent-primary-subtle: #8027FF1A;
+  --accent-primary-ring: #8027FF66;
+
+  /* Destructive */
+  --destructive: #D32F2F;
+  --destructive-subtle: #D32F2F1A;
+
+  /* Depth */
+  --depth-primary: #451F61;
+  --depth-secondary: #361850;
+  --depth-tertiary: #2D1343;
+
+  /* Borders */
+  --border-subtle: #D4C5B2;
+  --border-on-dark: #5E3D7A;
+  --border-focus: #8027FF;
+
+  /* Status */
+  --status-draft: #B8860B;
+  --status-draft-bg: #B8860B1A;
+  --status-published: #2D6A4F;
+  --status-published-bg: #2D6A4F1A;
+  --status-archived: #78695A;
+  --status-archived-bg: #78695A1A;
+
+  /* Collaboration cursors */
+  --cursor-1: #E63946;
+  --cursor-2: #457B9D;
+  --cursor-3: #2A9D8F;
+  --cursor-4: #E9C46A;
+  --cursor-5: #6A4C93;
+
+  /* Spacing (8px grid) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+
+  /* Radius */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+
+  /* Layers (z-index) */
+  --layer-base: 0;
+  --layer-sticky: 10;
+  --layer-nav: 20;
+  --layer-appbar: 30;
+  --layer-pane: 40;
+  --layer-dropdown: 50;
+  --layer-modal: 60;
+  --layer-toast: 70;
+  --layer-cursor: 80;
+
+  /* Icons */
+  --icon-sm: 16px;
+  --icon-md: 20px;
+  --icon-lg: 24px;
+  --icon-xl: 32px;
+
+  /* Panel widths */
+  --nav-width: 240px;
+  --pane-width: 400px;
+  --pane-width-min: 360px;
+  --pane-width-max: 480px;
+  --appbar-height: 64px;
+  --list-max-width: 960px;
+  --review-max-width: 860px;
+  --review-margin-rail: 48px;
+
+  /* Elevation (purple-tinted) */
+  --shadow-sm: 0 1px 3px rgba(69, 31, 97, 0.06);
+  --shadow-md: 0 2px 8px rgba(69, 31, 97, 0.10);
+  --shadow-lg: 0 4px 16px rgba(69, 31, 97, 0.14);
+  --shadow-xl: 0 8px 32px rgba(69, 31, 97, 0.18);
+
+  /* Motion */
+  --spring-standard: cubic-bezier(0.2, 0, 0, 1) 200ms;
+  --spring-standard-fast: cubic-bezier(0.2, 0, 0, 1) 150ms;
+  --spring-standard-slow: cubic-bezier(0.2, 0, 0, 1) 350ms;
+  --spring-expressive: cubic-bezier(0.34, 1.56, 0.64, 1) 400ms;
+}
+
+*:focus-visible {
+  outline: 2px solid var(--accent-primary-ring);
+  outline-offset: 2px;
+}
