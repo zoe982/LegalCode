@@ -1,0 +1,17 @@
+node_modules/
+dist/
+build/
+.wrangler/
+coverage/
+**/tests/**
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+*.config.ts
+*.config.js
+drizzle.config.ts
+packages/api/drizzle/**
+**/types/**
+.git/
+.husky/
+.claude/

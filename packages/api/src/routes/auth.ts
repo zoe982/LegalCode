@@ -45,8 +45,10 @@ authRoutes.get('/callback', async (c) => {
   const error = c.req.query('error');
 
   if (error || !code || !state) {
-    const reason = error ?? 'missing code or state';
-    return c.html(`<h1>Login failed</h1><p>${reason}</p><a href="/">Try again</a>`, 400);
+    return c.html(
+      '<h1>Login failed</h1><p>Authentication was unsuccessful.</p><a href="/">Try again</a>',
+      400,
+    );
   }
 
   const pkceData = await c.env.AUTH_KV.get(`pkce:${state}`);
@@ -108,6 +110,7 @@ authRoutes.get('/callback', async (c) => {
   });
 
   const origin = new URL(c.req.url).origin;
+  // nosemgrep: hono-html-injection — origin is from URL parser, not user input
   return c.html(
     `<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url=${origin}"></head><body>Signing in...</body></html>`,
   );

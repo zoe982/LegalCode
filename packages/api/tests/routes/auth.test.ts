@@ -105,7 +105,7 @@ describe('GET /auth/callback', () => {
     const res = await app.request('/auth/callback?error=access_denied');
     expect(res.status).toBe(400);
     const text = await res.text();
-    expect(text).toContain('access_denied');
+    expect(text).toContain('Authentication was unsuccessful.');
   });
 
   it('returns 400 when code or state is missing', async () => {
@@ -113,7 +113,7 @@ describe('GET /auth/callback', () => {
     const res = await app.request('/auth/callback?code=abc');
     expect(res.status).toBe(400);
     const text = await res.text();
-    expect(text).toContain('missing code or state');
+    expect(text).toContain('Authentication was unsuccessful.');
   });
 
   it('returns 400 when PKCE state is not found in KV', async () => {

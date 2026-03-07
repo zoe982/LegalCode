@@ -1,0 +1,48 @@
+rules:
+  - id: hono-html-injection
+    pattern: 'c.html(`...`)'
+    message: >-
+      Potential XSS: c.html() with template literal may contain unsanitized
+      interpolation. Use static strings or escape user input before embedding
+      in HTML responses.
+    languages:
+      - typescript
+    severity: ERROR
+    metadata:
+      category: security
+
+  - id: hardcoded-jwt-secret
+    patterns:
+      - pattern-either:
+          - pattern: 'sign($PAYLOAD, "...")'
+          - pattern: 'verify($TOKEN, "...")'
+    message: >-
+      Hardcoded JWT secret detected. Use environment variables (e.g.,
+      c.env.JWT_SECRET) instead of string literals for signing and verification.
+    languages:
+      - typescript
+    severity: ERROR
+    metadata:
+      category: security
+
+  - id: cookie-missing-httponly
+    pattern: 'setCookie($CTX, $NAME, $VALUE, {..., httpOnly: false, ...})'
+    message: >-
+      Cookie set without httpOnly flag. All authentication and session cookies
+      must use httpOnly: true to prevent JavaScript access.
+    languages:
+      - typescript
+    severity: ERROR
+    metadata:
+      category: security
+
+  - id: cookie-missing-secure
+    pattern: 'setCookie($CTX, $NAME, $VALUE, {..., secure: false, ...})'
+    message: >-
+      Cookie set without secure flag. All cookies must use secure: true to
+      ensure transmission only over HTTPS.
+    languages:
+      - typescript
+    severity: ERROR
+    metadata:
+      category: security

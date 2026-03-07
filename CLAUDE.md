@@ -89,7 +89,7 @@ pnpm monorepo: `packages/api` (Hono/Cloudflare Worker), `packages/web` (React/Vi
 ## Deployment
 
 - **NEVER run locally.** Always deploy to production and test there.
-- **Deploy:** `pnpm test && pnpm build && npx wrangler deploy`
+- **Deploy:** `pnpm security:scan && pnpm test && pnpm build && npx wrangler deploy`
 - **Domains:** `legalcode.ax1access.com` (primary), `legalcode.acasus.workers.dev` (fallback)
 - **Platform:** Cloudflare Workers with Static Assets (SPA fallback)
 - **Workflow:** Make changes → build → deploy to production → verify on production URL
@@ -115,6 +115,7 @@ pnpm monorepo: `packages/api` (Hono/Cloudflare Worker), `packages/web` (React/Vi
 - TypeScript: strictest settings (strict, noUncheckedIndexedAccess, exactOptionalPropertyTypes)
 - ESLint: strict-type-checked + stylistic-type-checked, zero exceptions
 - Coverage: 95% minimum per file (lines, functions, branches, statements)
+- Security: semgrep (zero tolerance), gitleaks (secret detection)
 - **TDD is mandatory** — see workflow below
 
 ## Testing
