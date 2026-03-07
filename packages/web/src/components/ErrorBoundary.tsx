@@ -1,6 +1,7 @@
 import { Component } from 'react';
 import type { ReactNode, ErrorInfo } from 'react';
 import { Box, Typography, Button } from '@mui/material';
+import { reportError } from '../services/errorReporter.js';
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -22,22 +23,14 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   }
 
   override componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
-    void this.reportError(error, errorInfo);
-  }
-
-  private async reportError(error: Error, errorInfo: ErrorInfo): Promise<void> {
     try {
-      await fetch('/admin/errors', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          message: error.message,
-          stack: error.stack,
-          componentStack: errorInfo.componentStack,
-          timestamp: new Date().toISOString(),
-          url: window.location.href,
-        }),
+      void reportError({
+        source: 'frontend',
+        severity: 'critical',
+        message: error.message,
+        stack: error.stack ?? null,
+        metadata: JSON.stringify({ componentStack: errorInfo.componentStack }),
+        url: window.location.href,
       });
     } catch {
       // Silently ignore reporting failures

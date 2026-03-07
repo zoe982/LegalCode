@@ -1,16 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import type { ReactNode } from 'react';
-import {
-  useTemplates,
-  useTemplate,
-  useTemplateVersions,
-  useCreateTemplate,
-  useUpdateTemplate,
-  usePublishTemplate,
-  useArchiveTemplate,
-} from '../../src/hooks/useTemplates.js';
+import { createElement, type ReactNode } from 'react';
 import type { Template, TemplateVersion } from '@legalcode/shared';
 
 const { listFn, getFn, createFn, updateFn, publishFn, archiveFn, getVersionsFn } = vi.hoisted(
@@ -39,6 +30,21 @@ vi.mock('../../src/services/templates.js', () => ({
   },
 }));
 
+// Mock errorReporter for useTrackedMutation
+vi.mock('../../src/services/errorReporter.js', () => ({
+  reportError: vi.fn(),
+}));
+
+const {
+  useTemplates,
+  useTemplate,
+  useTemplateVersions,
+  useCreateTemplate,
+  useUpdateTemplate,
+  usePublishTemplate,
+  useArchiveTemplate,
+} = await import('../../src/hooks/useTemplates.js');
+
 const mockTemplate: Template = {
   id: 'tpl-1',
   title: 'NDA',
@@ -64,10 +70,10 @@ const mockVersion: TemplateVersion = {
 
 function createWrapper() {
   const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
   return function Wrapper({ children }: { children: ReactNode }) {
-    return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+    return createElement(QueryClientProvider, { client: queryClient }, children);
   };
 }
 
@@ -195,6 +201,29 @@ describe('useCreateTemplate', () => {
       category: 'contracts',
       content: '# NDA',
     });
+  });
+
+  it('uses useTrackedMutation with create-template label', async () => {
+    createFn.mockRejectedValue(new Error('Create failed'));
+
+    const wrapper = createWrapper();
+    const { result } = renderHook(() => useCreateTemplate(), { wrapper });
+
+    act(() => {
+      result.current.mutate({
+        title: 'NDA',
+        category: 'contracts',
+        content: '# NDA',
+      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.isError).toBe(true);
+    });
+
+    // Error should be reported via useTrackedMutation (which calls reportError)
+    const { reportError } = await import('../../src/services/errorReporter.js');
+    expect(reportError).toHaveBeenCalled();
   });
 });
 

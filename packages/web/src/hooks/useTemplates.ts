@@ -1,6 +1,7 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { UpdateTemplateInput } from '@legalcode/shared';
 import { templateService, type TemplateListParams } from '../services/templates.js';
+import { useTrackedMutation } from './useTrackedMutation.js';
 
 export function useTemplates(filters: TemplateListParams) {
   return useQuery({
@@ -28,9 +29,10 @@ export function useTemplateVersions(id: string) {
 export function useCreateTemplate() {
   const queryClient = useQueryClient();
 
-  return useMutation({
+  return useTrackedMutation({
     mutationFn: (data: Parameters<typeof templateService.create>[0]) =>
       templateService.create(data),
+    mutationLabel: 'create-template',
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['templates'] });
     },
@@ -40,9 +42,10 @@ export function useCreateTemplate() {
 export function useUpdateTemplate() {
   const queryClient = useQueryClient();
 
-  return useMutation({
+  return useTrackedMutation({
     mutationFn: ({ id, data }: { id: string; data: UpdateTemplateInput }) =>
       templateService.update(id, data),
+    mutationLabel: 'update-template',
     onSuccess: (_data, { id }) => {
       void queryClient.invalidateQueries({ queryKey: ['templates', id] });
       void queryClient.invalidateQueries({
@@ -56,8 +59,9 @@ export function useUpdateTemplate() {
 export function usePublishTemplate() {
   const queryClient = useQueryClient();
 
-  return useMutation({
+  return useTrackedMutation({
     mutationFn: (id: string) => templateService.publish(id),
+    mutationLabel: 'publish-template',
     onSuccess: (_data, id) => {
       void queryClient.invalidateQueries({ queryKey: ['templates', id] });
       void queryClient.invalidateQueries({ queryKey: ['templates'] });
@@ -68,8 +72,9 @@ export function usePublishTemplate() {
 export function useArchiveTemplate() {
   const queryClient = useQueryClient();
 
-  return useMutation({
+  return useTrackedMutation({
     mutationFn: (id: string) => templateService.archive(id),
+    mutationLabel: 'archive-template',
     onSuccess: (_data, id) => {
       void queryClient.invalidateQueries({ queryKey: ['templates', id] });
       void queryClient.invalidateQueries({ queryKey: ['templates'] });

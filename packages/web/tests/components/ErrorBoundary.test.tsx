@@ -6,11 +6,16 @@ import { ThemeProvider } from '@mui/material/styles';
 import { theme } from '../../src/theme/index.js';
 import { ErrorBoundary } from '../../src/components/ErrorBoundary.js';
 
+const mockReportError = vi.fn();
+vi.mock('../../src/services/errorReporter.js', () => ({
+  reportError: (...args: unknown[]) => mockReportError(...args) as unknown,
+}));
+
 // Suppress console.error from error boundary
 const originalError = console.error;
 beforeEach(() => {
   console.error = vi.fn();
-  vi.restoreAllMocks();
+  vi.clearAllMocks();
   return () => {
     console.error = originalError;
   };
@@ -49,7 +54,6 @@ describe('ErrorBoundary', () => {
 
   it('recovers when Try Again is clicked', async () => {
     const user = userEvent.setup();
-    // We need a way to toggle the error. Use a wrapper.
     let shouldThrow = true;
 
     function ConditionalThrower() {
@@ -65,11 +69,9 @@ describe('ErrorBoundary', () => {
 
     expect(screen.getByRole('heading', { name: /something went wrong/i })).toBeInTheDocument();
 
-    // Stop throwing before clicking retry
     shouldThrow = false;
     await user.click(screen.getByRole('button', { name: /try again/i }));
 
-    // Need to rerender since state changed
     rerender(
       <ThemeProvider theme={theme}>
         <ErrorBoundary>
@@ -81,31 +83,41 @@ describe('ErrorBoundary', () => {
     expect(screen.getByText('Recovered')).toBeInTheDocument();
   });
 
-  it('reports error to /admin/errors', async () => {
-    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{"ok":true}'));
-
+  it('calls reportError from errorReporter service', () => {
     renderWithTheme(
       <ErrorBoundary>
         <ThrowingComponent shouldThrow={true} />
       </ErrorBoundary>,
     );
 
-    // Wait for the async reportError call
-    await vi.waitFor(() => {
-      expect(fetchSpy).toHaveBeenCalledWith(
-        '/admin/errors',
-        expect.objectContaining({
-          method: 'POST',
-          credentials: 'include',
-        }),
-      );
-    });
-
-    fetchSpy.mockRestore();
+    expect(mockReportError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: 'frontend',
+        severity: 'critical',
+        message: 'Test error',
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        url: expect.any(String),
+      }),
+    );
   });
 
-  it('does not crash when error reporting fails', () => {
-    vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('Network error'));
+  it('includes componentStack in metadata', () => {
+    renderWithTheme(
+      <ErrorBoundary>
+        <ThrowingComponent shouldThrow={true} />
+      </ErrorBoundary>,
+    );
+
+    const call = mockReportError.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(call.metadata).toBeDefined();
+    const metadata = JSON.parse(call.metadata as string) as Record<string, unknown>;
+    expect(metadata.componentStack).toBeDefined();
+  });
+
+  it('does not crash when reportError would fail', () => {
+    mockReportError.mockImplementation(() => {
+      throw new Error('Report failed');
+    });
 
     renderWithTheme(
       <ErrorBoundary>
@@ -113,7 +125,27 @@ describe('ErrorBoundary', () => {
       </ErrorBoundary>,
     );
 
-    // Should still show error UI even if reporting fails
+    // Should still show error UI
     expect(screen.getByRole('heading', { name: /something went wrong/i })).toBeInTheDocument();
+  });
+
+  it('handles error with undefined stack', () => {
+    function StacklessThrow(): never {
+      const error = new Error('No stack');
+      Object.defineProperty(error, 'stack', { value: undefined });
+      throw error;
+    }
+
+    renderWithTheme(
+      <ErrorBoundary>
+        <StacklessThrow />
+      </ErrorBoundary>,
+    );
+
+    expect(mockReportError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stack: null,
+      }),
+    );
   });
 });

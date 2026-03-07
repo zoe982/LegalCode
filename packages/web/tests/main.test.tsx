@@ -13,6 +13,12 @@ vi.mock('../src/App.js', () => ({
   App: () => null,
 }));
 
+// Mock installGlobalErrorHandlers
+const mockInstallGlobalErrorHandlers = vi.fn().mockReturnValue(() => undefined);
+vi.mock('../src/services/errorReporter.js', () => ({
+  installGlobalErrorHandlers: mockInstallGlobalErrorHandlers,
+}));
+
 describe('main', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -37,10 +43,45 @@ describe('main', () => {
     vi.doMock('../src/App.js', () => ({
       App: () => null,
     }));
+    vi.doMock('../src/services/errorReporter.js', () => ({
+      installGlobalErrorHandlers: mockInstallGlobalErrorHandlers,
+    }));
 
     await import('../src/main.js');
 
     expect(mockCreateRoot).toHaveBeenCalledWith(document.getElementById('root'));
     expect(mockRender).toHaveBeenCalled();
+  });
+
+  it('calls installGlobalErrorHandlers before createRoot', async () => {
+    document.body.innerHTML = '<div id="root"></div>';
+
+    vi.resetModules();
+
+    const callOrder: string[] = [];
+    const trackedInstall = vi.fn().mockImplementation(() => {
+      callOrder.push('install');
+      return () => undefined;
+    });
+    const trackedCreateRoot = vi.fn().mockImplementation(() => {
+      callOrder.push('createRoot');
+      return { render: mockRender };
+    });
+
+    vi.doMock('react-dom/client', () => ({
+      createRoot: trackedCreateRoot,
+    }));
+    vi.doMock('../src/App.js', () => ({
+      App: () => null,
+    }));
+    vi.doMock('../src/services/errorReporter.js', () => ({
+      installGlobalErrorHandlers: trackedInstall,
+    }));
+
+    await import('../src/main.js');
+
+    expect(trackedInstall).toHaveBeenCalled();
+    expect(callOrder[0]).toBe('install');
+    expect(callOrder[1]).toBe('createRoot');
   });
 });

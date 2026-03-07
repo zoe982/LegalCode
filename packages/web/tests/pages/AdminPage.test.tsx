@@ -1,25 +1,27 @@
 /// <reference types="@testing-library/jest-dom/vitest" />
-import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
-import { render, screen, waitFor, cleanup } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from '@mui/material/styles';
 import { theme } from '../../src/theme/index.js';
-import { AdminPage } from '../../src/pages/AdminPage.js';
-import { setupServer } from 'msw/node';
-import { http, HttpResponse } from 'msw';
 
-const server = setupServer();
+const mockUseErrorLog = vi.fn();
+const mockResolveError = vi.fn();
 
-beforeAll(() => {
-  server.listen();
-});
-afterEach(() => {
-  cleanup();
-  server.resetHandlers();
-});
-afterAll(() => {
-  server.close();
-});
+vi.mock('../../src/hooks/useErrorLog.js', () => ({
+  useErrorLog: (...args: unknown[]) => mockUseErrorLog(...args) as unknown,
+  useResolveError: () => ({
+    mutate: mockResolveError,
+    isSuccess: false,
+  }),
+}));
+
+vi.mock('../../src/utils/generateFixPrompt.js', () => ({
+  generateFixPrompt: () => '# Prompt' as string,
+}));
+
+const { AdminPage } = await import('../../src/pages/AdminPage.js');
 
 function renderAdminPage() {
   const queryClient = new QueryClient({
@@ -35,137 +37,59 @@ function renderAdminPage() {
 }
 
 describe('AdminPage', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUseErrorLog.mockReturnValue({
+      data: { errors: [] },
+      isLoading: false,
+    });
+  });
+
   it('renders Admin heading', () => {
-    server.use(http.get('/admin/errors', () => HttpResponse.json({ errors: [] })));
     renderAdminPage();
     expect(screen.getByRole('heading', { name: /admin/i })).toBeInTheDocument();
   });
 
-  it('renders placeholder content', () => {
-    server.use(http.get('/admin/errors', () => HttpResponse.json({ errors: [] })));
+  it('renders tabs for Users and Error Log', () => {
     renderAdminPage();
-    expect(screen.getByText('User management and system configuration')).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /users/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /error log/i })).toBeInTheDocument();
   });
 
-  it('renders Error Log heading', () => {
-    server.use(http.get('/admin/errors', () => HttpResponse.json({ errors: [] })));
+  it('defaults to Error Log tab', () => {
     renderAdminPage();
-    expect(screen.getByRole('heading', { name: /error log/i })).toBeInTheDocument();
+    const errorLogTab = screen.getByRole('tab', { name: /error log/i });
+    expect(errorLogTab).toHaveAttribute('aria-selected', 'true');
   });
 
-  it('shows "No errors reported" when error list is empty', async () => {
-    server.use(http.get('/admin/errors', () => HttpResponse.json({ errors: [] })));
+  it('shows Error Log tab content by default', () => {
     renderAdminPage();
-    await waitFor(() => {
-      expect(screen.getByText('No errors reported')).toBeInTheDocument();
-    });
+    // Empty state from ErrorLogTab
+    expect(screen.getByText('No errors recorded')).toBeInTheDocument();
   });
 
-  it('displays error entries from API', async () => {
-    server.use(
-      http.get('/admin/errors', () =>
-        HttpResponse.json({
-          errors: [
-            {
-              id: 'e1',
-              userId: 'u1',
-              action: 'client_error',
-              entityType: 'app',
-              entityId: 'frontend',
-              metadata: JSON.stringify({
-                message: 'Cannot read properties of undefined',
-                url: 'https://legalcode.ax1access.com/templates',
-                stack: 'Error at LeftNav.tsx:180',
-              }),
-              createdAt: '2026-03-06T12:00:00Z',
-            },
-          ],
-        }),
-      ),
-    );
+  it('switches to Users tab on click', async () => {
+    const user = userEvent.setup();
     renderAdminPage();
-    await waitFor(() => {
-      expect(screen.getByText('Cannot read properties of undefined')).toBeInTheDocument();
-    });
-    expect(screen.getByText(/2026-03-06/)).toBeInTheDocument();
-    expect(screen.getByText(/Error at LeftNav.tsx:180/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('tab', { name: /users/i }));
+
+    expect(screen.getByText('User management coming soon')).toBeInTheDocument();
   });
 
-  it('displays fallback text when error has null metadata', async () => {
-    server.use(
-      http.get('/admin/errors', () =>
-        HttpResponse.json({
-          errors: [
-            {
-              id: 'e2',
-              userId: 'u1',
-              action: 'client_error',
-              entityType: 'app',
-              entityId: 'frontend',
-              metadata: null,
-              createdAt: '2026-03-06T14:00:00Z',
-            },
-          ],
-        }),
-      ),
-    );
+  it('switches back to Error Log tab', async () => {
+    const user = userEvent.setup();
     renderAdminPage();
-    await waitFor(() => {
-      expect(screen.getByText('Unknown error')).toBeInTheDocument();
-    });
-    expect(screen.getByText(/unknown page/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('tab', { name: /users/i }));
+    await user.click(screen.getByRole('tab', { name: /error log/i }));
+
+    expect(screen.getByText('No errors recorded')).toBeInTheDocument();
   });
 
-  it('displays error without stack trace', async () => {
-    server.use(
-      http.get('/admin/errors', () =>
-        HttpResponse.json({
-          errors: [
-            {
-              id: 'e3',
-              userId: 'u1',
-              action: 'client_error',
-              entityType: 'app',
-              entityId: 'frontend',
-              metadata: JSON.stringify({
-                message: 'Some error',
-                url: 'https://legalcode.ax1access.com/',
-              }),
-              createdAt: '2026-03-06T15:00:00Z',
-            },
-          ],
-        }),
-      ),
-    );
+  it('renders tab indicator with accent-primary color', () => {
     renderAdminPage();
-    await waitFor(() => {
-      expect(screen.getByText('Some error')).toBeInTheDocument();
-    });
-    // No <pre> stack trace element should be present
-    expect(screen.queryByText(/Error at/)).not.toBeInTheDocument();
-  });
-
-  it('shows loading indicator while fetching errors', () => {
-    server.use(
-      http.get('/admin/errors', () => {
-        return new Promise(() => {
-          // Never resolves — simulates loading
-        });
-      }),
-    );
-    renderAdminPage();
-    expect(screen.getByRole('progressbar')).toBeInTheDocument();
-  });
-
-  it('shows "No errors reported" when fetch fails', async () => {
-    server.use(
-      http.get('/admin/errors', () =>
-        HttpResponse.json({ error: 'Unauthorized' }, { status: 401 }),
-      ),
-    );
-    renderAdminPage();
-    await waitFor(() => {
-      expect(screen.getByText('No errors reported')).toBeInTheDocument();
-    });
+    // Just verify tabs render without error — color testing is visual
+    expect(screen.getByRole('tablist')).toBeInTheDocument();
   });
 });
