@@ -1,30 +1,37 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Authentication', () => {
-  // The SPA is served at "/" by Cloudflare Workers Static Assets.
-  // API routes (/templates, /admin, /auth) take precedence over SPA fallback,
-  // so direct navigation to /templates hits the API (401 JSON), not the SPA.
-  // All e2e tests must load the SPA from "/" and let React Router handle routing.
-
   test('unauthenticated user is redirected to /login', async ({ page }) => {
-    // Load the SPA from root — React Router redirects "/" -> "/templates",
-    // then AuthGuard redirects to "/login" when not authenticated
     await page.goto('/');
     await page.waitForURL('**/login', { timeout: 15000 });
     expect(page.url()).toContain('/login');
   });
 
-  test('login page renders with Google sign-in button', async ({ page }) => {
+  test('login page has correct branding and structure', async ({ page }) => {
     await page.goto('/');
-    // Wait for redirect to /login
     await page.waitForURL('**/login', { timeout: 15000 });
-    // Verify the page has a Google sign-in element
-    const googleButton = page
-      .getByRole('button', { name: /google/i })
-      .or(page.getByRole('link', { name: /google/i }))
-      .or(
-        page.locator('[data-testid*="google"], [class*="google"], a[href*="accounts.google.com"]'),
-      );
-    await expect(googleButton.first()).toBeVisible({ timeout: 10000 });
+
+    // Wordmark renders
+    await expect(page.getByText('Acasus', { exact: true })).toBeVisible();
+    await expect(page.getByText('LegalCode')).toBeVisible();
+
+    // Sign-in button is interactive
+    const signInButton = page.getByRole('button', { name: /sign in with google/i });
+    await expect(signInButton).toBeVisible();
+    await expect(signInButton).toBeEnabled();
+
+    // Footer security text
+    await expect(page.getByText('Secured with Google OAuth')).toBeVisible();
+    await expect(page.getByText('© 2026 Acasus')).toBeVisible();
+  });
+
+  test('login page is keyboard accessible', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForURL('**/login', { timeout: 15000 });
+
+    // Tab to the sign-in button
+    await page.keyboard.press('Tab');
+    const signInButton = page.getByRole('button', { name: /sign in with google/i });
+    await expect(signInButton).toBeFocused();
   });
 });

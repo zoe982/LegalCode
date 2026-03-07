@@ -23,7 +23,7 @@
     "db:seed": "pnpm --filter @legalcode/api db:seed",
     "deploy:api": "pnpm --filter @legalcode/api deploy",
     "deploy:web": "pnpm --filter @legalcode/web deploy",
-    "security:scan": "semgrep scan --config p/owasp-top-ten --config p/typescript --config p/security-audit packages/",
+    "security:scan": "semgrep scan --config p/owasp-top-ten --config p/typescript --config p/security-audit --config p/react --config p/javascript --config .semgrep/custom-rules.yml --error --severity WARNING --severity ERROR packages/",
     "security:secrets": "gitleaks detect --verbose",
     "prepare": "husky"
   },
@@ -32,6 +32,7 @@
     "@playwright/test": "^1.49.0",
     "@testing-library/jest-dom": "^6.6.0",
     "@testing-library/react": "^16.1.0",
+    "@types/node": "^25.3.5",
     "@vitest/coverage-v8": "^2.1.0",
     "concurrently": "^9.1.0",
     "eslint": "^9.17.0",

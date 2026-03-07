@@ -18,7 +18,6 @@ export default tseslint.config(
             'packages/web/vite.config.ts',
           ],
         },
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         tsconfigRootDir: import.meta.dirname,
       },
     },
