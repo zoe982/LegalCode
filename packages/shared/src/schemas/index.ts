@@ -46,3 +46,4 @@ export type UpdateTemplateInput = z.infer<typeof updateTemplateSchema>;
 export type TemplateQuery = z.infer<typeof templateQuerySchema>;
 
 export * from './auth.js';
+export * from './errors.js';

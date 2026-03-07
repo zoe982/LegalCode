@@ -1,12 +1,15 @@
 import { Hono } from 'hono';
-import { eq, desc } from 'drizzle-orm';
 import type { AppEnv } from '../types/env.js';
 import { authMiddleware, requireRole } from '../middleware/auth.js';
 import { getDb } from '../db/index.js';
-import { auditLog } from '../db/schema.js';
 import { listAllUsers, createUser, updateUserRole, deactivateUser } from '../services/user.js';
-import { logAudit } from '../services/audit.js';
-import { createUserSchema, updateUserRoleSchema } from '@legalcode/shared';
+import { logError, listErrors, resolveError } from '../services/error-log.js';
+import {
+  createUserSchema,
+  updateUserRoleSchema,
+  reportErrorSchema,
+  errorQuerySchema,
+} from '@legalcode/shared';
 
 export const adminRoutes = new Hono<AppEnv>();
 
@@ -51,24 +54,36 @@ adminRoutes.delete('/users/:id', async (c) => {
 
 adminRoutes.post('/errors', async (c) => {
   const body: unknown = await c.req.json();
-  const db = getDb(c.env.DB);
-  await logAudit(db, {
+  const result = reportErrorSchema.safeParse(body);
+  if (!result.success) {
+    return c.json({ error: 'Invalid input', details: result.error.flatten() }, 400);
+  }
+  const { errorId } = await logError(c.env.DB, {
+    ...result.data,
     userId: c.get('user').id,
-    action: 'client_error',
-    entityType: 'app',
-    entityId: 'frontend',
-    metadata: body as Record<string, unknown>,
   });
-  return c.json({ ok: true });
+  return c.json({ ok: true, errorId });
 });
 
 adminRoutes.get('/errors', async (c) => {
+  const queryResult = errorQuerySchema.safeParse({
+    source: c.req.query('source'),
+    status: c.req.query('status'),
+    severity: c.req.query('severity'),
+  });
+  // Strip undefined values — only pass defined filters
+  const filters = queryResult.success ? queryResult.data : {};
   const db = getDb(c.env.DB);
-  const errors = await db
-    .select()
-    .from(auditLog)
-    .where(eq(auditLog.action, 'client_error'))
-    .orderBy(desc(auditLog.createdAt))
-    .limit(50);
+  const errors = await listErrors(db, filters);
   return c.json({ errors });
+});
+
+adminRoutes.patch('/errors/:id/resolve', async (c) => {
+  const id = c.req.param('id');
+  const db = getDb(c.env.DB);
+  const found = await resolveError(db, id, c.get('user').id);
+  if (!found) {
+    return c.json({ error: 'Error not found' }, 404);
+  }
+  return c.json({ ok: true });
 });

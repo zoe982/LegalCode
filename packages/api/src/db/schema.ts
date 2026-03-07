@@ -71,3 +71,29 @@ export const auditLog = sqliteTable('audit_log', {
   metadata: text('metadata'),
   createdAt: text('created_at').notNull(),
 });
+
+export const errorLog = sqliteTable(
+  'error_log',
+  {
+    id: text('id').primaryKey(),
+    timestamp: text('timestamp').notNull(),
+    source: text('source', { enum: ['frontend', 'backend', 'websocket', 'functional'] }).notNull(),
+    severity: text('severity', { enum: ['error', 'warning', 'critical'] })
+      .notNull()
+      .default('error'),
+    message: text('message').notNull(),
+    stack: text('stack'),
+    metadata: text('metadata'),
+    url: text('url'),
+    userId: text('user_id'),
+    status: text('status', { enum: ['open', 'resolved'] })
+      .notNull()
+      .default('open'),
+    resolvedAt: text('resolved_at'),
+    resolvedBy: text('resolved_by'),
+    fingerprint: text('fingerprint').notNull().unique(),
+    occurrenceCount: integer('occurrence_count').notNull().default(1),
+    lastSeenAt: text('last_seen_at').notNull(),
+  },
+  (table) => [uniqueIndex('error_log_fingerprint_idx').on(table.fingerprint)],
+);

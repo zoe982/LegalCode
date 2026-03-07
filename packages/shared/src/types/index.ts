@@ -59,3 +59,4 @@ export interface AuditLogEntry {
 }
 
 export * from './auth.js';
+export * from './errors.js';

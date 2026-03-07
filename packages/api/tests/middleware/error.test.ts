@@ -4,8 +4,39 @@ import { HTTPException } from 'hono/http-exception';
 import { errorHandler } from '../../src/middleware/error.js';
 import type { AppEnv } from '../../src/types/env.js';
 
-function createTestApp() {
+const mockLogError = vi.fn().mockResolvedValue({ errorId: 'err-mock' });
+
+vi.mock('../../src/services/error-log.js', () => ({
+  logError: (...args: unknown[]) => mockLogError(...args) as unknown,
+}));
+
+function createMockD1(): D1Database {
+  return {
+    prepare: vi.fn().mockReturnValue({
+      bind: vi.fn().mockReturnValue({
+        run: vi.fn().mockResolvedValue({ success: true }),
+      }),
+    }),
+    batch: vi.fn(),
+    exec: vi.fn(),
+    dump: vi.fn(),
+  } as unknown as D1Database;
+}
+
+function createTestApp(withDb = false) {
   const app = new Hono<AppEnv>();
+  if (withDb) {
+    app.use('*', async (c, next) => {
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+      if (!c.env) {
+        // @ts-expect-error -- env is undefined in test context
+        c.env = {};
+      }
+      const env = c.env as Record<string, unknown>;
+      env.DB = createMockD1();
+      await next();
+    });
+  }
   app.onError(errorHandler);
   return app;
 }
@@ -129,6 +160,147 @@ describe('errorHandler', () => {
     await app.request('/bad');
 
     expect(consoleSpy).not.toHaveBeenCalled();
+    consoleSpy.mockRestore();
+  });
+
+  it('calls logError for 500 errors when DB is available', async () => {
+    mockLogError.mockClear();
+    const app = createTestApp(true);
+    app.get('/fail', () => {
+      throw new Error('server crash');
+    });
+
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    await app.request('/fail');
+
+    expect(mockLogError).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        source: 'backend',
+        severity: 'error',
+        message: 'server crash',
+      }),
+    );
+    consoleSpy.mockRestore();
+  });
+
+  it('sets severity to critical for status >= 502', async () => {
+    mockLogError.mockClear();
+    const app = createTestApp(true);
+    app.get('/bad-gateway', () => {
+      throw new HTTPException(502, { message: 'Upstream failed' });
+    });
+
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    await app.request('/bad-gateway');
+
+    expect(mockLogError).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        source: 'backend',
+        severity: 'critical',
+      }),
+    );
+    consoleSpy.mockRestore();
+  });
+
+  it('does not call logError when DB is not available', async () => {
+    mockLogError.mockClear();
+    const app = createTestApp(false);
+    app.get('/fail', () => {
+      throw new Error('no db');
+    });
+
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    await app.request('/fail');
+
+    expect(mockLogError).not.toHaveBeenCalled();
+    consoleSpy.mockRestore();
+  });
+
+  it('does not call logError for 4xx errors', async () => {
+    mockLogError.mockClear();
+    const app = createTestApp(true);
+    app.get('/bad', () => {
+      throw new HTTPException(400, { message: 'Bad request' });
+    });
+
+    await app.request('/bad');
+
+    expect(mockLogError).not.toHaveBeenCalled();
+  });
+
+  it('calls logError with severity error for HTTPException 500 with DB', async () => {
+    mockLogError.mockClear();
+    const app = createTestApp(true);
+    app.get('/http-500', () => {
+      throw new HTTPException(500, { message: 'DB crashed' });
+    });
+
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    await app.request('/http-500');
+
+    expect(mockLogError).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        source: 'backend',
+        severity: 'error',
+        message: 'DB crashed',
+      }),
+    );
+    consoleSpy.mockRestore();
+  });
+
+  it('passes stack trace to logError when error has stack', async () => {
+    mockLogError.mockClear();
+    const app = createTestApp(true);
+    app.get('/with-stack', () => {
+      const err = new Error('has stack');
+      err.stack = 'Error: has stack\n  at /src/handler.ts:10';
+      throw err;
+    });
+
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    await app.request('/with-stack');
+
+    const callArgs = mockLogError.mock.calls[0]?.[1] as Record<string, unknown>;
+    expect(callArgs.stack).toContain('Error: has stack');
+    consoleSpy.mockRestore();
+  });
+
+  it('passes null stack when error has no stack property', async () => {
+    mockLogError.mockClear();
+    const app = createTestApp(true);
+    app.get('/no-stack', () => {
+      const err = new Error('no stack');
+
+      delete (err as unknown as Record<string, unknown>).stack;
+      throw err;
+    });
+
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    await app.request('/no-stack');
+
+    const callArgs = mockLogError.mock.calls[0]?.[1] as Record<string, unknown>;
+    expect(callArgs.stack).toBeNull();
+    consoleSpy.mockRestore();
+  });
+
+  it('includes method, path, and status in logError metadata', async () => {
+    mockLogError.mockClear();
+    const app = createTestApp(true);
+    app.get('/api/test', () => {
+      throw new Error('test error');
+    });
+
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    await app.request('/api/test');
+
+    const callArgs = mockLogError.mock.calls[0]?.[1] as Record<string, unknown>;
+    const metadata = JSON.parse(callArgs.metadata as string) as Record<string, unknown>;
+    expect(metadata).toHaveProperty('method', 'GET');
+    expect(metadata).toHaveProperty('path', '/api/test');
+    expect(metadata).toHaveProperty('status', 500);
     consoleSpy.mockRestore();
   });
 });

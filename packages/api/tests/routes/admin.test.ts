@@ -15,22 +15,42 @@ vi.mock('../../src/db/index.js', () => ({
   getDb: vi.fn().mockReturnValue({
     select: vi.fn().mockReturnValue(mockDbChain),
     insert: vi.fn().mockReturnValue({ values: vi.fn().mockResolvedValue(undefined) }),
+    update: vi.fn().mockReturnValue({
+      set: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          returning: vi.fn().mockResolvedValue([{ id: 'err-1' }]),
+        }),
+      }),
+    }),
   }),
 }));
 
-const mockLogAudit = vi.fn().mockResolvedValue(undefined);
+const mockLogError = vi.fn().mockResolvedValue({ errorId: 'err-123' });
+const mockListErrors = vi.fn().mockResolvedValue([]);
+const mockResolveError = vi.fn().mockResolvedValue(true);
 
-vi.mock('../../src/services/audit.js', () => ({
-  logAudit: (...args: unknown[]) => mockLogAudit(...args) as unknown,
+vi.mock('../../src/services/error-log.js', () => ({
+  logError: (...args: unknown[]) => mockLogError(...args) as unknown,
+  listErrors: (...args: unknown[]) => mockListErrors(...args) as unknown,
+  resolveError: (...args: unknown[]) => mockResolveError(...args) as unknown,
 }));
 
 vi.mock('../../src/db/schema.js', () => ({
   auditLog: { action: 'action', createdAt: 'created_at' },
+  errorLog: {
+    source: 'source',
+    status: 'status',
+    severity: 'severity',
+    lastSeenAt: 'last_seen_at',
+    id: 'id',
+    fingerprint: 'fingerprint',
+  },
 }));
 
 vi.mock('drizzle-orm', () => ({
   eq: vi.fn((...args: unknown[]) => args),
   desc: vi.fn((col: unknown) => col),
+  and: vi.fn((...args: unknown[]) => args),
 }));
 
 const mockListAllUsers = vi.fn().mockResolvedValue([]);
@@ -222,7 +242,7 @@ describe('DELETE /admin/users/:id', () => {
 });
 
 describe('POST /admin/errors', () => {
-  it('returns 200 and logs client error for admin', async () => {
+  it('returns 200 with errorId for valid error report', async () => {
     const app = await importAndCreateApp();
     const token = await adminToken();
     const res = await app.request('/admin/errors', {
@@ -231,19 +251,52 @@ describe('POST /admin/errors', () => {
         Cookie: `__Host-auth=${token}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ message: 'Test error', stack: 'Error at line 1' }),
+      body: JSON.stringify({
+        source: 'frontend',
+        message: 'Test error',
+        stack: 'Error at line 1',
+      }),
     });
     expect(res.status).toBe(200);
-    const body: { ok: boolean } = await res.json();
+    const body: { ok: boolean; errorId: string } = await res.json();
     expect(body.ok).toBe(true);
-    expect(mockLogAudit).toHaveBeenCalledWith(
+    expect(body.errorId).toBe('err-123');
+    expect(mockLogError).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
-        action: 'client_error',
-        entityType: 'app',
-        entityId: 'frontend',
+        source: 'frontend',
+        message: 'Test error',
+        userId: 'admin-1',
       }),
     );
+  });
+
+  it('returns 400 for invalid input (missing source)', async () => {
+    const app = await importAndCreateApp();
+    const token = await adminToken();
+    const res = await app.request('/admin/errors', {
+      method: 'POST',
+      headers: {
+        Cookie: `__Host-auth=${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ message: 'error without source' }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 400 for invalid input (missing message)', async () => {
+    const app = await importAndCreateApp();
+    const token = await adminToken();
+    const res = await app.request('/admin/errors', {
+      method: 'POST',
+      headers: {
+        Cookie: `__Host-auth=${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ source: 'frontend' }),
+    });
+    expect(res.status).toBe(400);
   });
 
   it('returns 403 for non-admin', async () => {
@@ -255,7 +308,7 @@ describe('POST /admin/errors', () => {
         Cookie: `__Host-auth=${token}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ message: 'error' }),
+      body: JSON.stringify({ source: 'frontend', message: 'error' }),
     });
     expect(res.status).toBe(403);
   });
@@ -272,11 +325,82 @@ describe('GET /admin/errors', () => {
     const body: { errors: unknown[] } = await res.json();
     expect(body).toHaveProperty('errors');
     expect(Array.isArray(body.errors)).toBe(true);
+    expect(mockListErrors).toHaveBeenCalled();
+  });
+
+  it('passes query filters to listErrors', async () => {
+    const app = await importAndCreateApp();
+    const token = await adminToken();
+    await app.request('/admin/errors?source=frontend&status=open', {
+      headers: { Cookie: `__Host-auth=${token}` },
+    });
+    expect(mockListErrors).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        source: 'frontend',
+        status: 'open',
+      }),
+    );
+  });
+
+  it('falls back to empty filters when query params are invalid', async () => {
+    mockListErrors.mockClear();
+    const app = await importAndCreateApp();
+    const token = await adminToken();
+    const res = await app.request('/admin/errors?source=invalid_source', {
+      headers: { Cookie: `__Host-auth=${token}` },
+    });
+    expect(res.status).toBe(200);
+    expect(mockListErrors).toHaveBeenCalledWith(expect.anything(), {});
   });
 
   it('returns 401 without auth', async () => {
     const app = await importAndCreateApp();
     const res = await app.request('/admin/errors');
+    expect(res.status).toBe(401);
+  });
+});
+
+describe('PATCH /admin/errors/:id/resolve', () => {
+  it('returns 200 when error is resolved', async () => {
+    mockResolveError.mockResolvedValueOnce(true);
+    const app = await importAndCreateApp();
+    const token = await adminToken();
+    const res = await app.request('/admin/errors/err-1/resolve', {
+      method: 'PATCH',
+      headers: { Cookie: `__Host-auth=${token}` },
+    });
+    expect(res.status).toBe(200);
+    const body: { ok: boolean } = await res.json();
+    expect(body.ok).toBe(true);
+  });
+
+  it('returns 404 when error is not found', async () => {
+    mockResolveError.mockResolvedValueOnce(false);
+    const app = await importAndCreateApp();
+    const token = await adminToken();
+    const res = await app.request('/admin/errors/nonexistent/resolve', {
+      method: 'PATCH',
+      headers: { Cookie: `__Host-auth=${token}` },
+    });
+    expect(res.status).toBe(404);
+  });
+
+  it('returns 403 for non-admin', async () => {
+    const app = await importAndCreateApp();
+    const token = await viewerToken();
+    const res = await app.request('/admin/errors/err-1/resolve', {
+      method: 'PATCH',
+      headers: { Cookie: `__Host-auth=${token}` },
+    });
+    expect(res.status).toBe(403);
+  });
+
+  it('returns 401 without auth', async () => {
+    const app = await importAndCreateApp();
+    const res = await app.request('/admin/errors/err-1/resolve', {
+      method: 'PATCH',
+    });
     expect(res.status).toBe(401);
   });
 });
