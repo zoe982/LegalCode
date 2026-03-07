@@ -116,7 +116,7 @@ export function VersionHistory({
             top: 8,
             bottom: 8,
             width: 2,
-            backgroundColor: '#D4C5B3',
+            backgroundColor: '#E4E5ED',
           },
         }}
       >
@@ -160,8 +160,8 @@ export function VersionHistory({
                     size="small"
                     sx={{
                       mr: 2,
-                      backgroundColor: isCurrent ? '#8027FF' : '#E6D9C6',
-                      color: isCurrent ? '#fff' : '#451F61',
+                      backgroundColor: isCurrent ? '#8027FF' : '#F3F3F7',
+                      color: isCurrent ? '#fff' : '#12111A',
                       fontWeight: 600,
                     }}
                   />
@@ -173,13 +173,15 @@ export function VersionHistory({
                         sx: {
                           fontWeight: 600,
                           fontSize: '0.875rem',
-                          color: '#451F61',
+                          color: '#12111A',
+                          fontFamily: '"DM Sans", sans-serif',
                         },
                       },
                       secondary: {
                         sx: {
                           fontSize: '0.75rem',
-                          color: '#9A8DA6',
+                          color: '#9B9DB0',
+                          fontFamily: '"DM Sans", sans-serif',
                         },
                       },
                     }}
@@ -220,7 +222,7 @@ export function VersionHistory({
                         handleRestoreClick(v.version);
                       }}
                       sx={{
-                        color: '#6B5A7A',
+                        color: '#6B6D82',
                         textTransform: 'none',
                         fontSize: '0.75rem',
                         fontWeight: 500,
@@ -254,7 +256,7 @@ export function VersionHistory({
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleRestoreCancel} sx={{ color: '#451F61' }}>
+          <Button onClick={handleRestoreCancel} sx={{ color: '#12111A' }}>
             Cancel
           </Button>
           <Button

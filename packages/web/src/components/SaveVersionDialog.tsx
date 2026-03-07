@@ -43,13 +43,13 @@ export const SaveVersionDialog: React.FC<SaveVersionDialogProps> = ({
           sx: {
             maxWidth: '480px',
             borderRadius: '16px',
-            backgroundColor: '#F7F0E6',
+            backgroundColor: '#FFFFFF',
           },
         },
         backdrop: {
           sx: {
-            backgroundColor: 'rgba(239, 227, 211, 0.5)',
-            backdropFilter: 'blur(8px)',
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            backdropFilter: 'blur(4px)',
           },
         },
       }}
@@ -59,7 +59,7 @@ export const SaveVersionDialog: React.FC<SaveVersionDialogProps> = ({
           fontFamily: '"Source Serif 4", serif',
           fontSize: '1.5rem',
           fontWeight: 600,
-          color: '#451F61',
+          color: '#12111A',
         }}
       >
         Create Version
@@ -80,7 +80,7 @@ export const SaveVersionDialog: React.FC<SaveVersionDialogProps> = ({
             '& .MuiOutlinedInput-root': {
               borderRadius: '12px',
               '& fieldset': {
-                borderColor: '#D4C5B2',
+                borderColor: '#D1D2DE',
               },
             },
             '& .MuiOutlinedInput-input': {
@@ -95,7 +95,7 @@ export const SaveVersionDialog: React.FC<SaveVersionDialogProps> = ({
           onClick={handleClose}
           disabled={saving}
           sx={{
-            color: '#451F61',
+            color: '#12111A',
           }}
         >
           Cancel

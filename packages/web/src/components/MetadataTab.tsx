@@ -21,16 +21,18 @@ interface MetadataTabProps {
 
 const labelStyle = {
   fontSize: '0.6875rem',
-  color: '#9A8DA6',
+  color: '#6B6D82',
   textTransform: 'uppercase' as const,
   fontWeight: 600,
   letterSpacing: '0.06em',
   mb: 0.5,
+  fontFamily: '"DM Sans", sans-serif',
 };
 
 const valueStyle = {
   fontSize: '0.875rem',
-  color: '#451F61',
+  color: '#12111A',
+  fontFamily: '"DM Sans", sans-serif',
 };
 
 interface InlineEditFieldProps {
@@ -188,7 +190,7 @@ export function MetadataTab({
           <Typography
             sx={{
               fontSize: '0.75rem',
-              color: '#6B5A7A',
+              color: '#6B6D82',
             }}
           >
             {createdBy}
@@ -223,7 +225,7 @@ export function MetadataTab({
         <Button
           variant="outlined"
           onClick={onArchive}
-          sx={{ color: '#6B5A7A', borderColor: '#6B5A7A' }}
+          sx={{ color: '#6B6D82', borderColor: '#6B6D82' }}
         >
           Archive
         </Button>

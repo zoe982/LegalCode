@@ -40,6 +40,7 @@ import { MetadataTab } from '../components/MetadataTab.js';
 import { PanelToggleButtons } from '../components/PanelToggleButtons.js';
 import { SlideOverPanel } from '../components/SlideOverPanel.js';
 import { CommentsTab } from '../components/CommentsTab.js';
+import { VersionHistory } from '../components/VersionHistory.js';
 
 interface TemplateDetail {
   template: Template;
@@ -434,23 +435,6 @@ export function TemplateEditorPage() {
         </Box>
       </Box>
 
-      {/* MetadataTab — hidden but keeps publish/archive handlers wired for dialogs */}
-      {!isCreateMode && templateData != null && (
-        <Box sx={{ display: 'none' }}>
-          <MetadataTab
-            category={templateData.template.category}
-            country={templateData.template.country ?? ''}
-            tags={templateData.tags}
-            status={templateData.template.status}
-            createdAt={templateData.template.createdAt}
-            updatedAt={templateData.template.updatedAt}
-            readOnly={isReadOnly}
-            onPublish={!isReadOnly && status === 'draft' ? handlePublishClick : undefined}
-            onArchive={!isReadOnly && status === 'active' ? handleArchiveClick : undefined}
-          />
-        </Box>
-      )}
-
       {/* Save version dialog */}
       <SaveVersionDialog
         open={saveVersionOpen}
@@ -578,7 +562,19 @@ export function TemplateEditorPage() {
         }}
         title="Info"
       >
-        <Box>Metadata panel placeholder</Box>
+        {!isCreateMode && templateData != null && (
+          <MetadataTab
+            category={templateData.template.category}
+            country={templateData.template.country ?? ''}
+            tags={templateData.tags}
+            status={templateData.template.status}
+            createdAt={templateData.template.createdAt}
+            updatedAt={templateData.template.updatedAt}
+            readOnly={isReadOnly}
+            onPublish={!isReadOnly && status === 'draft' ? handlePublishClick : undefined}
+            onArchive={!isReadOnly && status === 'active' ? handleArchiveClick : undefined}
+          />
+        )}
       </SlideOverPanel>
 
       <SlideOverPanel
@@ -588,7 +584,15 @@ export function TemplateEditorPage() {
         }}
         title="Version History"
       >
-        <Box>History panel placeholder</Box>
+        {!isCreateMode && templateData != null && (
+          <VersionHistory
+            templateId={id}
+            currentVersion={templateData.template.currentVersion}
+            onNavigateDiff={(from, to) => {
+              void navigate(`/templates/${id}/diff/${String(from)}/${String(to)}`);
+            }}
+          />
+        )}
       </SlideOverPanel>
     </Box>
   );

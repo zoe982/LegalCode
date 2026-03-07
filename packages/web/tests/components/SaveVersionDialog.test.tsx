@@ -63,7 +63,7 @@ describe('SaveVersionDialog', () => {
     const styles = window.getComputedStyle(title);
     expect(styles.fontFamily).toContain('Source Serif 4');
     expect(styles.fontWeight).toBe('600');
-    expect(styles.color).toBe('rgb(69, 31, 97)');
+    expect(styles.color).toBe('rgb(18, 17, 26)');
   });
 
   it('renders primary button with brand purple background', () => {
@@ -78,7 +78,7 @@ describe('SaveVersionDialog', () => {
     render(<SaveVersionDialog open={true} onClose={vi.fn()} onSave={vi.fn()} saving={false} />);
     const button = screen.getByRole('button', { name: 'Cancel' });
     const styles = window.getComputedStyle(button);
-    expect(styles.color).toBe('rgb(69, 31, 97)');
+    expect(styles.color).toBe('rgb(18, 17, 26)');
   });
 
   it('has transition duration configured on the Dialog', () => {

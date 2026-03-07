@@ -79,12 +79,24 @@ vi.mock('../../src/components/VersionHistory.js', () => ({
   VersionHistory: ({
     templateId,
     currentVersion,
+    onNavigateDiff,
   }: {
     templateId: string;
     currentVersion: number;
+    onNavigateDiff?: (from: number, to: number) => void;
   }) => (
     <div data-testid="version-history">
       Version history for {templateId} v{String(currentVersion)}
+      {onNavigateDiff != null && (
+        <button
+          data-testid="version-navigate-diff"
+          onClick={() => {
+            onNavigateDiff(1, 2);
+          }}
+        >
+          View diff
+        </button>
+      )}
     </div>
   ),
 }));
@@ -449,6 +461,12 @@ function setupMutationMocks() {
   mockUseUpdateTemplate.mockReturnValue(createMutationResult(mockUpdateMutateAsync));
   mockUsePublishTemplate.mockReturnValue(createMutationResult(mockPublishMutateAsync));
   mockUseArchiveTemplate.mockReturnValue(createMutationResult(mockArchiveMutateAsync));
+}
+
+// Helper: open the info slide-over panel so MetadataTab is rendered
+async function openInfoPanel(user: ReturnType<typeof userEvent.setup>) {
+  const { getByTestId } = render(latestAppBarConfig.panelToggles as ReactElement);
+  await user.click(getByTestId('toggle-info'));
 }
 
 // ── Tests ────────────────────────────────────────────────────────────
@@ -818,6 +836,7 @@ describe('TemplateEditorPage', () => {
       const user = userEvent.setup();
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
+      await openInfoPanel(user);
       await user.click(screen.getByTestId('metadata-publish'));
 
       expect(screen.getByText('Publish Template')).toBeInTheDocument();
@@ -832,6 +851,7 @@ describe('TemplateEditorPage', () => {
       const user = userEvent.setup();
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
+      await openInfoPanel(user);
       await user.click(screen.getByTestId('metadata-publish'));
 
       expect(screen.getByText('Publish Template')).toBeInTheDocument();
@@ -847,6 +867,7 @@ describe('TemplateEditorPage', () => {
       mockPublishMutateAsync.mockResolvedValue(activeTemplate);
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
+      await openInfoPanel(user);
       await user.click(screen.getByTestId('metadata-publish'));
 
       const publishButtons = screen.getAllByRole('button', { name: /publish/i });
@@ -910,6 +931,7 @@ describe('TemplateEditorPage', () => {
       const user = userEvent.setup();
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
+      await openInfoPanel(user);
       await user.click(screen.getByTestId('metadata-archive'));
 
       expect(screen.getByText('Archive Template')).toBeInTheDocument();
@@ -924,6 +946,7 @@ describe('TemplateEditorPage', () => {
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
+      await openInfoPanel(user);
       await user.click(screen.getByTestId('metadata-archive'));
 
       const archiveButtons = screen.getAllByRole('button', { name: /archive/i });
@@ -938,6 +961,7 @@ describe('TemplateEditorPage', () => {
       const user = userEvent.setup();
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
+      await openInfoPanel(user);
       await user.click(screen.getByTestId('metadata-archive'));
       expect(screen.getByText('Archive Template')).toBeInTheDocument();
 
@@ -1453,6 +1477,7 @@ describe('TemplateEditorPage', () => {
       const user = userEvent.setup();
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
+      await openInfoPanel(user);
       await user.click(screen.getByTestId('metadata-archive'));
 
       expect(screen.getByText('Archive Template')).toBeInTheDocument();
@@ -1531,6 +1556,7 @@ describe('TemplateEditorPage', () => {
       const user = userEvent.setup();
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
+      await openInfoPanel(user);
       await user.click(screen.getByTestId('metadata-publish'));
       expect(screen.getByText('Publish Template')).toBeInTheDocument();
 
@@ -1570,6 +1596,7 @@ describe('TemplateEditorPage', () => {
       const user = userEvent.setup();
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
+      await openInfoPanel(user);
       await user.click(screen.getByTestId('metadata-publish'));
 
       expect(screen.getByText('Publish Template')).toBeInTheDocument();
@@ -1580,6 +1607,7 @@ describe('TemplateEditorPage', () => {
       mockPublishMutateAsync.mockResolvedValue({});
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
+      await openInfoPanel(user);
       await user.click(screen.getByTestId('metadata-publish'));
 
       const publishButtons = screen.getAllByRole('button', { name: /publish/i });
@@ -1606,6 +1634,7 @@ describe('TemplateEditorPage', () => {
       mockArchiveMutateAsync.mockResolvedValue({});
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
+      await openInfoPanel(user);
       await user.click(screen.getByTestId('metadata-archive'));
 
       expect(screen.getByText('Archive Template')).toBeInTheDocument();
@@ -1623,6 +1652,7 @@ describe('TemplateEditorPage', () => {
       const user = userEvent.setup();
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
+      await openInfoPanel(user);
       await user.click(screen.getByTestId('metadata-archive'));
 
       expect(screen.getByText('Archive Template')).toBeInTheDocument();
@@ -1775,7 +1805,7 @@ describe('TemplateEditorPage', () => {
       await user.click(getByTestId('toggle-info'));
 
       expect(screen.getByTestId('slide-over-info')).toBeInTheDocument();
-      expect(screen.getByText('Metadata panel placeholder')).toBeInTheDocument();
+      expect(screen.getByTestId('metadata-tab')).toBeInTheDocument();
     });
 
     it('opens history panel when history toggle is clicked', async () => {
@@ -1786,7 +1816,18 @@ describe('TemplateEditorPage', () => {
       await user.click(getByTestId('toggle-history'));
 
       expect(screen.getByTestId('slide-over-version-history')).toBeInTheDocument();
-      expect(screen.getByText('History panel placeholder')).toBeInTheDocument();
+      expect(screen.getByTestId('version-history')).toBeInTheDocument();
+    });
+
+    it('navigates to diff view when onNavigateDiff is called in history panel', async () => {
+      const user = userEvent.setup();
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      const { getByTestId } = render(latestAppBarConfig.panelToggles as ReactElement);
+      await user.click(getByTestId('toggle-history'));
+
+      await user.click(screen.getByTestId('version-navigate-diff'));
+      expect(mockNavigate).toHaveBeenCalledWith('/templates/t1/diff/1/2');
     });
 
     it('closes panel when close button is clicked', async () => {
