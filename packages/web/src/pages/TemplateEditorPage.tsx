@@ -336,17 +336,8 @@ export function TemplateEditorPage() {
   const handleRestoreVersion = useCallback(
     (version: number) => {
       if (!id) return;
-      void templateService.getVersion(id, version).then((versionResult) => {
-        // The API returns { version: { content, ... } } but typed as TemplateVersion
-        // Access content defensively to handle both shapes
-        const resultAny = versionResult as unknown as Record<string, unknown>;
-        const nested = resultAny.version as Record<string, unknown> | undefined;
-        const restoredContent =
-          typeof nested?.content === 'string'
-            ? nested.content
-            : typeof resultAny.content === 'string'
-              ? resultAny.content
-              : '';
+      void templateService.getVersion(id, version).then((versionData) => {
+        const restoredContent = versionData.content;
 
         // Update Yjs doc if collaboration is active
         if (collaboration.ydoc) {

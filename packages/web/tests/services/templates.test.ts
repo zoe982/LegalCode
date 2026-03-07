@@ -291,8 +291,9 @@ describe('templateService', () => {
           createdAt: '2026-01-01T00:00:00Z',
         },
       ];
+      // API returns { versions: [...] } wrapper
       vi.mocked(fetch).mockResolvedValue(
-        new Response(JSON.stringify(mockVersions), { status: 200 }),
+        new Response(JSON.stringify({ versions: mockVersions }), { status: 200 }),
       );
 
       const result = await templateService.getVersions('tpl-1');
@@ -300,6 +301,7 @@ describe('templateService', () => {
       expect(fetch).toHaveBeenCalledWith('/templates/tpl-1/versions', {
         credentials: 'include',
       });
+      // Service unwraps and returns the array directly
       expect(result).toEqual(mockVersions);
     });
 
@@ -323,8 +325,9 @@ describe('templateService', () => {
         createdBy: 'user-1',
         createdAt: '2026-01-01T00:00:00Z',
       };
+      // API returns { version: {...} } wrapper
       vi.mocked(fetch).mockResolvedValue(
-        new Response(JSON.stringify(mockVersion), { status: 200 }),
+        new Response(JSON.stringify({ version: mockVersion }), { status: 200 }),
       );
 
       const result = await templateService.getVersion('tpl-1', 1);
@@ -332,6 +335,7 @@ describe('templateService', () => {
       expect(fetch).toHaveBeenCalledWith('/templates/tpl-1/versions/1', {
         credentials: 'include',
       });
+      // Service unwraps and returns the version directly
       expect(result).toEqual(mockVersion);
     });
 

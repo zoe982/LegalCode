@@ -2210,17 +2210,15 @@ describe('TemplateEditorPage', () => {
 
     it('calls templateService.getVersion and collaboration.saveVersion on restore', async () => {
       const user = userEvent.setup();
-      // The API returns { version: { content, ... } } wrapped
+      // After C2 fix, service unwraps and returns TemplateVersion directly
       mockGetVersion.mockResolvedValue({
-        version: {
-          id: 'v1',
-          templateId: 't2',
-          version: 1,
-          content: '# Old content',
-          changeSummary: 'Initial',
-          createdBy: 'u1',
-          createdAt: '2026-01-01T00:00:00Z',
-        },
+        id: 'v1',
+        templateId: 't2',
+        version: 1,
+        content: '# Old content',
+        changeSummary: 'Initial',
+        createdBy: 'u1',
+        createdAt: '2026-01-01T00:00:00Z',
       });
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
@@ -2241,16 +2239,15 @@ describe('TemplateEditorPage', () => {
 
     it('shows success toast after version restore', async () => {
       const user = userEvent.setup();
+      // After C2 fix, service unwraps and returns TemplateVersion directly
       mockGetVersion.mockResolvedValue({
-        version: {
-          id: 'v1',
-          templateId: 't2',
-          version: 1,
-          content: '# Old content',
-          changeSummary: 'Initial',
-          createdBy: 'u1',
-          createdAt: '2026-01-01T00:00:00Z',
-        },
+        id: 'v1',
+        templateId: 't2',
+        version: 1,
+        content: '# Old content',
+        changeSummary: 'Initial',
+        createdBy: 'u1',
+        createdAt: '2026-01-01T00:00:00Z',
       });
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
@@ -2265,14 +2262,14 @@ describe('TemplateEditorPage', () => {
       });
     });
 
-    it('handles flat response shape (content at top level) during restore', async () => {
+    it('handles direct TemplateVersion response (service unwraps API wrapper)', async () => {
       const user = userEvent.setup();
-      // Simulate a response where content is directly on the object (no nested version)
+      // After C2 fix, templateService.getVersion() returns unwrapped TemplateVersion
       mockGetVersion.mockResolvedValue({
         id: 'v1',
         templateId: 't2',
         version: 1,
-        content: '# Flat content',
+        content: '# Direct content',
         changeSummary: 'Initial',
         createdBy: 'u1',
         createdAt: '2026-01-01T00:00:00Z',
@@ -2316,16 +2313,15 @@ describe('TemplateEditorPage', () => {
         saveVersion: mockSaveVersion,
       });
 
+      // After C2 fix, service unwraps and returns TemplateVersion directly
       mockGetVersion.mockResolvedValue({
-        version: {
-          id: 'v1',
-          templateId: 't2',
-          version: 1,
-          content: '# Restored',
-          changeSummary: 'Initial',
-          createdBy: 'u1',
-          createdAt: '2026-01-01T00:00:00Z',
-        },
+        id: 'v1',
+        templateId: 't2',
+        version: 1,
+        content: '# Restored',
+        changeSummary: 'Initial',
+        createdBy: 'u1',
+        createdAt: '2026-01-01T00:00:00Z',
       });
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });

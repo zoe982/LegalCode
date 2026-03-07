@@ -119,4 +119,44 @@ describe('markdownToHtml', () => {
     expect(result).toContain('<strong>bold</strong>');
     expect(result).toContain('<em>italic</em>');
   });
+
+  describe('link protocol sanitization', () => {
+    it('sanitizes javascript: links to #', () => {
+      const result = markdownToHtml('[click me](javascript:alert(1))');
+      expect(result).toContain('href="#"');
+      expect(result).not.toContain('javascript:');
+    });
+
+    it('sanitizes data: links to #', () => {
+      const result = markdownToHtml('[click me](data:text/html,<script>alert(1)</script>)');
+      expect(result).toContain('href="#"');
+      expect(result).not.toContain('data:');
+    });
+
+    it('preserves https:// links', () => {
+      const result = markdownToHtml('[site](https://example.com)');
+      expect(result).toContain('href="https://example.com"');
+    });
+
+    it('preserves http:// links', () => {
+      const result = markdownToHtml('[site](http://example.com)');
+      expect(result).toContain('href="http://example.com"');
+    });
+
+    it('preserves mailto: links', () => {
+      const result = markdownToHtml('[email](mailto:test@example.com)');
+      expect(result).toContain('href="mailto:test@example.com"');
+    });
+
+    it('preserves #anchor links', () => {
+      const result = markdownToHtml('[section](#section-1)');
+      expect(result).toContain('href="#section-1"');
+    });
+
+    it('sanitizes vbscript: links to #', () => {
+      const result = markdownToHtml('[click](vbscript:MsgBox("xss"))');
+      expect(result).toContain('href="#"');
+      expect(result).not.toContain('vbscript:');
+    });
+  });
 });

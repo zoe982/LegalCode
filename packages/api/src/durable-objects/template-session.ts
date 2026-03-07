@@ -169,8 +169,8 @@ export class TemplateSession implements DurableObject {
           changeSummary: '[auto] Session close',
         });
         // Thin old auto-versions after persist
-        thinAutoVersions(db, this.templateId).catch(() => {
-          /* swallow */
+        thinAutoVersions(db, this.templateId).catch((err: unknown) => {
+          console.error('Version thinning failed', err);
         });
       } catch (err: unknown) {
         console.error('Failed to persist version on session close', err);
@@ -279,8 +279,8 @@ export class TemplateSession implements DurableObject {
         });
         this.contentChanged = false;
         // Fire and forget: thin old auto-versions
-        thinAutoVersions(db, this.templateId).catch(() => {
-          /* swallow */
+        thinAutoVersions(db, this.templateId).catch((err: unknown) => {
+          console.error('Version thinning failed', err);
         });
       } catch {
         /* checkpoint persist failure is non-fatal */

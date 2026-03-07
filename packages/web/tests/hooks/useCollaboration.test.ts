@@ -280,29 +280,82 @@ describe('useCollaboration', () => {
     vi.stubGlobal('location', { protocol: 'https:', host: 'example.com' });
   });
 
-  it('caps reconnect delay at max after many attempts', async () => {
+  it('transitions to disconnected after exhausting all reconnect attempts', async () => {
     vi.useFakeTimers();
+
+    // Replace WebSocket with one that does NOT auto-open (simulates server down)
+    let shouldAutoOpen = true;
+    const OriginalMockWebSocket = MockWebSocket;
+
+    vi.stubGlobal(
+      'WebSocket',
+      class NoAutoOpenWebSocket {
+        static CONNECTING = 0;
+        static OPEN = 1;
+        static CLOSING = 2;
+        static CLOSED = 3;
+
+        readyState = 0;
+        onopen: (() => void) | null = null;
+        onclose: (() => void) | null = null;
+        onmessage: ((e: { data: unknown }) => void) | null = null;
+        onerror: (() => void) | null = null;
+        binaryType = 'blob';
+        send = vi.fn();
+        close = vi.fn();
+        url: string;
+
+        constructor(url: string) {
+          this.url = url;
+          wsInstances.push(this as unknown as MockWebSocket);
+          if (shouldAutoOpen) {
+            setTimeout(() => {
+              this.readyState = 1;
+              this.onopen?.();
+            }, 0);
+          }
+          // When shouldAutoOpen is false, onopen never fires (server unreachable)
+        }
+      },
+    );
+
     const { result } = renderHook(() => useCollaboration('tmpl-1', testUser));
 
-    // Open
+    // Open the WebSocket first (auto-open enabled)
     await act(async () => {
       await vi.runAllTimersAsync();
     });
+    expect(result.current.status).toBe('connected');
 
-    // Trigger 6 close/reconnect cycles to exceed RECONNECT_DELAYS length (5)
-    for (let i = 0; i < 6; i++) {
+    // Disable auto-open to simulate server being unreachable
+    shouldAutoOpen = false;
+
+    // Close the WebSocket — triggers scheduleReconnect with attempt 0
+    act(() => {
+      wsRef().onclose?.();
+    });
+    expect(result.current.status).toBe('reconnecting');
+
+    // Simulate 5 failed reconnect attempts
+    const delays = [1000, 2000, 4000, 8000, 16000];
+    for (const delay of delays) {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(delay);
+      });
+      // connect() was called, new WS created but onopen never fires.
+      // Simulate connection error -> close.
       act(() => {
         const ws = wsRef();
+        ws.readyState = 3; // CLOSED
         ws.onclose?.();
-      });
-      // Advance past max delay (16000ms)
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(16001);
       });
     }
 
-    // Should still be in connecting/connected state (not crashed)
-    expect(['connecting', 'connected', 'reconnecting']).toContain(result.current.status);
+    // After 5 failed reconnect attempts, status should be 'disconnected'
+    expect(result.current.status).toBe('disconnected');
+
+    // Restore original MockWebSocket
+    vi.stubGlobal('WebSocket', OriginalMockWebSocket);
   });
 
   it('isSynced is true when status is connected', async () => {

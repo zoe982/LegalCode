@@ -95,7 +95,11 @@ export function useCollaboration(
 
     function scheduleReconnect() {
       const attempt = reconnectAttemptRef.current;
-      const delay = RECONNECT_DELAYS[Math.min(attempt, RECONNECT_DELAYS.length - 1)] ?? 16000;
+      if (attempt >= RECONNECT_DELAYS.length) {
+        setStatus('disconnected');
+        return;
+      }
+      const delay = RECONNECT_DELAYS[attempt] ?? 16000;
       reconnectAttemptRef.current = attempt + 1;
       reconnectTimerRef.current = setTimeout(() => {
         connect();

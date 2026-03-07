@@ -132,7 +132,8 @@ export const templateService = {
     if (!response.ok) {
       throw new Error('Failed to fetch template versions');
     }
-    return (await response.json()) as TemplateVersion[];
+    const data = (await response.json()) as { versions: TemplateVersion[] };
+    return data.versions;
   },
 
   async getVersion(id: string, version: number): Promise<TemplateVersion> {
@@ -142,7 +143,8 @@ export const templateService = {
     if (!response.ok) {
       throw new Error('Failed to fetch template version');
     }
-    return (await response.json()) as TemplateVersion;
+    const data = (await response.json()) as { version: TemplateVersion };
+    return data.version;
   },
 
   async download(id: string): Promise<void> {

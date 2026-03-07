@@ -15,8 +15,11 @@ function applyInline(text: string): string {
   // Italic (single asterisk, not part of bold)
   result = result.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '<em>$1</em>');
 
-  // Links
-  result = result.replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2">$1</a>');
+  // Links — sanitize dangerous protocols (javascript:, data:, vbscript:, etc.)
+  result = result.replace(/\[(.+?)\]\((.+?)\)/g, (_, text: string, url: string) => {
+    const safeUrl = /^(https?:|mailto:|#)/i.test(url) ? url : '#';
+    return `<a href="${safeUrl}">${text}</a>`;
+  });
 
   // Template variables
   result = result.replace(/\{\{var:(.+?)\}\}/g, '<span class="template-var">$1</span>');
