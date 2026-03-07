@@ -1,5 +1,5 @@
 /// <reference types="@testing-library/jest-dom/vitest" />
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ThemeProvider } from '@mui/material/styles';
@@ -94,6 +94,7 @@ interface RenderTabOptions {
     anchor: { anchorText: string; anchorFrom: string; anchorTo: string },
   ) => void;
   onCancelNew?: () => void;
+  activeCommentId?: string | null;
 }
 
 function renderTab(templateIdOrOpts: string | RenderTabOptions = 'tpl-1') {
@@ -106,6 +107,7 @@ function renderTab(templateIdOrOpts: string | RenderTabOptions = 'tpl-1') {
         pendingAnchor={opts.pendingAnchor}
         onSubmitNew={opts.onSubmitNew}
         onCancelNew={opts.onCancelNew}
+        activeCommentId={opts.activeCommentId}
       />
     </ThemeProvider>,
   );
@@ -820,5 +822,120 @@ describe('CommentsTab', () => {
     // Both the new comment card and existing thread should render
     expect(screen.getByPlaceholderText('Add a comment...')).toBeInTheDocument();
     expect(screen.getByTestId('thread-c1')).toBeInTheDocument();
+  });
+
+  // ── activeCommentId scroll-to-thread ──
+
+  describe('scroll-to-thread on activeCommentId', () => {
+    let scrollIntoViewSpy: ReturnType<typeof vi.fn>;
+
+    beforeEach(() => {
+      scrollIntoViewSpy = vi.fn();
+      vi.spyOn(HTMLElement.prototype, 'scrollIntoView').mockImplementation(scrollIntoViewSpy);
+    });
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('scrolls matching thread into view when activeCommentId is set on initial render', () => {
+      mockUseComments.mockReturnValue({
+        ...defaultHookReturn,
+        threads: [threadWithReply],
+      });
+      renderTab({ activeCommentId: 'c1' });
+      const thread = screen.getByTestId('thread-c1');
+      expect(thread).toBeInTheDocument();
+      expect(scrollIntoViewSpy).toHaveBeenCalledWith({
+        behavior: 'smooth',
+        block: 'nearest',
+      });
+    });
+
+    it('scrolls to thread when activeCommentId changes via rerender', () => {
+      mockUseComments.mockReturnValue({
+        ...defaultHookReturn,
+        threads: [threadWithReply],
+      });
+      const { rerender } = render(
+        <ThemeProvider theme={theme}>
+          <CommentsTab templateId="tpl-1" activeCommentId={null} />
+        </ThemeProvider>,
+      );
+
+      // No scroll yet
+      expect(scrollIntoViewSpy).not.toHaveBeenCalled();
+
+      // Rerender with activeCommentId set
+      rerender(
+        <ThemeProvider theme={theme}>
+          <CommentsTab templateId="tpl-1" activeCommentId="c1" />
+        </ThemeProvider>,
+      );
+
+      expect(scrollIntoViewSpy).toHaveBeenCalledWith({
+        behavior: 'smooth',
+        block: 'nearest',
+      });
+    });
+
+    it('does not scroll when activeCommentId does not match any thread', () => {
+      mockUseComments.mockReturnValue({
+        ...defaultHookReturn,
+        threads: [threadWithReply],
+      });
+      renderTab({ activeCommentId: 'nonexistent-id' });
+
+      // scrollIntoView should not be called since no thread matches
+      expect(scrollIntoViewSpy).not.toHaveBeenCalled();
+    });
+  });
+
+  it('applies highlight animation to the active thread', () => {
+    mockUseComments.mockReturnValue({
+      ...defaultHookReturn,
+      threads: [threadWithReply],
+    });
+    renderTab({ activeCommentId: 'c1' });
+    const thread = screen.getByTestId('thread-c1');
+    // The thread should have the data-highlight attribute set
+    expect(thread).toHaveAttribute('data-highlight', 'true');
+  });
+
+  it('does not apply highlight to non-active threads', () => {
+    const thread2Comment: Comment = {
+      ...parentComment,
+      id: 'c99',
+      content: 'Another comment',
+    };
+    mockUseComments.mockReturnValue({
+      ...defaultHookReturn,
+      threads: [threadWithReply, { comment: thread2Comment, replies: [] }],
+    });
+    renderTab({ activeCommentId: 'c1' });
+    const activeThread = screen.getByTestId('thread-c1');
+    const inactiveThread = screen.getByTestId('thread-c99');
+    expect(activeThread).toHaveAttribute('data-highlight', 'true');
+    expect(inactiveThread).not.toHaveAttribute('data-highlight', 'true');
+  });
+
+  it('does not apply highlight when activeCommentId is null', () => {
+    mockUseComments.mockReturnValue({
+      ...defaultHookReturn,
+      threads: [threadWithReply],
+    });
+    renderTab({ activeCommentId: null });
+    const thread = screen.getByTestId('thread-c1');
+    expect(thread).not.toHaveAttribute('data-highlight', 'true');
+  });
+
+  it('does not apply highlight when activeCommentId is undefined', () => {
+    mockUseComments.mockReturnValue({
+      ...defaultHookReturn,
+      threads: [threadWithReply],
+    });
+    renderTab();
+    const thread = screen.getByTestId('thread-c1');
+    expect(thread).not.toHaveAttribute('data-highlight', 'true');
   });
 });

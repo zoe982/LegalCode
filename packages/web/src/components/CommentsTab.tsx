@@ -1,4 +1,5 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import type { RefObject } from 'react';
 import {
   Box,
   Typography,
@@ -28,6 +29,7 @@ interface CommentsTabProps {
       ) => void)
     | undefined;
   onCancelNew?: (() => void) | undefined;
+  activeCommentId?: string | null | undefined;
 }
 
 const AVATAR_COLORS = ['#8027FF', '#1976d2', '#2e7d32', '#d32f2f', '#ed6c02', '#9c27b0'];
@@ -120,15 +122,32 @@ function CommentRow({ comment, authorIndex, onDelete, testIdPrefix }: CommentRow
   );
 }
 
+const HIGHLIGHT_ANIMATION = {
+  '@keyframes commentHighlightFlash': {
+    '0%': { backgroundColor: 'rgba(128, 39, 255, 0.1)' },
+    '100%': { backgroundColor: 'transparent' },
+  },
+};
+
 interface ThreadCardProps {
   thread: CommentThread;
   threadIndex: number;
   onResolve: (commentId: string) => void;
   onDelete: (commentId: string) => void;
   onReply: (parentId: string, content: string) => void;
+  isActive?: boolean | undefined;
+  threadRef?: RefObject<HTMLDivElement | null> | undefined;
 }
 
-function ThreadCard({ thread, threadIndex, onResolve, onDelete, onReply }: ThreadCardProps) {
+function ThreadCard({
+  thread,
+  threadIndex,
+  onResolve,
+  onDelete,
+  onReply,
+  isActive,
+  threadRef,
+}: ThreadCardProps) {
   const [replyText, setReplyText] = useState('');
   const [replyFocused, setReplyFocused] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -144,7 +163,9 @@ function ThreadCard({ thread, threadIndex, onResolve, onDelete, onReply }: Threa
   if (thread.comment.resolved) {
     return (
       <Box
+        ref={threadRef}
         data-testid={`thread-${thread.comment.id}`}
+        {...(isActive === true ? { 'data-highlight': 'true' } : {})}
         sx={{
           p: 1.5,
           borderRadius: '8px',
@@ -152,6 +173,12 @@ function ThreadCard({ thread, threadIndex, onResolve, onDelete, onReply }: Threa
           mb: 1,
           opacity: 0.7,
           cursor: 'pointer',
+          ...(isActive === true
+            ? {
+                ...HIGHLIGHT_ANIMATION,
+                animation: 'commentHighlightFlash 1.5s ease-out forwards',
+              }
+            : {}),
         }}
         onClick={() => {
           setExpanded((prev) => !prev);
@@ -181,12 +208,20 @@ function ThreadCard({ thread, threadIndex, onResolve, onDelete, onReply }: Threa
 
   return (
     <Box
+      ref={threadRef}
       data-testid={`thread-${thread.comment.id}`}
+      {...(isActive === true ? { 'data-highlight': 'true' } : {})}
       sx={{
         p: 1.5,
         borderRadius: '8px',
         backgroundColor: '#F9F9FB',
         mb: 1,
+        ...(isActive === true
+          ? {
+              ...HIGHLIGHT_ANIMATION,
+              animation: 'commentHighlightFlash 1.5s ease-out forwards',
+            }
+          : {}),
       }}
     >
       {/* Anchor quote */}
@@ -302,8 +337,22 @@ export function CommentsTab({
   pendingAnchor,
   onSubmitNew,
   onCancelNew,
+  activeCommentId,
 }: CommentsTabProps) {
   const [newCommentText, setNewCommentText] = useState('');
+  const threadRefsMap = useRef<Map<string, HTMLDivElement | null>>(new Map());
+  const prevActiveIdRef = useRef<string | null | undefined>(undefined);
+
+  useEffect(() => {
+    if (activeCommentId != null && activeCommentId !== prevActiveIdRef.current) {
+      const el = threadRefsMap.current.get(activeCommentId);
+      if (el != null) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }
+    prevActiveIdRef.current = activeCommentId;
+  }, [activeCommentId]);
+
   const {
     threads,
     isLoading,
@@ -508,16 +557,28 @@ export function CommentsTab({
         </Box>
       ) : (
         <Box sx={{ flex: 1, overflow: 'auto', p: 1.5 }}>
-          {threads.map((thread, idx) => (
-            <ThreadCard
-              key={thread.comment.id}
-              thread={thread}
-              threadIndex={idx}
-              onResolve={handleResolve}
-              onDelete={handleDelete}
-              onReply={handleReply}
-            />
-          ))}
+          {threads.map((thread, idx) => {
+            const isActive = activeCommentId != null && activeCommentId === thread.comment.id;
+            return (
+              <ThreadCard
+                key={thread.comment.id}
+                thread={thread}
+                threadIndex={idx}
+                onResolve={handleResolve}
+                onDelete={handleDelete}
+                onReply={handleReply}
+                isActive={isActive}
+                threadRef={{
+                  get current() {
+                    return threadRefsMap.current.get(thread.comment.id) ?? null;
+                  },
+                  set current(el: HTMLDivElement | null) {
+                    threadRefsMap.current.set(thread.comment.id, el);
+                  },
+                }}
+              />
+            );
+          })}
         </Box>
       )}
     </Box>
