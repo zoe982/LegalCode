@@ -10,6 +10,7 @@ import {
   DialogContent,
   DialogActions,
   Skeleton,
+  TextField,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DownloadIcon from '@mui/icons-material/Download';
@@ -286,8 +287,11 @@ export function TemplateEditorPage() {
       .then((result: unknown) => {
         const created = result as { template: Template };
         void navigate(`/templates/${created.template.id}`);
+      })
+      .catch(() => {
+        showToast('Failed to create template', 'error');
       });
-  }, [createMutation, title, category, country, content, tags, navigate]);
+  }, [createMutation, title, category, country, content, tags, navigate, showToast]);
 
   const handleSaveDraft = useCallback(() => {
     /* v8 ignore next -- guard for TypeScript; id is always defined in edit mode */
@@ -306,8 +310,11 @@ export function TemplateEditorPage() {
       .then(() => {
         isDirtyRef.current = false;
         sessionStorage.removeItem(`legalcode:backup:${id}`);
+      })
+      .catch(() => {
+        showToast('Failed to save draft', 'error');
       });
-  }, [updateMutation, id, title, category, country, content, tags]);
+  }, [updateMutation, id, title, category, country, content, tags, showToast]);
 
   const handlePublishClick = useCallback(() => {
     setPublishDialogOpen(true);
@@ -316,9 +323,11 @@ export function TemplateEditorPage() {
   const handlePublishConfirm = useCallback(() => {
     /* v8 ignore next -- guard for TypeScript; id is always defined in edit mode */
     if (!id) return;
-    void publishMutation.mutateAsync(id);
+    void publishMutation.mutateAsync(id).catch(() => {
+      showToast('Failed to publish template', 'error');
+    });
     setPublishDialogOpen(false);
-  }, [publishMutation, id]);
+  }, [publishMutation, id, showToast]);
 
   const handleArchiveClick = useCallback(() => {
     setArchiveDialogOpen(true);
@@ -327,31 +336,36 @@ export function TemplateEditorPage() {
   const handleArchiveConfirm = useCallback(() => {
     /* v8 ignore next -- guard for TypeScript; id is always defined in edit mode */
     if (!id) return;
-    void archiveMutation.mutateAsync(id).then(() => {
-      showToast(
-        'Template archived',
-        'success',
-        createElement(
-          Button,
-          {
-            size: 'small' as const,
-            onClick: () => {
-              void unarchiveMutation.mutateAsync(id);
+    void archiveMutation
+      .mutateAsync(id)
+      .then(() => {
+        showToast(
+          'Template archived',
+          'success',
+          createElement(
+            Button,
+            {
+              size: 'small' as const,
+              onClick: () => {
+                void unarchiveMutation.mutateAsync(id);
+              },
+              sx: {
+                color: '#8027FF',
+                fontFamily: '"DM Sans", sans-serif',
+                fontSize: '0.8125rem',
+                fontWeight: 600,
+                textTransform: 'none',
+                minWidth: 0,
+                padding: '2px 8px',
+              },
             },
-            sx: {
-              color: '#8027FF',
-              fontFamily: '"DM Sans", sans-serif',
-              fontSize: '0.8125rem',
-              fontWeight: 600,
-              textTransform: 'none',
-              minWidth: 0,
-              padding: '2px 8px',
-            },
-          },
-          'Undo',
-        ),
-      );
-    });
+            'Undo',
+          ),
+        );
+      })
+      .catch(() => {
+        showToast('Failed to archive template', 'error');
+      });
     setArchiveDialogOpen(false);
   }, [archiveMutation, unarchiveMutation, id, showToast]);
 
@@ -362,9 +376,11 @@ export function TemplateEditorPage() {
   const handleUnarchiveConfirm = useCallback(() => {
     /* v8 ignore next -- guard for TypeScript; id is always defined in edit mode */
     if (!id) return;
-    void unarchiveMutation.mutateAsync(id);
+    void unarchiveMutation.mutateAsync(id).catch(() => {
+      showToast('Failed to unarchive template', 'error');
+    });
     setUnarchiveDialogOpen(false);
-  }, [unarchiveMutation, id]);
+  }, [unarchiveMutation, id, showToast]);
 
   const handleSaveVersion = useCallback(
     (summary: string) => {
@@ -549,6 +565,20 @@ export function TemplateEditorPage() {
                 },
               }}
             />
+
+            {isCreateMode && (
+              <TextField
+                label="Category"
+                required
+                fullWidth
+                value={category}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                  setCategory(e.target.value);
+                }}
+                size="small"
+                sx={{ mt: 2 }}
+              />
+            )}
 
             {/* Separator */}
             <Box

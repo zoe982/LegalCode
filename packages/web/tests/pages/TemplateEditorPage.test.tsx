@@ -649,11 +649,11 @@ describe('TemplateEditorPage', () => {
       expect(screen.getByRole('button', { name: /save draft/i })).toBeInTheDocument();
     });
 
-    it('does not render inline Category, Country, Tags fields', () => {
+    it('does not render inline Country, Tags fields (Category is required in create mode)', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
-      // v3: metadata fields moved to Info panel (Phase 5)
-      expect(screen.queryByLabelText(/category/i)).not.toBeInTheDocument();
+      // v3: Category is shown in create mode (required for save); Country/Tags moved to Info panel
+      expect(screen.getByLabelText(/category/i)).toBeInTheDocument();
       expect(screen.queryByLabelText(/country/i)).not.toBeInTheDocument();
       expect(screen.queryByLabelText(/tags/i)).not.toBeInTheDocument();
     });
@@ -944,8 +944,38 @@ describe('TemplateEditorPage', () => {
       // Fill in title via borderless input
       await user.type(screen.getByPlaceholderText('Untitled'), 'New Agreement');
 
+      // Fill in required category field
+      await user.type(screen.getByLabelText(/category/i), 'Employment');
+
       await user.click(screen.getByRole('button', { name: /save draft/i }));
       expect(mockCreateMutateAsync).toHaveBeenCalledTimes(1);
+      expect(mockCreateMutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'New Agreement',
+          category: 'Employment',
+          content: expect.any(String) as unknown,
+        }),
+      );
+    });
+
+    it('shows category field in create mode', () => {
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      expect(screen.getByLabelText(/category/i)).toBeInTheDocument();
+    });
+
+    it('shows error toast when create draft fails', async () => {
+      const user = userEvent.setup();
+      mockCreateMutateAsync.mockRejectedValue(new Error('Failed'));
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      await user.type(screen.getByPlaceholderText('Untitled'), 'New Agreement');
+      await user.click(screen.getByRole('button', { name: /save draft/i }));
+
+      await waitFor(() => {
+        expect(mockShowToast).toHaveBeenCalledWith(expect.stringMatching(/failed|error/i), 'error');
+      });
     });
   });
 
@@ -970,6 +1000,18 @@ describe('TemplateEditorPage', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
       await user.click(screen.getByRole('button', { name: /save draft/i }));
       expect(mockUpdateMutateAsync).toHaveBeenCalledTimes(1);
+    });
+
+    it('shows error toast when update draft fails', async () => {
+      const user = userEvent.setup();
+      mockUpdateMutateAsync.mockRejectedValue(new Error('Failed'));
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      await user.click(screen.getByRole('button', { name: /save draft/i }));
+
+      await waitFor(() => {
+        expect(mockShowToast).toHaveBeenCalledWith(expect.stringMatching(/failed|error/i), 'error');
+      });
     });
 
     it('opens publish confirmation dialog when Publish is clicked via MetadataTab', async () => {
@@ -1016,6 +1058,24 @@ describe('TemplateEditorPage', () => {
       await user.click(confirmButton);
 
       expect(mockPublishMutateAsync).toHaveBeenCalledWith('t1');
+    });
+
+    it('shows error toast when publish fails', async () => {
+      const user = userEvent.setup();
+      mockPublishMutateAsync.mockRejectedValue(new Error('Failed'));
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      await openInfoPanel(user);
+      await user.click(screen.getByTestId('metadata-publish'));
+
+      const publishButtons = screen.getAllByRole('button', { name: /publish/i });
+      const confirmButton = publishButtons[publishButtons.length - 1];
+      if (!confirmButton) throw new Error('Expected publish confirm button');
+      await user.click(confirmButton);
+
+      await waitFor(() => {
+        expect(mockShowToast).toHaveBeenCalledWith(expect.stringMatching(/failed|error/i), 'error');
+      });
     });
   });
 
@@ -1110,6 +1170,24 @@ describe('TemplateEditorPage', () => {
       await user.click(screen.getByRole('button', { name: /cancel/i }));
       await waitFor(() => {
         expect(screen.queryByText('Archive Template')).not.toBeInTheDocument();
+      });
+    });
+
+    it('shows error toast when archive fails', async () => {
+      const user = userEvent.setup();
+      mockArchiveMutateAsync.mockRejectedValue(new Error('Failed'));
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      await openInfoPanel(user);
+      await user.click(screen.getByTestId('metadata-archive'));
+
+      const archiveButtons = screen.getAllByRole('button', { name: /archive/i });
+      const confirmButton = archiveButtons[archiveButtons.length - 1];
+      if (!confirmButton) throw new Error('Expected archive confirm button');
+      await user.click(confirmButton);
+
+      await waitFor(() => {
+        expect(mockShowToast).toHaveBeenCalledWith(expect.stringMatching(/failed|error/i), 'error');
       });
     });
   });

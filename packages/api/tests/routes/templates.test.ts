@@ -324,6 +324,67 @@ describe('POST /templates', () => {
     expect(body.tags).toEqual(['contract']);
   });
 
+  it('returns 400 with validation details for empty category', async () => {
+    const app = await importAndCreateApp();
+    const token = await editorToken();
+    const res = await app.request('/templates', {
+      method: 'POST',
+      headers: {
+        Cookie: `__Host-auth=${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        title: 'Test Template',
+        category: '',
+        content: '# Test',
+      }),
+    });
+    expect(res.status).toBe(400);
+    const body: Record<string, unknown> = await res.json();
+    expect(body.error).toBe('Invalid input');
+    expect(body.details).toBeDefined();
+  });
+
+  it('POST success response matches createTemplateResponseSchema', async () => {
+    const { createTemplateResponseSchema } = await import('@legalcode/shared');
+
+    mockCreateTemplate.mockResolvedValueOnce({
+      template: {
+        id: 't-new',
+        title: 'Test',
+        slug: 'test-abc',
+        category: 'Employment',
+        description: null,
+        country: null,
+        status: 'draft',
+        currentVersion: 1,
+        createdBy: 'editor-1',
+        createdAt: '2026-03-06T00:00:00Z',
+        updatedAt: '2026-03-06T00:00:00Z',
+      },
+      tags: ['employment'],
+    });
+
+    const app = await importAndCreateApp();
+    const token = await editorToken();
+    const res = await app.request('/templates', {
+      method: 'POST',
+      headers: {
+        Cookie: `__Host-auth=${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        title: 'Test',
+        category: 'Employment',
+        content: '# Test content',
+      }),
+    });
+    expect(res.status).toBe(201);
+    const body: unknown = await res.json();
+    const parsed = createTemplateResponseSchema.safeParse(body);
+    expect(parsed.success).toBe(true);
+  });
+
   it('returns 201 on success for editor', async () => {
     mockCreateTemplate.mockResolvedValueOnce({
       template: { id: 't-new', title: 'NDA', slug: 'nda-abc123', status: 'draft' },
@@ -436,6 +497,43 @@ describe('PATCH /templates/:id', () => {
     expect(res.status).toBe(200);
     const body: { template: { title: string } } = await res.json();
     expect(body.template.title).toBe('Updated');
+  });
+
+  it('PATCH success response includes template and tags', async () => {
+    const { templateSchema } = await import('@legalcode/shared');
+
+    mockUpdateTemplate.mockResolvedValueOnce({
+      template: {
+        id: 't-1',
+        title: 'Updated',
+        slug: 'updated-abc',
+        category: 'NDA',
+        description: null,
+        country: null,
+        status: 'draft',
+        currentVersion: 1,
+        createdBy: 'editor-1',
+        createdAt: '2026-03-06T00:00:00Z',
+        updatedAt: '2026-03-06T00:00:00Z',
+      },
+      tags: ['nda'],
+    });
+
+    const app = await importAndCreateApp();
+    const token = await editorToken();
+    const res = await app.request('/templates/t-1', {
+      method: 'PATCH',
+      headers: {
+        Cookie: `__Host-auth=${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ title: 'Updated' }),
+    });
+    expect(res.status).toBe(200);
+    const body: { template: unknown; tags: unknown } = await res.json();
+    expect(body.tags).toBeDefined();
+    const parsed = templateSchema.safeParse(body.template);
+    expect(parsed.success).toBe(true);
   });
 });
 

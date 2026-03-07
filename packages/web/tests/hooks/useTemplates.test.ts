@@ -228,6 +228,27 @@ describe('useCreateTemplate', () => {
     const { reportError } = await import('../../src/services/errorReporter.js');
     expect(reportError).toHaveBeenCalled();
   });
+
+  it('propagates error for empty category', async () => {
+    createFn.mockRejectedValue(new Error('Failed to create template'));
+
+    const wrapper = createWrapper();
+    const { result } = renderHook(() => useCreateTemplate(), { wrapper });
+
+    act(() => {
+      result.current.mutate({
+        title: 'Test',
+        category: '',
+        content: '# Test',
+      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.isError).toBe(true);
+    });
+
+    expect(result.current.error?.message).toBe('Failed to create template');
+  });
 });
 
 describe('useUpdateTemplate', () => {

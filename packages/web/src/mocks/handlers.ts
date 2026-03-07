@@ -1,4 +1,5 @@
 import { http, HttpResponse } from 'msw';
+import { createTemplateSchema, updateTemplateSchema } from '@legalcode/shared';
 import type { Template, TemplateVersion, User } from '@legalcode/shared';
 import type { Comment } from '../types/comments.js';
 
@@ -209,31 +210,45 @@ export const handlers = [
 
   http.post('/templates', async ({ request }) => {
     const body = (await request.json()) as Record<string, unknown>;
+    const parsed = createTemplateSchema.safeParse(body);
+    if (!parsed.success) {
+      return HttpResponse.json(
+        { error: 'Invalid input', details: parsed.error.flatten() },
+        { status: 400 },
+      );
+    }
     const created: Template = {
       id: 'new-1',
-      title: (body.title as string) || 'New Template',
+      title: parsed.data.title,
       slug: 'new-template-xyz',
-      category: (body.category as string) || 'General',
-      description: (body.description as string | null) ?? null,
-      country: (body.country as string | null) ?? null,
+      category: parsed.data.category,
+      description: parsed.data.description ?? null,
+      country: parsed.data.country ?? null,
       status: 'draft',
       currentVersion: 1,
       createdBy: 'u1',
       createdAt: '2026-03-06T00:00:00Z',
       updatedAt: '2026-03-06T00:00:00Z',
     };
-    return HttpResponse.json(created, { status: 201 });
+    return HttpResponse.json({ template: created, tags: parsed.data.tags ?? [] }, { status: 201 });
   }),
 
   http.patch('/templates/:id', async ({ params, request }) => {
     const body = (await request.json()) as Record<string, unknown>;
+    const parsed = updateTemplateSchema.safeParse(body);
+    if (!parsed.success) {
+      return HttpResponse.json(
+        { error: 'Invalid input', details: parsed.error.flatten() },
+        { status: 400 },
+      );
+    }
     const template = mockTemplates.find((t) => t.id === params.id);
     if (!template) {
       return HttpResponse.json({ error: 'Not found' }, { status: 404 });
     }
     return HttpResponse.json({
       ...template,
-      ...body,
+      ...parsed.data,
       updatedAt: '2026-03-06T00:00:00Z',
     });
   }),

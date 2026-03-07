@@ -38,6 +38,25 @@ export const updateTemplateSchema = z.object({
   tags: z.array(z.string().min(1)).optional(),
 });
 
+export const templateSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  slug: z.string(),
+  category: z.string(),
+  description: z.string().nullable(),
+  country: z.string().nullable(),
+  status: templateStatusSchema,
+  currentVersion: z.number(),
+  createdBy: z.string(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export const createTemplateResponseSchema = z.object({
+  template: templateSchema,
+  tags: z.array(z.string()),
+});
+
 export const templateQuerySchema = z.object({
   search: z.string().optional(),
   category: z.string().optional(),

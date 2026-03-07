@@ -66,7 +66,7 @@ export const templateService = {
     return (await response.json()) as Template;
   },
 
-  async create(data: CreateTemplateInput): Promise<Template> {
+  async create(data: CreateTemplateInput): Promise<{ template: Template; tags: string[] }> {
     const response = await fetch('/templates', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -76,7 +76,7 @@ export const templateService = {
     if (!response.ok) {
       throw new Error('Failed to create template');
     }
-    return (await response.json()) as Template;
+    return (await response.json()) as { template: Template; tags: string[] };
   },
 
   async update(id: string, data: UpdateTemplateInput): Promise<Template> {
