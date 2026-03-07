@@ -9,6 +9,7 @@ import {
   updateTemplate,
   publishTemplate,
   archiveTemplate,
+  unarchiveTemplate,
   getTemplateVersions,
   getTemplateVersion,
   downloadTemplate,
@@ -126,6 +127,18 @@ templateRoutes.post('/:id/archive', requireRole('admin', 'editor'), async (c) =>
   if ('error' in result) {
     if (result.error === 'not_found') return c.json({ error: 'Template not found' }, 404);
     return c.json({ error: 'Template is already archived' }, 409);
+  }
+  return c.json(result);
+});
+
+templateRoutes.post('/:id/unarchive', requireRole('admin', 'editor'), async (c) => {
+  const db = getDb(c.env.DB);
+  const id = c.req.param('id');
+  const user = c.get('user');
+  const result = await unarchiveTemplate(db, id, user.id);
+  if ('error' in result) {
+    if (result.error === 'not_found') return c.json({ error: 'Template not found' }, 404);
+    return c.json({ error: 'Template is not archived' }, 409);
   }
   return c.json(result);
 });

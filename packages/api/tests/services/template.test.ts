@@ -7,6 +7,7 @@ import {
   updateTemplate,
   publishTemplate,
   archiveTemplate,
+  unarchiveTemplate,
   getTemplateVersions,
   getTemplateVersion,
   downloadTemplate,
@@ -797,6 +798,102 @@ describe('template service', () => {
       await archiveTemplate(db, 't1', 'user-1');
 
       // The batch should include an audit log insert with previousStatus metadata
+      const batchOps = batchSpy.mock.calls[0]?.[0] as readonly unknown[];
+      expect(batchOps).toBeDefined();
+      expect(batchOps.length).toBeGreaterThanOrEqual(2);
+    });
+  });
+
+  // ── WS5: unarchiveTemplate ───────────────────────────────────────────
+
+  describe('unarchiveTemplate', () => {
+    it('returns not_found for missing template', async () => {
+      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue(undefined);
+
+      const result = await unarchiveTemplate(db, 'nonexistent', 'user-1');
+      expect(result).toEqual({ error: 'not_found' });
+    });
+
+    it('returns not_archived for draft templates', async () => {
+      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue({
+        id: 't1',
+        title: 'Draft',
+        slug: 'draft-abc123',
+        category: 'contracts',
+        country: null,
+        status: 'draft',
+        currentVersion: 1,
+        createdBy: 'user-1',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      });
+
+      const result = await unarchiveTemplate(db, 't1', 'user-1');
+      expect(result).toEqual({ error: 'not_archived' });
+    });
+
+    it('returns not_archived for active templates', async () => {
+      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue({
+        id: 't1',
+        title: 'Active',
+        slug: 'active-abc123',
+        category: 'contracts',
+        country: null,
+        status: 'active',
+        currentVersion: 1,
+        createdBy: 'user-1',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      });
+
+      const result = await unarchiveTemplate(db, 't1', 'user-1');
+      expect(result).toEqual({ error: 'not_archived' });
+    });
+
+    it('successfully unarchives an archived template', async () => {
+      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue({
+        id: 't1',
+        title: 'Archived Template',
+        slug: 'archived-abc123',
+        category: 'contracts',
+        country: null,
+        status: 'archived',
+        currentVersion: 3,
+        createdBy: 'user-1',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      });
+
+      const batchSpy = vi.spyOn(db, 'batch').mockResolvedValue([] as never);
+
+      const result = await unarchiveTemplate(db, 't1', 'user-1');
+
+      expect(result).toHaveProperty('template');
+      if ('template' in result) {
+        expect(result.template.status).toBe('draft');
+      }
+      expect(batchSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('creates audit log with unarchive action', async () => {
+      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue({
+        id: 't1',
+        title: 'Archived',
+        slug: 'archived-abc123',
+        category: 'contracts',
+        country: null,
+        status: 'archived',
+        currentVersion: 1,
+        createdBy: 'user-1',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      });
+
+      const batchSpy = vi.spyOn(db, 'batch').mockResolvedValue([] as never);
+
+      await unarchiveTemplate(db, 't1', 'admin-1');
+
+      // The batch should include template update + audit log insert
       const batchOps = batchSpy.mock.calls[0]?.[0] as readonly unknown[];
       expect(batchOps).toBeDefined();
       expect(batchOps.length).toBeGreaterThanOrEqual(2);

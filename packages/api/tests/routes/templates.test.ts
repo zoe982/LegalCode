@@ -13,6 +13,7 @@ const mockGetTemplate = vi.fn();
 const mockUpdateTemplate = vi.fn();
 const mockPublishTemplate = vi.fn();
 const mockArchiveTemplate = vi.fn();
+const mockUnarchiveTemplate = vi.fn();
 const mockGetTemplateVersions = vi.fn();
 const mockGetTemplateVersion = vi.fn();
 const mockDownloadTemplate = vi.fn();
@@ -24,6 +25,7 @@ vi.mock('../../src/services/template.js', () => ({
   updateTemplate: (...args: unknown[]) => mockUpdateTemplate(...args) as unknown,
   publishTemplate: (...args: unknown[]) => mockPublishTemplate(...args) as unknown,
   archiveTemplate: (...args: unknown[]) => mockArchiveTemplate(...args) as unknown,
+  unarchiveTemplate: (...args: unknown[]) => mockUnarchiveTemplate(...args) as unknown,
   getTemplateVersions: (...args: unknown[]) => mockGetTemplateVersions(...args) as unknown,
   getTemplateVersion: (...args: unknown[]) => mockGetTemplateVersion(...args) as unknown,
   downloadTemplate: (...args: unknown[]) => mockDownloadTemplate(...args) as unknown,
@@ -572,5 +574,67 @@ describe('POST /templates/:id/archive', () => {
     expect(res.status).toBe(200);
     const body: { template: { status: string } } = await res.json();
     expect(body.template.status).toBe('archived');
+  });
+});
+
+// ── POST /templates/:id/unarchive ─────────────────────────────────────
+
+describe('POST /templates/:id/unarchive', () => {
+  it('returns 401 without auth cookie', async () => {
+    const app = await importAndCreateApp();
+    const res = await app.request('/templates/t-1/unarchive', { method: 'POST' });
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 403 for viewer role', async () => {
+    const app = await importAndCreateApp();
+    const token = await viewerToken();
+    const res = await app.request('/templates/t-1/unarchive', {
+      method: 'POST',
+      headers: { Cookie: `__Host-auth=${token}` },
+    });
+    expect(res.status).toBe(403);
+  });
+
+  it('returns 404 when template not found', async () => {
+    mockUnarchiveTemplate.mockResolvedValueOnce({ error: 'not_found' });
+
+    const app = await importAndCreateApp();
+    const token = await adminToken();
+    const res = await app.request('/templates/t-1/unarchive', {
+      method: 'POST',
+      headers: { Cookie: `__Host-auth=${token}` },
+    });
+    expect(res.status).toBe(404);
+  });
+
+  it('returns 409 when template is not archived', async () => {
+    mockUnarchiveTemplate.mockResolvedValueOnce({ error: 'not_archived' });
+
+    const app = await importAndCreateApp();
+    const token = await adminToken();
+    const res = await app.request('/templates/t-1/unarchive', {
+      method: 'POST',
+      headers: { Cookie: `__Host-auth=${token}` },
+    });
+    expect(res.status).toBe(409);
+    const body: { error: string } = await res.json();
+    expect(body.error).toBe('Template is not archived');
+  });
+
+  it('returns 200 on success', async () => {
+    mockUnarchiveTemplate.mockResolvedValueOnce({
+      template: { id: 't-1', title: 'NDA', status: 'draft' },
+    });
+
+    const app = await importAndCreateApp();
+    const token = await adminToken();
+    const res = await app.request('/templates/t-1/unarchive', {
+      method: 'POST',
+      headers: { Cookie: `__Host-auth=${token}` },
+    });
+    expect(res.status).toBe(200);
+    const body: { template: { status: string } } = await res.json();
+    expect(body.template.status).toBe('draft');
   });
 });

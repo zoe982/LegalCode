@@ -4,6 +4,7 @@ import * as awarenessProtocol from 'y-protocols/awareness';
 import * as encoding from 'lib0/encoding';
 import * as decoding from 'lib0/decoding';
 import { persistVersion, getLatestVersionContent } from '../services/template-persistence.js';
+import { thinAutoVersions } from '../services/version-thinning.js';
 
 const MAX_EDITORS = 5;
 const CHECKPOINT_INTERVAL_MS = 5 * 60 * 1000;
@@ -28,6 +29,7 @@ export class TemplateSession implements DurableObject {
   private initialized = false;
   private checkpointTimer: ReturnType<typeof setInterval> | null = null;
   private lastUserId: string | null = null;
+  private contentChanged = false;
 
   constructor(ctx: DurableObjectState, env: Record<string, unknown>) {
     this.ctx = ctx;
@@ -104,6 +106,7 @@ export class TemplateSession implements DurableObject {
         if (encoding.length(encoder) > 1) {
           ws.send(encoding.toUint8Array(encoder));
         }
+        this.contentChanged = true;
         break;
       }
       case MSG_AWARENESS: {
@@ -163,7 +166,11 @@ export class TemplateSession implements DurableObject {
           templateId: this.templateId,
           content,
           createdBy: this.lastUserId,
-          changeSummary: 'Auto-saved on session close',
+          changeSummary: '[auto] Session close',
+        });
+        // Thin old auto-versions after persist
+        thinAutoVersions(db, this.templateId).catch(() => {
+          /* swallow */
         });
       } catch (err: unknown) {
         console.error('Failed to persist version on session close', err);
@@ -258,6 +265,27 @@ export class TemplateSession implements DurableObject {
     const update = Y.encodeStateAsUpdate(this.ydoc);
     await this.ctx.storage.put('checkpoint', update.buffer);
     await this.ctx.storage.put('checkpointTimestamp', Date.now());
+
+    // Auto-persist a version when content has changed
+    if (this.contentChanged && this.templateId && this.lastUserId) {
+      const content = this.ydoc.getText('content').toJSON();
+      const db = this.env.DB as D1Database;
+      try {
+        await persistVersion(db, {
+          templateId: this.templateId,
+          content,
+          createdBy: this.lastUserId,
+          changeSummary: '[auto] Checkpoint',
+        });
+        this.contentChanged = false;
+        // Fire and forget: thin old auto-versions
+        thinAutoVersions(db, this.templateId).catch(() => {
+          /* swallow */
+        });
+      } catch {
+        /* checkpoint persist failure is non-fatal */
+      }
+    }
   }
 
   private async handleSaveVersion(request: Request): Promise<Response> {

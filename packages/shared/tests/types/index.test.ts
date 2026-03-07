@@ -13,6 +13,11 @@ describe('shared types', () => {
     expect(action).toBe('client_error');
   });
 
+  it('AuditAction includes unarchive', () => {
+    const action: AuditAction = 'unarchive';
+    expect(action).toBe('unarchive');
+  });
+
   it('Role type includes all roles', () => {
     const roles: Role[] = ['admin', 'editor', 'viewer'];
     expect(roles).toHaveLength(3);

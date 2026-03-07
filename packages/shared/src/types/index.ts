@@ -7,6 +7,7 @@ export type AuditAction =
   | 'update'
   | 'publish'
   | 'archive'
+  | 'unarchive'
   | 'export'
   | 'login'
   | 'client_error';

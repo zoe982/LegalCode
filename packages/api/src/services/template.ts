@@ -468,6 +468,61 @@ export async function archiveTemplate(
   };
 }
 
+// ── WS5: unarchiveTemplate ────────────────────────────────────────────
+
+type UnarchiveResult =
+  | { error: 'not_found' }
+  | { error: 'not_archived' }
+  | { template: typeof templates.$inferSelect };
+
+export async function unarchiveTemplate(
+  db: AppDb,
+  templateId: string,
+  userId: string,
+): Promise<UnarchiveResult> {
+  const existing = await db.query.templates.findFirst({
+    where: eq(templates.id, templateId),
+  });
+
+  if (!existing) {
+    return { error: 'not_found' };
+  }
+
+  if (existing.status !== 'archived') {
+    return { error: 'not_archived' };
+  }
+
+  const now = nowISO();
+
+  const auditRow = {
+    id: crypto.randomUUID(),
+    userId,
+    action: 'unarchive',
+    entityType: 'template',
+    entityId: templateId,
+    metadata: JSON.stringify({ previousStatus: existing.status }),
+    createdAt: now,
+  };
+
+  const ops: BatchItem<'sqlite'>[] = [
+    db
+      .update(templates)
+      .set({ status: 'draft', updatedAt: now })
+      .where(eq(templates.id, templateId)),
+    db.insert(auditLog).values(auditRow),
+  ];
+
+  await db.batch(ops as unknown as [BatchItem<'sqlite'>, ...BatchItem<'sqlite'>[]]);
+
+  return {
+    template: {
+      ...existing,
+      status: 'draft',
+      updatedAt: now,
+    },
+  };
+}
+
 // ── Task 9: getTemplateVersions ───────────────────────────────────────
 
 export async function getTemplateVersions(

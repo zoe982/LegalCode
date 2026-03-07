@@ -9,10 +9,15 @@ export const auditActionSchema = z.enum([
   'update',
   'publish',
   'archive',
+  'unarchive',
   'export',
   'login',
   'client_error',
 ]);
+
+export function isAutoVersion(changeSummary: string | null): boolean {
+  return changeSummary?.startsWith('[auto]') ?? false;
+}
 
 export const createTemplateSchema = z.object({
   title: z.string().min(1).max(200),

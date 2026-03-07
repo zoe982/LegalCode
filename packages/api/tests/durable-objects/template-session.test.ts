@@ -60,6 +60,10 @@ vi.mock('../../src/services/template-persistence.js', () => ({
   }),
 }));
 
+vi.mock('../../src/services/version-thinning.js', () => ({
+  thinAutoVersions: vi.fn().mockResolvedValue({ deleted: 0 }),
+}));
+
 // ── Mock WebSocket + WebSocketPair ──
 
 class MockWebSocket {
@@ -270,7 +274,7 @@ describe('TemplateSession', () => {
         expect.objectContaining({
           templateId: 'tmpl-1',
           createdBy: 'user-1',
-          changeSummary: 'Auto-saved on session close',
+          changeSummary: '[auto] Session close',
         }),
       );
       expect(ctx.storage.delete).toHaveBeenCalledWith('checkpoint');
@@ -802,6 +806,137 @@ describe('TemplateSession', () => {
       const res = await session.fetch(req);
       // Should return 400 because userId and email are empty
       expect(res.status).toBe(400);
+    });
+  });
+
+  describe('auto-versioning during checkpoint', () => {
+    it('creates auto-version when content has changed via MSG_SYNC', async () => {
+      const { persistVersion } = await import('../../src/services/template-persistence.js');
+      (persistVersion as Mock).mockClear();
+
+      const req = createUpgradeRequest();
+      await session.fetch(req);
+
+      const serverWs = (ctx.acceptWebSocket as Mock).mock.calls[0]?.[0] as MockWebSocket;
+
+      // Send a MSG_SYNC message to mark content as changed
+      const encoder = encoding.createEncoder();
+      encoding.writeVarUint(encoder, 0); // MSG_SYNC
+      encoding.writeVarUint(encoder, 0);
+      const msgData = encoding.toUint8Array(encoder);
+      await session.webSocketMessage(serverWs as unknown as WebSocket, msgData.buffer);
+
+      // Advance timers to trigger checkpoint
+      await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
+
+      expect(persistVersion).toHaveBeenCalledWith(
+        env.DB,
+        expect.objectContaining({
+          templateId: 'tmpl-1',
+          changeSummary: '[auto] Checkpoint',
+        }),
+      );
+    });
+
+    it('does NOT create auto-version during checkpoint when content has not changed', async () => {
+      const { persistVersion } = await import('../../src/services/template-persistence.js');
+      (persistVersion as Mock).mockClear();
+
+      const req = createUpgradeRequest();
+      await session.fetch(req);
+
+      // Don't send any MSG_SYNC messages
+
+      // Advance timers to trigger checkpoint
+      await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
+
+      // persistVersion should NOT have been called (no content change)
+      expect(persistVersion).not.toHaveBeenCalled();
+    });
+
+    it('resets contentChanged flag after checkpoint', async () => {
+      const { persistVersion } = await import('../../src/services/template-persistence.js');
+      (persistVersion as Mock).mockClear();
+
+      const req = createUpgradeRequest();
+      await session.fetch(req);
+
+      const serverWs = (ctx.acceptWebSocket as Mock).mock.calls[0]?.[0] as MockWebSocket;
+
+      // Send MSG_SYNC to set contentChanged = true
+      const encoder = encoding.createEncoder();
+      encoding.writeVarUint(encoder, 0); // MSG_SYNC
+      encoding.writeVarUint(encoder, 0);
+      const msgData = encoding.toUint8Array(encoder);
+      await session.webSocketMessage(serverWs as unknown as WebSocket, msgData.buffer);
+
+      // First checkpoint should persist
+      await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
+      expect(persistVersion).toHaveBeenCalledTimes(1);
+
+      (persistVersion as Mock).mockClear();
+
+      // Second checkpoint without new MSG_SYNC should NOT persist
+      await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
+      expect(persistVersion).not.toHaveBeenCalled();
+    });
+
+    it('calls thinAutoVersions after auto-persist during checkpoint', async () => {
+      const { thinAutoVersions } = await import('../../src/services/version-thinning.js');
+      (thinAutoVersions as Mock).mockClear();
+
+      const req = createUpgradeRequest();
+      await session.fetch(req);
+
+      const serverWs = (ctx.acceptWebSocket as Mock).mock.calls[0]?.[0] as MockWebSocket;
+
+      // Send MSG_SYNC to mark content changed
+      const encoder = encoding.createEncoder();
+      encoding.writeVarUint(encoder, 0);
+      encoding.writeVarUint(encoder, 0);
+      const msgData = encoding.toUint8Array(encoder);
+      await session.webSocketMessage(serverWs as unknown as WebSocket, msgData.buffer);
+
+      await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
+
+      expect(thinAutoVersions).toHaveBeenCalledWith(env.DB, 'tmpl-1');
+    });
+  });
+
+  describe('alarm — auto-version changeSummary', () => {
+    it('uses [auto] Session close as changeSummary', async () => {
+      const { persistVersion } = await import('../../src/services/template-persistence.js');
+      (persistVersion as Mock).mockClear();
+
+      const req = createUpgradeRequest();
+      await session.fetch(req);
+
+      const serverWs = (ctx.acceptWebSocket as Mock).mock.calls[0]?.[0] as MockWebSocket;
+      await session.webSocketClose(serverWs as unknown as WebSocket);
+
+      await session.alarm();
+
+      expect(persistVersion).toHaveBeenCalledWith(
+        env.DB,
+        expect.objectContaining({
+          changeSummary: '[auto] Session close',
+        }),
+      );
+    });
+
+    it('calls thinAutoVersions after alarm persist', async () => {
+      const { thinAutoVersions } = await import('../../src/services/version-thinning.js');
+      (thinAutoVersions as Mock).mockClear();
+
+      const req = createUpgradeRequest();
+      await session.fetch(req);
+
+      const serverWs = (ctx.acceptWebSocket as Mock).mock.calls[0]?.[0] as MockWebSocket;
+      await session.webSocketClose(serverWs as unknown as WebSocket);
+
+      await session.alarm();
+
+      expect(thinAutoVersions).toHaveBeenCalledWith(env.DB, 'tmpl-1');
     });
   });
 
