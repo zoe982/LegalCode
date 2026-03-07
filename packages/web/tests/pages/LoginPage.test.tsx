@@ -56,10 +56,10 @@ describe('LoginPage', () => {
     expect(mockLogin).toHaveBeenCalledTimes(1);
   });
 
-  it('uses beige background', () => {
+  it('uses neutral background', () => {
     render(<LoginPage />, { wrapper: Wrapper });
     const container = screen.getByTestId('login-page');
-    expect(container).toHaveStyle({ backgroundColor: '#EFE3D3' });
+    expect(container).toHaveStyle({ backgroundColor: '#F9F9FB' });
   });
 
   it('uses accent-primary styling on the button', () => {

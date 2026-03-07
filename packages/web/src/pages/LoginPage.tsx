@@ -13,7 +13,7 @@ export function LoginPage() {
         justifyContent: 'center',
         alignItems: 'center',
         minHeight: '100vh',
-        backgroundColor: '#EFE3D3',
+        backgroundColor: '#F9F9FB',
       }}
     >
       <Typography
@@ -21,7 +21,7 @@ export function LoginPage() {
           fontFamily: '"Source Serif 4", Georgia, "Times New Roman", serif',
           fontWeight: 700,
           fontSize: '2.5rem',
-          color: '#451F61',
+          color: '#12111A',
           mb: 0.5,
         }}
       >
@@ -29,9 +29,9 @@ export function LoginPage() {
       </Typography>
       <Typography
         sx={{
-          fontFamily: '"Source Sans 3", "Source Sans Pro", Roboto, sans-serif',
+          fontFamily: '"DM Sans", sans-serif',
           fontSize: '1rem',
-          color: '#6B5A7A',
+          color: '#6B6D82',
           mb: 5,
         }}
       >
