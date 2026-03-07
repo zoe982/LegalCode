@@ -10,16 +10,17 @@ interface ErrorBoundaryProps {
 interface ErrorBoundaryState {
   hasError: boolean;
   error: Error | null;
+  copiedWork: boolean;
 }
 
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
-    this.state = { hasError: false, error: null };
+    this.state = { hasError: false, error: null, copiedWork: false };
   }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
-    return { hasError: true, error };
+    return { hasError: true, error, copiedWork: false };
   }
 
   override componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
@@ -37,8 +38,31 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     }
   }
 
+  private handleCopyWork = (): void => {
+    try {
+      const keys: string[] = [];
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i);
+        if (key?.startsWith('legalcode:backup:')) {
+          keys.push(key);
+        }
+      }
+      if (keys.length === 0) return;
+      const latestKey = keys[keys.length - 1];
+      /* v8 ignore next -- guard for TypeScript */
+      if (!latestKey) return;
+      const content = sessionStorage.getItem(latestKey);
+      if (content) {
+        void navigator.clipboard.writeText(content);
+        this.setState({ copiedWork: true });
+      }
+    } catch {
+      /* v8 ignore next -- clipboard or sessionStorage unavailable */
+    }
+  };
+
   private handleRetry = (): void => {
-    this.setState({ hasError: false, error: null });
+    this.setState({ hasError: false, error: null, copiedWork: false });
   };
 
   override render(): ReactNode {
@@ -85,6 +109,24 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             >
               An unexpected error occurred. Please try again.
             </Typography>
+            <Button
+              variant="outlined"
+              onClick={this.handleCopyWork}
+              sx={{
+                mb: 1.5,
+                borderColor: '#E4E5ED',
+                color: '#6B6D82',
+                borderRadius: '12px',
+                textTransform: 'none',
+                '&:hover': {
+                  borderColor: '#8027FF',
+                  color: '#8027FF',
+                  backgroundColor: 'rgba(128, 39, 255, 0.04)',
+                },
+              }}
+            >
+              {this.state.copiedWork ? 'Copied!' : 'Copy your recent work'}
+            </Button>
             <Button
               variant="contained"
               onClick={this.handleRetry}

@@ -1,5 +1,5 @@
 /// <reference types="@testing-library/jest-dom/vitest" />
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { ConnectionStatus } from '../../src/components/ConnectionStatus.js';
 
@@ -13,9 +13,9 @@ describe('ConnectionStatus', () => {
     expect(wrapper).toHaveStyle({ display: 'inline-flex' });
   });
 
-  it('shows "Saved" text with green dot when connected', () => {
+  it('shows "All changes saved" text with green dot when connected', () => {
     const { container } = render(<ConnectionStatus status="connected" />);
-    expect(screen.getByText('Saved')).toBeInTheDocument();
+    expect(screen.getByText('All changes saved')).toBeInTheDocument();
     const dot = container.querySelector('[data-testid="status-dot"]');
     if (dot === null) throw new Error('Expected status dot element');
     expect(dot).toBeInTheDocument();
@@ -69,12 +69,45 @@ describe('ConnectionStatus', () => {
 
   it('renders text in caption style with v3 token color', () => {
     render(<ConnectionStatus status="connected" />);
-    const text = screen.getByText('Saved');
+    const text = screen.getByText('All changes saved');
     expect(text).toHaveStyle({
       fontSize: '0.75rem',
       // v3 token: --text-tertiary (#9B9DB0)
       color: '#9B9DB0',
     });
+  });
+
+  it('shows "Saving..." text with pulsing amber dot when saving', () => {
+    const { container } = render(<ConnectionStatus status="saving" />);
+    expect(screen.getByText('Saving...')).toBeInTheDocument();
+    const dot = container.querySelector('[data-testid="status-dot"]');
+    if (dot === null) throw new Error('Expected status dot element');
+    expect(dot).toHaveStyle({ backgroundColor: '#D97706' });
+    const style = window.getComputedStyle(dot);
+    expect(style.animation).toContain('1.5s');
+  });
+
+  it('applies CSS transition on dot background-color', () => {
+    const { container } = render(<ConnectionStatus status="connected" />);
+    const dot = container.querySelector('[data-testid="status-dot"]');
+    if (dot === null) throw new Error('Expected status dot element');
+    expect(dot).toHaveStyle({ transition: 'background-color 0.3s ease' });
+  });
+
+  it('shows retry button when disconnected and onRetry is provided', async () => {
+    const onRetry = vi.fn();
+    render(<ConnectionStatus status="disconnected" onRetry={onRetry} />);
+    const retryButton = screen.getByRole('button', { name: /retry/i });
+    expect(retryButton).toBeInTheDocument();
+    const userEvent2 = (await import('@testing-library/user-event')).default;
+    const user = userEvent2.setup();
+    await user.click(retryButton);
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not show retry button when disconnected and onRetry is not provided', () => {
+    render(<ConnectionStatus status="disconnected" />);
+    expect(screen.queryByRole('button', { name: /retry/i })).not.toBeInTheDocument();
   });
 
   it('has correct gap between dot and text', () => {

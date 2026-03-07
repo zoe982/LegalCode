@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import type { KeyboardEvent } from 'react';
 import { Box, Typography, Chip, Button, TextField } from '@mui/material';
 import { StatusChip } from './StatusChip.js';
+import { FirstUseTooltip } from './FirstUseTooltip.js';
 
 interface MetadataTabProps {
   category: string;
@@ -17,6 +18,7 @@ interface MetadataTabProps {
   onCategoryChange?: ((value: string) => void) | undefined;
   onCountryChange?: ((value: string) => void) | undefined;
   onTagsChange?: ((tags: string[]) => void) | undefined;
+  onUnarchive?: (() => void) | undefined;
 }
 
 const labelStyle = {
@@ -140,6 +142,7 @@ export function MetadataTab({
   onCategoryChange,
   onCountryChange,
   onTagsChange,
+  onUnarchive,
 }: MetadataTabProps) {
   const isEditable = readOnly !== true;
 
@@ -209,16 +212,21 @@ export function MetadataTab({
       </Box>
 
       {readOnly !== true && status === 'draft' && onPublish != null && (
-        <Button
-          variant="contained"
-          onClick={onPublish}
-          sx={{
-            backgroundColor: '#8027FF',
-            '&:hover': { backgroundColor: '#6B1FD6' },
-          }}
+        <FirstUseTooltip
+          featureId="publish"
+          message="Make this template available across your organization"
         >
-          Publish
-        </Button>
+          <Button
+            variant="contained"
+            onClick={onPublish}
+            sx={{
+              backgroundColor: '#8027FF',
+              '&:hover': { backgroundColor: '#6B1FD6' },
+            }}
+          >
+            Publish
+          </Button>
+        </FirstUseTooltip>
       )}
 
       {readOnly !== true && status === 'active' && onArchive != null && (
@@ -228,6 +236,23 @@ export function MetadataTab({
           sx={{ color: '#6B6D82', borderColor: '#6B6D82' }}
         >
           Archive
+        </Button>
+      )}
+
+      {status === 'archived' && onUnarchive != null && (
+        <Button
+          variant="outlined"
+          onClick={onUnarchive}
+          sx={{
+            color: '#8027FF',
+            borderColor: '#8027FF',
+            '&:hover': {
+              borderColor: '#6B1FD6',
+              backgroundColor: 'rgba(128, 39, 255, 0.04)',
+            },
+          }}
+        >
+          Unarchive
         </Button>
       )}
     </Box>

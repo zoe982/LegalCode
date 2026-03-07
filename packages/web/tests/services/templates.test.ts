@@ -242,6 +242,42 @@ describe('templateService', () => {
     });
   });
 
+  describe('unarchive', () => {
+    it('calls POST /templates/:id/unarchive with credentials', async () => {
+      const mockTemplate: Template = {
+        id: 'tpl-1',
+        title: 'NDA',
+        slug: 'nda',
+        category: 'contracts',
+        country: null,
+        status: 'draft',
+        currentVersion: 1,
+        createdBy: 'user-1',
+        createdAt: '2026-01-01T00:00:00Z',
+        updatedAt: '2026-01-01T00:00:00Z',
+      };
+      vi.mocked(fetch).mockResolvedValue(
+        new Response(JSON.stringify(mockTemplate), { status: 200 }),
+      );
+
+      const result = await templateService.unarchive('tpl-1');
+
+      expect(fetch).toHaveBeenCalledWith('/templates/tpl-1/unarchive', {
+        method: 'POST',
+        credentials: 'include',
+      });
+      expect(result).toEqual(mockTemplate);
+    });
+
+    it('throws on non-ok response', async () => {
+      vi.mocked(fetch).mockResolvedValue(new Response('Forbidden', { status: 403 }));
+
+      await expect(templateService.unarchive('tpl-1')).rejects.toThrow(
+        'Failed to unarchive template',
+      );
+    });
+  });
+
   describe('getVersions', () => {
     it('calls GET /templates/:id/versions with credentials', async () => {
       const mockVersions: TemplateVersion[] = [

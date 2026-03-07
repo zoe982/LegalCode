@@ -4,17 +4,17 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createElement, type ReactNode } from 'react';
 import type { Template, TemplateVersion } from '@legalcode/shared';
 
-const { listFn, getFn, createFn, updateFn, publishFn, archiveFn, getVersionsFn } = vi.hoisted(
-  () => ({
+const { listFn, getFn, createFn, updateFn, publishFn, archiveFn, unarchiveFn, getVersionsFn } =
+  vi.hoisted(() => ({
     listFn: vi.fn(),
     getFn: vi.fn(),
     createFn: vi.fn(),
     updateFn: vi.fn(),
     publishFn: vi.fn(),
     archiveFn: vi.fn(),
+    unarchiveFn: vi.fn(),
     getVersionsFn: vi.fn(),
-  }),
-);
+  }));
 
 vi.mock('../../src/services/templates.js', () => ({
   templateService: {
@@ -24,6 +24,7 @@ vi.mock('../../src/services/templates.js', () => ({
     update: updateFn,
     publish: publishFn,
     archive: archiveFn,
+    unarchive: unarchiveFn,
     getVersions: getVersionsFn,
     getVersion: vi.fn(),
     download: vi.fn(),
@@ -43,6 +44,7 @@ const {
   useUpdateTemplate,
   usePublishTemplate,
   useArchiveTemplate,
+  useUnarchiveTemplate,
 } = await import('../../src/hooks/useTemplates.js');
 
 const mockTemplate: Template = {
@@ -304,5 +306,31 @@ describe('useArchiveTemplate', () => {
     });
 
     expect(archiveFn).toHaveBeenCalledWith('tpl-1');
+  });
+});
+
+describe('useUnarchiveTemplate', () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('unarchives a template', async () => {
+    unarchiveFn.mockResolvedValue({
+      ...mockTemplate,
+      status: 'draft',
+    });
+
+    const wrapper = createWrapper();
+    const { result } = renderHook(() => useUnarchiveTemplate(), { wrapper });
+
+    act(() => {
+      result.current.mutate('tpl-1');
+    });
+
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
+
+    expect(unarchiveFn).toHaveBeenCalledWith('tpl-1');
   });
 });

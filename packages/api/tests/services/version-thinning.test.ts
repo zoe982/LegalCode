@@ -109,7 +109,11 @@ describe('thinAutoVersions', () => {
 
   it('thins to daily for 7-30 days', async () => {
     // Create multiple auto-versions in the same day window (10 days ago)
-    const baseDate = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
+    // Use noon UTC as base to avoid day-boundary issues
+    const rawBase = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
+    const baseDate = new Date(
+      Date.UTC(rawBase.getUTCFullYear(), rawBase.getUTCMonth(), rawBase.getUTCDate(), 2, 0, 0),
+    );
     const versions: MockVersion[] = [
       {
         id: 'v1',

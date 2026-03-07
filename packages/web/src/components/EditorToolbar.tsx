@@ -9,6 +9,7 @@ import CodeOutlined from '@mui/icons-material/CodeOutlined';
 import HorizontalRuleOutlined from '@mui/icons-material/HorizontalRuleOutlined';
 import { ConnectionStatus } from './ConnectionStatus.js';
 import type { ConnectionStatusType } from './ConnectionStatus.js';
+import { FirstUseTooltip } from './FirstUseTooltip.js';
 
 interface EditorToolbarProps {
   mode: 'source' | 'review';
@@ -204,15 +205,21 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
 
       {/* Right: Word count + Connection status */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-        <Typography
-          sx={{
-            fontFamily: '"DM Sans", sans-serif',
-            fontSize: '0.75rem',
-            color: 'var(--text-tertiary)',
-          }}
+        <FirstUseTooltip
+          featureId="shortcuts"
+          message="Press Cmd+/ to see keyboard shortcuts"
+          placement="bottom"
         >
-          {wordCount} {wordCount === 1 ? 'word' : 'words'}
-        </Typography>
+          <Typography
+            sx={{
+              fontFamily: '"DM Sans", sans-serif',
+              fontSize: '0.75rem',
+              color: 'var(--text-tertiary)',
+            }}
+          >
+            {wordCount} {wordCount === 1 ? 'word' : 'words'}
+          </Typography>
+        </FirstUseTooltip>
         {connectionStatus != null && <ConnectionStatus status={connectionStatus} />}
       </Box>
     </Box>

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import {
   Box,
@@ -21,6 +21,7 @@ import {
   useUpdateTemplate,
   usePublishTemplate,
   useArchiveTemplate,
+  useUnarchiveTemplate,
 } from '../hooks/useTemplates.js';
 import { templateService } from '../services/templates.js';
 import { useCollaboration } from '../hooks/useCollaboration.js';
@@ -63,6 +64,7 @@ export function TemplateEditorPage() {
   const updateMutation = useUpdateTemplate();
   const publishMutation = usePublishTemplate();
   const archiveMutation = useArchiveTemplate();
+  const unarchiveMutation = useUnarchiveTemplate();
 
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState('');
@@ -74,6 +76,9 @@ export function TemplateEditorPage() {
   // Archive confirmation dialog state
   const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
 
+  // Unarchive confirmation dialog state
+  const [unarchiveDialogOpen, setUnarchiveDialogOpen] = useState(false);
+
   // Save version dialog state
   const [saveVersionOpen, setSaveVersionOpen] = useState(false);
   const [savingVersion, setSavingVersion] = useState(false);
@@ -82,6 +87,8 @@ export function TemplateEditorPage() {
 
   // Publish confirmation dialog state
   const [publishDialogOpen, setPublishDialogOpen] = useState(false);
+
+  const isDirtyRef = useRef(false);
 
   // Panel state
   const [activePanel, setActivePanel] = useState<'info' | 'comments' | 'history' | null>(null);
@@ -103,7 +110,7 @@ export function TemplateEditorPage() {
       setShortcutHelpOpen(true);
     }, []),
     onCtrlS: useCallback(() => {
-      showToast('Changes save automatically', 'info');
+      showToast("Your work is saved automatically — you're all set", 'success');
     }, [showToast]),
   });
 
@@ -174,6 +181,18 @@ export function TemplateEditorPage() {
     panelToggles,
   ]);
 
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (isDirtyRef.current) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => {
+      window.removeEventListener('beforeunload', handler);
+    };
+  }, []);
+
   // Initialize form when template data loads
   if (!isCreateMode && templateData && !formInitialized) {
     setTitle(templateData.template.title);
@@ -184,9 +203,20 @@ export function TemplateEditorPage() {
     setFormInitialized(true);
   }
 
-  const handleContentChange = useCallback((md: string) => {
-    setContent(md);
-  }, []);
+  const handleContentChange = useCallback(
+    (md: string) => {
+      setContent(md);
+      isDirtyRef.current = true;
+      if (id) {
+        try {
+          sessionStorage.setItem(`legalcode:backup:${id}`, md);
+        } catch {
+          /* v8 ignore next -- sessionStorage full or unavailable */
+        }
+      }
+    },
+    [id],
+  );
 
   const handleBack = useCallback(() => {
     void navigate('/');
@@ -210,16 +240,21 @@ export function TemplateEditorPage() {
   const handleSaveDraft = useCallback(() => {
     /* v8 ignore next -- guard for TypeScript; id is always defined in edit mode */
     if (!id) return;
-    void updateMutation.mutateAsync({
-      id,
-      data: {
-        title,
-        category,
-        country: country || undefined,
-        content,
-        tags: tags.length > 0 ? tags : undefined,
-      },
-    });
+    void updateMutation
+      .mutateAsync({
+        id,
+        data: {
+          title,
+          category,
+          country: country || undefined,
+          content,
+          tags: tags.length > 0 ? tags : undefined,
+        },
+      })
+      .then(() => {
+        isDirtyRef.current = false;
+        sessionStorage.removeItem(`legalcode:backup:${id}`);
+      });
   }, [updateMutation, id, title, category, country, content, tags]);
 
   const handlePublishClick = useCallback(() => {
@@ -244,15 +279,34 @@ export function TemplateEditorPage() {
     setArchiveDialogOpen(false);
   }, [archiveMutation, id]);
 
+  const handleUnarchiveClick = useCallback(() => {
+    setUnarchiveDialogOpen(true);
+  }, []);
+
+  const handleUnarchiveConfirm = useCallback(() => {
+    /* v8 ignore next -- guard for TypeScript; id is always defined in edit mode */
+    if (!id) return;
+    void unarchiveMutation.mutateAsync(id);
+    setUnarchiveDialogOpen(false);
+  }, [unarchiveMutation, id]);
+
   const handleSaveVersion = useCallback(
     (summary: string) => {
       setSavingVersion(true);
-      void collaboration.saveVersion(summary).finally(() => {
-        setSavingVersion(false);
-        setSaveVersionOpen(false);
-      });
+      void collaboration
+        .saveVersion(summary)
+        .then(() => {
+          isDirtyRef.current = false;
+          if (id) {
+            sessionStorage.removeItem(`legalcode:backup:${id}`);
+          }
+        })
+        .finally(() => {
+          setSavingVersion(false);
+          setSaveVersionOpen(false);
+        });
     },
-    [collaboration.saveVersion],
+    [collaboration.saveVersion, id],
   );
 
   const wordCount = content.trim() === '' ? 0 : content.trim().split(/\s+/).length;
@@ -544,7 +598,8 @@ export function TemplateEditorPage() {
         <DialogTitle>Archive Template</DialogTitle>
         <DialogContent>
           <Typography>
-            Are you sure you want to archive this template? Archived templates cannot be edited.
+            Are you sure you want to archive this template? You can unarchive it later from the Info
+            panel.
           </Typography>
         </DialogContent>
         <DialogActions>
@@ -565,6 +620,41 @@ export function TemplateEditorPage() {
             }}
           >
             Archive
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Unarchive confirmation dialog */}
+      <Dialog
+        open={unarchiveDialogOpen}
+        onClose={() => {
+          setUnarchiveDialogOpen(false);
+        }}
+      >
+        <DialogTitle>Unarchive Template</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to unarchive this template? It will return to draft status.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
+              setUnarchiveDialogOpen(false);
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleUnarchiveConfirm}
+            sx={{
+              backgroundColor: '#8027FF',
+              color: '#fff',
+              '&:hover': { backgroundColor: '#6B1FD6' },
+            }}
+          >
+            Unarchive
           </Button>
         </DialogActions>
       </Dialog>
@@ -606,6 +696,7 @@ export function TemplateEditorPage() {
             readOnly={isReadOnly}
             onPublish={!isReadOnly && status === 'draft' ? handlePublishClick : undefined}
             onArchive={!isReadOnly && status === 'active' ? handleArchiveClick : undefined}
+            onUnarchive={status === 'archived' ? handleUnarchiveClick : undefined}
           />
         )}
       </SlideOverPanel>

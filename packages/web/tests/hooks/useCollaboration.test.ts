@@ -305,6 +305,60 @@ describe('useCollaboration', () => {
     expect(['connecting', 'connected', 'reconnecting']).toContain(result.current.status);
   });
 
+  it('isSynced is true when status is connected', async () => {
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useCollaboration('tmpl-1', testUser));
+
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+
+    expect(result.current.status).toBe('connected');
+    expect(result.current.isSynced).toBe(true);
+  });
+
+  it('isSynced is false when status is not connected', () => {
+    const { result } = renderHook(() => useCollaboration('tmpl-1', testUser));
+    // Initially connecting
+    expect(result.current.status).toBe('connecting');
+    expect(result.current.isSynced).toBe(false);
+  });
+
+  it('isSynced is false when disconnected (null templateId)', () => {
+    const { result } = renderHook(() => useCollaboration(null, testUser));
+    expect(result.current.isSynced).toBe(false);
+  });
+
+  it('provides a reconnect function', () => {
+    const { result } = renderHook(() => useCollaboration('tmpl-1', testUser));
+    expect(typeof result.current.reconnect).toBe('function');
+  });
+
+  it('reconnect triggers a new connection attempt', async () => {
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useCollaboration('tmpl-1', testUser));
+
+    // Open the WebSocket first
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+    expect(result.current.status).toBe('connected');
+
+    // Trigger close
+    act(() => {
+      const ws = wsRef();
+      ws.readyState = MockWebSocket.CLOSED;
+      ws.onclose?.();
+    });
+    expect(result.current.status).toBe('reconnecting');
+
+    // Call reconnect manually — should start connecting immediately
+    act(() => {
+      result.current.reconnect();
+    });
+    expect(result.current.status).toBe('connecting');
+  });
+
   it('updates connectedUsers from awareness change callback', async () => {
     // Need to capture the awareness change callback
     const { Awareness: AwarenessMock } = await import('y-protocols/awareness');

@@ -81,3 +81,16 @@ export function useArchiveTemplate() {
     },
   });
 }
+
+export function useUnarchiveTemplate() {
+  const queryClient = useQueryClient();
+
+  return useTrackedMutation({
+    mutationFn: (id: string) => templateService.unarchive(id),
+    mutationLabel: 'unarchive-template',
+    onSuccess: (_data, id) => {
+      void queryClient.invalidateQueries({ queryKey: ['templates', id] });
+      void queryClient.invalidateQueries({ queryKey: ['templates'] });
+    },
+  });
+}

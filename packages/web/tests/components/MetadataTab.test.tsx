@@ -1,6 +1,6 @@
 /// <reference types="@testing-library/jest-dom/vitest" />
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ThemeProvider } from '@mui/material/styles';
 import { theme } from '../../src/theme/index.js';
@@ -24,6 +24,10 @@ function renderTab(props: Partial<Parameters<typeof MetadataTab>[0]> = {}) {
 }
 
 describe('MetadataTab', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
   it('renders category value', () => {
     renderTab();
     expect(screen.getByText('Employment')).toBeInTheDocument();
@@ -58,12 +62,16 @@ describe('MetadataTab', () => {
   });
 
   it('shows Publish button for draft status when not readOnly', () => {
+    // Dismiss tooltip so it doesn't override the button's accessible name
+    localStorage.setItem('legalcode:tooltip:publish:dismissed', 'true');
     const onPublish = vi.fn();
     renderTab({ status: 'draft', onPublish });
     expect(screen.getByRole('button', { name: /publish/i })).toBeInTheDocument();
   });
 
   it('calls onPublish when Publish button is clicked', async () => {
+    // Dismiss tooltip so it doesn't override the button's accessible name
+    localStorage.setItem('legalcode:tooltip:publish:dismissed', 'true');
     const user = userEvent.setup();
     const onPublish = vi.fn();
     renderTab({ status: 'draft', onPublish });
@@ -224,5 +232,61 @@ describe('MetadataTab', () => {
 
     // No delete icons should be present
     expect(screen.queryAllByTestId('CancelIcon').length).toBe(0);
+  });
+
+  it('shows Unarchive button for archived status when onUnarchive provided', () => {
+    const onUnarchive = vi.fn();
+    renderTab({ status: 'archived', onUnarchive });
+    expect(screen.getByRole('button', { name: /unarchive/i })).toBeInTheDocument();
+  });
+
+  it('calls onUnarchive when Unarchive button is clicked', async () => {
+    const user = userEvent.setup();
+    const onUnarchive = vi.fn();
+    renderTab({ status: 'archived', onUnarchive });
+    await user.click(screen.getByRole('button', { name: /unarchive/i }));
+    expect(onUnarchive).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not show Unarchive button when status is not archived', () => {
+    const onUnarchive = vi.fn();
+    renderTab({ status: 'draft', onUnarchive });
+    expect(screen.queryByRole('button', { name: /unarchive/i })).not.toBeInTheDocument();
+  });
+
+  it('does not show Unarchive button when onUnarchive is not provided', () => {
+    renderTab({ status: 'archived' });
+    expect(screen.queryByRole('button', { name: /unarchive/i })).not.toBeInTheDocument();
+  });
+
+  it('shows publish tooltip on first render when not dismissed', () => {
+    const onPublish = vi.fn();
+    renderTab({ status: 'draft', onPublish });
+    expect(
+      screen.getByText('Make this template available across your organization'),
+    ).toBeInTheDocument();
+  });
+
+  it('does not show publish tooltip when already dismissed', () => {
+    localStorage.setItem('legalcode:tooltip:publish:dismissed', 'true');
+    const onPublish = vi.fn();
+    renderTab({ status: 'draft', onPublish });
+    expect(
+      screen.queryByText('Make this template available across your organization'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('dismisses publish tooltip when "Got it" is clicked', async () => {
+    const user = userEvent.setup();
+    const onPublish = vi.fn();
+    renderTab({ status: 'draft', onPublish });
+    const gotItButton = screen.getByRole('button', { name: 'Got it' });
+    await user.click(gotItButton);
+    expect(localStorage.getItem('legalcode:tooltip:publish:dismissed')).toBe('true');
+    await waitFor(() => {
+      expect(
+        screen.queryByText('Make this template available across your organization'),
+      ).not.toBeInTheDocument();
+    });
   });
 });

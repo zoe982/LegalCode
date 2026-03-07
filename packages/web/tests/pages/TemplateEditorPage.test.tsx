@@ -41,6 +41,8 @@ const mockUseCreateTemplate = vi.fn();
 const mockUseUpdateTemplate = vi.fn();
 const mockUsePublishTemplate = vi.fn();
 const mockUseArchiveTemplate = vi.fn();
+const mockUnarchiveMutateAsync = vi.fn();
+const mockUseUnarchiveTemplate = vi.fn();
 
 vi.mock('../../src/hooks/useTemplates.js', () => ({
   useTemplate: (...args: unknown[]) => mockUseTemplate(...args) as unknown,
@@ -48,6 +50,7 @@ vi.mock('../../src/hooks/useTemplates.js', () => ({
   useUpdateTemplate: () => mockUseUpdateTemplate() as unknown,
   usePublishTemplate: () => mockUsePublishTemplate() as unknown,
   useArchiveTemplate: () => mockUseArchiveTemplate() as unknown,
+  useUnarchiveTemplate: () => mockUseUnarchiveTemplate() as unknown,
 }));
 
 vi.mock('../../src/components/MarkdownEditor.js', () => ({
@@ -230,6 +233,11 @@ vi.mock('../../src/components/MetadataTab.js', () => ({
       {typeof props.onArchive === 'function' && (
         <button onClick={props.onArchive as () => void} data-testid="metadata-archive">
           Archive
+        </button>
+      )}
+      {typeof props.onUnarchive === 'function' && (
+        <button onClick={props.onUnarchive as () => void} data-testid="metadata-unarchive">
+          Unarchive
         </button>
       )}
     </div>
@@ -461,6 +469,7 @@ function setupMutationMocks() {
   mockUseUpdateTemplate.mockReturnValue(createMutationResult(mockUpdateMutateAsync));
   mockUsePublishTemplate.mockReturnValue(createMutationResult(mockPublishMutateAsync));
   mockUseArchiveTemplate.mockReturnValue(createMutationResult(mockArchiveMutateAsync));
+  mockUseUnarchiveTemplate.mockReturnValue(createMutationResult(mockUnarchiveMutateAsync));
 }
 
 // Helper: open the info slide-over panel so MetadataTab is rendered
@@ -936,7 +945,9 @@ describe('TemplateEditorPage', () => {
 
       expect(screen.getByText('Archive Template')).toBeInTheDocument();
       expect(
-        screen.getByText(/are you sure you want to archive this template/i),
+        screen.getByText(
+          /are you sure you want to archive this template\? you can unarchive it later/i,
+        ),
       ).toBeInTheDocument();
     });
 
@@ -1553,7 +1564,10 @@ describe('TemplateEditorPage', () => {
         lastCall[0].onCtrlS();
       });
 
-      expect(mockShowToast).toHaveBeenCalledWith('Changes save automatically', 'info');
+      expect(mockShowToast).toHaveBeenCalledWith(
+        "Your work is saved automatically — you're all set",
+        'success',
+      );
     });
   });
 
@@ -1905,6 +1919,174 @@ describe('TemplateEditorPage', () => {
           panelToggles: expect.anything(),
         }),
       );
+    });
+  });
+
+  describe('Safety nets', () => {
+    beforeEach(() => {
+      mockUseParams.mockReturnValue({ id: 't1' });
+      mockUseTemplate.mockReturnValue(
+        createTemplateQueryResult({
+          data: {
+            template: draftTemplate,
+            content: '# Draft content',
+            tags: ['employment', 'legal'],
+          },
+        }),
+      );
+      sessionStorage.clear();
+    });
+
+    it('beforeunload event is prevented when content is dirty', async () => {
+      const user = userEvent.setup();
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      // Type in the markdown editor to trigger onChange (makes content dirty)
+      const editor = screen.getByTestId('markdown-editor');
+      await user.type(editor, 'new content');
+
+      const event = new Event('beforeunload', { cancelable: true });
+      const preventDefaultSpy = vi.spyOn(event, 'preventDefault');
+      window.dispatchEvent(event);
+
+      expect(preventDefaultSpy).toHaveBeenCalled();
+    });
+
+    it('sessionStorage backup is written on content change', async () => {
+      const user = userEvent.setup();
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      const editor = screen.getByTestId('markdown-editor');
+      await user.type(editor, 'x');
+
+      expect(sessionStorage.getItem('legalcode:backup:t1')).not.toBeNull();
+    });
+
+    it('sessionStorage backup is cleared on successful save draft', async () => {
+      const user = userEvent.setup();
+      mockUpdateMutateAsync.mockResolvedValue(draftTemplate);
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      // Make content dirty first
+      const editor = screen.getByTestId('markdown-editor');
+      await user.type(editor, 'x');
+      expect(sessionStorage.getItem('legalcode:backup:t1')).not.toBeNull();
+
+      // Save draft
+      await user.click(screen.getByRole('button', { name: /save draft/i }));
+
+      await waitFor(() => {
+        expect(sessionStorage.getItem('legalcode:backup:t1')).toBeNull();
+      });
+    });
+
+    it('does not write sessionStorage backup in create mode (no id)', async () => {
+      mockUseParams.mockReturnValue({});
+      mockUseTemplate.mockReturnValue(
+        createTemplateQueryResult({
+          data: undefined,
+          isLoading: false,
+          isPending: true,
+          isSuccess: false,
+          status: 'pending',
+        }),
+      );
+
+      const user = userEvent.setup();
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      const editor = screen.getByTestId('markdown-editor');
+      await user.type(editor, 'x');
+
+      expect(sessionStorage.length).toBe(0);
+    });
+
+    it('beforeunload is not prevented when content is not dirty', () => {
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      const event = new Event('beforeunload', { cancelable: true });
+      const preventDefaultSpy = vi.spyOn(event, 'preventDefault');
+      window.dispatchEvent(event);
+
+      expect(preventDefaultSpy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Unarchive flow', () => {
+    beforeEach(() => {
+      mockUseParams.mockReturnValue({ id: 't3' });
+      mockUseTemplate.mockReturnValue(
+        createTemplateQueryResult({
+          data: { template: archivedTemplate, content: '# Archived', tags: [] },
+        }),
+      );
+    });
+
+    it('passes onUnarchive to MetadataTab for archived templates', async () => {
+      const user = userEvent.setup();
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      await openInfoPanel(user);
+      expect(screen.getByTestId('metadata-unarchive')).toBeInTheDocument();
+    });
+
+    it('opens unarchive confirmation dialog when Unarchive is clicked', async () => {
+      const user = userEvent.setup();
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      await openInfoPanel(user);
+      await user.click(screen.getByTestId('metadata-unarchive'));
+
+      expect(screen.getByText('Unarchive Template')).toBeInTheDocument();
+      expect(
+        screen.getByText(/are you sure you want to unarchive this template/i),
+      ).toBeInTheDocument();
+    });
+
+    it('calls unarchiveMutation on unarchive confirm', async () => {
+      const user = userEvent.setup();
+      mockUnarchiveMutateAsync.mockResolvedValue({ ...archivedTemplate, status: 'draft' });
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      await openInfoPanel(user);
+      await user.click(screen.getByTestId('metadata-unarchive'));
+
+      const unarchiveButtons = screen.getAllByRole('button', { name: /unarchive/i });
+      const confirmButton = unarchiveButtons[unarchiveButtons.length - 1];
+      if (!confirmButton) throw new Error('Expected unarchive confirm button');
+      await user.click(confirmButton);
+
+      expect(mockUnarchiveMutateAsync).toHaveBeenCalledWith('t3');
+    });
+
+    it('closes unarchive dialog on Cancel', async () => {
+      const user = userEvent.setup();
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      await openInfoPanel(user);
+      await user.click(screen.getByTestId('metadata-unarchive'));
+      expect(screen.getByText('Unarchive Template')).toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: /cancel/i }));
+      await waitFor(() => {
+        expect(screen.queryByText('Unarchive Template')).not.toBeInTheDocument();
+      });
+    });
+
+    it('closes unarchive dialog via onClose (backdrop/escape)', async () => {
+      const user = userEvent.setup();
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      await openInfoPanel(user);
+      await user.click(screen.getByTestId('metadata-unarchive'));
+      expect(screen.getByText('Unarchive Template')).toBeInTheDocument();
+
+      await user.keyboard('{Escape}');
+      await waitFor(() => {
+        expect(screen.queryByText('Unarchive Template')).not.toBeInTheDocument();
+      });
     });
   });
 });

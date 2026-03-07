@@ -17,6 +17,8 @@ export interface UseCollaborationReturn {
   status: ConnectionStatus;
   connectedUsers: CollaborationUser[];
   saveVersion: (changeSummary: string) => Promise<void>;
+  isSynced: boolean;
+  reconnect: () => void;
 }
 
 const RECONNECT_DELAYS = [1000, 2000, 4000, 8000, 16000];
@@ -33,6 +35,7 @@ export function useCollaboration(
   const reconnectAttemptRef = useRef(0);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const idbRef = useRef<IndexeddbPersistence | null>(null);
+  const connectFnRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     if (!templateId || !user) return undefined;
@@ -99,12 +102,14 @@ export function useCollaboration(
       }, delay);
     }
 
+    connectFnRef.current = connect;
     connect();
 
     return () => {
       if (reconnectTimerRef.current) {
         clearTimeout(reconnectTimerRef.current);
       }
+      connectFnRef.current = null;
       wsRef.current?.close();
       void idbRef.current?.destroy();
       awareness.off('change', onAwarenessChange);
@@ -114,6 +119,14 @@ export function useCollaboration(
       awarenessRef.current = null;
     };
   }, [templateId, user]);
+
+  const reconnect = useCallback(() => {
+    if (reconnectTimerRef.current) {
+      clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
+    connectFnRef.current?.();
+  }, []);
 
   const saveVersion = useCallback(
     async (changeSummary: string) => {
@@ -139,5 +152,7 @@ export function useCollaboration(
     status,
     connectedUsers,
     saveVersion,
+    isSynced: status === 'connected',
+    reconnect,
   };
 }

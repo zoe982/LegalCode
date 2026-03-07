@@ -129,6 +129,127 @@ describe('ErrorBoundary', () => {
     expect(screen.getByRole('heading', { name: /something went wrong/i })).toBeInTheDocument();
   });
 
+  it('"Copy your recent work" button is displayed in error state', () => {
+    renderWithTheme(
+      <ErrorBoundary>
+        <ThrowingComponent shouldThrow={true} />
+      </ErrorBoundary>,
+    );
+    expect(screen.getByRole('button', { name: /copy your recent work/i })).toBeInTheDocument();
+  });
+
+  it('clicking copies sessionStorage backup to clipboard', async () => {
+    const user = userEvent.setup();
+    sessionStorage.setItem('legalcode:backup:t1', '# My unsaved work');
+
+    const writeTextMock = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: writeTextMock },
+      writable: true,
+      configurable: true,
+    });
+
+    renderWithTheme(
+      <ErrorBoundary>
+        <ThrowingComponent shouldThrow={true} />
+      </ErrorBoundary>,
+    );
+
+    await user.click(screen.getByRole('button', { name: /copy your recent work/i }));
+    expect(writeTextMock).toHaveBeenCalledWith('# My unsaved work');
+
+    sessionStorage.clear();
+  });
+
+  it('button text changes to "Copied!" after copy', async () => {
+    const user = userEvent.setup();
+    sessionStorage.setItem('legalcode:backup:t1', '# Work');
+
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: vi.fn().mockResolvedValue(undefined) },
+      writable: true,
+      configurable: true,
+    });
+
+    renderWithTheme(
+      <ErrorBoundary>
+        <ThrowingComponent shouldThrow={true} />
+      </ErrorBoundary>,
+    );
+
+    await user.click(screen.getByRole('button', { name: /copy your recent work/i }));
+    expect(screen.getByRole('button', { name: /copied!/i })).toBeInTheDocument();
+
+    sessionStorage.clear();
+  });
+
+  it('handles no backup gracefully', async () => {
+    sessionStorage.clear();
+    const user = userEvent.setup();
+    renderWithTheme(
+      <ErrorBoundary>
+        <ThrowingComponent shouldThrow={true} />
+      </ErrorBoundary>,
+    );
+
+    // Button should still render without crashing
+    const btn = screen.getByRole('button', { name: /copy your recent work/i });
+    expect(btn).toBeInTheDocument();
+
+    // Clicking when no backup should not crash
+    await user.click(btn);
+    // Text should remain unchanged (no backup to copy)
+    expect(screen.getByRole('button', { name: /copy your recent work/i })).toBeInTheDocument();
+  });
+
+  it('handles legalcode backup key with empty content', async () => {
+    const user = userEvent.setup();
+    // Set a key with empty string (falsy) content
+    sessionStorage.setItem('legalcode:backup:t1', '');
+
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: vi.fn().mockResolvedValue(undefined) },
+      writable: true,
+      configurable: true,
+    });
+
+    renderWithTheme(
+      <ErrorBoundary>
+        <ThrowingComponent shouldThrow={true} />
+      </ErrorBoundary>,
+    );
+
+    await user.click(screen.getByRole('button', { name: /copy your recent work/i }));
+    // Button text should remain unchanged since empty string is falsy
+    expect(screen.getByRole('button', { name: /copy your recent work/i })).toBeInTheDocument();
+
+    sessionStorage.clear();
+  });
+
+  it('handles non-legalcode keys in sessionStorage', async () => {
+    const user = userEvent.setup();
+    sessionStorage.setItem('other-key', 'some value');
+
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: vi.fn().mockResolvedValue(undefined) },
+      writable: true,
+      configurable: true,
+    });
+
+    renderWithTheme(
+      <ErrorBoundary>
+        <ThrowingComponent shouldThrow={true} />
+      </ErrorBoundary>,
+    );
+
+    // Click should not crash even though there are non-matching keys
+    await user.click(screen.getByRole('button', { name: /copy your recent work/i }));
+    // Should stay as "Copy your recent work" since no legalcode keys found
+    expect(screen.getByRole('button', { name: /copy your recent work/i })).toBeInTheDocument();
+
+    sessionStorage.clear();
+  });
+
   it('handles error with undefined stack', () => {
     function StacklessThrow(): never {
       const error = new Error('No stack');

@@ -1,5 +1,5 @@
 /// <reference types="@testing-library/jest-dom/vitest" />
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ThemeProvider } from '@mui/material/styles';
@@ -29,6 +29,10 @@ function renderButtons(
 }
 
 describe('PanelToggleButtons', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
   it('renders three toggle buttons', () => {
     renderButtons();
     expect(screen.getByTestId('panel-toggle-info')).toBeInTheDocument();
@@ -84,6 +88,9 @@ describe('PanelToggleButtons', () => {
   });
 
   it('has correct aria-labels', () => {
+    // Dismiss tooltips so they don't override accessible names via aria-labelledby
+    localStorage.setItem('legalcode:tooltip:comments:dismissed', 'true');
+    localStorage.setItem('legalcode:tooltip:version-history:dismissed', 'true');
     renderButtons();
     expect(screen.getByRole('button', { name: 'Info panel' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Comments panel' })).toBeInTheDocument();
@@ -95,5 +102,40 @@ describe('PanelToggleButtons', () => {
     expect(screen.getByTestId('panel-toggle-info')).toBeInTheDocument();
     expect(screen.getByTestId('panel-toggle-comments')).toBeInTheDocument();
     expect(screen.getByTestId('panel-toggle-history')).toBeInTheDocument();
+  });
+
+  it('shows history tooltip on first render', () => {
+    renderButtons();
+    expect(screen.getByText('See how your document evolved over time')).toBeInTheDocument();
+  });
+
+  it('shows comments tooltip on first render', () => {
+    renderButtons();
+    expect(screen.getByText('Leave feedback on specific sections')).toBeInTheDocument();
+  });
+
+  it('does not show history tooltip when already dismissed', () => {
+    localStorage.setItem('legalcode:tooltip:version-history:dismissed', 'true');
+    renderButtons();
+    expect(screen.queryByText('See how your document evolved over time')).not.toBeInTheDocument();
+  });
+
+  it('does not show comments tooltip when already dismissed', () => {
+    localStorage.setItem('legalcode:tooltip:comments:dismissed', 'true');
+    renderButtons();
+    expect(screen.queryByText('Leave feedback on specific sections')).not.toBeInTheDocument();
+  });
+
+  it('dismisses history tooltip when "Got it" is clicked', async () => {
+    const user = userEvent.setup();
+    renderButtons();
+    const gotItButtons = screen.getAllByRole('button', { name: 'Got it' });
+    // Find the one associated with the history tooltip
+    expect(gotItButtons.length).toBeGreaterThanOrEqual(1);
+    // Click the last "Got it" (history is the last button with a tooltip)
+    const lastButton = gotItButtons[gotItButtons.length - 1];
+    if (lastButton === undefined) throw new Error('Expected Got it button');
+    await user.click(lastButton);
+    expect(localStorage.getItem('legalcode:tooltip:version-history:dismissed')).toBe('true');
   });
 });

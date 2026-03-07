@@ -114,6 +114,17 @@ export const templateService = {
     return (await response.json()) as Template;
   },
 
+  async unarchive(id: string): Promise<Template> {
+    const response = await fetch(`/templates/${id}/unarchive`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+    if (!response.ok) {
+      throw new Error('Failed to unarchive template');
+    }
+    return (await response.json()) as Template;
+  },
+
   async getVersions(id: string): Promise<TemplateVersion[]> {
     const response = await fetch(`/templates/${id}/versions`, {
       credentials: 'include',

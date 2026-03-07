@@ -1,6 +1,6 @@
 /// <reference types="@testing-library/jest-dom/vitest" />
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ThemeProvider } from '@mui/material/styles';
 import { theme } from '../../src/theme/index.js';
@@ -20,6 +20,10 @@ function renderToolbar(props: Partial<Parameters<typeof EditorToolbar>[0]> = {})
 }
 
 describe('EditorToolbar', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
   it('renders Source and Review toggle buttons', () => {
     renderToolbar();
     expect(screen.getByRole('button', { name: 'Source' })).toBeInTheDocument();
@@ -113,7 +117,7 @@ describe('EditorToolbar', () => {
 
   it('renders ConnectionStatus when connectionStatus is provided', () => {
     renderToolbar({ connectionStatus: 'connected' });
-    expect(screen.getByText('Saved')).toBeInTheDocument();
+    expect(screen.getByText('All changes saved')).toBeInTheDocument();
   });
 
   it('calls onInsertMarkdown with heading prefix when Heading is clicked', async () => {
@@ -233,5 +237,27 @@ describe('EditorToolbar', () => {
     const indicator = screen.getByTestId('mode-toggle-indicator');
     // v3: active segment is white with shadow, not purple
     expect(indicator).toHaveStyle({ backgroundColor: '#FFFFFF' });
+  });
+
+  it('shows shortcuts tooltip on first render when not dismissed', () => {
+    renderToolbar();
+    expect(screen.getByText('Press Cmd+/ to see keyboard shortcuts')).toBeInTheDocument();
+  });
+
+  it('does not show shortcuts tooltip when already dismissed', () => {
+    localStorage.setItem('legalcode:tooltip:shortcuts:dismissed', 'true');
+    renderToolbar();
+    expect(screen.queryByText('Press Cmd+/ to see keyboard shortcuts')).not.toBeInTheDocument();
+  });
+
+  it('dismisses shortcuts tooltip when "Got it" is clicked', async () => {
+    const user = userEvent.setup();
+    renderToolbar();
+    const gotItButton = screen.getByRole('button', { name: 'Got it' });
+    await user.click(gotItButton);
+    expect(localStorage.getItem('legalcode:tooltip:shortcuts:dismissed')).toBe('true');
+    await waitFor(() => {
+      expect(screen.queryByText('Press Cmd+/ to see keyboard shortcuts')).not.toBeInTheDocument();
+    });
   });
 });
