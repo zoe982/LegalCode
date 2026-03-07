@@ -1,15 +1,29 @@
 import { test, expect } from './fixtures/auth.js';
 
 test.describe('Template Editor', () => {
+  // API routes (/templates/*) take precedence over SPA fallback on Cloudflare Workers.
+  // Authenticated tests must load the SPA from "/" then navigate client-side.
+
   test('editor page loads with Milkdown editor', async ({ page }) => {
-    await page.goto('/templates/new');
+    // Load SPA, then navigate client-side to /templates/new
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+    await page.evaluate(() => {
+      window.history.pushState({}, '', '/templates/new');
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
     // Verify the editor surface renders
     const editor = page.locator('.milkdown').or(page.getByTestId('markdown-editor-wrapper'));
     await expect(editor.first()).toBeVisible({ timeout: 15000 });
   });
 
   test('block menu does not overlap Save Draft button', async ({ page }) => {
-    await page.goto('/templates/new');
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+    await page.evaluate(() => {
+      window.history.pushState({}, '', '/templates/new');
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
     // Wait for editor to load
     const editor = page.locator('.milkdown').or(page.getByTestId('markdown-editor-wrapper'));
     await expect(editor.first()).toBeVisible({ timeout: 15000 });
@@ -46,7 +60,12 @@ test.describe('Template Editor', () => {
   });
 
   test('editor toolbar renders mode toggle', async ({ page }) => {
-    await page.goto('/templates/new');
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+    await page.evaluate(() => {
+      window.history.pushState({}, '', '/templates/new');
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
     // Look for Source/Review mode toggle or editor toolbar elements
     const toolbar = page
       .getByRole('button', { name: /source/i })
