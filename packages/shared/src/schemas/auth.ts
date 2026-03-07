@@ -17,7 +17,16 @@ export const loginResponseSchema = z.object({
     email: z.string().email(),
     name: z.string().min(1),
     role: roleSchema,
+    createdAt: z.string().optional(),
   }),
+});
+
+export const allowedEmailsResponseSchema = z.object({
+  emails: z.array(z.string().email()),
+});
+
+export const addAllowedEmailSchema = z.object({
+  email: z.string().email(),
 });
 
 export type CreateUserInput = z.infer<typeof createUserSchema>;

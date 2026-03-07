@@ -9,6 +9,7 @@ const mockTemplate: Template = {
   title: 'Employment Agreement',
   slug: 'employment-agreement-abc123',
   category: 'Employment',
+  description: null,
   country: 'US',
   status: 'active',
   currentVersion: 2,

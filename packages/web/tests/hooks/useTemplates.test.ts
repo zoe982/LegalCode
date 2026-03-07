@@ -52,6 +52,7 @@ const mockTemplate: Template = {
   title: 'NDA',
   slug: 'nda',
   category: 'contracts',
+  description: null,
   country: null,
   status: 'draft',
   currentVersion: 1,

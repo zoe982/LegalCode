@@ -47,8 +47,8 @@ describe('useTextSelection', () => {
     selection?.removeAllRanges();
     selection?.addRange(range);
 
-    // Mock getBoundingClientRect on range
-    vi.spyOn(range, 'getBoundingClientRect').mockReturnValue(new DOMRect(10, 20, 50, 16));
+    // Mock getBoundingClientRect on range (jsdom Range lacks this method)
+    range.getBoundingClientRect = vi.fn().mockReturnValue(new DOMRect(10, 20, 50, 16));
 
     act(() => {
       fireSelectionChange();
@@ -125,6 +125,44 @@ describe('useTextSelection', () => {
     expect(removeSpy).toHaveBeenCalledWith('selectionchange', expect.any(Function));
   });
 
+  it('returns no selection when selection text is empty string', () => {
+    const container = document.createElement('div');
+    container.textContent = 'Hello World';
+    document.body.appendChild(container);
+
+    const ref = createMockRef(container);
+    const { result } = renderHook(() => useTextSelection(ref));
+
+    // Create a range within container but mock toString to return empty
+    const range = document.createRange();
+    const textNode = container.firstChild;
+    expect(textNode).not.toBeNull();
+    range.setStart(textNode as Node, 0);
+    range.setEnd(textNode as Node, 0); // collapsed range
+
+    const selection = window.getSelection();
+    expect(selection).not.toBeNull();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+
+    // Override isCollapsed to false so we reach the toString check
+    Object.defineProperty(selection, 'isCollapsed', { get: () => false, configurable: true });
+    // Override toString to return empty string
+    const originalToString = Selection.prototype.toString;
+    Selection.prototype.toString = vi.fn().mockReturnValue('');
+
+    act(() => {
+      fireSelectionChange();
+    });
+
+    expect(result.current.selectedText).toBe('');
+    expect(result.current.hasSelection).toBe(false);
+
+    // Restore
+    Selection.prototype.toString = originalToString;
+    document.body.removeChild(container);
+  });
+
   it('resets selection when text is collapsed (empty)', () => {
     const container = document.createElement('div');
     container.textContent = 'Hello World';
@@ -145,7 +183,8 @@ describe('useTextSelection', () => {
     selection?.removeAllRanges();
     selection?.addRange(range);
 
-    vi.spyOn(range, 'getBoundingClientRect').mockReturnValue(new DOMRect(10, 20, 50, 16));
+    // Mock getBoundingClientRect on range (jsdom Range lacks this method)
+    range.getBoundingClientRect = vi.fn().mockReturnValue(new DOMRect(10, 20, 50, 16));
 
     act(() => {
       fireSelectionChange();

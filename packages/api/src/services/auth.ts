@@ -141,6 +141,60 @@ export function isEmailAllowed(email: string, allowedEmails: string): boolean {
   return list.includes(email.toLowerCase());
 }
 
+export async function isEmailAllowedWithKV(
+  email: string,
+  kv: KVNamespace,
+  fallbackAllowedEmails: string,
+): Promise<boolean> {
+  const kvData = await kv.get('allowed_emails');
+  if (kvData) {
+    const emails = JSON.parse(kvData) as string[];
+    return emails.map((e) => e.toLowerCase()).includes(email.toLowerCase());
+  }
+  return isEmailAllowed(email, fallbackAllowedEmails);
+}
+
+export async function getAllowedEmails(
+  kv: KVNamespace,
+  fallbackAllowedEmails: string,
+): Promise<string[]> {
+  const kvData = await kv.get('allowed_emails');
+  if (kvData) {
+    return JSON.parse(kvData) as string[];
+  }
+  return fallbackAllowedEmails
+    .split(',')
+    .map((e) => e.trim())
+    .filter((e) => e.length > 0);
+}
+
+export async function addAllowedEmail(
+  kv: KVNamespace,
+  fallbackAllowedEmails: string,
+  email: string,
+): Promise<string[]> {
+  const current = await getAllowedEmails(kv, fallbackAllowedEmails);
+  const lower = email.toLowerCase();
+  if (current.map((e) => e.toLowerCase()).includes(lower)) {
+    return current;
+  }
+  const updated = [...current, email];
+  await kv.put('allowed_emails', JSON.stringify(updated));
+  return updated;
+}
+
+export async function removeAllowedEmail(
+  kv: KVNamespace,
+  fallbackAllowedEmails: string,
+  email: string,
+): Promise<string[]> {
+  const current = await getAllowedEmails(kv, fallbackAllowedEmails);
+  const lower = email.toLowerCase();
+  const updated = current.filter((e) => e.toLowerCase() !== lower);
+  await kv.put('allowed_emails', JSON.stringify(updated));
+  return updated;
+}
+
 export function generateRefreshToken(): string {
   const bytes = new Uint8Array(32);
   crypto.getRandomValues(bytes);

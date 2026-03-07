@@ -41,6 +41,7 @@ CREATE TABLE `templates` (
 	`title` text NOT NULL,
 	`slug` text NOT NULL,
 	`category` text NOT NULL,
+	`description` text,
 	`country` text,
 	`status` text NOT NULL,
 	`current_version` integer DEFAULT 1 NOT NULL,

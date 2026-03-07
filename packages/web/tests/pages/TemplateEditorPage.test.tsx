@@ -515,6 +515,7 @@ const draftTemplate: Template = {
   title: 'Employment Agreement',
   slug: 'employment-agreement-abc123',
   category: 'Employment',
+  description: null,
   country: 'US',
   status: 'draft',
   currentVersion: 1,

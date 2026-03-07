@@ -9,7 +9,9 @@ import {
   updateUserRoleSchema,
   reportErrorSchema,
   errorQuerySchema,
+  addAllowedEmailSchema,
 } from '@legalcode/shared';
+import { getAllowedEmails, addAllowedEmail, removeAllowedEmail } from '../services/auth.js';
 
 export const adminRoutes = new Hono<AppEnv>();
 
@@ -86,4 +88,25 @@ adminRoutes.patch('/errors/:id/resolve', async (c) => {
     return c.json({ error: 'Error not found' }, 404);
   }
   return c.json({ ok: true });
+});
+
+adminRoutes.get('/allowed-emails', async (c) => {
+  const emails = await getAllowedEmails(c.env.AUTH_KV, c.env.ALLOWED_EMAILS);
+  return c.json({ emails });
+});
+
+adminRoutes.post('/allowed-emails', async (c) => {
+  const body: unknown = await c.req.json();
+  const result = addAllowedEmailSchema.safeParse(body);
+  if (!result.success) {
+    return c.json({ error: 'Invalid input', details: result.error.flatten() }, 400);
+  }
+  const emails = await addAllowedEmail(c.env.AUTH_KV, c.env.ALLOWED_EMAILS, result.data.email);
+  return c.json({ emails });
+});
+
+adminRoutes.delete('/allowed-emails/:email', async (c) => {
+  const email = decodeURIComponent(c.req.param('email'));
+  const emails = await removeAllowedEmail(c.env.AUTH_KV, c.env.ALLOWED_EMAILS, email);
+  return c.json({ emails });
 });

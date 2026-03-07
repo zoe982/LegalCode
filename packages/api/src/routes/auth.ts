@@ -8,7 +8,7 @@ import {
   exchangeCodeForTokens,
   fetchGoogleUserInfo,
   issueJWT,
-  isEmailAllowed,
+  isEmailAllowedWithKV,
   generateRefreshToken,
 } from '../services/auth.js';
 import { getDb } from '../db/index.js';
@@ -70,7 +70,12 @@ authRoutes.get('/callback', async (c) => {
 
   const googleUser = await fetchGoogleUserInfo(tokens.access_token);
 
-  if (!isEmailAllowed(googleUser.email, c.env.ALLOWED_EMAILS)) {
+  const emailAllowed = await isEmailAllowedWithKV(
+    googleUser.email,
+    c.env.AUTH_KV,
+    c.env.ALLOWED_EMAILS,
+  );
+  if (!emailAllowed) {
     return c.json({ error: 'Email not authorized' }, 403);
   }
 
@@ -178,6 +183,7 @@ authRoutes.get('/me', authMiddleware, async (c) => {
       email: fullUser.email,
       name: fullUser.name,
       role: fullUser.role,
+      createdAt: fullUser.createdAt,
     },
   });
 });

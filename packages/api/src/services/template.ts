@@ -66,6 +66,7 @@ export async function createTemplate(
     title: parsed.title,
     slug,
     category: parsed.category,
+    description: parsed.description ?? null,
     country: parsed.country ?? null,
     status: 'draft' as const,
     currentVersion: 1,
@@ -286,6 +287,8 @@ export async function updateTemplate(
     ...existing,
     title: parsed.title ?? existing.title,
     category: parsed.category ?? existing.category,
+    description:
+      parsed.description !== undefined ? (parsed.description ?? null) : existing.description,
     country: parsed.country !== undefined ? (parsed.country ?? null) : existing.country,
     currentVersion: newVersion,
     updatedAt: now,

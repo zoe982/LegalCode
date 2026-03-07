@@ -26,6 +26,7 @@ export interface Template {
   title: string;
   slug: string;
   category: string;
+  description: string | null;
   country: string | null;
   status: TemplateStatus;
   currentVersion: number;

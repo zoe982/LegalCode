@@ -1,6 +1,27 @@
 import { http, HttpResponse } from 'msw';
-import type { Template, TemplateVersion } from '@legalcode/shared';
+import type { Template, TemplateVersion, User } from '@legalcode/shared';
 import type { Comment } from '../types/comments.js';
+
+const mockUsers: User[] = [
+  {
+    id: 'u1',
+    email: 'joseph.marsico@acasus.com',
+    name: 'Joseph Marsico',
+    role: 'admin',
+    createdAt: '2026-01-01T00:00:00Z',
+    updatedAt: '2026-01-01T00:00:00Z',
+  },
+  {
+    id: 'u2',
+    email: 'reviewer@acasus.com',
+    name: 'Legal Reviewer',
+    role: 'editor',
+    createdAt: '2026-02-01T00:00:00Z',
+    updatedAt: '2026-02-01T00:00:00Z',
+  },
+];
+
+let mockAllowedEmails = ['joseph.marsico@acasus.com', 'reviewer@acasus.com', 'zoe@marsico.org'];
 
 const mockTemplates: Template[] = [
   {
@@ -8,6 +29,7 @@ const mockTemplates: Template[] = [
     title: 'Employment Agreement',
     slug: 'employment-agreement-abc123',
     category: 'Employment',
+    description: null,
     country: 'US',
     status: 'active',
     currentVersion: 2,
@@ -20,6 +42,7 @@ const mockTemplates: Template[] = [
     title: 'Mutual NDA',
     slug: 'mutual-nda-def456',
     category: 'NDA',
+    description: null,
     country: null,
     status: 'active',
     currentVersion: 1,
@@ -32,6 +55,7 @@ const mockTemplates: Template[] = [
     title: 'Offer Letter',
     slug: 'offer-letter-ghi789',
     category: 'Employment',
+    description: null,
     country: 'UK',
     status: 'draft',
     currentVersion: 1,
@@ -190,6 +214,7 @@ export const handlers = [
       title: (body.title as string) || 'New Template',
       slug: 'new-template-xyz',
       category: (body.category as string) || 'General',
+      description: (body.description as string | null) ?? null,
       country: (body.country as string | null) ?? null,
       status: 'draft',
       currentVersion: 1,
@@ -287,5 +312,49 @@ export const handlers = [
     }
     mockComments.splice(index, 1);
     return new HttpResponse(null, { status: 204 });
+  }),
+
+  // Admin user handlers
+  http.get('/admin/users', () => {
+    return HttpResponse.json({ users: mockUsers });
+  }),
+
+  http.post('/admin/users', async ({ request }) => {
+    const body = (await request.json()) as Record<string, unknown>;
+    const newUser: User = {
+      id: `u${String(mockUsers.length + 1)}`,
+      email: (body.email as string) || '',
+      name: (body.name as string) || '',
+      role: typeof body.role === 'string' ? (body.role as User['role']) : 'viewer',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    return HttpResponse.json({ user: newUser }, { status: 201 });
+  }),
+
+  http.patch('/admin/users/:id', () => {
+    return HttpResponse.json({ ok: true });
+  }),
+
+  http.delete('/admin/users/:id', () => {
+    return HttpResponse.json({ ok: true });
+  }),
+
+  // Allowed emails handlers
+  http.get('/admin/allowed-emails', () => {
+    return HttpResponse.json({ emails: mockAllowedEmails });
+  }),
+
+  http.post('/admin/allowed-emails', async ({ request }) => {
+    const body = (await request.json()) as Record<string, unknown>;
+    const email = body.email as string;
+    mockAllowedEmails.push(email);
+    return HttpResponse.json({ ok: true });
+  }),
+
+  http.delete('/admin/allowed-emails/:email', ({ params }) => {
+    const email = params.email as string;
+    mockAllowedEmails = mockAllowedEmails.filter((e) => e !== email);
+    return HttpResponse.json({ ok: true });
   }),
 ];

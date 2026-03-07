@@ -44,6 +44,26 @@ describe('createTemplateSchema', () => {
     expect(result.success).toBe(true);
   });
 
+  it('accepts optional description', () => {
+    const result = createTemplateSchema.safeParse({
+      title: 'Template with Description',
+      category: 'contracts',
+      content: '# Content',
+      description: 'A brief description of the template',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects description longer than 500 characters', () => {
+    const result = createTemplateSchema.safeParse({
+      title: 'Template',
+      category: 'contracts',
+      content: '# Content',
+      description: 'a'.repeat(501),
+    });
+    expect(result.success).toBe(false);
+  });
+
   it('rejects invalid country code length', () => {
     const result = createTemplateSchema.safeParse({
       title: 'Test',
@@ -59,6 +79,13 @@ describe('updateTemplateSchema', () => {
   it('validates partial updates', () => {
     const result = updateTemplateSchema.safeParse({
       title: 'Updated Title',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts description update', () => {
+    const result = updateTemplateSchema.safeParse({
+      description: 'Updated description',
     });
     expect(result.success).toBe(true);
   });

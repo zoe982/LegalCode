@@ -260,13 +260,15 @@ describe('GET /auth/me', () => {
       headers: { Cookie: `__Host-auth=${token}` },
     });
     expect(res.status).toBe(200);
-    const body: { user: { id: string; email: string; name: string; role: string } } =
-      await res.json();
+    const body: {
+      user: { id: string; email: string; name: string; role: string; createdAt: string };
+    } = await res.json();
     expect(body.user).toEqual({
       id: 'user-1',
       email: 'alice@acasus.com',
       name: 'Alice',
       role: 'editor',
+      createdAt: '2026-01-01',
     });
   });
 

@@ -1,7 +1,8 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Hono } from 'hono';
 import type { AppEnv } from '../../src/types/env.js';
 import { issueJWT } from '../../src/services/auth.js';
+import { allowedEmailsResponseSchema } from '@legalcode/shared';
 
 const mockLimit = vi.fn().mockResolvedValue([]);
 const mockDbChain = {
@@ -65,6 +66,22 @@ vi.mock('../../src/services/user.js', () => ({
   deactivateUser: (...args: unknown[]) => mockDeactivateUser(...args) as unknown,
 }));
 
+const mockGetAllowedEmails = vi.fn().mockResolvedValue(['alice@acasus.com', 'bob@acasus.com']);
+const mockAddAllowedEmail = vi
+  .fn()
+  .mockResolvedValue(['alice@acasus.com', 'bob@acasus.com', 'new@acasus.com']);
+const mockRemoveAllowedEmail = vi.fn().mockResolvedValue(['bob@acasus.com']);
+
+vi.mock('../../src/services/auth.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/services/auth.js')>();
+  return {
+    ...actual,
+    getAllowedEmails: (...args: unknown[]) => mockGetAllowedEmails(...args) as unknown,
+    addAllowedEmail: (...args: unknown[]) => mockAddAllowedEmail(...args) as unknown,
+    removeAllowedEmail: (...args: unknown[]) => mockRemoveAllowedEmail(...args) as unknown,
+  };
+});
+
 const JWT_SECRET = 'test-secret-that-is-long-enough-for-hmac-testing';
 
 async function importAndCreateApp() {
@@ -80,6 +97,8 @@ async function importAndCreateApp() {
     const env = c.env as Record<string, unknown>;
     env.JWT_SECRET = JWT_SECRET;
     env.DB = {};
+    env.AUTH_KV = {};
+    env.ALLOWED_EMAILS = 'alice@acasus.com,bob@acasus.com';
     await next();
   });
   app.route('/admin', adminRoutes);
@@ -402,5 +421,172 @@ describe('PATCH /admin/errors/:id/resolve', () => {
       method: 'PATCH',
     });
     expect(res.status).toBe(401);
+  });
+});
+
+describe('GET /admin/allowed-emails', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetAllowedEmails.mockResolvedValue(['alice@acasus.com', 'bob@acasus.com']);
+  });
+
+  it('returns 200 with email list for admin', async () => {
+    const app = await importAndCreateApp();
+    const token = await adminToken();
+    const res = await app.request('/admin/allowed-emails', {
+      headers: { Cookie: `__Host-auth=${token}` },
+    });
+    expect(res.status).toBe(200);
+    const body: unknown = await res.json();
+    const parsed = allowedEmailsResponseSchema.safeParse(body);
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.emails).toEqual(['alice@acasus.com', 'bob@acasus.com']);
+    }
+  });
+
+  it('returns 401 without auth', async () => {
+    const app = await importAndCreateApp();
+    const res = await app.request('/admin/allowed-emails');
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 403 for non-admin', async () => {
+    const app = await importAndCreateApp();
+    const token = await viewerToken();
+    const res = await app.request('/admin/allowed-emails', {
+      headers: { Cookie: `__Host-auth=${token}` },
+    });
+    expect(res.status).toBe(403);
+  });
+});
+
+describe('POST /admin/allowed-emails', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockAddAllowedEmail.mockResolvedValue(['alice@acasus.com', 'bob@acasus.com', 'new@acasus.com']);
+  });
+
+  it('returns 200 and adds email for admin', async () => {
+    const app = await importAndCreateApp();
+    const token = await adminToken();
+    const res = await app.request('/admin/allowed-emails', {
+      method: 'POST',
+      headers: {
+        Cookie: `__Host-auth=${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email: 'new@acasus.com' }),
+    });
+    expect(res.status).toBe(200);
+    const body: { emails: string[] } = await res.json();
+    expect(body.emails).toContain('new@acasus.com');
+    expect(mockAddAllowedEmail).toHaveBeenCalled();
+  });
+
+  it('returns 400 for invalid email', async () => {
+    const app = await importAndCreateApp();
+    const token = await adminToken();
+    const res = await app.request('/admin/allowed-emails', {
+      method: 'POST',
+      headers: {
+        Cookie: `__Host-auth=${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email: 'not-an-email' }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 400 for missing email field', async () => {
+    const app = await importAndCreateApp();
+    const token = await adminToken();
+    const res = await app.request('/admin/allowed-emails', {
+      method: 'POST',
+      headers: {
+        Cookie: `__Host-auth=${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({}),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 401 without auth', async () => {
+    const app = await importAndCreateApp();
+    const res = await app.request('/admin/allowed-emails', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'new@acasus.com' }),
+    });
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 403 for non-admin', async () => {
+    const app = await importAndCreateApp();
+    const token = await viewerToken();
+    const res = await app.request('/admin/allowed-emails', {
+      method: 'POST',
+      headers: {
+        Cookie: `__Host-auth=${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email: 'new@acasus.com' }),
+    });
+    expect(res.status).toBe(403);
+  });
+});
+
+describe('DELETE /admin/allowed-emails/:email', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockRemoveAllowedEmail.mockResolvedValue(['bob@acasus.com']);
+  });
+
+  it('returns 200 and removes email for admin', async () => {
+    const app = await importAndCreateApp();
+    const token = await adminToken();
+    const res = await app.request('/admin/allowed-emails/alice@acasus.com', {
+      method: 'DELETE',
+      headers: { Cookie: `__Host-auth=${token}` },
+    });
+    expect(res.status).toBe(200);
+    const body: { emails: string[] } = await res.json();
+    expect(body.emails).toEqual(['bob@acasus.com']);
+    expect(mockRemoveAllowedEmail).toHaveBeenCalled();
+  });
+
+  it('handles URL-encoded email addresses', async () => {
+    const app = await importAndCreateApp();
+    const token = await adminToken();
+    const encodedEmail = encodeURIComponent('alice+tag@acasus.com');
+    const res = await app.request(`/admin/allowed-emails/${encodedEmail}`, {
+      method: 'DELETE',
+      headers: { Cookie: `__Host-auth=${token}` },
+    });
+    expect(res.status).toBe(200);
+    expect(mockRemoveAllowedEmail).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      'alice+tag@acasus.com',
+    );
+  });
+
+  it('returns 401 without auth', async () => {
+    const app = await importAndCreateApp();
+    const res = await app.request('/admin/allowed-emails/alice@acasus.com', {
+      method: 'DELETE',
+    });
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 403 for non-admin', async () => {
+    const app = await importAndCreateApp();
+    const token = await viewerToken();
+    const res = await app.request('/admin/allowed-emails/alice@acasus.com', {
+      method: 'DELETE',
+      headers: { Cookie: `__Host-auth=${token}` },
+    });
+    expect(res.status).toBe(403);
   });
 });

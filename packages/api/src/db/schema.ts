@@ -14,6 +14,7 @@ export const templates = sqliteTable('templates', {
   title: text('title').notNull(),
   slug: text('slug').notNull().unique(),
   category: text('category').notNull(),
+  description: text('description'),
   country: text('country'),
   status: text('status', { enum: ['draft', 'active', 'archived'] }).notNull(),
   currentVersion: integer('current_version').notNull().default(1),

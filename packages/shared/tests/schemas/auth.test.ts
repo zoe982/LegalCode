@@ -5,7 +5,7 @@ import {
   loginResponseSchema,
   allowedEmailsResponseSchema,
   addAllowedEmailSchema,
-} from '../src/schemas/auth.js';
+} from '../../src/schemas/auth.js';
 
 describe('createUserSchema', () => {
   it('validates a valid user creation input', () => {

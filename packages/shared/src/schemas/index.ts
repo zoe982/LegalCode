@@ -22,6 +22,7 @@ export function isAutoVersion(changeSummary: string | null): boolean {
 export const createTemplateSchema = z.object({
   title: z.string().min(1).max(200),
   category: z.string().min(1).max(100),
+  description: z.string().max(500).optional(),
   country: z.string().length(2).nullable().optional(),
   content: z.string().min(1),
   tags: z.array(z.string().min(1)).optional(),
@@ -30,6 +31,7 @@ export const createTemplateSchema = z.object({
 export const updateTemplateSchema = z.object({
   title: z.string().min(1).max(200).optional(),
   category: z.string().min(1).max(100).optional(),
+  description: z.string().max(500).optional(),
   country: z.string().length(2).nullable().optional(),
   content: z.string().min(1).optional(),
   changeSummary: z.string().max(500).optional(),
