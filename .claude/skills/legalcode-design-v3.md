@@ -1194,6 +1194,18 @@ Escape                        — Close panel / dismiss dialog / clear selection
 - Give every icon button a tooltip (400ms delay).
 - Use the focus ring token consistently.
 - Use neutral gray shadows, not colored.
+- **Ensure every page has navigation connectivity.** Every page must show its location in the breadcrumb trail (e.g., `Acasus / Admin`, `Acasus / Settings`) and provide at least one obvious, discoverable path back to the template list. A page with only the "Acasus" wordmark and no breadcrumb context is a navigation dead-end. The avatar dropdown must always include a "Templates" link as an escape hatch.
+
+### Navigation Connectivity Quality Gate
+
+Before approving any new page or layout design, verify:
+
+1. **Breadcrumb context** — Does the page set a `breadcrumbPageName` so the TopAppBar shows where the user is? (e.g., `Acasus / Admin`)
+2. **Back navigation** — Can the user reach the template list from this page without using the browser back button? At minimum: Acasus wordmark link + Templates item in avatar dropdown.
+3. **No dead-ends** — From any page, can the user reach any other page within 2 clicks? If not, add navigation links.
+4. **Visual affordance** — Is the navigation path visually discoverable? Hidden links (e.g., clicking a logo with no hover state) don't count as navigation.
+
+A design that fails any of these checks MUST be revised before implementation.
 
 ### Don't
 

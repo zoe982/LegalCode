@@ -38,6 +38,12 @@ Your responsibilities:
    - Proper error handling at system boundaries
    - Zod validation on API inputs
 
+4. **Navigation connectivity audit** — For every page component in `packages/web/src/pages/`:
+   - Does it set `breadcrumbPageName` via `useTopAppBarConfig` on mount?
+   - Can the user navigate away from this page without using browser back?
+   - Is there a visible breadcrumb trail showing the current location?
+   - Flag any page that is a navigation dead-end (no breadcrumb context, no back link)
+
 Report format:
 
 ```
@@ -45,6 +51,7 @@ Report format:
 - [ ] Test file coverage: PASS/FAIL (list missing test files)
 - [ ] Test quality: PASS/FAIL (issues found)
 - [ ] Code quality: PASS/FAIL (issues found)
+- [ ] Navigation connectivity: PASS/FAIL (dead-end pages found)
 
 ## Files Audited
 [list of files reviewed]
