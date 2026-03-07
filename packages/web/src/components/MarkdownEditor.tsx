@@ -1,9 +1,13 @@
 import { useRef, useCallback } from 'react';
 import { Crepe } from '@milkdown/crepe';
 import { Milkdown, MilkdownProvider, useEditor } from '@milkdown/react';
+import { $prose } from '@milkdown/kit/utils';
 import { Box } from '@mui/material';
 import type { Doc as YDoc } from 'yjs';
 import type { Awareness } from 'y-protocols/awareness';
+
+import { createCommentPlugin } from '../editor/commentPlugin.js';
+import type { CommentPluginOptions } from '../editor/commentPlugin.js';
 
 import '@milkdown/crepe/theme/common/style.css';
 import '@milkdown/crepe/theme/frame.css';
@@ -19,6 +23,7 @@ interface MarkdownEditorProps {
   readOnly?: boolean | undefined;
   collaboration?: CollaborationConfig | undefined;
   onEditorReady?: ((crepe: Crepe) => void) | undefined;
+  onSelectionChange?: CommentPluginOptions['onSelectionChange'] | undefined;
 }
 
 function MilkdownEditor({
@@ -27,6 +32,7 @@ function MilkdownEditor({
   readOnly,
   collaboration,
   onEditorReady,
+  onSelectionChange,
 }: MarkdownEditorProps) {
   const crepeRef = useRef<Crepe | null>(null);
   const isCollaborative = collaboration !== undefined;
@@ -52,12 +58,16 @@ function MilkdownEditor({
         crepe.setReadonly(true);
       }
 
+      if (onSelectionChange) {
+        crepe.editor.use($prose(() => createCommentPlugin({ onSelectionChange })));
+      }
+
       crepeRef.current = crepe;
       onEditorReady?.(crepe);
 
       return crepe;
     },
-    [defaultValue, onChange, readOnly, isCollaborative, onEditorReady],
+    [defaultValue, onChange, readOnly, isCollaborative, onEditorReady, onSelectionChange],
   );
 
   useEditor(editorCallback, []);
@@ -93,6 +103,7 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
           readOnly={props.readOnly}
           collaboration={props.collaboration}
           onEditorReady={props.onEditorReady}
+          onSelectionChange={props.onSelectionChange}
         />
       </MilkdownProvider>
     </Box>

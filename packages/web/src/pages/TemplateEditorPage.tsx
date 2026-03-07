@@ -106,7 +106,8 @@ export function TemplateEditorPage() {
 
   const { showToast } = useToast();
   const queryClient = useQueryClient();
-  const { selectionInfo, pendingAnchor, startComment, cancelComment } = useEditorComments();
+  const { selectionInfo, pendingAnchor, startComment, cancelComment, onSelectionChange } =
+    useEditorComments();
   const { threads, createComment } = useComments(id);
 
   // Review mode comment highlighting
@@ -607,6 +608,7 @@ export function TemplateEditorPage() {
                       ? { ydoc: collaboration.ydoc, awareness: collaboration.awareness }
                       : undefined
                   }
+                  onSelectionChange={onSelectionChange}
                 />
                 <FloatingCommentButton
                   position={selectionInfo.buttonPosition}

@@ -58,13 +58,16 @@ vi.mock('../../src/components/MarkdownEditor.js', () => ({
     defaultValue,
     onChange,
     readOnly,
+    onSelectionChange,
   }: {
     defaultValue?: string;
     onChange?: (md: string) => void;
     readOnly?: boolean;
+    onSelectionChange?: (...args: unknown[]) => void;
   }) => (
     <textarea
       data-testid="markdown-editor"
+      data-has-selection-change={String(onSelectionChange != null)}
       defaultValue={defaultValue}
       onChange={(e) => onChange?.(e.target.value)}
       readOnly={readOnly}
@@ -747,6 +750,17 @@ describe('TemplateEditorPage', () => {
           breadcrumbTemplateName: 'Employment Agreement',
         }),
       );
+    });
+
+    it('passes onSelectionChange to MarkdownEditor in edit mode', async () => {
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      await waitFor(() => {
+        expect(screen.getByTestId('markdown-editor')).toBeInTheDocument();
+      });
+
+      const editor = screen.getByTestId('markdown-editor');
+      expect(editor.getAttribute('data-has-selection-change')).toBe('true');
     });
   });
 

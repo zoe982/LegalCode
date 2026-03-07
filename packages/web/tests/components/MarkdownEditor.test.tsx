@@ -14,6 +14,8 @@ const mockGetMarkdown = vi.fn().mockReturnValue('');
 const mockCreate = vi.fn().mockResolvedValue(undefined);
 const mockDestroy = vi.fn().mockResolvedValue(undefined);
 
+const mockEditorUse = vi.fn().mockReturnThis();
+
 vi.mock('@milkdown/crepe', () => {
   const CrepeClass = vi.fn().mockImplementation(() => ({
     setReadonly: mockSetReadonly,
@@ -21,9 +23,19 @@ vi.mock('@milkdown/crepe', () => {
     getMarkdown: mockGetMarkdown,
     create: mockCreate,
     destroy: mockDestroy,
+    editor: { use: mockEditorUse },
   }));
   return { Crepe: CrepeClass };
 });
+
+vi.mock('@milkdown/kit/utils', () => ({
+  $prose: (factory: () => unknown) => factory(),
+}));
+
+const mockCreateCommentPlugin = vi.fn().mockReturnValue({ key: 'mock-comment-plugin' });
+vi.mock('../../src/editor/commentPlugin.js', () => ({
+  createCommentPlugin: (...args: unknown[]) => mockCreateCommentPlugin(...args) as unknown,
+}));
 
 const captured: { editorCallback: ((root: HTMLElement) => unknown) | null } = {
   editorCallback: null,
@@ -261,5 +273,36 @@ describe('MarkdownEditor', () => {
     expect(() => {
       editorCb?.(fakeRoot);
     }).not.toThrow();
+  });
+
+  it('installs comment plugin via editor.use when onSelectionChange provided', () => {
+    captured.editorCallback = null;
+    const onSelectionChange = vi.fn();
+
+    render(<MarkdownEditor onSelectionChange={onSelectionChange} />);
+
+    const editorCb = captured.editorCallback as ((root: HTMLElement) => unknown) | null;
+    expect(editorCb).not.toBeNull();
+    const fakeRoot = document.createElement('div');
+    editorCb?.(fakeRoot);
+
+    expect(mockCreateCommentPlugin).toHaveBeenCalledWith({ onSelectionChange });
+    expect(mockEditorUse).toHaveBeenCalled();
+  });
+
+  it('does not install comment plugin when onSelectionChange is not provided', () => {
+    captured.editorCallback = null;
+    mockCreateCommentPlugin.mockClear();
+    mockEditorUse.mockClear();
+
+    render(<MarkdownEditor />);
+
+    const editorCb = captured.editorCallback as ((root: HTMLElement) => unknown) | null;
+    expect(editorCb).not.toBeNull();
+    const fakeRoot = document.createElement('div');
+    editorCb?.(fakeRoot);
+
+    expect(mockCreateCommentPlugin).not.toHaveBeenCalled();
+    expect(mockEditorUse).not.toHaveBeenCalled();
   });
 });
