@@ -6,23 +6,27 @@ interface StatusConfig {
   label: string;
   backgroundColor: string;
   color: string;
+  borderColor: string;
 }
 
 const statusConfig: Record<TemplateStatus, StatusConfig> = {
   draft: {
     label: 'Draft',
-    backgroundColor: '#B8860B1A',
-    color: '#B8860B',
+    backgroundColor: '#FEF3C7',
+    color: '#D97706',
+    borderColor: '#FDE68A',
   },
   active: {
     label: 'Published',
-    backgroundColor: '#2D6A4F1A',
-    color: '#2D6A4F',
+    backgroundColor: '#D1FAE5',
+    color: '#059669',
+    borderColor: '#A7F3D0',
   },
   archived: {
     label: 'Archived',
-    backgroundColor: '#78695A1A',
-    color: '#78695A',
+    backgroundColor: '#F3F3F7',
+    color: '#6B6D82',
+    borderColor: '#E4E5ED',
   },
 };
 
@@ -44,13 +48,14 @@ export function StatusChip({ status, animate }: StatusChipProps) {
         padding: '4px 10px',
         backgroundColor: config.backgroundColor,
         color: config.color,
-        fontFamily: '"Source Sans 3", sans-serif',
+        border: `1px solid ${config.borderColor}`,
+        fontFamily: '"DM Sans", sans-serif',
         fontSize: '0.6875rem',
         fontWeight: 600,
         textTransform: 'uppercase',
-        letterSpacing: '0.06em',
+        letterSpacing: '0.05em',
         lineHeight: 1.4,
-        transition: springTransitions(['color', 'background-color'], 'standard'),
+        transition: springTransitions(['color', 'background-color', 'border-color'], 'standard'),
         [`@media ${reducedMotionQuery}`]: {
           transition: 'none',
         },

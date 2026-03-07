@@ -80,7 +80,7 @@ describe('App', () => {
     mockAuthenticatedUser();
     renderWithRouter('/templates');
     await waitFor(() => {
-      expect(screen.getByRole('textbox', { name: /search/i })).toBeInTheDocument();
+      expect(screen.getByPlaceholderText(/search templates/i)).toBeInTheDocument();
     });
   });
 
@@ -88,7 +88,7 @@ describe('App', () => {
     mockAuthenticatedUser();
     renderWithRouter('/');
     await waitFor(() => {
-      expect(screen.getByRole('textbox', { name: /search/i })).toBeInTheDocument();
+      expect(screen.getByPlaceholderText(/search templates/i)).toBeInTheDocument();
     });
   });
 

@@ -14,7 +14,6 @@ describe('StatusChip', () => {
       render(<StatusChip status="active" />);
       expect(screen.getByText('Published')).toBeInTheDocument();
       expect(screen.queryByText('Active')).not.toBeInTheDocument();
-      expect(screen.queryByText('Active')).not.toBeInTheDocument();
     });
 
     it('renders "Archived" for archived status (CSS uppercased)', () => {
@@ -43,32 +42,52 @@ describe('StatusChip', () => {
     });
   });
 
-  describe('brand color tokens', () => {
-    it('applies draft colors (dark goldenrod)', () => {
+  describe('v3 color tokens', () => {
+    it('applies draft colors (amber)', () => {
       render(<StatusChip status="draft" />);
       const chip = screen.getByText('Draft');
       expect(chip).toHaveStyle({
-        backgroundColor: '#B8860B1A',
-        color: '#B8860B',
+        backgroundColor: '#FEF3C7',
+        color: '#D97706',
       });
     });
 
-    it('applies published colors (forest green)', () => {
+    it('applies published colors (green)', () => {
       render(<StatusChip status="active" />);
       const chip = screen.getByText('Published');
       expect(chip).toHaveStyle({
-        backgroundColor: '#2D6A4F1A',
-        color: '#2D6A4F',
+        backgroundColor: '#D1FAE5',
+        color: '#059669',
       });
     });
 
-    it('applies archived colors (warm gray)', () => {
+    it('applies archived colors (gray)', () => {
       render(<StatusChip status="archived" />);
       const chip = screen.getByText('Archived');
       expect(chip).toHaveStyle({
-        backgroundColor: '#78695A1A',
-        color: '#78695A',
+        backgroundColor: '#F3F3F7',
+        color: '#6B6D82',
       });
+    });
+  });
+
+  describe('v3 borders', () => {
+    it('applies draft border (amber)', () => {
+      render(<StatusChip status="draft" />);
+      const chip = screen.getByText('Draft');
+      expect(chip).toHaveStyle({ border: '1px solid #FDE68A' });
+    });
+
+    it('applies published border (green)', () => {
+      render(<StatusChip status="active" />);
+      const chip = screen.getByText('Published');
+      expect(chip).toHaveStyle({ border: '1px solid #A7F3D0' });
+    });
+
+    it('applies archived border (gray)', () => {
+      render(<StatusChip status="archived" />);
+      const chip = screen.getByText('Archived');
+      expect(chip).toHaveStyle({ border: '1px solid #E4E5ED' });
     });
   });
 
@@ -91,10 +110,10 @@ describe('StatusChip', () => {
       expect(chip).toHaveStyle({ fontWeight: '600' });
     });
 
-    it('uses letter spacing 0.06em', () => {
+    it('uses letter spacing 0.05em', () => {
       render(<StatusChip status="draft" />);
       const chip = screen.getByText('Draft');
-      expect(chip).toHaveStyle({ letterSpacing: '0.06em' });
+      expect(chip).toHaveStyle({ letterSpacing: '0.05em' });
     });
   });
 

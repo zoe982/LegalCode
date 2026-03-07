@@ -2,23 +2,35 @@ import { useState, useRef, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router';
 import {
   Box,
-  TextField,
-  Chip,
   Typography,
   CircularProgress,
   InputAdornment,
+  InputBase,
   Button,
+  Menu,
   MenuItem,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
+import AddIcon from '@mui/icons-material/Add';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
 import type { TemplateStatus } from '@legalcode/shared';
 import { useTemplates } from '../hooks/useTemplates.js';
-import { StatusChip } from '../components/StatusChip.js';
-import { relativeTime } from '../utils/relativeTime.js';
+import { TemplateCard } from '../components/TemplateCard.js';
 
 type StatusFilter = TemplateStatus | 'all';
-type SortBy = 'name' | 'updated' | 'status';
+type SortBy = 'updated' | 'name' | 'oldest';
+
+interface SortOption {
+  label: string;
+  value: SortBy;
+}
+
+const SORT_OPTIONS: SortOption[] = [
+  { label: 'Recently edited', value: 'updated' },
+  { label: 'Alphabetical', value: 'name' },
+  { label: 'Oldest first', value: 'oldest' },
+];
 
 const STATUS_OPTIONS: { label: string; value: StatusFilter }[] = [
   { label: 'All', value: 'all' },
@@ -35,6 +47,7 @@ export function TemplateListPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<SortBy>('updated');
+  const [sortAnchorEl, setSortAnchorEl] = useState<HTMLElement | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -70,6 +83,8 @@ export function TemplateListPage() {
     return [...cats].sort();
   }, [templates]);
 
+  const currentSortLabel = SORT_OPTIONS.find((o) => o.value === sortBy)?.label ?? 'Recently edited';
+
   if (isLoading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}>
@@ -79,78 +94,219 @@ export function TemplateListPage() {
   }
 
   return (
-    <Box sx={{ maxWidth: 960, mx: 'auto', p: 3 }}>
+    <Box
+      data-testid="template-list-container"
+      sx={{
+        maxWidth: '1120px',
+        mx: 'auto',
+        px: '32px',
+        pt: '24px',
+        backgroundColor: '#FFFFFF',
+      }}
+    >
+      {/* Sticky filter bar */}
       <Box
         data-testid="filter-bar"
         sx={{
           position: 'sticky',
           top: 0,
           zIndex: 10,
-          backgroundColor: 'background.paper',
-          pb: 2,
-          boxShadow: '0 2px 4px -1px rgba(69,31,97,0.06)',
+          backgroundColor: '#FFFFFF',
+          pb: '16px',
         }}
       >
-        <Box sx={{ display: 'flex', gap: 2, mb: 2, alignItems: 'flex-start' }}>
-          <TextField
+        {/* Search row: search input + New template button */}
+        <Box sx={{ display: 'flex', gap: 1.5, mb: 1.5, alignItems: 'center' }}>
+          <InputBase
             fullWidth
-            label="Search templates"
+            placeholder="Search templates..."
             value={searchInput}
             onChange={handleSearchChange}
-            slotProps={{
-              input: {
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
+            startAdornment={
+              <InputAdornment position="start">
+                <SearchIcon sx={{ fontSize: 18, color: '#9B9DB0', ml: 1 }} />
+              </InputAdornment>
+            }
+            sx={{
+              height: 40,
+              backgroundColor: '#F9F9FB',
+              border: '1px solid #E4E5ED',
+              borderRadius: '10px',
+              fontFamily: '"DM Sans", sans-serif',
+              fontSize: '0.875rem',
+              color: '#12111A',
+              px: 0.5,
+              '& .MuiInputBase-input': {
+                padding: '8px 8px',
+                '&::placeholder': {
+                  color: '#9B9DB0',
+                  opacity: 1,
+                },
+              },
+              '&.Mui-focused': {
+                borderColor: '#8027FF',
+                boxShadow: '0 0 0 3px rgba(128, 39, 255, 0.2)',
               },
             }}
           />
-          <TextField
-            select
-            size="small"
-            label="Sort"
-            value={sortBy}
-            onChange={(e) => {
-              setSortBy(e.target.value as SortBy);
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => {
+              void navigate('/templates/new');
             }}
-            sx={{ minWidth: 120 }}
+            sx={{
+              height: 40,
+              minWidth: 'auto',
+              whiteSpace: 'nowrap',
+              backgroundColor: '#8027FF',
+              borderRadius: '10px',
+              fontFamily: '"DM Sans", sans-serif',
+              fontSize: '0.875rem',
+              fontWeight: 600,
+              textTransform: 'none',
+              px: 2.5,
+              '&:hover': {
+                backgroundColor: '#6B1FDB',
+              },
+            }}
           >
-            <MenuItem value="updated">Date Modified</MenuItem>
-            <MenuItem value="name">Name</MenuItem>
-            <MenuItem value="status">Status</MenuItem>
-          </TextField>
+            New template
+          </Button>
         </Box>
 
-        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-          {STATUS_OPTIONS.map((option) => (
-            <Chip
-              key={option.value}
-              label={option.label}
-              variant={statusFilter === option.value ? 'filled' : 'outlined'}
-              color={statusFilter === option.value ? 'primary' : 'default'}
-              onClick={() => {
-                setStatusFilter(option.value);
-              }}
-              clickable
-            />
-          ))}
-          {categories.map((cat) => (
-            <Chip
-              key={`cat-${cat}`}
-              label={cat}
-              variant={categoryFilter === cat ? 'filled' : 'outlined'}
-              color={categoryFilter === cat ? 'secondary' : 'default'}
-              onClick={() => {
-                setCategoryFilter(categoryFilter === cat ? null : cat);
-              }}
-              clickable
-            />
-          ))}
+        {/* Filter row: chips left, sort right */}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            {STATUS_OPTIONS.map((option) => {
+              const isActive = statusFilter === option.value;
+              return (
+                <Box
+                  key={option.value}
+                  component="button"
+                  type="button"
+                  role="button"
+                  onClick={() => {
+                    setStatusFilter(option.value);
+                  }}
+                  sx={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    borderRadius: '9999px',
+                    padding: '5px 14px',
+                    fontFamily: '"DM Sans", sans-serif',
+                    fontSize: '0.8125rem',
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                    transition: 'all 150ms ease',
+                    border: isActive ? 'none' : '1px solid #E4E5ED',
+                    backgroundColor: isActive ? '#8027FF' : '#F9F9FB',
+                    color: isActive ? '#FFFFFF' : '#6B6D82',
+                    '&:hover': {
+                      backgroundColor: isActive ? '#6B1FDB' : '#F3F3F7',
+                    },
+                  }}
+                >
+                  {option.label}
+                </Box>
+              );
+            })}
+            {categories.map((cat) => {
+              const isActive = categoryFilter === cat;
+              return (
+                <Box
+                  key={`cat-${cat}`}
+                  component="button"
+                  type="button"
+                  role="button"
+                  onClick={() => {
+                    setCategoryFilter(categoryFilter === cat ? null : cat);
+                  }}
+                  sx={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    borderRadius: '9999px',
+                    padding: '5px 14px',
+                    fontFamily: '"DM Sans", sans-serif',
+                    fontSize: '0.8125rem',
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                    transition: 'all 150ms ease',
+                    border: isActive ? 'none' : '1px solid #E4E5ED',
+                    backgroundColor: isActive ? '#8027FF' : '#F9F9FB',
+                    color: isActive ? '#FFFFFF' : '#6B6D82',
+                    '&:hover': {
+                      backgroundColor: isActive ? '#6B1FDB' : '#F3F3F7',
+                    },
+                  }}
+                >
+                  {cat}
+                </Box>
+              );
+            })}
+          </Box>
+
+          {/* Sort button */}
+          <Button
+            onClick={(e) => {
+              setSortAnchorEl(e.currentTarget);
+            }}
+            endIcon={<KeyboardArrowDownIcon sx={{ fontSize: 14 }} />}
+            sx={{
+              fontFamily: '"DM Sans", sans-serif',
+              fontSize: '0.8125rem',
+              fontWeight: 500,
+              color: '#6B6D82',
+              textTransform: 'none',
+              whiteSpace: 'nowrap',
+              '&:hover': {
+                backgroundColor: 'transparent',
+              },
+            }}
+          >
+            {currentSortLabel}
+          </Button>
+          <Menu
+            anchorEl={sortAnchorEl}
+            open={sortAnchorEl !== null}
+            onClose={() => {
+              setSortAnchorEl(null);
+            }}
+            slotProps={{
+              paper: {
+                sx: {
+                  backgroundColor: '#FFFFFF',
+                  border: '1px solid #E4E5ED',
+                  borderRadius: '10px',
+                  boxShadow: '0 4px 6px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.04)',
+                },
+              },
+            }}
+          >
+            {SORT_OPTIONS.map((option) => (
+              <MenuItem
+                key={option.value}
+                onClick={() => {
+                  setSortBy(option.value);
+                  setSortAnchorEl(null);
+                }}
+                sx={{
+                  fontFamily: '"DM Sans", sans-serif',
+                  fontSize: '0.875rem',
+                  height: 36,
+                  '&:hover': {
+                    backgroundColor: '#F3F3F7',
+                  },
+                }}
+              >
+                {option.label}
+              </MenuItem>
+            ))}
+          </Menu>
         </Box>
       </Box>
 
+      {/* Content: card grid or empty state */}
       {templates.length === 0 ? (
         <Box
           sx={{
@@ -159,19 +315,30 @@ export function TemplateListPage() {
             alignItems: 'center',
             justifyContent: 'center',
             mt: 8,
-            gap: 2,
+            gap: 1,
           }}
         >
-          <DescriptionOutlinedIcon sx={{ fontSize: 48, color: '#9A8DA6' }} />
+          <DescriptionOutlinedIcon sx={{ fontSize: 48, color: '#9B9DB0' }} />
           <Typography
             sx={{
               fontFamily: '"Source Serif 4", Georgia, serif',
               fontSize: '1.5rem',
+              lineHeight: '2rem',
               fontWeight: 600,
-              color: '#451F61',
+              color: '#12111A',
             }}
           >
             No templates yet
+          </Typography>
+          <Typography
+            sx={{
+              fontFamily: '"DM Sans", sans-serif',
+              fontSize: '0.875rem',
+              lineHeight: '1.5rem',
+              color: '#6B6D82',
+            }}
+          >
+            Create your first template to get started.
           </Typography>
           <Button
             variant="contained"
@@ -179,122 +346,35 @@ export function TemplateListPage() {
               void navigate('/templates/new');
             }}
             sx={{
+              mt: 1,
               backgroundColor: '#8027FF',
+              borderRadius: '10px',
+              fontFamily: '"DM Sans", sans-serif',
+              fontWeight: 600,
+              textTransform: 'none',
               '&:hover': { backgroundColor: '#6B1FDB' },
             }}
           >
-            Create your first template
+            Create template
           </Button>
         </Box>
       ) : (
-        <Box>
-          {templates.map((template, index) => (
-            <Box
+        <Box
+          data-testid="card-grid"
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+            gap: '16px',
+          }}
+        >
+          {templates.map((template) => (
+            <TemplateCard
               key={template.id}
-              className="template-row"
-              data-testid={`template-row-${template.id}`}
-              tabIndex={0}
-              role="button"
+              template={template}
               onClick={() => {
                 void navigate(`/templates/${template.id}`);
               }}
-              onKeyDown={(e: React.KeyboardEvent) => {
-                if (e.key === 'Enter') {
-                  void navigate(`/templates/${template.id}`);
-                }
-              }}
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                px: 2,
-                py: 1.5,
-                minHeight: 72,
-                cursor: 'pointer',
-                borderBottom: '1px solid',
-                borderColor: 'divider',
-                animation: 'fadeSlideIn 200ms cubic-bezier(0.2, 0, 0, 1) both',
-                animationDelay: `${String(index * 40)}ms`,
-                '@keyframes fadeSlideIn': {
-                  from: {
-                    opacity: 0,
-                    transform: 'translateY(8px)',
-                  },
-                  to: {
-                    opacity: 1,
-                    transform: 'translateY(0)',
-                  },
-                },
-                '&:hover': {
-                  backgroundColor: '#DDD0BC',
-                  boxShadow: '0 1px 3px rgba(69,31,97,0.06)',
-                },
-                '&:focus-visible': {
-                  borderLeft: '3px solid #8027FF',
-                  backgroundColor: '#8027FF1A',
-                  outline: 'none',
-                },
-              }}
-            >
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mr: 2 }}>
-                <Typography
-                  sx={{
-                    fontFamily: '"Source Serif 4", Georgia, "Times New Roman", serif',
-                    fontWeight: 600,
-                    fontSize: '1rem',
-                    color: '#451F61',
-                    flexShrink: 0,
-                  }}
-                >
-                  {template.title}
-                </Typography>
-                <Box
-                  data-testid="hover-metadata"
-                  sx={{
-                    opacity: 0,
-                    transition: 'opacity cubic-bezier(0.2, 0, 0, 1) 150ms',
-                    '.template-row:hover &, .template-row:focus-visible &': { opacity: 1 },
-                    display: 'flex',
-                    gap: 1.5,
-                    alignItems: 'center',
-                  }}
-                >
-                  <Typography
-                    sx={{
-                      fontSize: '0.6875rem',
-                      color: '#9A8DA6',
-                      textTransform: 'uppercase',
-                      fontWeight: 600,
-                      letterSpacing: '0.06em',
-                    }}
-                  >
-                    {template.category}
-                  </Typography>
-                  <Typography sx={{ fontSize: '0.75rem', color: '#9A8DA6' }}>
-                    {relativeTime(template.updatedAt)}
-                  </Typography>
-                </Box>
-              </Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                <StatusChip status={template.status} />
-                <Typography
-                  sx={{
-                    fontSize: '0.75rem',
-                    color: '#6B5A7A',
-                  }}
-                >
-                  {`v${String(template.currentVersion)}`}
-                </Typography>
-                <Typography
-                  sx={{
-                    fontSize: '0.75rem',
-                    color: '#6B5A7A',
-                  }}
-                >
-                  {template.country ?? '\u2014'}
-                </Typography>
-              </Box>
-            </Box>
+            />
           ))}
         </Box>
       )}

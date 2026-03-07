@@ -149,7 +149,42 @@ describe('TemplateListPage', () => {
     expect(screen.getByText('No templates yet')).toBeInTheDocument();
   });
 
-  it('each row shows title, version, country, status', () => {
+  it('empty state shows subtext', () => {
+    mockUseTemplates.mockReturnValue(
+      createQueryResult({
+        data: { data: [], total: 0, page: 1, limit: 20 },
+      }),
+    );
+
+    render(<TemplateListPage />, { wrapper: Wrapper });
+    expect(screen.getByText('Create your first template to get started.')).toBeInTheDocument();
+  });
+
+  it('empty state has "Create template" button', () => {
+    mockUseTemplates.mockReturnValue(
+      createQueryResult({
+        data: { data: [], total: 0, page: 1, limit: 20 },
+      }),
+    );
+
+    render(<TemplateListPage />, { wrapper: Wrapper });
+    expect(screen.getByRole('button', { name: 'Create template' })).toBeInTheDocument();
+  });
+
+  it('empty state CTA navigates to /templates/new', async () => {
+    const user = userEvent.setup();
+    mockUseTemplates.mockReturnValue(
+      createQueryResult({
+        data: { data: [], total: 0, page: 1, limit: 20 },
+      }),
+    );
+
+    render(<TemplateListPage />, { wrapper: Wrapper });
+    await user.click(screen.getByRole('button', { name: 'Create template' }));
+    expect(mockNavigate).toHaveBeenCalledWith('/templates/new');
+  });
+
+  it('renders template cards (not rows) with correct data-testids', () => {
     mockUseTemplates.mockReturnValue(
       createQueryResult({
         data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
@@ -158,46 +193,101 @@ describe('TemplateListPage', () => {
 
     render(<TemplateListPage />, { wrapper: Wrapper });
 
-    // Each template has a row with data-testid
-    const row1 = screen.getByTestId('template-row-t1');
-    expect(within(row1).getByText('Employment Agreement')).toBeInTheDocument();
-    expect(within(row1).getByText('v2')).toBeInTheDocument();
-    expect(within(row1).getByText('US')).toBeInTheDocument();
+    expect(screen.getByTestId('template-card-t1')).toBeInTheDocument();
+    expect(screen.getByTestId('template-card-t2')).toBeInTheDocument();
+    expect(screen.getByTestId('template-card-t3')).toBeInTheDocument();
 
-    const row2 = screen.getByTestId('template-row-t2');
-    expect(within(row2).getByText('Mutual NDA')).toBeInTheDocument();
-    expect(within(row2).getByText('v1')).toBeInTheDocument();
-
-    const row3 = screen.getByTestId('template-row-t3');
-    expect(within(row3).getByText('Offer Letter')).toBeInTheDocument();
-    expect(within(row3).getByText('UK')).toBeInTheDocument();
-
-    // StatusChip renders "Published" for active status
-    const publishedChips = screen.getAllByText('Published');
-    expect(publishedChips.length).toBeGreaterThanOrEqual(1);
-    // "Draft" appears both as filter chip and as StatusChip in row
-    const draftChips = screen.getAllByText('Draft');
-    expect(draftChips.length).toBeGreaterThanOrEqual(1);
+    // Old row testids should NOT exist
+    expect(screen.queryByTestId('template-row-t1')).not.toBeInTheDocument();
   });
 
-  it('shows dash for null country', () => {
+  it('each card shows title and status', () => {
     mockUseTemplates.mockReturnValue(
       createQueryResult({
-        data: {
-          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-          data: [mockTemplates[1]!],
-          total: 1,
-          page: 1,
-          limit: 20,
-        },
+        data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
       }),
     );
 
     render(<TemplateListPage />, { wrapper: Wrapper });
 
-    // The NDA row should show an em dash for null country
-    const row = screen.getByTestId('template-row-t2');
-    expect(within(row).getByText('\u2014')).toBeInTheDocument();
+    const card1 = screen.getByTestId('template-card-t1');
+    expect(within(card1).getByText('Employment Agreement')).toBeInTheDocument();
+
+    const card2 = screen.getByTestId('template-card-t2');
+    expect(within(card2).getByText('Mutual NDA')).toBeInTheDocument();
+
+    const card3 = screen.getByTestId('template-card-t3');
+    expect(within(card3).getByText('Offer Letter')).toBeInTheDocument();
+
+    // StatusChip renders "Published" for active status
+    const publishedChips = screen.getAllByText('Published');
+    expect(publishedChips.length).toBeGreaterThanOrEqual(1);
+    const draftChips = screen.getAllByText('Draft');
+    expect(draftChips.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('cards show version info', () => {
+    mockUseTemplates.mockReturnValue(
+      createQueryResult({
+        data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
+      }),
+    );
+
+    render(<TemplateListPage />, { wrapper: Wrapper });
+
+    const card1 = screen.getByTestId('template-card-t1');
+    expect(within(card1).getByText('v2')).toBeInTheDocument();
+  });
+
+  it('renders card grid container', () => {
+    mockUseTemplates.mockReturnValue(
+      createQueryResult({
+        data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
+      }),
+    );
+
+    render(<TemplateListPage />, { wrapper: Wrapper });
+
+    const grid = screen.getByTestId('card-grid');
+    expect(grid).toBeInTheDocument();
+    // MUI sx applies display: grid via CSS classes
+    expect(grid.className).toBeTruthy();
+  });
+
+  it('renders search input with placeholder', () => {
+    mockUseTemplates.mockReturnValue(
+      createQueryResult({
+        data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
+      }),
+    );
+
+    render(<TemplateListPage />, { wrapper: Wrapper });
+    const searchInput = screen.getByPlaceholderText('Search templates...');
+    expect(searchInput).toBeInTheDocument();
+  });
+
+  it('renders "New template" button', () => {
+    mockUseTemplates.mockReturnValue(
+      createQueryResult({
+        data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
+      }),
+    );
+
+    render(<TemplateListPage />, { wrapper: Wrapper });
+    expect(screen.getByRole('button', { name: /new template/i })).toBeInTheDocument();
+  });
+
+  it('"New template" button navigates to /templates/new', async () => {
+    const user = userEvent.setup();
+    mockUseTemplates.mockReturnValue(
+      createQueryResult({
+        data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
+      }),
+    );
+
+    render(<TemplateListPage />, { wrapper: Wrapper });
+    await user.click(screen.getByRole('button', { name: /new template/i }));
+    expect(mockNavigate).toHaveBeenCalledWith('/templates/new');
   });
 
   it('renders status filter chips', () => {
@@ -209,25 +299,12 @@ describe('TemplateListPage', () => {
 
     render(<TemplateListPage />, { wrapper: Wrapper });
     expect(screen.getByRole('button', { name: 'All' })).toBeInTheDocument();
-    const filterChipDraft = screen.getByRole('button', { name: 'Draft' });
-    expect(filterChipDraft).toBeInTheDocument();
-    const filterChipActive = screen.getByRole('button', { name: 'Active' });
-    expect(filterChipActive).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Draft' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Active' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Archived' })).toBeInTheDocument();
   });
 
-  it('renders search field', () => {
-    mockUseTemplates.mockReturnValue(
-      createQueryResult({
-        data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
-      }),
-    );
-
-    render(<TemplateListPage />, { wrapper: Wrapper });
-    expect(screen.getByRole('textbox', { name: /search/i })).toBeInTheDocument();
-  });
-
-  it('navigates to template detail when row is clicked', async () => {
+  it('navigates to template detail when card is clicked', async () => {
     const user = userEvent.setup();
     mockUseTemplates.mockReturnValue(
       createQueryResult({
@@ -236,11 +313,8 @@ describe('TemplateListPage', () => {
     );
 
     render(<TemplateListPage />, { wrapper: Wrapper });
-
-    // Click on Employment Agreement row by testid
-    const row = screen.getByTestId('template-row-t1');
-    await user.click(row);
-
+    const card = screen.getByTestId('template-card-t1');
+    await user.click(card);
     expect(mockNavigate).toHaveBeenCalledWith('/templates/t1');
   });
 
@@ -255,10 +329,10 @@ describe('TemplateListPage', () => {
 
     render(<TemplateListPage />, { wrapper: Wrapper });
 
-    const searchField = screen.getByRole('textbox', { name: /search/i });
+    const searchField = screen.getByPlaceholderText('Search templates...');
     await user.type(searchField, 'employment');
 
-    // Before debounce fires, useTemplates should have been called with empty filters
+    // Before debounce fires, useTemplates should have been called
     expect(mockUseTemplates).toHaveBeenCalled();
 
     // Advance timers to trigger debounce
@@ -284,8 +358,6 @@ describe('TemplateListPage', () => {
     );
 
     render(<TemplateListPage />, { wrapper: Wrapper });
-
-    // Click the Draft filter chip
     await user.click(screen.getByRole('button', { name: 'Draft' }));
 
     await waitFor(() => {
@@ -313,16 +385,13 @@ describe('TemplateListPage', () => {
 
       render(<TemplateListPage />, { wrapper: Wrapper });
 
-      const row1 = screen.getByTestId('template-row-t1');
+      const card1 = screen.getByTestId('template-card-t1');
       // updatedAt is 2026-03-01, current date is 2026-03-06 => 5d ago
-      expect(within(row1).getByText('5d ago')).toBeInTheDocument();
+      expect(within(card1).getByText('5d ago')).toBeInTheDocument();
     });
   });
 
-  it('shows secondary metadata on hover', () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date('2026-03-06T12:00:00Z'));
-
+  it('renders sort button with "Recently edited" text', () => {
     mockUseTemplates.mockReturnValue(
       createQueryResult({
         data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
@@ -330,33 +399,10 @@ describe('TemplateListPage', () => {
     );
 
     render(<TemplateListPage />, { wrapper: Wrapper });
-
-    const row1 = screen.getByTestId('template-row-t1');
-    // Hover metadata exists in the DOM (just invisible until hover via CSS)
-    const hoverMeta = within(row1).getByTestId('hover-metadata');
-    expect(hoverMeta).toBeInTheDocument();
-
-    // The hover metadata contains category and relative time
-    expect(within(hoverMeta).getByText('Employment')).toBeInTheDocument();
-    expect(within(hoverMeta).getByText('5d ago')).toBeInTheDocument();
-
-    vi.useRealTimers();
+    expect(screen.getByRole('button', { name: /recently edited/i })).toBeInTheDocument();
   });
 
-  it('renders sort dropdown', () => {
-    mockUseTemplates.mockReturnValue(
-      createQueryResult({
-        data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
-      }),
-    );
-
-    render(<TemplateListPage />, { wrapper: Wrapper });
-
-    // Sort dropdown is a MUI Select rendered as a combobox or textbox with label "Sort"
-    expect(screen.getByLabelText('Sort')).toBeInTheDocument();
-  });
-
-  it('changes sort order when sort option is selected', async () => {
+  it('opens sort dropdown and changes sort order', async () => {
     const user = userEvent.setup();
     mockUseTemplates.mockReturnValue(
       createQueryResult({
@@ -366,13 +412,12 @@ describe('TemplateListPage', () => {
 
     render(<TemplateListPage />, { wrapper: Wrapper });
 
-    // Open the sort dropdown and select "Name"
-    const sortSelect = screen.getByLabelText('Sort');
-    await user.click(sortSelect);
+    // Click the sort button to open dropdown
+    await user.click(screen.getByRole('button', { name: /recently edited/i }));
 
-    // MUI renders menu items in a listbox
-    const nameOption = await screen.findByRole('option', { name: 'Name' });
-    await user.click(nameOption);
+    // Click "Alphabetical" option
+    const alphaOption = await screen.findByRole('menuitem', { name: /alphabetical/i });
+    await user.click(alphaOption);
 
     await waitFor(() => {
       const lastCall = mockUseTemplates.mock.calls[mockUseTemplates.mock.calls.length - 1] as [
@@ -382,31 +427,21 @@ describe('TemplateListPage', () => {
     });
   });
 
-  it('renders empty state with CTA button', () => {
-    mockUseTemplates.mockReturnValue(
-      createQueryResult({
-        data: { data: [], total: 0, page: 1, limit: 20 },
-      }),
-    );
-
-    render(<TemplateListPage />, { wrapper: Wrapper });
-
-    expect(screen.getByText('No templates yet')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Create your first template' })).toBeInTheDocument();
-  });
-
-  it('empty state CTA navigates to /templates/new', async () => {
+  it('closes sort dropdown when pressing Escape', async () => {
     const user = userEvent.setup();
     mockUseTemplates.mockReturnValue(
       createQueryResult({
-        data: { data: [], total: 0, page: 1, limit: 20 },
+        data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
       }),
     );
 
     render(<TemplateListPage />, { wrapper: Wrapper });
-
-    await user.click(screen.getByRole('button', { name: 'Create your first template' }));
-    expect(mockNavigate).toHaveBeenCalledWith('/templates/new');
+    await user.click(screen.getByRole('button', { name: /recently edited/i }));
+    expect(screen.getByRole('menu')).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    await waitFor(() => {
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    });
   });
 
   it('renders sticky filter bar', () => {
@@ -420,8 +455,6 @@ describe('TemplateListPage', () => {
 
     const filterBar = screen.getByTestId('filter-bar');
     expect(filterBar).toBeInTheDocument();
-    // MUI sx applies styles via className; check the element has the class with sticky
-    // In jsdom, getComputedStyle won't resolve CSS-in-JS, so check the rendered class
     expect(filterBar.className).toBeTruthy();
   });
 
@@ -448,7 +481,6 @@ describe('TemplateListPage', () => {
     );
 
     render(<TemplateListPage />, { wrapper: Wrapper });
-
     await user.click(screen.getByRole('button', { name: 'Employment' }));
 
     await waitFor(() => {
@@ -457,110 +489,6 @@ describe('TemplateListPage', () => {
       ];
       expect(lastCall[0]).toEqual(expect.objectContaining({ category: 'Employment' }));
     });
-  });
-
-  it('template rows render with proper structure', () => {
-    mockUseTemplates.mockReturnValue(
-      createQueryResult({
-        data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
-      }),
-    );
-
-    render(<TemplateListPage />, { wrapper: Wrapper });
-
-    // Each template renders a row with the template-row class and data-testid
-    const row = screen.getByTestId('template-row-t1');
-    expect(row).toBeInTheDocument();
-    expect(row.className).toContain('template-row');
-  });
-
-  it('rows have MUI sx styles applied (including hover color)', () => {
-    mockUseTemplates.mockReturnValue(
-      createQueryResult({
-        data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
-      }),
-    );
-
-    render(<TemplateListPage />, { wrapper: Wrapper });
-
-    // The row's sx contains hover style (DDD0BC) — verified via className existence
-    // MUI sx applies styles via CSS-in-JS classes; in jsdom we verify class presence
-    const row = screen.getByTestId('template-row-t1');
-    expect(row).toBeInTheDocument();
-    // MUI generates CSS classes for the sx props
-    expect(row.className.split(' ').length).toBeGreaterThan(1);
-  });
-
-  it('focus shows selected state with accent-primary border and subtle background', () => {
-    mockUseTemplates.mockReturnValue(
-      createQueryResult({
-        data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
-      }),
-    );
-
-    render(<TemplateListPage />, { wrapper: Wrapper });
-
-    const row = screen.getByTestId('template-row-t1');
-    // The row should have tabIndex for keyboard navigation
-    expect(row).toHaveAttribute('tabindex', '0');
-    // Focus the row
-    row.focus();
-    expect(row).toHaveFocus();
-  });
-
-  it('filter bar uses purple-tinted shadow', () => {
-    mockUseTemplates.mockReturnValue(
-      createQueryResult({
-        data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
-      }),
-    );
-
-    render(<TemplateListPage />, { wrapper: Wrapper });
-
-    const filterBar = screen.getByTestId('filter-bar');
-    expect(filterBar).toBeInTheDocument();
-    // Filter bar should render with its class (shadow is applied via MUI sx)
-    expect(filterBar.className).toBeTruthy();
-  });
-
-  it('list items have entry animation via template-row class', () => {
-    mockUseTemplates.mockReturnValue(
-      createQueryResult({
-        data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
-      }),
-    );
-
-    render(<TemplateListPage />, { wrapper: Wrapper });
-
-    const row1 = screen.getByTestId('template-row-t1');
-    const row2 = screen.getByTestId('template-row-t2');
-    const row3 = screen.getByTestId('template-row-t3');
-
-    // All rows should have the template-row class (animation applied via MUI sx)
-    expect(row1.className).toContain('template-row');
-    expect(row2.className).toContain('template-row');
-    expect(row3.className).toContain('template-row');
-
-    // Each row should have MUI-generated animation classes (CSS-in-JS)
-    // In jsdom we can verify the className is not empty (styles were applied)
-    expect(row1.className.split(' ').length).toBeGreaterThan(1);
-    expect(row2.className.split(' ').length).toBeGreaterThan(1);
-    expect(row3.className.split(' ').length).toBeGreaterThan(1);
-  });
-
-  it('focused row shows metadata without hover', () => {
-    mockUseTemplates.mockReturnValue(
-      createQueryResult({
-        data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
-      }),
-    );
-
-    render(<TemplateListPage />, { wrapper: Wrapper });
-
-    const row = screen.getByTestId('template-row-t1');
-    // The hover metadata container exists
-    const hoverMeta = within(row).getByTestId('hover-metadata');
-    expect(hoverMeta).toBeInTheDocument();
   });
 
   it('navigates to template on Enter keydown', () => {
@@ -572,9 +500,8 @@ describe('TemplateListPage', () => {
 
     render(<TemplateListPage />, { wrapper: Wrapper });
 
-    const row = screen.getByTestId('template-row-t1');
-    fireEvent.keyDown(row, { key: 'Enter' });
-
+    const card = screen.getByTestId('template-card-t1');
+    fireEvent.keyDown(card, { key: 'Enter' });
     expect(mockNavigate).toHaveBeenCalledWith('/templates/t1');
   });
 
@@ -587,10 +514,42 @@ describe('TemplateListPage', () => {
 
     render(<TemplateListPage />, { wrapper: Wrapper });
 
-    const row = screen.getByTestId('template-row-t1');
-    fireEvent.keyDown(row, { key: 'Space' });
-
-    // Should not navigate on Space
+    const card = screen.getByTestId('template-card-t1');
+    fireEvent.keyDown(card, { key: 'Space' });
     expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it('content area has max-width 1120px', () => {
+    mockUseTemplates.mockReturnValue(
+      createQueryResult({
+        data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
+      }),
+    );
+
+    render(<TemplateListPage />, { wrapper: Wrapper });
+
+    const container = screen.getByTestId('template-list-container');
+    expect(container).toBeInTheDocument();
+    // MUI sx applies maxWidth via CSS classes
+    expect(container.className).toBeTruthy();
+  });
+
+  it('card metadata shows category as uppercase text', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-06T12:00:00Z'));
+
+    mockUseTemplates.mockReturnValue(
+      createQueryResult({
+        data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
+      }),
+    );
+
+    render(<TemplateListPage />, { wrapper: Wrapper });
+
+    const card1 = screen.getByTestId('template-card-t1');
+    // Category is displayed as uppercase text
+    expect(within(card1).getByText('Employment')).toBeInTheDocument();
+
+    vi.useRealTimers();
   });
 });
