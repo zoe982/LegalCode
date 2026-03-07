@@ -30,6 +30,7 @@ export default defineConfig({
         ],
       },
       workbox: {
+        maximumFileSizeToCacheInBytes: 3 * 1024 * 1024, // 3 MiB — main bundle is ~2.3 MiB
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [
           /^\/auth\//,
