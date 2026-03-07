@@ -14,6 +14,8 @@ import { DiffViewPage } from './pages/DiffViewPage.js';
 import { LoginPage } from './pages/LoginPage.js';
 import { OfflineBar } from './components/OfflineBar.js';
 import { ToastProvider } from './components/Toast.js';
+import { ReloadPrompt } from './components/ReloadPrompt.js';
+import { InstallPrompt } from './components/InstallPrompt.js';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -57,6 +59,8 @@ export const App: React.FC = () => {
           <ToastProvider>
             <RouterProvider router={router} />
           </ToastProvider>
+          <ReloadPrompt />
+          <InstallPrompt />
         </ThemeProvider>
       </QueryClientProvider>
     </ErrorBoundary>

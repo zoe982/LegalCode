@@ -6,7 +6,7 @@
 set -euo pipefail
 
 # Get staged implementation files (added or modified) in packages/*/src/
-IMPL_FILES=$(git diff --cached --name-only --diff-filter=AM | grep -E '^packages/[^/]+/src/.*\.(ts|tsx)$' | grep -vE '\.(test|spec)\.(ts|tsx)$' || true)
+IMPL_FILES=$(git diff --cached --name-only --diff-filter=AM | grep -E '^packages/[^/]+/src/.*\.(ts|tsx)$' | grep -vE '\.(test|spec)\.(ts|tsx)$' | grep -vE '\.d\.ts$' || true)
 
 if [ -z "$IMPL_FILES" ]; then
   exit 0

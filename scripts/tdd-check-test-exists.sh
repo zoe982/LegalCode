@@ -27,6 +27,12 @@ if echo "$FILE_PATH" | grep -qE '\.(test|spec)\.(ts|tsx)$'; then
   exit 0
 fi
 
+# Skip type declaration files (no runtime code)
+if echo "$FILE_PATH" | grep -qE '\.d\.ts$'; then
+  echo '{"decision":"approve"}'
+  exit 0
+fi
+
 # Skip non-TypeScript files
 if ! echo "$FILE_PATH" | grep -qE '\.(ts|tsx)$'; then
   echo '{"decision":"approve"}'
