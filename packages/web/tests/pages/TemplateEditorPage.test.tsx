@@ -230,6 +230,69 @@ vi.mock('../../src/components/CommentsTab.js', () => ({
   ),
 }));
 
+vi.mock('../../src/components/SlideOverPanel.js', () => ({
+  SlideOverPanel: ({
+    open,
+    onClose,
+    title,
+    children,
+  }: {
+    open: boolean;
+    onClose: () => void;
+    title: string;
+    children: React.ReactNode;
+  }) =>
+    open ? (
+      <div data-testid={`slide-over-${title.toLowerCase().replace(/\s+/g, '-')}`}>
+        <span>{title}</span>
+        <button onClick={onClose} data-testid="slide-over-close">
+          Close
+        </button>
+        {children}
+      </div>
+    ) : null,
+}));
+
+vi.mock('../../src/components/PanelToggleButtons.js', () => ({
+  PanelToggleButtons: ({
+    activePanel,
+    onToggle,
+  }: {
+    activePanel: string | null;
+    onToggle: (panel: string) => void;
+  }) => (
+    <div data-testid="panel-toggle-buttons">
+      <button
+        data-testid="toggle-info"
+        onClick={() => {
+          onToggle('info');
+        }}
+        data-active={activePanel === 'info'}
+      >
+        Info
+      </button>
+      <button
+        data-testid="toggle-comments"
+        onClick={() => {
+          onToggle('comments');
+        }}
+        data-active={activePanel === 'comments'}
+      >
+        Comments
+      </button>
+      <button
+        data-testid="toggle-history"
+        onClick={() => {
+          onToggle('history');
+        }}
+        data-active={activePanel === 'history'}
+      >
+        History
+      </button>
+    </div>
+  ),
+}));
+
 const mockSetConfig = vi.fn();
 const mockClearConfig = vi.fn();
 
@@ -1655,6 +1718,131 @@ describe('TemplateEditorPage', () => {
       expect(mockSetConfig).toHaveBeenCalledWith(
         expect.objectContaining({
           breadcrumbTemplateName: expect.any(String) as string,
+        }),
+      );
+    });
+  });
+
+  describe('Panel toggle and slide-over panels', () => {
+    beforeEach(() => {
+      mockUseParams.mockReturnValue({ id: 't1' });
+      mockUseTemplate.mockReturnValue(
+        createTemplateQueryResult({
+          data: {
+            template: draftTemplate,
+            content: '# Draft content',
+            tags: [],
+          },
+        }),
+      );
+    });
+
+    it('passes panelToggles to TopAppBar config', () => {
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      expect(mockSetConfig).toHaveBeenCalledWith(
+        expect.objectContaining({
+          panelToggles: expect.anything(),
+        }),
+      );
+    });
+
+    it('renders PanelToggleButtons in TopAppBar config', () => {
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      // The panelToggles is passed via config; render it to verify
+      const { getByTestId } = render(latestAppBarConfig.panelToggles as ReactElement);
+      expect(getByTestId('panel-toggle-buttons')).toBeInTheDocument();
+    });
+
+    it('opens comments panel when comments toggle is clicked', async () => {
+      const user = userEvent.setup();
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      // Render panel toggles from config and click comments
+      const { getByTestId } = render(latestAppBarConfig.panelToggles as ReactElement);
+      await user.click(getByTestId('toggle-comments'));
+
+      // After clicking, the page should re-render with activePanel='comments'
+      // The SlideOverPanel for comments should now be open
+      expect(screen.getByTestId('slide-over-comments')).toBeInTheDocument();
+      expect(screen.getByTestId('comments-tab')).toBeInTheDocument();
+    });
+
+    it('opens info panel when info toggle is clicked', async () => {
+      const user = userEvent.setup();
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      const { getByTestId } = render(latestAppBarConfig.panelToggles as ReactElement);
+      await user.click(getByTestId('toggle-info'));
+
+      expect(screen.getByTestId('slide-over-info')).toBeInTheDocument();
+      expect(screen.getByText('Metadata panel placeholder')).toBeInTheDocument();
+    });
+
+    it('opens history panel when history toggle is clicked', async () => {
+      const user = userEvent.setup();
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      const { getByTestId } = render(latestAppBarConfig.panelToggles as ReactElement);
+      await user.click(getByTestId('toggle-history'));
+
+      expect(screen.getByTestId('slide-over-version-history')).toBeInTheDocument();
+      expect(screen.getByText('History panel placeholder')).toBeInTheDocument();
+    });
+
+    it('closes panel when close button is clicked', async () => {
+      const user = userEvent.setup();
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      // Open comments panel
+      const { getByTestId } = render(latestAppBarConfig.panelToggles as ReactElement);
+      await user.click(getByTestId('toggle-comments'));
+      expect(screen.getByTestId('slide-over-comments')).toBeInTheDocument();
+
+      // Close via SlideOverPanel close button
+      await user.click(screen.getByTestId('slide-over-close'));
+      expect(screen.queryByTestId('slide-over-comments')).not.toBeInTheDocument();
+    });
+
+    it('closes info panel when close button is clicked', async () => {
+      const user = userEvent.setup();
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      const { getByTestId } = render(latestAppBarConfig.panelToggles as ReactElement);
+      await user.click(getByTestId('toggle-info'));
+      expect(screen.getByTestId('slide-over-info')).toBeInTheDocument();
+
+      await user.click(screen.getByTestId('slide-over-close'));
+      expect(screen.queryByTestId('slide-over-info')).not.toBeInTheDocument();
+    });
+
+    it('closes history panel when close button is clicked', async () => {
+      const user = userEvent.setup();
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      const { getByTestId } = render(latestAppBarConfig.panelToggles as ReactElement);
+      await user.click(getByTestId('toggle-history'));
+      expect(screen.getByTestId('slide-over-version-history')).toBeInTheDocument();
+
+      await user.click(screen.getByTestId('slide-over-close'));
+      expect(screen.queryByTestId('slide-over-version-history')).not.toBeInTheDocument();
+    });
+
+    it('passes panelToggles in create mode too', () => {
+      mockUseParams.mockReturnValue({});
+      mockUseTemplate.mockReturnValue(
+        createTemplateQueryResult({
+          data: undefined,
+          isLoading: false,
+          isPending: true,
+          isSuccess: false,
+          status: 'pending',
+        }),
+      );
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      expect(mockSetConfig).toHaveBeenCalledWith(
+        expect.objectContaining({
+          panelToggles: expect.anything(),
         }),
       );
     });

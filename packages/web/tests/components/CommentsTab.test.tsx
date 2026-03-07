@@ -99,10 +99,9 @@ describe('CommentsTab', () => {
 
   it('shows empty state when no comments', () => {
     renderTab();
+    expect(screen.getByText('No comments yet')).toBeInTheDocument();
     expect(
-      screen.getByText(
-        'No comments yet. Select text in Review mode and press Ctrl+Alt+M to comment.',
-      ),
+      screen.getByText('Select text in Review mode and press Cmd+Opt+M to comment.'),
     ).toBeInTheDocument();
   });
 

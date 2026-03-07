@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import {
   Box,
@@ -37,6 +37,9 @@ import type { Template } from '@legalcode/shared';
 import { useTopAppBarConfig } from '../contexts/TopAppBarContext.js';
 import { StatusChip } from '../components/StatusChip.js';
 import { MetadataTab } from '../components/MetadataTab.js';
+import { PanelToggleButtons } from '../components/PanelToggleButtons.js';
+import { SlideOverPanel } from '../components/SlideOverPanel.js';
+import { CommentsTab } from '../components/CommentsTab.js';
 
 interface TemplateDetail {
   template: Template;
@@ -79,6 +82,12 @@ export function TemplateEditorPage() {
   // Publish confirmation dialog state
   const [publishDialogOpen, setPublishDialogOpen] = useState(false);
 
+  // Panel state
+  const [activePanel, setActivePanel] = useState<'info' | 'comments' | 'history' | null>(null);
+  const handlePanelToggle = useCallback((panel: 'info' | 'comments' | 'history') => {
+    setActivePanel((prev) => (prev === panel ? null : panel));
+  }, []);
+
   const { showToast } = useToast();
 
   // Keyboard shortcuts
@@ -116,11 +125,17 @@ export function TemplateEditorPage() {
   // Sync TopAppBar config for editor view
   const { setConfig, clearConfig } = useTopAppBarConfig();
 
+  const panelToggles = useMemo(
+    () => <PanelToggleButtons activePanel={activePanel} onToggle={handlePanelToggle} />,
+    [activePanel, handlePanelToggle],
+  );
+
   useEffect(() => {
     if (!isCreateMode && templateData) {
       setConfig({
         breadcrumbTemplateName: title || templateData.template.title,
         statusBadge: <StatusChip status={templateData.template.status} />,
+        panelToggles,
         rightSlot: (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             {collaboration.status !== 'disconnected' && (
@@ -138,6 +153,7 @@ export function TemplateEditorPage() {
     } else if (isCreateMode) {
       setConfig({
         breadcrumbTemplateName: 'New Template',
+        panelToggles,
         statusBadge: undefined,
         rightSlot: undefined,
       });
@@ -154,6 +170,7 @@ export function TemplateEditorPage() {
     setConfig,
     clearConfig,
     handleExport,
+    panelToggles,
   ]);
 
   // Initialize form when template data loads
@@ -542,6 +559,37 @@ export function TemplateEditorPage() {
           setShortcutHelpOpen(false);
         }}
       />
+
+      {/* Slide-over panels */}
+      <SlideOverPanel
+        open={activePanel === 'comments'}
+        onClose={() => {
+          setActivePanel(null);
+        }}
+        title="Comments"
+      >
+        <CommentsTab templateId={id} />
+      </SlideOverPanel>
+
+      <SlideOverPanel
+        open={activePanel === 'info'}
+        onClose={() => {
+          setActivePanel(null);
+        }}
+        title="Info"
+      >
+        <Box>Metadata panel placeholder</Box>
+      </SlideOverPanel>
+
+      <SlideOverPanel
+        open={activePanel === 'history'}
+        onClose={() => {
+          setActivePanel(null);
+        }}
+        title="Version History"
+      >
+        <Box>History panel placeholder</Box>
+      </SlideOverPanel>
     </Box>
   );
 }

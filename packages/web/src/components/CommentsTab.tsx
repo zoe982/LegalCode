@@ -65,10 +65,19 @@ function CommentRow({ comment, authorIndex, onDelete, testIdPrefix }: CommentRow
         >
           {comment.authorName.charAt(0).toUpperCase()}
         </Avatar>
-        <Typography sx={{ fontSize: '0.8125rem', fontWeight: 600, color: '#451F61' }}>
+        <Typography
+          sx={{
+            fontSize: '0.8125rem',
+            fontWeight: 600,
+            color: '#12111A',
+            fontFamily: '"DM Sans", sans-serif',
+          }}
+        >
           {comment.authorName}
         </Typography>
-        <Typography sx={{ fontSize: '0.75rem', color: '#9A8DA6' }}>
+        <Typography
+          sx={{ fontSize: '0.75rem', color: '#9B9DB0', fontFamily: '"DM Sans", sans-serif' }}
+        >
           {formatRelativeTime(comment.createdAt)}
         </Typography>
         <Box sx={{ flex: 1 }} />
@@ -89,7 +98,14 @@ function CommentRow({ comment, authorIndex, onDelete, testIdPrefix }: CommentRow
         </IconButton>
       </Box>
       {/* Comment text */}
-      <Typography sx={{ fontSize: '0.9375rem', color: '#451F61', ml: 4 }}>
+      <Typography
+        sx={{
+          fontSize: '0.9375rem',
+          color: '#37354A',
+          ml: 4,
+          fontFamily: '"DM Sans", sans-serif',
+        }}
+      >
         {comment.content}
       </Typography>
     </Box>
@@ -124,7 +140,7 @@ function ThreadCard({ thread, threadIndex, onResolve, onDelete, onReply }: Threa
         sx={{
           p: 1.5,
           borderRadius: '8px',
-          backgroundColor: '#F7F0E6',
+          backgroundColor: '#F9F9FB',
           mb: 1,
           opacity: 0.7,
           cursor: 'pointer',
@@ -133,7 +149,9 @@ function ThreadCard({ thread, threadIndex, onResolve, onDelete, onReply }: Threa
           setExpanded((prev) => !prev);
         }}
       >
-        <Typography sx={{ fontSize: '0.75rem', color: '#6B5A7A' }}>
+        <Typography
+          sx={{ fontSize: '0.75rem', color: '#6B6D82', fontFamily: '"DM Sans", sans-serif' }}
+        >
           <CheckIcon sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />
           {thread.comment.authorName} resolved
         </Typography>
@@ -159,7 +177,7 @@ function ThreadCard({ thread, threadIndex, onResolve, onDelete, onReply }: Threa
       sx={{
         p: 1.5,
         borderRadius: '8px',
-        backgroundColor: '#F7F0E6',
+        backgroundColor: '#F9F9FB',
         mb: 1,
       }}
     >
@@ -169,7 +187,10 @@ function ThreadCard({ thread, threadIndex, onResolve, onDelete, onReply }: Threa
           sx={{
             fontSize: '0.75rem',
             fontStyle: 'italic',
-            color: '#6B5A7A',
+            color: '#6B6D82',
+            fontFamily: '"DM Sans", sans-serif',
+            borderLeft: '2px solid var(--comment-highlight, #F5A623)',
+            pl: 1,
             mb: 1,
             display: '-webkit-box',
             WebkitLineClamp: 2,
@@ -202,7 +223,8 @@ function ThreadCard({ thread, threadIndex, onResolve, onDelete, onReply }: Threa
           aria-label="resolve"
           sx={{
             fontSize: '0.75rem',
-            color: '#6B5A7A',
+            color: '#6B6D82',
+            fontFamily: '"DM Sans", sans-serif',
             textTransform: 'none',
             minWidth: 'auto',
             p: '2px 8px',
@@ -328,10 +350,17 @@ export function CommentsTab({ templateId }: CommentsTabProps) {
           justifyContent: 'space-between',
           px: 2,
           py: 1,
-          borderBottom: '1px solid #E8DDD0',
+          borderBottom: '1px solid #E4E5ED',
         }}
       >
-        <Typography sx={{ fontSize: '0.8125rem', color: '#451F61', fontWeight: 600 }}>
+        <Typography
+          sx={{
+            fontSize: '0.8125rem',
+            color: '#12111A',
+            fontWeight: 600,
+            fontFamily: '"DM Sans", sans-serif',
+          }}
+        >
           {totalThreads === 0
             ? 'No comments'
             : `${String(unresolvedCount)} comment${unresolvedCount !== 1 ? 's' : ''}${resolvedCount > 0 ? ` \u00B7 ${String(resolvedCount)} resolved` : ''}`}
@@ -347,7 +376,15 @@ export function CommentsTab({ templateId }: CommentsTabProps) {
             />
           }
           label={
-            <Typography sx={{ fontSize: '0.75rem', color: '#9A8DA6' }}>Show resolved</Typography>
+            <Typography
+              sx={{
+                fontSize: '0.75rem',
+                color: '#9B9DB0',
+                fontFamily: '"DM Sans", sans-serif',
+              }}
+            >
+              Show resolved
+            </Typography>
           }
           sx={{ mr: 0 }}
         />
@@ -366,16 +403,28 @@ export function CommentsTab({ templateId }: CommentsTabProps) {
             gap: 1,
           }}
         >
-          <ChatBubbleOutline sx={{ fontSize: 48, color: '#9A8DA6' }} />
+          <ChatBubbleOutline sx={{ fontSize: 48, color: '#9B9DB0' }} />
           <Typography
             sx={{
               fontSize: '0.875rem',
-              color: '#9A8DA6',
+              fontWeight: 500,
+              color: '#12111A',
               textAlign: 'center',
-              maxWidth: 240,
+              fontFamily: '"DM Sans", sans-serif',
             }}
           >
-            No comments yet. Select text in Review mode and press Ctrl+Alt+M to comment.
+            No comments yet
+          </Typography>
+          <Typography
+            sx={{
+              fontSize: '0.75rem',
+              color: '#6B6D82',
+              textAlign: 'center',
+              maxWidth: 240,
+              fontFamily: '"DM Sans", sans-serif',
+            }}
+          >
+            Select text in Review mode and press Cmd+Opt+M to comment.
           </Typography>
         </Box>
       ) : (
