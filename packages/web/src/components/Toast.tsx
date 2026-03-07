@@ -52,13 +52,14 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!open) return;
+    const timeout = toast?.action != null ? 8000 : 4000;
     const timer = setTimeout(() => {
       setOpen(false);
-    }, 4000);
+    }, timeout);
     return () => {
       clearTimeout(timer);
     };
-  }, [open, toast?.id]);
+  }, [open, toast?.id, toast?.action]);
 
   return (
     <ToastContext.Provider value={{ showToast }}>

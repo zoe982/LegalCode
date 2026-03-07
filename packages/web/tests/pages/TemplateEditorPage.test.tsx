@@ -72,9 +72,11 @@ vi.mock('../../src/components/MarkdownEditor.js', () => ({
   ),
 }));
 
+const mockGetVersion = vi.fn();
 vi.mock('../../src/services/templates.js', () => ({
   templateService: {
     download: vi.fn(),
+    getVersion: (...args: unknown[]) => mockGetVersion(...args) as unknown,
   },
 }));
 
@@ -83,10 +85,12 @@ vi.mock('../../src/components/VersionHistory.js', () => ({
     templateId,
     currentVersion,
     onNavigateDiff,
+    onRestore,
   }: {
     templateId: string;
     currentVersion: number;
     onNavigateDiff?: (from: number, to: number) => void;
+    onRestore?: (version: number) => void;
   }) => (
     <div data-testid="version-history">
       Version history for {templateId} v{String(currentVersion)}
@@ -98,6 +102,16 @@ vi.mock('../../src/components/VersionHistory.js', () => ({
           }}
         >
           View diff
+        </button>
+      )}
+      {onRestore != null && (
+        <button
+          data-testid="version-restore"
+          onClick={() => {
+            onRestore(1);
+          }}
+        >
+          Restore v1
         </button>
       )}
     </div>
@@ -2087,6 +2101,247 @@ describe('TemplateEditorPage', () => {
       await waitFor(() => {
         expect(screen.queryByText('Unarchive Template')).not.toBeInTheDocument();
       });
+    });
+  });
+
+  describe('Archive with undo toast', () => {
+    beforeEach(() => {
+      mockUseParams.mockReturnValue({ id: 't2' });
+      mockUseTemplate.mockReturnValue(
+        createTemplateQueryResult({
+          data: { template: activeTemplate, content: '# Active', tags: [] },
+        }),
+      );
+    });
+
+    it('shows toast with Undo button after archive confirmation', async () => {
+      const user = userEvent.setup();
+      mockArchiveMutateAsync.mockResolvedValue(archivedTemplate);
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      await openInfoPanel(user);
+      await user.click(screen.getByTestId('metadata-archive'));
+
+      const archiveButtons = screen.getAllByRole('button', { name: /archive/i });
+      const confirmButton = archiveButtons[archiveButtons.length - 1];
+      if (!confirmButton) throw new Error('Expected archive confirm button');
+      await user.click(confirmButton);
+
+      await waitFor(() => {
+        expect(mockShowToast).toHaveBeenCalledWith(
+          'Template archived',
+          'success',
+          expect.anything(),
+        );
+      });
+    });
+
+    it('archive undo toast action calls unarchive mutation', async () => {
+      const user = userEvent.setup();
+      mockArchiveMutateAsync.mockResolvedValue(archivedTemplate);
+      mockUnarchiveMutateAsync.mockResolvedValue({ ...archivedTemplate, status: 'draft' });
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      await openInfoPanel(user);
+      await user.click(screen.getByTestId('metadata-archive'));
+
+      const archiveButtons = screen.getAllByRole('button', { name: /archive/i });
+      const confirmButton = archiveButtons[archiveButtons.length - 1];
+      if (!confirmButton) throw new Error('Expected archive confirm button');
+      await user.click(confirmButton);
+
+      await waitFor(() => {
+        expect(mockShowToast).toHaveBeenCalled();
+      });
+
+      // Extract the Undo action (third argument)
+      const actionElement = mockShowToast.mock.calls.find(
+        (c: unknown[]) => c[0] === 'Template archived',
+      )?.[2] as { props: { onClick: () => void } } | undefined;
+      expect(actionElement).toBeDefined();
+
+      act(() => {
+        actionElement?.props.onClick();
+      });
+
+      expect(mockUnarchiveMutateAsync).toHaveBeenCalledWith('t2');
+    });
+
+    it('archive dialog closes after confirmation', async () => {
+      const user = userEvent.setup();
+      mockArchiveMutateAsync.mockResolvedValue(archivedTemplate);
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      await openInfoPanel(user);
+      await user.click(screen.getByTestId('metadata-archive'));
+
+      expect(screen.getByText('Archive Template')).toBeInTheDocument();
+
+      const archiveButtons = screen.getAllByRole('button', { name: /archive/i });
+      const confirmButton = archiveButtons[archiveButtons.length - 1];
+      if (!confirmButton) throw new Error('Expected archive confirm button');
+      await user.click(confirmButton);
+
+      await waitFor(() => {
+        expect(screen.queryByText('Archive Template')).not.toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('Version restore', () => {
+    beforeEach(() => {
+      mockUseParams.mockReturnValue({ id: 't2' });
+      mockUseTemplate.mockReturnValue(
+        createTemplateQueryResult({
+          data: { template: activeTemplate, content: '# Active', tags: [] },
+        }),
+      );
+    });
+
+    it('passes onRestore to VersionHistory in history panel', async () => {
+      const user = userEvent.setup();
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      const { getByTestId } = render(latestAppBarConfig.panelToggles as ReactElement);
+      await user.click(getByTestId('toggle-history'));
+
+      expect(screen.getByTestId('version-restore')).toBeInTheDocument();
+    });
+
+    it('calls templateService.getVersion and collaboration.saveVersion on restore', async () => {
+      const user = userEvent.setup();
+      // The API returns { version: { content, ... } } wrapped
+      mockGetVersion.mockResolvedValue({
+        version: {
+          id: 'v1',
+          templateId: 't2',
+          version: 1,
+          content: '# Old content',
+          changeSummary: 'Initial',
+          createdBy: 'u1',
+          createdAt: '2026-01-01T00:00:00Z',
+        },
+      });
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      const { getByTestId } = render(latestAppBarConfig.panelToggles as ReactElement);
+      await user.click(getByTestId('toggle-history'));
+
+      await user.click(screen.getByTestId('version-restore'));
+
+      await waitFor(() => {
+        expect(mockGetVersion).toHaveBeenCalledWith('t2', 1);
+      });
+
+      await waitFor(() => {
+        expect(mockSaveVersion).toHaveBeenCalledWith('Restored from version 1');
+      });
+    });
+
+    it('shows success toast after version restore', async () => {
+      const user = userEvent.setup();
+      mockGetVersion.mockResolvedValue({
+        version: {
+          id: 'v1',
+          templateId: 't2',
+          version: 1,
+          content: '# Old content',
+          changeSummary: 'Initial',
+          createdBy: 'u1',
+          createdAt: '2026-01-01T00:00:00Z',
+        },
+      });
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      const { getByTestId } = render(latestAppBarConfig.panelToggles as ReactElement);
+      await user.click(getByTestId('toggle-history'));
+
+      await user.click(screen.getByTestId('version-restore'));
+
+      await waitFor(() => {
+        expect(mockShowToast).toHaveBeenCalledWith('Restored to version 1', 'success');
+      });
+    });
+
+    it('handles flat response shape (content at top level) during restore', async () => {
+      const user = userEvent.setup();
+      // Simulate a response where content is directly on the object (no nested version)
+      mockGetVersion.mockResolvedValue({
+        id: 'v1',
+        templateId: 't2',
+        version: 1,
+        content: '# Flat content',
+        changeSummary: 'Initial',
+        createdBy: 'u1',
+        createdAt: '2026-01-01T00:00:00Z',
+      });
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      const { getByTestId } = render(latestAppBarConfig.panelToggles as ReactElement);
+      await user.click(getByTestId('toggle-history'));
+
+      await user.click(screen.getByTestId('version-restore'));
+
+      await waitFor(() => {
+        expect(mockSaveVersion).toHaveBeenCalledWith('Restored from version 1');
+      });
+
+      await waitFor(() => {
+        expect(mockShowToast).toHaveBeenCalledWith('Restored to version 1', 'success');
+      });
+    });
+
+    it('updates ydoc content when collaboration is active during restore', async () => {
+      const user = userEvent.setup();
+      const mockText = {
+        length: 10,
+        delete: vi.fn(),
+        insert: vi.fn(),
+      };
+      const mockYdoc = {
+        transact: vi.fn((fn: () => void) => {
+          fn();
+        }),
+        getText: vi.fn().mockReturnValue(mockText),
+      };
+
+      mockUseCollaboration.mockReturnValue({
+        ydoc: mockYdoc,
+        awareness: {},
+        status: 'connected',
+        connectedUsers: [],
+        saveVersion: mockSaveVersion,
+      });
+
+      mockGetVersion.mockResolvedValue({
+        version: {
+          id: 'v1',
+          templateId: 't2',
+          version: 1,
+          content: '# Restored',
+          changeSummary: 'Initial',
+          createdBy: 'u1',
+          createdAt: '2026-01-01T00:00:00Z',
+        },
+      });
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      const { getByTestId } = render(latestAppBarConfig.panelToggles as ReactElement);
+      await user.click(getByTestId('toggle-history'));
+
+      await user.click(screen.getByTestId('version-restore'));
+
+      await waitFor(() => {
+        expect(mockYdoc.transact).toHaveBeenCalled();
+      });
+
+      expect(mockYdoc.getText).toHaveBeenCalledWith('content');
+      expect(mockText.delete).toHaveBeenCalledWith(0, 10);
+      expect(mockText.insert).toHaveBeenCalledWith(0, '# Restored');
     });
   });
 });

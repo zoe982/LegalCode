@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef, createElement } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import {
   Box,
@@ -275,9 +275,33 @@ export function TemplateEditorPage() {
   const handleArchiveConfirm = useCallback(() => {
     /* v8 ignore next -- guard for TypeScript; id is always defined in edit mode */
     if (!id) return;
-    void archiveMutation.mutateAsync(id);
+    void archiveMutation.mutateAsync(id).then(() => {
+      showToast(
+        'Template archived',
+        'success',
+        createElement(
+          Button,
+          {
+            size: 'small' as const,
+            onClick: () => {
+              void unarchiveMutation.mutateAsync(id);
+            },
+            sx: {
+              color: '#8027FF',
+              fontFamily: '"DM Sans", sans-serif',
+              fontSize: '0.8125rem',
+              fontWeight: 600,
+              textTransform: 'none',
+              minWidth: 0,
+              padding: '2px 8px',
+            },
+          },
+          'Undo',
+        ),
+      );
+    });
     setArchiveDialogOpen(false);
-  }, [archiveMutation, id]);
+  }, [archiveMutation, unarchiveMutation, id, showToast]);
 
   const handleUnarchiveClick = useCallback(() => {
     setUnarchiveDialogOpen(true);
@@ -307,6 +331,41 @@ export function TemplateEditorPage() {
         });
     },
     [collaboration.saveVersion, id],
+  );
+
+  const handleRestoreVersion = useCallback(
+    (version: number) => {
+      if (!id) return;
+      void templateService.getVersion(id, version).then((versionResult) => {
+        // The API returns { version: { content, ... } } but typed as TemplateVersion
+        // Access content defensively to handle both shapes
+        const resultAny = versionResult as unknown as Record<string, unknown>;
+        const nested = resultAny.version as Record<string, unknown> | undefined;
+        const restoredContent =
+          typeof nested?.content === 'string'
+            ? nested.content
+            : typeof resultAny.content === 'string'
+              ? resultAny.content
+              : '';
+
+        // Update Yjs doc if collaboration is active
+        if (collaboration.ydoc) {
+          const ydoc = collaboration.ydoc;
+          ydoc.transact(() => {
+            const text = ydoc.getText('content');
+            text.delete(0, text.length);
+            text.insert(0, restoredContent);
+          });
+        }
+        setContent(restoredContent);
+
+        // Save as a new version
+        void collaboration.saveVersion(`Restored from version ${String(version)}`).then(() => {
+          showToast(`Restored to version ${String(version)}`, 'success');
+        });
+      });
+    },
+    [id, collaboration, showToast],
   );
 
   const wordCount = content.trim() === '' ? 0 : content.trim().split(/\s+/).length;
@@ -712,6 +771,7 @@ export function TemplateEditorPage() {
           <VersionHistory
             templateId={id}
             currentVersion={templateData.template.currentVersion}
+            onRestore={handleRestoreVersion}
             onNavigateDiff={(from, to) => {
               void navigate(`/templates/${id}/diff/${String(from)}/${String(to)}`);
             }}
