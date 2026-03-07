@@ -6,7 +6,7 @@ import { ThemeProvider } from '@mui/material/styles';
 import { theme } from '../../src/theme/index.js';
 import { Breadcrumbs } from '../../src/components/Breadcrumbs.js';
 
-function renderBreadcrumbs(props?: { templateName?: string }) {
+function renderBreadcrumbs(props?: { templateName?: string; pageName?: string }) {
   return render(
     <ThemeProvider theme={theme}>
       <MemoryRouter>
@@ -85,5 +85,39 @@ describe('Breadcrumbs', () => {
   it('has data-testid breadcrumbs', () => {
     renderBreadcrumbs();
     expect(screen.getByTestId('breadcrumbs')).toBeInTheDocument();
+  });
+
+  // --- pageName prop ---
+
+  it('renders 2-level breadcrumb when pageName is provided', () => {
+    renderBreadcrumbs({ pageName: 'Admin' });
+    expect(screen.getByText('Acasus')).toBeInTheDocument();
+    expect(screen.getByText('Admin')).toBeInTheDocument();
+  });
+
+  it('renders Acasus as link to /templates when pageName is provided', () => {
+    renderBreadcrumbs({ pageName: 'Settings' });
+    const link = screen.getByRole('link', { name: /acasus/i });
+    expect(link).toHaveAttribute('href', '/templates');
+  });
+
+  it('renders pageName as plain text (not a link)', () => {
+    renderBreadcrumbs({ pageName: 'Admin' });
+    const pageNameEl = screen.getByText('Admin');
+    expect(pageNameEl.closest('a')).toBeNull();
+  });
+
+  it('renders separator between Acasus and pageName', () => {
+    renderBreadcrumbs({ pageName: 'Settings' });
+    const separators = screen.getAllByText('/');
+    expect(separators).toHaveLength(1);
+  });
+
+  it('ignores pageName when templateName is also provided', () => {
+    renderBreadcrumbs({ templateName: 'My Contract', pageName: 'Admin' });
+    // Should render templateName breadcrumb, not pageName
+    expect(screen.getByText('My Contract')).toBeInTheDocument();
+    expect(screen.getByText('Templates')).toBeInTheDocument();
+    expect(screen.queryByText('Admin')).not.toBeInTheDocument();
   });
 });

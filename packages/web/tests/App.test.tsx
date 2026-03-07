@@ -123,7 +123,7 @@ describe('App', () => {
     mockAuthenticatedUser();
     renderWithRouter('/admin');
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: /admin/i })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: /users/i })).toBeInTheDocument();
     });
   });
 

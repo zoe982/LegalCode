@@ -1,0 +1,1 @@
+ALTER TABLE `templates` ADD `description` text;

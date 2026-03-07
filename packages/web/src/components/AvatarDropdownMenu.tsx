@@ -124,6 +124,20 @@ export function AvatarDropdownMenu({ user, onLogout }: AvatarDropdownMenuProps) 
 
         <MenuItem
           component={NavLink}
+          to="/templates"
+          onClick={handleClose}
+          sx={{
+            fontFamily: '"DM Sans", "Helvetica Neue", Arial, sans-serif',
+            fontSize: '0.875rem',
+            color: 'var(--text-body)',
+            '&:hover': { bgcolor: 'var(--surface-tertiary)' },
+          }}
+        >
+          Templates
+        </MenuItem>
+
+        <MenuItem
+          component={NavLink}
           to="/admin"
           onClick={handleClose}
           sx={{

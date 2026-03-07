@@ -4,9 +4,10 @@ import Typography from '@mui/material/Typography';
 
 interface BreadcrumbsProps {
   templateName?: string | undefined;
+  pageName?: string | undefined;
 }
 
-export function Breadcrumbs({ templateName }: BreadcrumbsProps) {
+export function Breadcrumbs({ templateName, pageName }: BreadcrumbsProps) {
   return (
     <Box
       data-testid="breadcrumbs"
@@ -35,6 +36,36 @@ export function Breadcrumbs({ templateName }: BreadcrumbsProps) {
       >
         Acasus
       </Typography>
+
+      {/* Page-level breadcrumb (Admin, Settings, etc.) — only when no templateName */}
+      {templateName == null && pageName != null && (
+        <>
+          <Typography
+            component="span"
+            sx={{
+              color: 'var(--text-tertiary)',
+              fontSize: '0.8125rem',
+              fontWeight: 400,
+              lineHeight: 1,
+            }}
+          >
+            /
+          </Typography>
+
+          <Typography
+            component="span"
+            sx={{
+              fontFamily: '"DM Sans", "Helvetica Neue", Arial, sans-serif',
+              fontSize: '0.8125rem',
+              fontWeight: 500,
+              color: 'var(--text-primary)',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {pageName}
+          </Typography>
+        </>
+      )}
 
       {/* Additional breadcrumb levels when templateName is provided */}
       {templateName != null && (

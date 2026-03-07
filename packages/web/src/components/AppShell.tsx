@@ -20,6 +20,7 @@ function AppShellInner() {
         {/* Top App Bar */}
         <TopAppBar
           breadcrumbTemplateName={config.breadcrumbTemplateName}
+          breadcrumbPageName={config.breadcrumbPageName}
           panelToggles={config.panelToggles}
           rightSlot={config.rightSlot}
           statusBadge={config.statusBadge}

@@ -1,7 +1,6 @@
 /// <reference types="@testing-library/jest-dom/vitest" />
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from '@mui/material/styles';
 import { theme } from '../../src/theme/index.js';
@@ -19,6 +18,43 @@ vi.mock('../../src/hooks/useErrorLog.js', () => ({
 
 vi.mock('../../src/utils/generateFixPrompt.js', () => ({
   generateFixPrompt: () => '# Prompt' as string,
+}));
+
+const mockMutate = vi.fn();
+const mockMutationResult = {
+  mutate: mockMutate,
+  isPending: false,
+  isSuccess: false,
+  isError: false,
+  error: null,
+  reset: vi.fn(),
+};
+
+vi.mock('../../src/hooks/useUsers.js', () => ({
+  useUsers: () => ({ data: { users: [] }, isLoading: false, error: null }),
+  useCreateUser: () => mockMutationResult,
+  useUpdateUserRole: () => mockMutationResult,
+  useRemoveUser: () => mockMutationResult,
+  useAllowedEmails: () => ({ data: { emails: [] } }),
+  useAddAllowedEmail: () => mockMutationResult,
+  useRemoveAllowedEmail: () => mockMutationResult,
+}));
+
+vi.mock('../../src/hooks/useAuth.js', () => ({
+  useAuth: () => ({
+    user: { id: 'user-1', email: 'admin@test.com', name: 'Admin', role: 'admin' },
+  }),
+}));
+
+const mockSetConfig = vi.fn();
+const mockClearConfig = vi.fn();
+
+vi.mock('../../src/contexts/TopAppBarContext.js', () => ({
+  useTopAppBarConfig: () => ({
+    config: {},
+    setConfig: mockSetConfig,
+    clearConfig: mockClearConfig,
+  }),
 }));
 
 const { AdminPage } = await import('../../src/pages/AdminPage.js');
@@ -45,51 +81,38 @@ describe('AdminPage', () => {
     });
   });
 
-  it('renders Admin heading', () => {
+  it('renders Users section heading as h2', () => {
     renderAdminPage();
-    expect(screen.getByRole('heading', { name: /admin/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: /users/i })).toBeInTheDocument();
   });
 
-  it('renders tabs for Users and Error Log', () => {
+  it('renders Error Log section heading as h2', () => {
     renderAdminPage();
-    expect(screen.getByRole('tab', { name: /users/i })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /error log/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: /error log/i })).toBeInTheDocument();
   });
 
-  it('defaults to Error Log tab', () => {
+  it('renders both sections visible without clicking tabs', () => {
     renderAdminPage();
-    const errorLogTab = screen.getByRole('tab', { name: /error log/i });
-    expect(errorLogTab).toHaveAttribute('aria-selected', 'true');
-  });
-
-  it('shows Error Log tab content by default', () => {
-    renderAdminPage();
-    // Empty state from ErrorLogTab
+    // UsersTab renders the "Add new user form" region
+    expect(screen.getByLabelText('Add new user form')).toBeInTheDocument();
+    // ErrorLogTab renders its content
     expect(screen.getByText('No errors recorded')).toBeInTheDocument();
   });
 
-  it('switches to Users tab on click', async () => {
-    const user = userEvent.setup();
+  it('renders a divider between sections', () => {
     renderAdminPage();
-
-    await user.click(screen.getByRole('tab', { name: /users/i }));
-
-    expect(screen.getByText('User management coming soon')).toBeInTheDocument();
+    const dividers = document.querySelectorAll('hr.MuiDivider-root');
+    expect(dividers.length).toBeGreaterThanOrEqual(1);
   });
 
-  it('switches back to Error Log tab', async () => {
-    const user = userEvent.setup();
+  it('sets breadcrumb page name on mount', () => {
     renderAdminPage();
-
-    await user.click(screen.getByRole('tab', { name: /users/i }));
-    await user.click(screen.getByRole('tab', { name: /error log/i }));
-
-    expect(screen.getByText('No errors recorded')).toBeInTheDocument();
+    expect(mockSetConfig).toHaveBeenCalledWith({ breadcrumbPageName: 'Admin' });
   });
 
-  it('renders tab indicator with accent-primary color', () => {
-    renderAdminPage();
-    // Just verify tabs render without error — color testing is visual
-    expect(screen.getByRole('tablist')).toBeInTheDocument();
+  it('clears config on unmount', () => {
+    const { unmount } = renderAdminPage();
+    unmount();
+    expect(mockClearConfig).toHaveBeenCalled();
   });
 });

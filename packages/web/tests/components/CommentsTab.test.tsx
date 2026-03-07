@@ -116,6 +116,8 @@ function renderTab(templateIdOrOpts: string | RenderTabOptions = 'tpl-1') {
 describe('CommentsTab', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // jsdom doesn't implement scrollIntoView
+    HTMLElement.prototype.scrollIntoView = vi.fn();
     mockUseComments.mockReturnValue({ ...defaultHookReturn });
   });
 
@@ -831,7 +833,8 @@ describe('CommentsTab', () => {
 
     beforeEach(() => {
       scrollIntoViewSpy = vi.fn();
-      vi.spyOn(HTMLElement.prototype, 'scrollIntoView').mockImplementation(scrollIntoViewSpy);
+      // jsdom doesn't implement scrollIntoView — define it before spying
+      HTMLElement.prototype.scrollIntoView = scrollIntoViewSpy;
     });
 
     afterEach(() => {

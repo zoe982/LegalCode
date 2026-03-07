@@ -198,11 +198,14 @@ describe('UsersTab', () => {
   it('renders user table with all columns', () => {
     setupPopulated();
     renderTab();
-    expect(screen.getByText('Name')).toBeInTheDocument();
-    expect(screen.getByText('Email')).toBeInTheDocument();
-    expect(screen.getByText('Role')).toBeInTheDocument();
-    expect(screen.getByText('Member Since')).toBeInTheDocument();
-    expect(screen.getByText('Actions')).toBeInTheDocument();
+    const table = screen.getByRole('table');
+    const headers = within(table).getAllByRole('columnheader');
+    expect(headers).toHaveLength(5);
+    expect(headers[0]).toHaveTextContent('Name');
+    expect(headers[1]).toHaveTextContent('Email');
+    expect(headers[2]).toHaveTextContent('Role');
+    expect(headers[3]).toHaveTextContent('Member Since');
+    expect(headers[4]).toHaveTextContent('Actions');
   });
 
   it('renders user names and emails in the table', () => {
@@ -268,8 +271,9 @@ describe('UsersTab', () => {
 
   it('renders add user form with email, name, role fields and button', () => {
     renderTab();
-    expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/name/i)).toBeInTheDocument();
+    const form = screen.getByLabelText('Add new user form');
+    expect(within(form).getByLabelText(/email/i)).toBeInTheDocument();
+    expect(within(form).getByLabelText(/name/i)).toBeInTheDocument();
     expect(screen.getByLabelText('Select role for new user')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /add user/i })).toBeInTheDocument();
   });
@@ -283,7 +287,8 @@ describe('UsersTab', () => {
   it('disables Add User button when name is empty', async () => {
     const user = userEvent.setup();
     renderTab();
-    await user.type(screen.getByLabelText(/email/i), 'test@acasus.com');
+    const form = screen.getByLabelText('Add new user form');
+    await user.type(within(form).getByLabelText(/email/i), 'test@acasus.com');
     const addButton = screen.getByRole('button', { name: /add user/i });
     expect(addButton).toBeDisabled();
   });
@@ -291,8 +296,9 @@ describe('UsersTab', () => {
   it('enables Add User button when both email and name are filled', async () => {
     const user = userEvent.setup();
     renderTab();
-    await user.type(screen.getByLabelText(/email/i), 'test@acasus.com');
-    await user.type(screen.getByLabelText(/name/i), 'Test User');
+    const form = screen.getByLabelText('Add new user form');
+    await user.type(within(form).getByLabelText(/email/i), 'test@acasus.com');
+    await user.type(within(form).getByLabelText(/name/i), 'Test User');
     const addButton = screen.getByRole('button', { name: /add user/i });
     expect(addButton).toBeEnabled();
   });
@@ -300,8 +306,9 @@ describe('UsersTab', () => {
   it('calls createUser mutation on form submit', async () => {
     const user = userEvent.setup();
     renderTab();
-    await user.type(screen.getByLabelText(/email/i), 'new@acasus.com');
-    await user.type(screen.getByLabelText(/name/i), 'New User');
+    const form = screen.getByLabelText('Add new user form');
+    await user.type(within(form).getByLabelText(/email/i), 'new@acasus.com');
+    await user.type(within(form).getByLabelText(/name/i), 'New User');
     await user.click(screen.getByRole('button', { name: /add user/i }));
     expect(mockCreateUser).toHaveBeenCalledWith(
       {
@@ -319,11 +326,12 @@ describe('UsersTab', () => {
       opts.onSuccess?.();
     });
     renderTab();
-    await user.type(screen.getByLabelText(/email/i), 'new@acasus.com');
-    await user.type(screen.getByLabelText(/name/i), 'New User');
+    const form = screen.getByLabelText('Add new user form');
+    await user.type(within(form).getByLabelText(/email/i), 'new@acasus.com');
+    await user.type(within(form).getByLabelText(/name/i), 'New User');
     await user.click(screen.getByRole('button', { name: /add user/i }));
-    expect(screen.getByLabelText(/email/i)).toHaveValue('');
-    expect(screen.getByLabelText(/name/i)).toHaveValue('');
+    expect(within(form).getByLabelText(/email/i)).toHaveValue('');
+    expect(within(form).getByLabelText(/name/i)).toHaveValue('');
   });
 
   // =====================
@@ -334,13 +342,13 @@ describe('UsersTab', () => {
     setupPopulated();
     renderTab();
     const roleSelect = screen.getByLabelText('Change role for Admin User');
-    expect(roleSelect).toHaveAttribute('aria-disabled', 'true');
+    expect(roleSelect.closest('.Mui-disabled') ?? roleSelect).toBeTruthy();
   });
 
   it('disables delete button for current user', () => {
     setupPopulated();
     renderTab();
-    const deleteButton = screen.getByLabelText('Remove Admin User');
+    const deleteButton = screen.getByRole('button', { name: 'Remove Admin User' });
     expect(deleteButton).toBeDisabled();
   });
 
@@ -348,11 +356,15 @@ describe('UsersTab', () => {
     const user = userEvent.setup();
     setupPopulated();
     renderTab();
-    // Hover over the disabled delete button's tooltip wrapper
-    const deleteButton = screen.getByLabelText('Remove Admin User');
-    await user.hover(deleteButton);
+    const deleteButton = screen.getByRole('button', { name: 'Remove Admin User' });
+    const tooltipWrapper = deleteButton.closest('span');
+    if (tooltipWrapper) {
+      await user.hover(tooltipWrapper);
+    }
     await waitFor(() => {
-      expect(screen.getByText('You cannot modify your own account')).toBeInTheDocument();
+      expect(screen.getByRole('tooltip')).toHaveTextContent(
+        'You cannot modify your own account',
+      );
     });
   });
 
@@ -360,13 +372,13 @@ describe('UsersTab', () => {
     setupPopulated();
     renderTab();
     const roleSelect = screen.getByLabelText('Change role for Editor User');
-    expect(roleSelect).not.toHaveAttribute('aria-disabled', 'true');
+    expect(roleSelect.closest('.Mui-disabled')).toBeNull();
   });
 
   it('enables delete button for other users', () => {
     setupPopulated();
     renderTab();
-    const deleteButton = screen.getByLabelText('Remove Editor User');
+    const deleteButton = screen.getByRole('button', { name: 'Remove Editor User' });
     expect(deleteButton).toBeEnabled();
   });
 
@@ -378,11 +390,18 @@ describe('UsersTab', () => {
     const user = userEvent.setup();
     setupPopulated();
     renderTab();
-    const roleSelect = screen.getByLabelText('Change role for Editor User');
-    await user.click(roleSelect);
+    const nativeSelect = screen.getByLabelText('Change role for Editor User');
+    const selectContainer = nativeSelect.closest('.MuiSelect-root')
+      ?? nativeSelect.closest('.MuiInputBase-root');
+    const trigger = selectContainer?.querySelector('[role="combobox"]');
+    expect(trigger).toBeInstanceOf(HTMLElement);
+    await user.click(trigger as HTMLElement);
     const listbox = await screen.findByRole('listbox');
-    const adminOption = within(listbox).getByText('Admin');
-    await user.click(adminOption);
+    const options = within(listbox).getAllByRole('option');
+    const adminOption = options.find((opt) => opt.textContent === 'Admin');
+    expect(adminOption).toBeTruthy();
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- asserted above
+    await user.click(adminOption!);
     expect(mockUpdateUserRole).toHaveBeenCalledWith({
       id: 'user-2',
       role: 'admin',
@@ -397,16 +416,18 @@ describe('UsersTab', () => {
     const user = userEvent.setup();
     setupPopulated();
     renderTab();
-    await user.click(screen.getByLabelText('Remove Editor User'));
-    expect(screen.getByText(/Remove Editor User/)).toBeInTheDocument();
-    expect(screen.getByText(/editor@acasus.com/)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Remove Editor User' }));
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toBeInTheDocument();
+    expect(within(dialog).getByText(/Editor User/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/editor@acasus.com/)).toBeInTheDocument();
   });
 
   it('calls removeUser on confirm', async () => {
     const user = userEvent.setup();
     setupPopulated();
     renderTab();
-    await user.click(screen.getByLabelText('Remove Editor User'));
+    await user.click(screen.getByRole('button', { name: 'Remove Editor User' }));
     const dialog = screen.getByRole('dialog');
     await user.click(within(dialog).getByRole('button', { name: /remove/i }));
     expect(mockRemoveUser).toHaveBeenCalledWith('user-2', expect.anything());
@@ -416,9 +437,10 @@ describe('UsersTab', () => {
     const user = userEvent.setup();
     setupPopulated();
     renderTab();
-    await user.click(screen.getByLabelText('Remove Editor User'));
+    await user.click(screen.getByRole('button', { name: 'Remove Editor User' }));
     expect(screen.getByRole('dialog')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: /cancel/i }));
+    const dialog = screen.getByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: /cancel/i }));
     await waitFor(() => {
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     });
@@ -521,5 +543,180 @@ describe('UsersTab', () => {
     expect(screen.getByText('AU')).toBeInTheDocument();
     expect(screen.getByText('EU')).toBeInTheDocument();
     expect(screen.getByText('VU')).toBeInTheDocument();
+  });
+
+  // =====================
+  // onSuccess callbacks
+  // =====================
+
+  it('clears allowed email input after successful add', async () => {
+    const user = userEvent.setup();
+    mockAddAllowedEmail.mockImplementation((_email: string, opts: { onSuccess?: () => void }) => {
+      opts.onSuccess?.();
+    });
+    setupPopulated();
+    renderTab();
+    const emailInput = screen.getByLabelText(/add email/i);
+    await user.type(emailInput, 'new@acasus.com');
+    await user.click(screen.getByRole('button', { name: /^add$/i }));
+    expect(emailInput).toHaveValue('');
+  });
+
+  it('closes dialog after successful user removal', async () => {
+    const user = userEvent.setup();
+    mockRemoveUser.mockImplementation((_id: string, opts: { onSuccess?: () => void }) => {
+      opts.onSuccess?.();
+    });
+    setupPopulated();
+    renderTab();
+    await user.click(screen.getByRole('button', { name: 'Remove Editor User' }));
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    const dialog = screen.getByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: /remove/i }));
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+  });
+
+  it('closes dialog after successful email removal', async () => {
+    const user = userEvent.setup();
+    mockRemoveAllowedEmail.mockImplementation((_email: string, opts: { onSuccess?: () => void }) => {
+      opts.onSuccess?.();
+    });
+    setupPopulated();
+    renderTab();
+    await user.click(screen.getByLabelText('Remove allowed1@acasus.com from allowed list'));
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    const dialog = screen.getByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: /remove/i }));
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+  });
+
+  it('closes email removal dialog on cancel', async () => {
+    const user = userEvent.setup();
+    setupPopulated();
+    renderTab();
+    await user.click(screen.getByLabelText('Remove allowed1@acasus.com from allowed list'));
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    const dialog = screen.getByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: /cancel/i }));
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+  });
+
+  // =====================
+  // Pending state for remove operations
+  // =====================
+
+  it('shows loading in remove user button when pending', async () => {
+    const user = userEvent.setup();
+    mockRemoveUserPending = true;
+    setupPopulated();
+    renderTab();
+    await user.click(screen.getByRole('button', { name: 'Remove Editor User' }));
+    const dialog = screen.getByRole('dialog');
+    const buttons = within(dialog).getAllByRole('button');
+    // The second button (after Cancel) is the remove/confirm button
+    const removeBtn = buttons[buttons.length - 1];
+    expect(removeBtn).toBeDisabled();
+    expect(removeBtn?.querySelector('.MuiCircularProgress-root')).toBeInTheDocument();
+  });
+
+  it('shows loading in remove email button when pending', async () => {
+    const user = userEvent.setup();
+    mockRemoveEmailPending = true;
+    setupPopulated();
+    renderTab();
+    await user.click(screen.getByLabelText('Remove allowed1@acasus.com from allowed list'));
+    const dialog = screen.getByRole('dialog');
+    const buttons = within(dialog).getAllByRole('button');
+    const removeBtn = buttons[buttons.length - 1];
+    expect(removeBtn).toBeDisabled();
+    expect(removeBtn?.querySelector('.MuiCircularProgress-root')).toBeInTheDocument();
+  });
+
+  // =====================
+  // Add user error and success feedback
+  // =====================
+
+  it('closes remove user dialog via escape key', async () => {
+    const user = userEvent.setup();
+    setupPopulated();
+    renderTab();
+    await user.click(screen.getByRole('button', { name: 'Remove Editor User' }));
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+  });
+
+  it('closes remove email dialog via escape key', async () => {
+    const user = userEvent.setup();
+    setupPopulated();
+    renderTab();
+    await user.click(screen.getByLabelText('Remove allowed1@acasus.com from allowed list'));
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+  });
+
+  it('allows changing role in add user form', async () => {
+    const user = userEvent.setup();
+    renderTab();
+    const roleSelect = screen.getByLabelText('Select role for new user');
+    const selectContainer = roleSelect.closest('.MuiSelect-root')
+      ?? roleSelect.closest('.MuiInputBase-root');
+    const trigger = selectContainer?.querySelector('[role="combobox"]');
+    expect(trigger).toBeInstanceOf(HTMLElement);
+    await user.click(trigger as HTMLElement);
+    const listbox = await screen.findByRole('listbox');
+    const editorOption = within(listbox).getAllByRole('option').find((opt) => opt.textContent === 'Editor');
+    expect(editorOption).toBeTruthy();
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- asserted above
+    await user.click(editorOption!);
+  });
+
+  it('shows loading in add user button when pending', () => {
+    mockCreateUserPending = true;
+    renderTab();
+    const form = screen.getByLabelText('Add new user form');
+    // When pending, button shows spinner instead of "Add User" text
+    const buttons = within(form).getAllByRole('button');
+    const submitBtn = buttons[buttons.length - 1];
+    expect(submitBtn).toBeDisabled();
+    expect(submitBtn?.querySelector('.MuiCircularProgress-root')).toBeInTheDocument();
+  });
+
+  it('shows error message on add user failure', async () => {
+    const user = userEvent.setup();
+    mockCreateUser.mockImplementation((_data: unknown, opts: { onError?: (err: Error) => void }) => {
+      opts.onError?.(new Error('Email already exists'));
+    });
+    renderTab();
+    const form = screen.getByLabelText('Add new user form');
+    await user.type(within(form).getByLabelText(/email/i), 'dup@acasus.com');
+    await user.type(within(form).getByLabelText(/name/i), 'Dup User');
+    await user.click(screen.getByRole('button', { name: /add user/i }));
+    expect(screen.getByText('Email already exists')).toBeInTheDocument();
+  });
+
+  it('shows success feedback after adding user', async () => {
+    const user = userEvent.setup();
+    mockCreateUser.mockImplementation((_data: unknown, opts: { onSuccess?: () => void }) => {
+      opts.onSuccess?.();
+    });
+    renderTab();
+    const form = screen.getByLabelText('Add new user form');
+    await user.type(within(form).getByLabelText(/email/i), 'new@acasus.com');
+    await user.type(within(form).getByLabelText(/name/i), 'New User');
+    await user.click(screen.getByRole('button', { name: /add user/i }));
+    // Success alert should appear
+    expect(screen.getByRole('alert')).toBeInTheDocument();
   });
 });

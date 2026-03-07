@@ -40,6 +40,9 @@ import { FloatingCommentButton } from '../components/FloatingCommentButton.js';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Template } from '@legalcode/shared';
 import { useTopAppBarConfig } from '../contexts/TopAppBarContext.js';
+import { CommentAnchorProvider } from '../contexts/CommentAnchorContext.js';
+import { useTextSelection } from '../hooks/useTextSelection.js';
+import { useCommentHighlights } from '../hooks/useCommentHighlights.js';
 import { StatusChip } from '../components/StatusChip.js';
 import { MetadataTab } from '../components/MetadataTab.js';
 import { PanelToggleButtons } from '../components/PanelToggleButtons.js';
@@ -103,12 +106,44 @@ export function TemplateEditorPage() {
   const { showToast } = useToast();
   const queryClient = useQueryClient();
   const { selectionInfo, pendingAnchor, startComment, cancelComment } = useEditorComments();
-  const { createComment } = useComments(id);
+  const { threads, createComment } = useComments(id);
+
+  // Review mode comment highlighting
+  const reviewContentRef = useRef<HTMLDivElement>(null);
+  const reviewTextSelection = useTextSelection(reviewContentRef);
+  const [activeCommentId, setActiveCommentId] = useState<string | null>(null);
+  const [reviewPendingAnchor, setReviewPendingAnchor] = useState<{
+    anchorText: string;
+    anchorFrom: string;
+    anchorTo: string;
+  } | null>(null);
+
+  const handleCommentClick = useCallback((commentId: string) => {
+    setActiveCommentId(commentId);
+    setActivePanel('comments');
+  }, []);
+
+  useCommentHighlights(
+    reviewContentRef,
+    editorMode === 'review' ? threads : [],
+    handleCommentClick,
+  );
 
   const handleAddComment = useCallback(() => {
     startComment();
     setActivePanel('comments');
   }, [startComment]);
+
+  const handleReviewAddComment = useCallback(() => {
+    if (reviewTextSelection.selectedText) {
+      setReviewPendingAnchor({
+        anchorText: reviewTextSelection.selectedText.slice(0, 500),
+        anchorFrom: '0',
+        anchorTo: String(reviewTextSelection.selectedText.length),
+      });
+    }
+    setActivePanel('comments');
+  }, [reviewTextSelection.selectedText]);
 
   // Keyboard shortcuts
   useKeyboardShortcuts({
@@ -439,382 +474,407 @@ export function TemplateEditorPage() {
   }
 
   return (
-    <Box
-      sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100%',
-        backgroundColor: '#FFFFFF',
-      }}
-    >
-      {/* Back button */}
-      <Box sx={{ display: 'flex', alignItems: 'center', px: 2, pt: 1, gap: 1 }}>
-        <IconButton onClick={handleBack} aria-label="back" size="small">
-          <ArrowBackIcon />
-        </IconButton>
-      </Box>
-
-      {/* Editor toolbar */}
-      <EditorToolbar
-        mode={editorMode}
-        onModeChange={setEditorMode}
-        wordCount={wordCount}
-        connectionStatus={
-          !isCreateMode && collaboration.status !== 'disconnected'
-            ? (collaboration.status as 'connected' | 'connecting' | 'disconnected' | 'reconnecting')
-            : undefined
-        }
-        readOnly={isReadOnly}
-      />
-
-      {/* Full-bleed white editor surface with centered 720px content column */}
+    <CommentAnchorProvider>
       <Box
         sx={{
-          flex: 1,
-          overflow: 'auto',
+          display: 'flex',
+          flexDirection: 'column',
+          height: '100%',
           backgroundColor: '#FFFFFF',
         }}
       >
+        {/* Back button */}
+        <Box sx={{ display: 'flex', alignItems: 'center', px: 2, pt: 1, gap: 1 }}>
+          <IconButton onClick={handleBack} aria-label="back" size="small">
+            <ArrowBackIcon />
+          </IconButton>
+        </Box>
+
+        {/* Editor toolbar */}
+        <EditorToolbar
+          mode={editorMode}
+          onModeChange={setEditorMode}
+          wordCount={wordCount}
+          connectionStatus={
+            !isCreateMode && collaboration.status !== 'disconnected'
+              ? (collaboration.status as
+                  | 'connected'
+                  | 'connecting'
+                  | 'disconnected'
+                  | 'reconnecting')
+              : undefined
+          }
+          readOnly={isReadOnly}
+        />
+
+        {/* Full-bleed white editor surface with centered 720px content column */}
         <Box
           sx={{
-            maxWidth: '720px',
-            mx: 'auto',
-            py: 4,
-            px: 2,
+            flex: 1,
+            overflow: 'auto',
+            backgroundColor: '#FFFFFF',
           }}
         >
-          {/* Borderless title input — Source Serif 4, 1.75rem, 700 */}
-          <Box
-            component="input"
-            type="text"
-            placeholder="Untitled"
-            value={title}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-              setTitle(e.target.value);
-            }}
-            readOnly={isReadOnly}
-            sx={{
-              width: '100%',
-              border: 'none',
-              outline: 'none',
-              backgroundColor: 'transparent',
-              fontFamily: '"Source Serif 4", Georgia, "Times New Roman", serif',
-              fontSize: '1.75rem',
-              fontWeight: 700,
-              color: 'var(--text-primary)',
-              lineHeight: 1.3,
-              padding: 0,
-              '&::placeholder': {
-                color: 'var(--text-tertiary)',
-              },
-            }}
-          />
-
-          {/* Separator */}
           <Box
             sx={{
-              borderBottom: '1px solid var(--border-secondary)',
-              my: 3,
+              maxWidth: '720px',
+              mx: 'auto',
+              py: 4,
+              px: 2,
             }}
-          />
-
-          {/* Editor content */}
-          {editorMode === 'source' ? (
+          >
+            {/* Borderless title input — Source Serif 4, 1.75rem, 700 */}
             <Box
-              data-testid="source-editor-surface"
+              component="input"
+              type="text"
+              placeholder="Untitled"
+              value={title}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                setTitle(e.target.value);
+              }}
+              readOnly={isReadOnly}
               sx={{
-                backgroundColor: '#FFFFFF',
-                flex: 1,
-                position: 'relative',
+                width: '100%',
+                border: 'none',
+                outline: 'none',
+                backgroundColor: 'transparent',
+                fontFamily: '"Source Serif 4", Georgia, "Times New Roman", serif',
+                fontSize: '1.75rem',
+                fontWeight: 700,
+                color: 'var(--text-primary)',
+                lineHeight: 1.3,
+                padding: 0,
+                '&::placeholder': {
+                  color: 'var(--text-tertiary)',
+                },
+              }}
+            />
+
+            {/* Separator */}
+            <Box
+              sx={{
+                borderBottom: '1px solid var(--border-secondary)',
+                my: 3,
+              }}
+            />
+
+            {/* Editor content */}
+            {editorMode === 'source' ? (
+              <Box
+                data-testid="source-editor-surface"
+                sx={{
+                  backgroundColor: '#FFFFFF',
+                  flex: 1,
+                  position: 'relative',
+                }}
+              >
+                <MarkdownEditor
+                  defaultValue={!isCreateMode ? templateData?.content : undefined}
+                  onChange={handleContentChange}
+                  readOnly={isReadOnly}
+                  collaboration={
+                    !isCreateMode && collaboration.ydoc && collaboration.awareness
+                      ? { ydoc: collaboration.ydoc, awareness: collaboration.awareness }
+                      : undefined
+                  }
+                />
+                <FloatingCommentButton
+                  position={selectionInfo.buttonPosition}
+                  visible={selectionInfo.hasSelection && !isReadOnly}
+                  onClick={handleAddComment}
+                />
+              </Box>
+            ) : (
+              <Box sx={{ position: 'relative' }}>
+                <Box
+                  ref={reviewContentRef}
+                  data-testid="review-content"
+                  sx={{
+                    backgroundColor: '#FFFFFF',
+                    fontFamily: '"Source Serif 4", Georgia, "Times New Roman", serif',
+                    lineHeight: 1.6,
+                    minHeight: 200,
+                    '& h1, & h2, & h3, & h4, & h5, & h6': {
+                      fontFamily: '"Source Serif 4", Georgia, "Times New Roman", serif',
+                      color: 'var(--text-primary)',
+                      fontWeight: 600,
+                    },
+                    '& .template-var': {
+                      backgroundColor: 'var(--accent-primary-subtle)',
+                      color: 'var(--accent-primary)',
+                      padding: '2px 4px',
+                      borderRadius: '4px',
+                    },
+                    '& .clause-ref': {
+                      backgroundColor: 'var(--accent-primary-subtle)',
+                      color: 'var(--accent-primary)',
+                      padding: '2px 4px',
+                      borderRadius: '4px',
+                      fontStyle: 'italic',
+                    },
+                    '& a': { color: 'var(--text-link)' },
+                    '& hr': {
+                      border: 'none',
+                      borderTop: '1px solid var(--border-primary)',
+                      margin: '24px 0',
+                    },
+                    '& table': { borderCollapse: 'collapse', width: '100%' },
+                    '& td, & th': { border: '1px solid var(--border-primary)', padding: '8px' },
+                  }}
+                  dangerouslySetInnerHTML={{
+                    __html: content ? markdownToHtml(content) : '<p>No content yet</p>',
+                  }}
+                />
+                <FloatingCommentButton
+                  position={
+                    reviewTextSelection.selectionRect
+                      ? {
+                          top: reviewTextSelection.selectionRect.top,
+                          left: reviewTextSelection.selectionRect.left,
+                        }
+                      : null
+                  }
+                  visible={reviewTextSelection.hasSelection && !isReadOnly}
+                  onClick={handleReviewAddComment}
+                />
+              </Box>
+            )}
+
+            {/* Action buttons */}
+            {!isViewer && (
+              <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
+                {isCreateMode && (
+                  <Button variant="contained" onClick={handleCreateDraft}>
+                    Save Draft
+                  </Button>
+                )}
+                {!isCreateMode && status === 'draft' && (
+                  <Button variant="contained" onClick={handleSaveDraft}>
+                    Save Draft
+                  </Button>
+                )}
+                {!isCreateMode && status === 'active' && (
+                  <Button
+                    variant="contained"
+                    onClick={() => {
+                      setSaveVersionOpen(true);
+                    }}
+                  >
+                    Save Version
+                  </Button>
+                )}
+              </Box>
+            )}
+          </Box>
+        </Box>
+
+        {/* Save version dialog */}
+        <SaveVersionDialog
+          open={saveVersionOpen}
+          onClose={() => {
+            setSaveVersionOpen(false);
+          }}
+          onSave={handleSaveVersion}
+          saving={savingVersion}
+        />
+
+        {/* Publish confirmation dialog */}
+        <Dialog
+          open={publishDialogOpen}
+          onClose={() => {
+            setPublishDialogOpen(false);
+          }}
+          slotProps={{
+            paper: {
+              sx: {
+                maxWidth: 480,
+                backgroundColor: '#F7F0E6',
+                borderRadius: '16px',
+              },
+            },
+            backdrop: {
+              sx: { backdropFilter: 'blur(4px)' },
+            },
+          }}
+        >
+          <DialogTitle
+            sx={{
+              fontFamily: '"Source Serif 4", Georgia, "Times New Roman", serif',
+              fontWeight: 600,
+              color: '#451F61',
+            }}
+          >
+            Publish Template
+          </DialogTitle>
+          <DialogContent>
+            <Typography>
+              Publishing makes this template available for use across the organization. Continue?
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button
+              onClick={() => {
+                setPublishDialogOpen(false);
+              }}
+              sx={{ color: '#451F61' }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              onClick={handlePublishConfirm}
+              sx={{
+                backgroundColor: '#8027FF',
+                color: '#fff',
+                '&:hover': { backgroundColor: '#6B1FD6' },
               }}
             >
-              <MarkdownEditor
-                defaultValue={!isCreateMode ? templateData?.content : undefined}
-                onChange={handleContentChange}
-                readOnly={isReadOnly}
-                collaboration={
-                  !isCreateMode && collaboration.ydoc && collaboration.awareness
-                    ? { ydoc: collaboration.ydoc, awareness: collaboration.awareness }
-                    : undefined
-                }
-              />
-              <FloatingCommentButton
-                position={selectionInfo.buttonPosition}
-                visible={selectionInfo.hasSelection && !isReadOnly}
-                onClick={handleAddComment}
-              />
-            </Box>
-          ) : (
-            <Box
-              data-testid="review-content"
-              sx={{
-                backgroundColor: '#FFFFFF',
-                fontFamily: '"Source Serif 4", Georgia, "Times New Roman", serif',
-                lineHeight: 1.6,
-                minHeight: 200,
-                '& h1, & h2, & h3, & h4, & h5, & h6': {
-                  fontFamily: '"Source Serif 4", Georgia, "Times New Roman", serif',
-                  color: 'var(--text-primary)',
-                  fontWeight: 600,
-                },
-                '& .template-var': {
-                  backgroundColor: 'var(--accent-primary-subtle)',
-                  color: 'var(--accent-primary)',
-                  padding: '2px 4px',
-                  borderRadius: '4px',
-                },
-                '& .clause-ref': {
-                  backgroundColor: 'var(--accent-primary-subtle)',
-                  color: 'var(--accent-primary)',
-                  padding: '2px 4px',
-                  borderRadius: '4px',
-                  fontStyle: 'italic',
-                },
-                '& a': { color: 'var(--text-link)' },
-                '& hr': {
-                  border: 'none',
-                  borderTop: '1px solid var(--border-primary)',
-                  margin: '24px 0',
-                },
-                '& table': { borderCollapse: 'collapse', width: '100%' },
-                '& td, & th': { border: '1px solid var(--border-primary)', padding: '8px' },
+              Publish
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Archive confirmation dialog */}
+        <Dialog
+          open={archiveDialogOpen}
+          onClose={() => {
+            setArchiveDialogOpen(false);
+          }}
+        >
+          <DialogTitle>Archive Template</DialogTitle>
+          <DialogContent>
+            <Typography>
+              Are you sure you want to archive this template? You can unarchive it later from the
+              Info panel.
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button
+              onClick={() => {
+                setArchiveDialogOpen(false);
               }}
-              dangerouslySetInnerHTML={{
-                __html: content ? markdownToHtml(content) : '<p>No content yet</p>',
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              onClick={handleArchiveConfirm}
+              sx={{
+                backgroundColor: '#D32F2F',
+                color: '#fff',
+                '&:hover': { backgroundColor: '#B71C1C' },
+              }}
+            >
+              Archive
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Unarchive confirmation dialog */}
+        <Dialog
+          open={unarchiveDialogOpen}
+          onClose={() => {
+            setUnarchiveDialogOpen(false);
+          }}
+        >
+          <DialogTitle>Unarchive Template</DialogTitle>
+          <DialogContent>
+            <Typography>
+              Are you sure you want to unarchive this template? It will return to draft status.
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button
+              onClick={() => {
+                setUnarchiveDialogOpen(false);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              onClick={handleUnarchiveConfirm}
+              sx={{
+                backgroundColor: '#8027FF',
+                color: '#fff',
+                '&:hover': { backgroundColor: '#6B1FD6' },
+              }}
+            >
+              Unarchive
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Keyboard shortcut help dialog */}
+        <KeyboardShortcutHelp
+          open={shortcutHelpOpen}
+          onClose={() => {
+            setShortcutHelpOpen(false);
+          }}
+        />
+
+        {/* Slide-over panels */}
+        <SlideOverPanel
+          open={activePanel === 'comments'}
+          onClose={() => {
+            setActivePanel(null);
+          }}
+          title="Comments"
+        >
+          <CommentsTab
+            templateId={id}
+            pendingAnchor={editorMode === 'review' ? reviewPendingAnchor : pendingAnchor}
+            onSubmitNew={handleSubmitNewComment}
+            onCancelNew={() => {
+              cancelComment();
+              setReviewPendingAnchor(null);
+            }}
+            activeCommentId={activeCommentId}
+          />
+        </SlideOverPanel>
+
+        <SlideOverPanel
+          open={activePanel === 'info'}
+          onClose={() => {
+            setActivePanel(null);
+          }}
+          title="Info"
+        >
+          {!isCreateMode && templateData != null && (
+            <MetadataTab
+              category={templateData.template.category}
+              country={templateData.template.country ?? ''}
+              tags={templateData.tags}
+              status={templateData.template.status}
+              createdAt={templateData.template.createdAt}
+              updatedAt={templateData.template.updatedAt}
+              readOnly={isReadOnly}
+              onPublish={!isReadOnly && status === 'draft' ? handlePublishClick : undefined}
+              onArchive={!isReadOnly && status === 'active' ? handleArchiveClick : undefined}
+              onUnarchive={status === 'archived' ? handleUnarchiveClick : undefined}
+            />
+          )}
+        </SlideOverPanel>
+
+        <SlideOverPanel
+          open={activePanel === 'history'}
+          onClose={() => {
+            setActivePanel(null);
+          }}
+          title="Version History"
+        >
+          {!isCreateMode && templateData != null && (
+            <VersionHistory
+              templateId={id}
+              currentVersion={templateData.template.currentVersion}
+              onRestore={handleRestoreVersion}
+              onNavigateDiff={(from, to) => {
+                void navigate(`/templates/${id}/diff/${String(from)}/${String(to)}`);
               }}
             />
           )}
-
-          {/* Action buttons */}
-          {!isViewer && (
-            <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
-              {isCreateMode && (
-                <Button variant="contained" onClick={handleCreateDraft}>
-                  Save Draft
-                </Button>
-              )}
-              {!isCreateMode && status === 'draft' && (
-                <Button variant="contained" onClick={handleSaveDraft}>
-                  Save Draft
-                </Button>
-              )}
-              {!isCreateMode && status === 'active' && (
-                <Button
-                  variant="contained"
-                  onClick={() => {
-                    setSaveVersionOpen(true);
-                  }}
-                >
-                  Save Version
-                </Button>
-              )}
-            </Box>
-          )}
-        </Box>
+        </SlideOverPanel>
       </Box>
-
-      {/* Save version dialog */}
-      <SaveVersionDialog
-        open={saveVersionOpen}
-        onClose={() => {
-          setSaveVersionOpen(false);
-        }}
-        onSave={handleSaveVersion}
-        saving={savingVersion}
-      />
-
-      {/* Publish confirmation dialog */}
-      <Dialog
-        open={publishDialogOpen}
-        onClose={() => {
-          setPublishDialogOpen(false);
-        }}
-        slotProps={{
-          paper: {
-            sx: {
-              maxWidth: 480,
-              backgroundColor: '#F7F0E6',
-              borderRadius: '16px',
-            },
-          },
-          backdrop: {
-            sx: { backdropFilter: 'blur(4px)' },
-          },
-        }}
-      >
-        <DialogTitle
-          sx={{
-            fontFamily: '"Source Serif 4", Georgia, "Times New Roman", serif',
-            fontWeight: 600,
-            color: '#451F61',
-          }}
-        >
-          Publish Template
-        </DialogTitle>
-        <DialogContent>
-          <Typography>
-            Publishing makes this template available for use across the organization. Continue?
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button
-            onClick={() => {
-              setPublishDialogOpen(false);
-            }}
-            sx={{ color: '#451F61' }}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            onClick={handlePublishConfirm}
-            sx={{
-              backgroundColor: '#8027FF',
-              color: '#fff',
-              '&:hover': { backgroundColor: '#6B1FD6' },
-            }}
-          >
-            Publish
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Archive confirmation dialog */}
-      <Dialog
-        open={archiveDialogOpen}
-        onClose={() => {
-          setArchiveDialogOpen(false);
-        }}
-      >
-        <DialogTitle>Archive Template</DialogTitle>
-        <DialogContent>
-          <Typography>
-            Are you sure you want to archive this template? You can unarchive it later from the Info
-            panel.
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button
-            onClick={() => {
-              setArchiveDialogOpen(false);
-            }}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            onClick={handleArchiveConfirm}
-            sx={{
-              backgroundColor: '#D32F2F',
-              color: '#fff',
-              '&:hover': { backgroundColor: '#B71C1C' },
-            }}
-          >
-            Archive
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Unarchive confirmation dialog */}
-      <Dialog
-        open={unarchiveDialogOpen}
-        onClose={() => {
-          setUnarchiveDialogOpen(false);
-        }}
-      >
-        <DialogTitle>Unarchive Template</DialogTitle>
-        <DialogContent>
-          <Typography>
-            Are you sure you want to unarchive this template? It will return to draft status.
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button
-            onClick={() => {
-              setUnarchiveDialogOpen(false);
-            }}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            onClick={handleUnarchiveConfirm}
-            sx={{
-              backgroundColor: '#8027FF',
-              color: '#fff',
-              '&:hover': { backgroundColor: '#6B1FD6' },
-            }}
-          >
-            Unarchive
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Keyboard shortcut help dialog */}
-      <KeyboardShortcutHelp
-        open={shortcutHelpOpen}
-        onClose={() => {
-          setShortcutHelpOpen(false);
-        }}
-      />
-
-      {/* Slide-over panels */}
-      <SlideOverPanel
-        open={activePanel === 'comments'}
-        onClose={() => {
-          setActivePanel(null);
-        }}
-        title="Comments"
-      >
-        <CommentsTab
-          templateId={id}
-          pendingAnchor={pendingAnchor}
-          onSubmitNew={handleSubmitNewComment}
-          onCancelNew={cancelComment}
-        />
-      </SlideOverPanel>
-
-      <SlideOverPanel
-        open={activePanel === 'info'}
-        onClose={() => {
-          setActivePanel(null);
-        }}
-        title="Info"
-      >
-        {!isCreateMode && templateData != null && (
-          <MetadataTab
-            category={templateData.template.category}
-            country={templateData.template.country ?? ''}
-            tags={templateData.tags}
-            status={templateData.template.status}
-            createdAt={templateData.template.createdAt}
-            updatedAt={templateData.template.updatedAt}
-            readOnly={isReadOnly}
-            onPublish={!isReadOnly && status === 'draft' ? handlePublishClick : undefined}
-            onArchive={!isReadOnly && status === 'active' ? handleArchiveClick : undefined}
-            onUnarchive={status === 'archived' ? handleUnarchiveClick : undefined}
-          />
-        )}
-      </SlideOverPanel>
-
-      <SlideOverPanel
-        open={activePanel === 'history'}
-        onClose={() => {
-          setActivePanel(null);
-        }}
-        title="Version History"
-      >
-        {!isCreateMode && templateData != null && (
-          <VersionHistory
-            templateId={id}
-            currentVersion={templateData.template.currentVersion}
-            onRestore={handleRestoreVersion}
-            onNavigateDiff={(from, to) => {
-              void navigate(`/templates/${id}/diff/${String(from)}/${String(to)}`);
-            }}
-          />
-        )}
-      </SlideOverPanel>
-    </Box>
+    </CommentAnchorProvider>
   );
 }

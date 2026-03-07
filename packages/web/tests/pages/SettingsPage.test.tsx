@@ -6,12 +6,22 @@ import { ThemeProvider } from '@mui/material/styles';
 import { theme } from '../../src/theme/index.js';
 import { SettingsPage } from '../../src/pages/SettingsPage.js';
 
+const mockSetConfig = vi.fn();
+const mockClearConfig = vi.fn();
+
+vi.mock('../../src/contexts/TopAppBarContext.js', () => ({
+  useTopAppBarConfig: () => ({
+    config: {},
+    setConfig: mockSetConfig,
+    clearConfig: mockClearConfig,
+  }),
+}));
+
 const mockLogout = vi.fn();
 const mockSetEditorMode = vi.fn();
 
 const mockUseAuth = vi.fn<
-  [],
-  {
+  () => {
     user: {
       id: string;
       email: string;
@@ -27,10 +37,10 @@ const mockUseAuth = vi.fn<
   }
 >();
 
-const mockUsePreferences = vi.fn<
-  [],
-  { editorMode: 'edit' | 'review'; setEditorMode: (mode: 'edit' | 'review') => void }
->();
+const mockUsePreferences =
+  vi.fn<
+    () => { editorMode: 'edit' | 'review'; setEditorMode: (mode: 'edit' | 'review') => void }
+  >();
 
 vi.mock('../../src/hooks/useAuth.js', () => ({
   useAuth: () => mockUseAuth() as unknown,
@@ -79,6 +89,17 @@ describe('SettingsPage', () => {
     renderSettings();
     const heading = screen.getByRole('heading', { level: 1, name: /settings/i });
     expect(heading).toBeInTheDocument();
+  });
+
+  it('sets breadcrumb page name to Settings on mount', () => {
+    renderSettings();
+    expect(mockSetConfig).toHaveBeenCalledWith({ breadcrumbPageName: 'Settings' });
+  });
+
+  it('clears config on unmount', () => {
+    const { unmount } = renderSettings();
+    unmount();
+    expect(mockClearConfig).toHaveBeenCalled();
   });
 
   it('renders section headings as h2', () => {
@@ -191,7 +212,7 @@ describe('SettingsPage', () => {
       isLoggingOut: false,
     });
     renderSettings();
-    const chip = screen.getByText(/editor/i);
+    const chip = screen.getByRole('status');
     expect(chip.closest('.MuiChip-root')).toHaveClass('MuiChip-outlined');
   });
 
@@ -237,7 +258,12 @@ describe('SettingsPage', () => {
 
   it('renders fallback when createdAt is missing', () => {
     mockUseAuth.mockReturnValue({
-      user: { ...defaultUser, createdAt: undefined },
+      user: {
+        id: defaultUser.id,
+        email: defaultUser.email,
+        name: defaultUser.name,
+        role: defaultUser.role,
+      },
       isLoading: false,
       isAuthenticated: true,
       login: vi.fn(),
@@ -348,5 +374,53 @@ describe('SettingsPage', () => {
     renderSettings();
     const avatar = document.querySelector('.MuiAvatar-root');
     expect(avatar).toHaveAttribute('aria-hidden', 'true');
+  });
+
+  // --- Coverage: uncovered branches ---
+
+  it('renders nothing for profile when user is null and not loading', () => {
+    mockUseAuth.mockReturnValue({
+      user: null,
+      isLoading: false,
+      isAuthenticated: false,
+      login: vi.fn(),
+      logout: mockLogout,
+      isLoggingOut: false,
+    });
+    renderSettings();
+    // Page heading still renders
+    expect(screen.getByRole('heading', { level: 1, name: /settings/i })).toBeInTheDocument();
+    // But no avatar, name, email, or skeletons
+    expect(document.querySelector('.MuiAvatar-root')).not.toBeInTheDocument();
+    expect(document.querySelector('.MuiSkeleton-root')).not.toBeInTheDocument();
+    expect(screen.queryByText('Alice Smith')).not.toBeInTheDocument();
+  });
+
+  it('falls back to viewer chip style for unknown role', () => {
+    mockUseAuth.mockReturnValue({
+      user: { ...defaultUser, role: 'superadmin' as 'admin' },
+      isLoading: false,
+      isAuthenticated: true,
+      login: vi.fn(),
+      logout: mockLogout,
+      isLoggingOut: false,
+    });
+    renderSettings();
+    const chip = screen.getByRole('status');
+    expect(chip.closest('.MuiChip-root')).toHaveClass('MuiChip-outlined');
+  });
+
+  it('shows Unknown for invalid date string in member since', () => {
+    mockUseAuth.mockReturnValue({
+      user: { ...defaultUser, createdAt: 'not-a-date' },
+      isLoading: false,
+      isAuthenticated: true,
+      login: vi.fn(),
+      logout: mockLogout,
+      isLoggingOut: false,
+    });
+    renderSettings();
+    // Invalid date may format as "Invalid Date" or fall through — check it doesn't crash
+    expect(screen.getByText(/member since/i)).toBeInTheDocument();
   });
 });

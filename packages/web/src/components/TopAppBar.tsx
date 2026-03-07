@@ -12,6 +12,7 @@ interface TopAppBarUser {
 
 interface TopAppBarProps {
   breadcrumbTemplateName?: string | undefined;
+  breadcrumbPageName?: string | undefined;
   panelToggles?: ReactNode | undefined;
   rightSlot?: ReactNode | undefined;
   statusBadge?: ReactNode | undefined;
@@ -29,6 +30,7 @@ interface TopAppBarProps {
  */
 export function TopAppBar({
   breadcrumbTemplateName,
+  breadcrumbPageName,
   panelToggles,
   rightSlot,
   statusBadge,
@@ -51,7 +53,7 @@ export function TopAppBar({
     >
       {/* Left: Breadcrumbs + optional status badge */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0, flex: 1 }}>
-        <Breadcrumbs templateName={breadcrumbTemplateName} />
+        <Breadcrumbs templateName={breadcrumbTemplateName} pageName={breadcrumbPageName} />
         {statusBadge != null && (
           <Box sx={{ display: 'flex', alignItems: 'center' }}>{statusBadge}</Box>
         )}

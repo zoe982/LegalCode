@@ -306,16 +306,40 @@ vi.mock('../../src/hooks/useEditorComments.js', () => ({
   useEditorComments: () => mockUseEditorComments() as unknown,
 }));
 
+const mockCreateComment = vi.fn();
+const mockUseComments = vi.fn().mockReturnValue({
+  threads: [],
+  isLoading: false,
+  createComment: mockCreateComment,
+  resolveComment: vi.fn(),
+  deleteComment: vi.fn(),
+  showResolved: false,
+  toggleShowResolved: vi.fn(),
+});
 vi.mock('../../src/hooks/useComments.js', () => ({
-  useComments: () => ({
-    threads: [],
-    isLoading: false,
-    createComment: vi.fn(),
-    resolveComment: vi.fn(),
-    deleteComment: vi.fn(),
-    showResolved: false,
-    toggleShowResolved: vi.fn(),
-  }),
+  useComments: (...args: unknown[]) => mockUseComments(...args) as unknown,
+}));
+
+const mockUseTextSelection = vi.fn().mockReturnValue({
+  selectedText: '',
+  selectionRect: null,
+  hasSelection: false,
+});
+vi.mock('../../src/hooks/useTextSelection.js', () => ({
+  useTextSelection: (...args: unknown[]) => mockUseTextSelection(...args) as unknown,
+}));
+
+const mockUseCommentHighlights = vi.fn();
+vi.mock('../../src/hooks/useCommentHighlights.js', () => ({
+  useCommentHighlights: (...args: unknown[]) => {
+    mockUseCommentHighlights(...args);
+  },
+}));
+
+vi.mock('../../src/contexts/CommentAnchorContext.js', () => ({
+  CommentAnchorProvider: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="comment-anchor-provider">{children}</div>
+  ),
 }));
 
 vi.mock('../../src/components/FloatingCommentButton.js', () => ({
@@ -577,6 +601,21 @@ describe('TemplateEditorPage', () => {
       startComment: mockStartComment,
       cancelComment: mockCancelComment,
       onSelectionChange: vi.fn(),
+    });
+    mockUseTextSelection.mockReturnValue({
+      selectedText: '',
+      selectionRect: null,
+      hasSelection: false,
+    });
+    mockUseCommentHighlights.mockClear();
+    mockUseComments.mockReturnValue({
+      threads: [],
+      isLoading: false,
+      createComment: mockCreateComment,
+      resolveComment: vi.fn(),
+      deleteComment: vi.fn(),
+      showResolved: false,
+      toggleShowResolved: vi.fn(),
     });
     mockUseCollaboration.mockReturnValue({
       ydoc: null,
@@ -2529,6 +2568,112 @@ describe('TemplateEditorPage', () => {
       // The callback calls queryClient.invalidateQueries — just verify it doesn't throw
       // and that it was reachable (branch coverage)
       expect(mockUseCollaboration).toHaveBeenCalled();
+    });
+  });
+
+  describe('CommentAnchorProvider wrapping', () => {
+    it('wraps content with CommentAnchorProvider', () => {
+      mockUseParams.mockReturnValue({ id: 't1' });
+      mockUseTemplate.mockReturnValue(
+        createTemplateQueryResult({
+          data: { template: draftTemplate, content: '# Draft', tags: [] },
+        }),
+      );
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      expect(screen.getByTestId('comment-anchor-provider')).toBeInTheDocument();
+    });
+  });
+
+  describe('Review mode comment highlighting', () => {
+    beforeEach(() => {
+      mockUseParams.mockReturnValue({ id: 't1' });
+      mockUseTemplate.mockReturnValue(
+        createTemplateQueryResult({
+          data: { template: draftTemplate, content: '# Draft content', tags: [] },
+        }),
+      );
+    });
+
+    it('calls useCommentHighlights in review mode with threads', async () => {
+      const user = userEvent.setup();
+      const mockThreads = [
+        {
+          comment: {
+            id: 'c1',
+            templateId: 't1',
+            content: 'test',
+            anchorText: 'Draft',
+            anchorFrom: '0',
+            anchorTo: '5',
+            parentId: null,
+            resolved: false,
+            createdBy: 'u1',
+            authorEmail: 'alice@acasus.com',
+            createdAt: '2026-01-01T00:00:00Z',
+          },
+          replies: [],
+        },
+      ];
+      mockUseComments.mockReturnValue({
+        threads: mockThreads,
+        isLoading: false,
+        createComment: mockCreateComment,
+        resolveComment: vi.fn(),
+        deleteComment: vi.fn(),
+        showResolved: false,
+        toggleShowResolved: vi.fn(),
+      });
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      await user.click(screen.getByTestId('mode-review'));
+
+      expect(mockUseCommentHighlights).toHaveBeenCalled();
+      // Verify it was called with threads (second argument)
+      const lastCall = mockUseCommentHighlights.mock.calls.at(-1) as unknown[];
+      expect(lastCall[1]).toEqual(mockThreads);
+    });
+
+    it('does not pass threads to useCommentHighlights in source mode', () => {
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      // In source mode, useCommentHighlights is called with empty threads array
+      const lastCall = mockUseCommentHighlights.mock.calls.at(-1) as unknown[];
+      expect(lastCall[1]).toEqual([]);
+      expect(screen.getByTestId('source-editor-surface')).toBeInTheDocument();
+    });
+
+    it('shows FloatingCommentButton in review mode when text is selected', async () => {
+      const user = userEvent.setup();
+      mockUseTextSelection.mockReturnValue({
+        selectedText: 'Draft content',
+        selectionRect: { top: 100, left: 200, width: 100, height: 20 } as DOMRect,
+        hasSelection: true,
+      });
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      await user.click(screen.getByTestId('mode-review'));
+
+      const commentBtn = screen.getByTestId('floating-comment-button');
+      expect(commentBtn).toBeInTheDocument();
+    });
+
+    it('review mode FloatingCommentButton click opens comments panel', async () => {
+      const user = userEvent.setup();
+      mockUseTextSelection.mockReturnValue({
+        selectedText: 'Draft content',
+        selectionRect: { top: 100, left: 200, width: 100, height: 20 } as DOMRect,
+        hasSelection: true,
+      });
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      await user.click(screen.getByTestId('mode-review'));
+
+      const commentBtn = screen.getByTestId('floating-comment-button');
+      await user.click(commentBtn);
+
+      // Comments panel should be open
+      expect(screen.getByTestId('slide-over-comments')).toBeInTheDocument();
     });
   });
 });

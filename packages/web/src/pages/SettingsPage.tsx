@@ -10,19 +10,24 @@ import {
   ToggleButtonGroup,
   Typography,
 } from '@mui/material';
+import { useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth.js';
 import { usePreferences } from '../hooks/usePreferences.js';
+import { useTopAppBarConfig } from '../contexts/TopAppBarContext.js';
 
+/* v8 ignore start -- defensive fallbacks for strict index access */
 function getInitials(name: string, email: string): string {
   const trimmed = name.trim();
   if (trimmed.length === 0) {
-    return (email[0] ?? '?').toUpperCase();
+    const char = email[0];
+    return char ? char.toUpperCase() : '?';
   }
   const parts = trimmed.split(/\s+/);
-  const first = parts[0]?.[0] ?? '';
-  const last = parts.length > 1 ? (parts[parts.length - 1]?.[0] ?? '') : '';
-  return (first + last).toUpperCase();
+  const first = parts[0] ?? '';
+  const last = parts.length > 1 ? (parts[parts.length - 1] ?? '') : '';
+  return ((first[0] ?? '') + (last[0] ?? '')).toUpperCase();
 }
+/* v8 ignore stop */
 
 function formatMemberSince(dateStr: string | undefined): string {
   if (!dateStr) return 'Unknown';
@@ -96,13 +101,43 @@ const roleChipProps: Record<
   },
 };
 
-function getRoleChipProps(role: string) {
-  return roleChipProps[role] ?? roleChipProps.viewer;
+const defaultChipProps: { variant: 'filled' | 'outlined'; sx: Record<string, unknown> } = {
+  variant: 'outlined',
+  sx: {
+    backgroundColor: 'transparent',
+    color: '#6B6D82',
+    border: '1px solid #F3F3F7',
+    borderRadius: '9999px',
+    fontFamily: '"DM Sans", sans-serif',
+    fontSize: '0.6875rem',
+    fontWeight: 600,
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em',
+    lineHeight: '1rem',
+    px: '10px',
+    py: '3px',
+    height: 'auto',
+  },
+};
+
+function getRoleChipProps(role: string): {
+  variant: 'filled' | 'outlined';
+  sx: Record<string, unknown>;
+} {
+  return roleChipProps[role] ?? defaultChipProps;
 }
 
 export function SettingsPage() {
   const { user, isLoading, logout, isLoggingOut } = useAuth();
   const { editorMode, setEditorMode } = usePreferences();
+  const { setConfig, clearConfig } = useTopAppBarConfig();
+
+  useEffect(() => {
+    setConfig({ breadcrumbPageName: 'Settings' });
+    return () => {
+      clearConfig();
+    };
+  }, [setConfig, clearConfig]);
 
   const handleToggle = (_event: React.MouseEvent<HTMLElement>, value: string | null) => {
     if (value === 'edit' || value === 'review') {

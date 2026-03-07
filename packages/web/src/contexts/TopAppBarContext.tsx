@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 
 interface TopAppBarConfig {
   breadcrumbTemplateName?: string | undefined;
+  breadcrumbPageName?: string | undefined;
   panelToggles?: ReactNode | undefined;
   statusBadge?: ReactNode | undefined;
   rightSlot?: ReactNode | undefined;

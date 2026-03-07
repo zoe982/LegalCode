@@ -60,6 +60,23 @@ describe('AvatarDropdownMenu', () => {
     expect(screen.getByText('alice@acasus.com')).toBeInTheDocument();
   });
 
+  it('shows Templates link in the menu', async () => {
+    const user = userEvent.setup();
+    renderMenu();
+    await user.click(screen.getByRole('button', { name: /user menu/i }));
+    expect(screen.getByRole('menuitem', { name: /templates/i })).toBeInTheDocument();
+  });
+
+  it('renders Templates link before Admin link', async () => {
+    const user = userEvent.setup();
+    renderMenu();
+    await user.click(screen.getByRole('button', { name: /user menu/i }));
+    const menuItems = screen.getAllByRole('menuitem');
+    const templatesIndex = menuItems.findIndex((item) => item.textContent === 'Templates');
+    const adminIndex = menuItems.findIndex((item) => item.textContent === 'Admin');
+    expect(templatesIndex).toBeLessThan(adminIndex);
+  });
+
   it('shows Admin link in the menu', async () => {
     const user = userEvent.setup();
     renderMenu();

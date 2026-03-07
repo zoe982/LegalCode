@@ -569,6 +569,7 @@ export function CommentsTab({
                 onReply={handleReply}
                 isActive={isActive}
                 threadRef={{
+                  /* v8 ignore next 2 */
                   get current() {
                     return threadRefsMap.current.get(thread.comment.id) ?? null;
                   },

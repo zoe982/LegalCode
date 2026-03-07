@@ -148,8 +148,9 @@ describe('useTextSelection', () => {
     // Override isCollapsed to false so we reach the toString check
     Object.defineProperty(selection, 'isCollapsed', { get: () => false, configurable: true });
     // Override toString to return empty string
+    // eslint-disable-next-line @typescript-eslint/unbound-method -- intentionally rebinding prototype method for test
     const originalToString = Selection.prototype.toString;
-    Selection.prototype.toString = vi.fn().mockReturnValue('');
+    Selection.prototype.toString = vi.fn().mockReturnValue('') as unknown as () => string;
 
     act(() => {
       fireSelectionChange();
