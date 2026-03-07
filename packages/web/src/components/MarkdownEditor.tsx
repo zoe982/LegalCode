@@ -60,12 +60,21 @@ function MilkdownEditor({ defaultValue, onChange, readOnly, collaboration }: Mar
 export function MarkdownEditor(props: MarkdownEditorProps) {
   return (
     <Box
+      data-testid="markdown-editor-wrapper"
       sx={{
         width: '100%',
         minHeight: 300,
         '& .milkdown': {
           width: '100%',
           minHeight: 300,
+        },
+        '& .milkdown-slash-menu': {
+          position: 'fixed',
+          zIndex: 1300,
+        },
+        '& .milkdown-toolbar': {
+          position: 'fixed',
+          zIndex: 1300,
         },
       }}
     >

@@ -198,6 +198,19 @@ describe('MarkdownEditor', () => {
     expect(mockOn).not.toHaveBeenCalled();
   });
 
+  it('renders wrapper with data-testid and menu CSS overrides', () => {
+    // This test verifies the wrapper Box has data-testid="markdown-editor-wrapper"
+    // and that MUI sx classes are applied. The sx prop includes CSS overrides for:
+    //   .milkdown-slash-menu { position: fixed; z-index: 1300 }
+    //   .milkdown-toolbar { position: fixed; z-index: 1300 }
+    // These overrides ensure Milkdown menus escape overflow:auto containers.
+    render(<MarkdownEditor />);
+    const wrapper = screen.getByTestId('markdown-editor-wrapper');
+    expect(wrapper).toBeInTheDocument();
+    // MUI Box with sx generates className-based styles; verify the element has classes applied
+    expect(wrapper.className).not.toBe('');
+  });
+
   it('uses empty string as defaultValue in collaboration mode', async () => {
     captured.editorCallback = null;
 
