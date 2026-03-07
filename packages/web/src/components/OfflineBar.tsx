@@ -60,7 +60,7 @@ export function OfflineBar() {
             letterSpacing: '0.02em',
           }}
         >
-          Working offline — changes will sync.
+          Working offline — changes saved locally.
         </Typography>
       </Box>
     </>

@@ -100,7 +100,7 @@ describe('OfflineBar', () => {
   it('shows "Working offline" message text', () => {
     onLineMock = false;
     renderOfflineBar();
-    expect(screen.getByText('Working offline \u2014 changes will sync.')).toBeInTheDocument();
+    expect(screen.getByText('Working offline \u2014 changes saved locally.')).toBeInTheDocument();
   });
 
   it('cleans up event listeners on unmount', () => {
