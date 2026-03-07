@@ -1,17 +1,17 @@
-import { test, expect } from './fixtures/auth.js';
+import { test, expect } from '@playwright/test';
 
 test.describe('Template Editor', () => {
   // API routes (/templates/*) take precedence over SPA fallback on Cloudflare Workers.
-  // Authenticated tests must load the SPA from "/" then navigate client-side.
+  // Navigate to "/" (SPA root) then use UI clicks to reach editor pages.
 
   test('editor page loads with Milkdown editor', async ({ page }) => {
-    // Load SPA, then navigate client-side to /templates/new
+    // Load SPA at root — authenticated user sees template list
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
-    await page.evaluate(() => {
-      window.history.pushState({}, '', '/templates/new');
-      window.dispatchEvent(new PopStateEvent('popstate'));
-    });
+    await expect(page.locator('[data-testid="workspace"]')).toBeVisible({ timeout: 15000 });
+
+    // Click "New template" button to navigate to the editor
+    await page.getByRole('button', { name: /new template/i }).click();
+
     // Verify the editor surface renders
     const editor = page.locator('.milkdown').or(page.getByTestId('markdown-editor-wrapper'));
     await expect(editor.first()).toBeVisible({ timeout: 15000 });
@@ -19,22 +19,18 @@ test.describe('Template Editor', () => {
 
   test('block menu does not overlap Save Draft button', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
-    await page.evaluate(() => {
-      window.history.pushState({}, '', '/templates/new');
-      window.dispatchEvent(new PopStateEvent('popstate'));
-    });
-    // Wait for editor to load
+    await expect(page.locator('[data-testid="workspace"]')).toBeVisible({ timeout: 15000 });
+    await page.getByRole('button', { name: /new template/i }).click();
+
     const editor = page.locator('.milkdown').or(page.getByTestId('markdown-editor-wrapper'));
     await expect(editor.first()).toBeVisible({ timeout: 15000 });
 
-    // Click into the editor to potentially trigger the block menu
-    const editorContent = page.locator('.milkdown .editor, .ProseMirror').first();
+    // Click into the editor content area
+    const editorContent = page.locator('.ProseMirror').first();
     if (await editorContent.isVisible()) {
       await editorContent.click();
       // Type "/" to trigger the slash menu
       await editorContent.pressSequentially('/');
-      // Wait a moment for the menu to appear
       await page.waitForTimeout(500);
 
       const slashMenu = page.locator('.milkdown-slash-menu');
@@ -45,7 +41,6 @@ test.describe('Template Editor', () => {
         const buttonBox = await saveButton.boundingBox();
 
         if (menuBox && buttonBox) {
-          // The menu should not visually overlap the save button
           const menuBottom = menuBox.y + menuBox.height;
           const menuRight = menuBox.x + menuBox.width;
           const noVerticalOverlap =
@@ -61,12 +56,10 @@ test.describe('Template Editor', () => {
 
   test('editor toolbar renders mode toggle', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
-    await page.evaluate(() => {
-      window.history.pushState({}, '', '/templates/new');
-      window.dispatchEvent(new PopStateEvent('popstate'));
-    });
-    // Look for Source/Review mode toggle or editor toolbar elements
+    await expect(page.locator('[data-testid="workspace"]')).toBeVisible({ timeout: 15000 });
+    await page.getByRole('button', { name: /new template/i }).click();
+
+    // Look for Source/Review mode toggle buttons
     const toolbar = page
       .getByRole('button', { name: /source/i })
       .or(page.getByRole('button', { name: /review/i }))

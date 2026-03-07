@@ -1,14 +1,15 @@
-import { test, expect } from './fixtures/auth.js';
+import { test, expect } from '@playwright/test';
 
 test.describe('Admin Page', () => {
   test('admin tabs render', async ({ page }) => {
-    // Load SPA from "/" then navigate client-side to /admin
+    // Load SPA from "/" — authenticated user sees template list
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
-    await page.evaluate(() => {
-      window.history.pushState({}, '', '/admin');
-      window.dispatchEvent(new PopStateEvent('popstate'));
-    });
+    await expect(page.locator('[data-testid="workspace"]')).toBeVisible({ timeout: 15000 });
+
+    // Navigate to admin via avatar dropdown menu
+    await page.getByLabel('user menu').click();
+    await page.getByRole('menuitem', { name: /admin/i }).click();
+
     // Verify Users tab is visible
     const usersTab = page.getByRole('tab', { name: /users/i });
     await expect(usersTab).toBeVisible({ timeout: 10000 });
