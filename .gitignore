@@ -9,6 +9,7 @@ dist/
 coverage/
 .d1/
 test-results/
+.worktrees/
 playwright-report/
 # Claude Code local state (sessions, cache)
 .claude/*
