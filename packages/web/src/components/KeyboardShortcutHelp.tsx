@@ -20,13 +20,13 @@ const shortcutGroups: ShortcutGroup[] = [
   {
     label: 'Editor',
     shortcuts: [
-      { keys: ['Ctrl', 'Shift', 'P'], description: 'Toggle right pane' },
+      { keys: ['Ctrl', 'Shift', 'P'], description: 'Toggle panel' },
       { keys: ['Escape'], description: 'Close pane / dismiss' },
     ],
   },
   {
     label: 'Review',
-    shortcuts: [{ keys: ['Ctrl', 'Alt', 'M'], description: 'Comment on selection (future)' }],
+    shortcuts: [{ keys: ['Ctrl', 'Alt', 'M'], description: 'Comment on selection' }],
   },
   {
     label: 'General',
@@ -37,13 +37,13 @@ const shortcutGroups: ShortcutGroup[] = [
 const kbdStyle = {
   display: 'inline-block',
   padding: '2px 6px',
-  backgroundColor: '#E6D9C6',
+  backgroundColor: '#F3F3F7',
   borderRadius: '4px',
   fontSize: '0.75rem',
-  fontFamily: '"Source Sans 3", sans-serif',
+  fontFamily: '"DM Sans", sans-serif',
   fontWeight: 600,
-  color: '#451F61',
-  border: '1px solid #D4C5B2',
+  color: '#12111A',
+  border: '1px solid #E4E5ED',
 } as const;
 
 function KeyCombo({ keys }: { keys: string[] }) {
@@ -52,10 +52,7 @@ function KeyCombo({ keys }: { keys: string[] }) {
       {keys.map((key, i) => (
         <Box key={key} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
           {i > 0 && (
-            <Typography
-              component="span"
-              sx={{ fontSize: '0.75rem', color: '#451F61', opacity: 0.6 }}
-            >
+            <Typography component="span" sx={{ fontSize: '0.75rem', color: '#9B9DB0' }}>
               +
             </Typography>
           )}
@@ -80,14 +77,14 @@ export function KeyboardShortcutHelp({ open, onClose }: KeyboardShortcutHelpProp
           sx: {
             maxWidth: 480,
             width: '100%',
-            backgroundColor: '#F7F0E6',
+            backgroundColor: '#FFFFFF',
             borderRadius: '16px',
           },
         },
         backdrop: {
           sx: {
-            backgroundColor: 'rgba(44, 30, 22, 0.5)',
-            backdropFilter: 'blur(8px)',
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            backdropFilter: 'blur(4px)',
           },
         },
       }}
@@ -97,7 +94,7 @@ export function KeyboardShortcutHelp({ open, onClose }: KeyboardShortcutHelpProp
           fontFamily: '"Source Serif 4", Georgia, "Times New Roman", serif',
           fontSize: '1.5rem',
           fontWeight: 600,
-          color: '#451F61',
+          color: '#12111A',
           pr: 6,
         }}
       >
@@ -109,7 +106,7 @@ export function KeyboardShortcutHelp({ open, onClose }: KeyboardShortcutHelpProp
             position: 'absolute',
             right: 8,
             top: 8,
-            color: '#451F61',
+            color: '#6B6D82',
           }}
         >
           <CloseIcon />
@@ -120,13 +117,12 @@ export function KeyboardShortcutHelp({ open, onClose }: KeyboardShortcutHelpProp
           <Box key={group.label} sx={{ mb: 2.5 }}>
             <Typography
               sx={{
-                fontFamily: '"Source Sans 3", sans-serif',
+                fontFamily: '"DM Sans", sans-serif',
                 fontSize: '0.75rem',
                 fontWeight: 700,
                 textTransform: 'uppercase',
                 letterSpacing: '0.08em',
-                color: '#451F61',
-                opacity: 0.6,
+                color: '#6B6D82',
                 mb: 1,
               }}
             >
@@ -146,8 +142,8 @@ export function KeyboardShortcutHelp({ open, onClose }: KeyboardShortcutHelpProp
                 <Typography
                   sx={{
                     fontSize: '0.875rem',
-                    fontFamily: '"Source Sans 3", sans-serif',
-                    color: '#451F61',
+                    fontFamily: '"DM Sans", sans-serif',
+                    color: '#37354A',
                   }}
                 >
                   {shortcut.description}

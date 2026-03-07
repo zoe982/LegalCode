@@ -23,7 +23,7 @@ describe('KeyboardShortcutHelp', () => {
 
   it('lists toggle pane shortcut', () => {
     renderWithTheme(<KeyboardShortcutHelp open={true} onClose={vi.fn()} />);
-    expect(screen.getByText('Toggle right pane')).toBeInTheDocument();
+    expect(screen.getByText('Toggle panel')).toBeInTheDocument();
   });
 
   it('lists escape shortcut', () => {

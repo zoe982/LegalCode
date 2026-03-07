@@ -50,14 +50,14 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             justifyContent: 'center',
             alignItems: 'center',
             minHeight: '100vh',
-            backgroundColor: '#EFE3D3',
+            backgroundColor: '#F9F9FB',
           }}
         >
           <Box
             sx={{
-              backgroundColor: '#F7F0E6',
+              backgroundColor: '#FFFFFF',
               borderRadius: '16px',
-              boxShadow: '0 4px 16px rgba(69,31,97,0.14)',
+              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.04)',
               p: 5,
               maxWidth: 400,
               width: '100%',
@@ -71,7 +71,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
               sx={{
                 fontFamily: '"Source Serif 4", Georgia, "Times New Roman", serif',
                 fontWeight: 600,
-                color: '#451F61',
+                color: '#12111A',
               }}
             >
               Something went wrong
@@ -79,7 +79,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             <Typography
               sx={{
                 fontSize: '0.875rem',
-                color: '#6B5A7A',
+                color: '#6B6D82',
                 mb: 3,
               }}
             >

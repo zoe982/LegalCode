@@ -9,13 +9,15 @@ export function SettingsPage() {
         sx={{
           fontFamily: '"Source Serif 4", Georgia, "Times New Roman", serif',
           fontWeight: 600,
-          color: '#451F61',
+          color: '#12111A',
           mb: 2,
         }}
       >
         Settings
       </Typography>
-      <Typography sx={{ color: '#6B5A7A', fontSize: '0.875rem' }}>
+      <Typography
+        sx={{ color: '#6B6D82', fontSize: '0.875rem', fontFamily: '"DM Sans", sans-serif' }}
+      >
         Preferences and account settings
       </Typography>
     </Box>

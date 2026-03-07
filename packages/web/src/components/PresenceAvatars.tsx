@@ -54,7 +54,7 @@ export const PresenceAvatars: React.FC<PresenceAvatarsProps> = ({ users }) => {
   return (
     <>
       <GlobalStyles styles={avatarEntryKeyframes} />
-      <AvatarGroup max={5} sx={{ ml: 2 }}>
+      <AvatarGroup max={4} sx={{ ml: 2 }}>
         {users.map((user, index) => {
           const borderColor = getCursorColor(index);
           return (

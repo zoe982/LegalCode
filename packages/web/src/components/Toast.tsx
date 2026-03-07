@@ -31,8 +31,8 @@ export function useToast(): ToastContextValue {
 let toastId = 0;
 
 const icons: Record<ToastType, ReactNode> = {
-  success: <CheckCircleOutline sx={{ color: '#2D6A4F', fontSize: 20 }} />,
-  error: <ErrorOutline sx={{ color: '#D32F2F', fontSize: 20 }} />,
+  success: <CheckCircleOutline sx={{ color: '#059669', fontSize: 20 }} />,
+  error: <ErrorOutline sx={{ color: '#DC2626', fontSize: 20 }} />,
   info: <InfoOutlined sx={{ color: '#8027FF', fontSize: 20 }} />,
 };
 
@@ -74,16 +74,17 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             display: 'flex',
             alignItems: 'center',
             gap: 1.5,
-            backgroundColor: '#F7F0E6',
+            backgroundColor: '#FFFFFF',
             borderRadius: '12px',
-            boxShadow: '0 4px 16px rgba(69,31,97,0.14)',
+            border: '1px solid #E4E5ED',
+            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.04)',
             px: 2.5,
             py: 1.5,
             minWidth: 280,
           }}
         >
           {toast != null && icons[toast.type]}
-          <Typography sx={{ fontSize: '0.875rem', color: '#451F61', flex: 1 }}>
+          <Typography sx={{ fontSize: '0.875rem', color: '#12111A', flex: 1 }}>
             {toast?.message}
           </Typography>
           {toast?.action}

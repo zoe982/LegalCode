@@ -18,7 +18,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
           justifyContent: 'center',
           alignItems: 'center',
           minHeight: '100vh',
-          backgroundColor: '#EFE3D3',
+          backgroundColor: '#F9F9FB',
         }}
       >
         <CircularProgress />

@@ -58,15 +58,15 @@ describe('PresenceAvatars', () => {
     expect(avatar).toHaveStyle({ color: '#E63946' });
   });
 
-  it('shows max 5 avatars with overflow count', () => {
+  it('shows max 4 avatars with overflow count', () => {
     const users = Array.from({ length: 7 }, (_, i) => ({
       userId: `u${String(i)}`,
       email: `user${String(i)}@example.com`,
       color: '#ff0000',
     }));
     render(<PresenceAvatars users={users} />);
-    // AvatarGroup max=5 renders 5 avatars + 1 overflow indicator showing "+3"
-    expect(screen.getByText('+3')).toBeInTheDocument();
+    // AvatarGroup max=4 renders 4 avatars + 1 overflow indicator showing "+4"
+    expect(screen.getByText('+4')).toBeInTheDocument();
   });
 
   it('avatar has entry animation style', () => {

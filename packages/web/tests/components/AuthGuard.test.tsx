@@ -112,7 +112,7 @@ describe('AuthGuard', () => {
     expect(screen.getByRole('progressbar')).toBeInTheDocument();
   });
 
-  it('uses beige background while loading', () => {
+  it('uses neutral background while loading', () => {
     mockUseAuth.mockReturnValue({
       user: null,
       isLoading: true,
@@ -123,6 +123,6 @@ describe('AuthGuard', () => {
     });
     renderWithRouter();
     const container = screen.getByRole('progressbar').parentElement;
-    expect(container).toHaveStyle({ backgroundColor: '#EFE3D3' });
+    expect(container).toHaveStyle({ backgroundColor: '#F9F9FB' });
   });
 });
