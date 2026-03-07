@@ -71,7 +71,8 @@ const mockComments: Comment[] = [
     authorName: 'Joseph Marsico',
     authorEmail: 'joseph.marsico@acasus.com',
     content: 'Should we add a non-compete clause here?',
-    anchorBlockId: 'block-3',
+    anchorFrom: '42',
+    anchorTo: '83',
     anchorText: 'the parties agree to the following terms',
     resolved: false,
     resolvedBy: null,
@@ -86,7 +87,8 @@ const mockComments: Comment[] = [
     authorName: 'Legal Reviewer',
     authorEmail: 'reviewer@acasus.com',
     content: 'Yes, I think that would strengthen this section.',
-    anchorBlockId: null,
+    anchorFrom: null,
+    anchorTo: null,
     anchorText: null,
     resolved: false,
     resolvedBy: null,
@@ -101,7 +103,8 @@ const mockComments: Comment[] = [
     authorName: 'Legal Reviewer',
     authorEmail: 'reviewer@acasus.com',
     content: 'Typo in the preamble — "agrrement" should be "agreement".',
-    anchorBlockId: 'block-1',
+    anchorFrom: '5',
+    anchorTo: '19',
     anchorText: 'This agrrement',
     resolved: true,
     resolvedBy: 'u1',
@@ -235,12 +238,12 @@ export const handlers = [
   }),
 
   // Comment handlers
-  http.get('/api/templates/:id/comments', ({ params }) => {
+  http.get('/templates/:id/comments', ({ params }) => {
     const comments = mockComments.filter((c) => c.templateId === params.id);
     return HttpResponse.json(comments);
   }),
 
-  http.post('/api/templates/:id/comments', async ({ params, request }) => {
+  http.post('/templates/:id/comments', async ({ params, request }) => {
     const body = (await request.json()) as Record<string, unknown>;
     const newComment: Comment = {
       id: `c${String(commentIdCounter++)}`,
@@ -250,7 +253,8 @@ export const handlers = [
       authorName: 'Joseph Marsico',
       authorEmail: 'joseph.marsico@acasus.com',
       content: (body.content as string) || '',
-      anchorBlockId: (body.anchorBlockId as string | null) ?? null,
+      anchorFrom: (body.anchorFrom as string | null) ?? null,
+      anchorTo: (body.anchorTo as string | null) ?? null,
       anchorText: (body.anchorText as string | null) ?? null,
       resolved: false,
       resolvedBy: null,
@@ -261,7 +265,7 @@ export const handlers = [
     return HttpResponse.json(newComment, { status: 201 });
   }),
 
-  http.patch('/api/templates/:id/comments/:commentId/resolve', ({ params }) => {
+  http.patch('/templates/:id/comments/:commentId/resolve', ({ params }) => {
     const comment = mockComments.find(
       (c) => c.templateId === params.id && c.id === params.commentId,
     );
@@ -274,7 +278,7 @@ export const handlers = [
     return new HttpResponse(null, { status: 204 });
   }),
 
-  http.delete('/api/templates/:id/comments/:commentId', ({ params }) => {
+  http.delete('/templates/:id/comments/:commentId', ({ params }) => {
     const index = mockComments.findIndex(
       (c) => c.templateId === params.id && c.id === params.commentId,
     );

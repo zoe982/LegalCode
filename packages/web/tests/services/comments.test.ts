@@ -10,7 +10,8 @@ const mockComment: Comment = {
   authorName: 'Alice',
   authorEmail: 'alice@example.com',
   content: 'Please review this clause.',
-  anchorBlockId: 'block-1',
+  anchorFrom: '10',
+  anchorTo: '27',
   anchorText: 'the parties agree',
   resolved: false,
   resolvedBy: null,
@@ -28,14 +29,14 @@ describe('commentService', () => {
   });
 
   describe('getComments', () => {
-    it('calls GET /api/templates/:id/comments with credentials', async () => {
+    it('calls GET /templates/:id/comments with credentials', async () => {
       vi.mocked(fetch).mockResolvedValue(
         new Response(JSON.stringify([mockComment]), { status: 200 }),
       );
 
       const result = await commentService.getComments('tpl-1');
 
-      expect(fetch).toHaveBeenCalledWith('/api/templates/tpl-1/comments', {
+      expect(fetch).toHaveBeenCalledWith('/templates/tpl-1/comments', {
         credentials: 'include',
       });
       expect(result).toEqual([mockComment]);
@@ -49,11 +50,12 @@ describe('commentService', () => {
   });
 
   describe('createComment', () => {
-    it('calls POST /api/templates/:id/comments with JSON body and credentials', async () => {
+    it('calls POST /templates/:id/comments with JSON body and credentials', async () => {
       const input = {
         templateId: 'tpl-1',
         content: 'New comment',
-        anchorBlockId: 'block-2',
+        anchorFrom: '10',
+        anchorTo: '20',
         anchorText: 'some text',
       };
       vi.mocked(fetch).mockResolvedValue(
@@ -64,12 +66,13 @@ describe('commentService', () => {
 
       const result = await commentService.createComment(input);
 
-      expect(fetch).toHaveBeenCalledWith('/api/templates/tpl-1/comments', {
+      expect(fetch).toHaveBeenCalledWith('/templates/tpl-1/comments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           content: 'New comment',
-          anchorBlockId: 'block-2',
+          anchorFrom: '10',
+          anchorTo: '20',
           anchorText: 'some text',
         }),
         credentials: 'include',
@@ -108,12 +111,12 @@ describe('commentService', () => {
   });
 
   describe('resolveComment', () => {
-    it('calls PATCH /api/templates/:id/comments/:commentId/resolve with credentials', async () => {
+    it('calls PATCH /templates/:id/comments/:commentId/resolve with credentials', async () => {
       vi.mocked(fetch).mockResolvedValue(new Response(null, { status: 204 }));
 
       await commentService.resolveComment('tpl-1', 'c1');
 
-      expect(fetch).toHaveBeenCalledWith('/api/templates/tpl-1/comments/c1/resolve', {
+      expect(fetch).toHaveBeenCalledWith('/templates/tpl-1/comments/c1/resolve', {
         method: 'PATCH',
         credentials: 'include',
       });
@@ -129,12 +132,12 @@ describe('commentService', () => {
   });
 
   describe('deleteComment', () => {
-    it('calls DELETE /api/templates/:id/comments/:commentId with credentials', async () => {
+    it('calls DELETE /templates/:id/comments/:commentId with credentials', async () => {
       vi.mocked(fetch).mockResolvedValue(new Response(null, { status: 204 }));
 
       await commentService.deleteComment('tpl-1', 'c1');
 
-      expect(fetch).toHaveBeenCalledWith('/api/templates/tpl-1/comments/c1', {
+      expect(fetch).toHaveBeenCalledWith('/templates/tpl-1/comments/c1', {
         method: 'DELETE',
         credentials: 'include',
       });

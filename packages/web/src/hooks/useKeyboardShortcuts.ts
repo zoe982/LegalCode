@@ -5,6 +5,7 @@ interface ShortcutActions {
   onEscape?: (() => void) | undefined;
   onShowHelp?: (() => void) | undefined;
   onCtrlS?: (() => void) | undefined;
+  onAddComment?: (() => void) | undefined;
 }
 
 export function useKeyboardShortcuts(actions: ShortcutActions): void {
@@ -16,6 +17,13 @@ export function useKeyboardShortcuts(actions: ShortcutActions): void {
       if (mod && e.shiftKey && e.key === 'P') {
         e.preventDefault();
         actions.onTogglePane?.();
+        return;
+      }
+
+      // Ctrl/Cmd + Alt + M → add comment
+      if (mod && e.altKey && e.key === 'm') {
+        e.preventDefault();
+        actions.onAddComment?.();
         return;
       }
 

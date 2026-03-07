@@ -23,9 +23,14 @@ export interface UseCollaborationReturn {
 
 const RECONNECT_DELAYS = [1000, 2000, 4000, 8000, 16000];
 
+export interface CollaborationOptions {
+  onCommentEvent?: (() => void) | undefined;
+}
+
 export function useCollaboration(
   templateId: string | null,
   user: CollaborationUser | null,
+  options?: CollaborationOptions,
 ): UseCollaborationReturn {
   const [status, setStatus] = useState<ConnectionStatus>('disconnected');
   const [connectedUsers, setConnectedUsers] = useState<CollaborationUser[]>([]);
@@ -81,6 +86,16 @@ export function useCollaboration(
       ws.onopen = () => {
         setStatus('connected');
         reconnectAttemptRef.current = 0;
+      };
+
+      ws.onmessage = (event: MessageEvent) => {
+        if (!(event.data instanceof ArrayBuffer)) return;
+        const data = new Uint8Array(event.data);
+        if (data.length < 1) return;
+        // MSG_COMMENT = 2
+        if (data[0] === 2) {
+          options?.onCommentEvent?.();
+        }
       };
 
       ws.onclose = () => {

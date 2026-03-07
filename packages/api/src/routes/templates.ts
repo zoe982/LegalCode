@@ -15,6 +15,7 @@ import {
   downloadTemplate,
 } from '../services/template.js';
 import { createTemplateSchema, updateTemplateSchema, templateQuerySchema } from '@legalcode/shared';
+import { commentRoutes } from './comments.js';
 
 export const templateRoutes = new Hono<AppEnv>();
 
@@ -142,3 +143,6 @@ templateRoutes.post('/:id/unarchive', requireRole('admin', 'editor'), async (c) 
   }
   return c.json(result);
 });
+
+// ── Comment sub-routes ────────────────────────────────────────────────
+templateRoutes.route('/:id/comments', commentRoutes);

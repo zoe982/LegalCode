@@ -23,7 +23,8 @@ const parentComment: Comment = {
   authorName: 'Alice',
   authorEmail: 'alice@example.com',
   content: 'Check this clause.',
-  anchorBlockId: 'block-1',
+  anchorFrom: '10',
+  anchorTo: '40',
   anchorText: 'the parties agree to the terms',
   resolved: false,
   resolvedBy: null,
@@ -39,7 +40,8 @@ const replyComment: Comment = {
   authorName: 'Bob',
   authorEmail: 'bob@example.com',
   content: 'Looks good to me.',
-  anchorBlockId: null,
+  anchorFrom: null,
+  anchorTo: null,
   anchorText: null,
   resolved: false,
   resolvedBy: null,
@@ -55,7 +57,8 @@ const resolvedComment: Comment = {
   authorName: 'Alice',
   authorEmail: 'alice@example.com',
   content: 'Old issue.',
-  anchorBlockId: 'block-2',
+  anchorFrom: '5',
+  anchorTo: '12',
   anchorText: 'whereas',
   resolved: true,
   resolvedBy: 'u2',
@@ -83,10 +86,27 @@ const defaultHookReturn = {
   toggleShowResolved: vi.fn(),
 };
 
-function renderTab(templateId: string | undefined = 'tpl-1') {
+interface RenderTabOptions {
+  templateId?: string;
+  pendingAnchor?: { anchorText: string; anchorFrom: string; anchorTo: string } | null;
+  onSubmitNew?: (
+    content: string,
+    anchor: { anchorText: string; anchorFrom: string; anchorTo: string },
+  ) => void;
+  onCancelNew?: () => void;
+}
+
+function renderTab(templateIdOrOpts: string | RenderTabOptions = 'tpl-1') {
+  const opts: RenderTabOptions =
+    typeof templateIdOrOpts === 'string' ? { templateId: templateIdOrOpts } : templateIdOrOpts;
   return render(
     <ThemeProvider theme={theme}>
-      <CommentsTab templateId={templateId} />
+      <CommentsTab
+        templateId={opts.templateId ?? 'tpl-1'}
+        pendingAnchor={opts.pendingAnchor}
+        onSubmitNew={opts.onSubmitNew}
+        onCancelNew={opts.onCancelNew}
+      />
     </ThemeProvider>,
   );
 }
@@ -101,7 +121,7 @@ describe('CommentsTab', () => {
     renderTab();
     expect(screen.getByText('No comments yet')).toBeInTheDocument();
     expect(
-      screen.getByText('Select text in Review mode and press Cmd+Opt+M to comment.'),
+      screen.getByText('Select text in the editor and press Cmd+Opt+M to comment.'),
     ).toBeInTheDocument();
   });
 
@@ -695,5 +715,110 @@ describe('CommentsTab', () => {
     for (let i = 0; i < 7; i++) {
       expect(screen.getByTestId(`thread-mt-${String(i)}`)).toBeInTheDocument();
     }
+  });
+
+  // ── pendingAnchor integration ──
+
+  it('shows new comment card when pendingAnchor is provided', () => {
+    mockUseComments.mockReturnValue({ ...defaultHookReturn });
+    const anchor = { anchorText: 'selected text', anchorFrom: '10', anchorTo: '22' };
+    renderTab({ pendingAnchor: anchor });
+    expect(screen.getByText('selected text')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Add a comment...')).toBeInTheDocument();
+  });
+
+  it('submit calls onSubmitNew with content and anchor', async () => {
+    const onSubmitNew = vi.fn();
+    const anchor = { anchorText: 'selected text', anchorFrom: '10', anchorTo: '22' };
+    mockUseComments.mockReturnValue({ ...defaultHookReturn });
+    renderTab({ pendingAnchor: anchor, onSubmitNew });
+    const input = screen.getByPlaceholderText('Add a comment...');
+    await userEvent.type(input, 'My new comment');
+    const commentBtn = screen.getByRole('button', { name: /comment/i });
+    await userEvent.click(commentBtn);
+    expect(onSubmitNew).toHaveBeenCalledWith('My new comment', anchor);
+  });
+
+  it('cancel calls onCancelNew', async () => {
+    const onCancelNew = vi.fn();
+    const anchor = { anchorText: 'selected text', anchorFrom: '10', anchorTo: '22' };
+    mockUseComments.mockReturnValue({ ...defaultHookReturn });
+    renderTab({ pendingAnchor: anchor, onCancelNew });
+    const cancelBtn = screen.getByRole('button', { name: /cancel/i });
+    await userEvent.click(cancelBtn);
+    expect(onCancelNew).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not call onSubmitNew when comment text is empty', async () => {
+    const onSubmitNew = vi.fn();
+    const anchor = { anchorText: 'selected text', anchorFrom: '10', anchorTo: '22' };
+    mockUseComments.mockReturnValue({ ...defaultHookReturn });
+    renderTab({ pendingAnchor: anchor, onSubmitNew });
+    const commentBtn = screen.getByRole('button', { name: /comment/i });
+    await userEvent.click(commentBtn);
+    expect(onSubmitNew).not.toHaveBeenCalled();
+  });
+
+  it('does not show new comment card when pendingAnchor is null', () => {
+    mockUseComments.mockReturnValue({ ...defaultHookReturn });
+    renderTab({ pendingAnchor: null });
+    expect(screen.queryByPlaceholderText('Add a comment...')).not.toBeInTheDocument();
+  });
+
+  it('cancel clears newCommentText input', async () => {
+    const onCancelNew = vi.fn();
+    const anchor = { anchorText: 'selected text', anchorFrom: '10', anchorTo: '22' };
+    mockUseComments.mockReturnValue({ ...defaultHookReturn });
+    renderTab({ pendingAnchor: anchor, onCancelNew });
+    const input = screen.getByPlaceholderText('Add a comment...');
+    await userEvent.type(input, 'some text');
+    expect(input).toHaveValue('some text');
+    const cancelBtn = screen.getByRole('button', { name: /cancel/i });
+    await userEvent.click(cancelBtn);
+    // After cancel, input should be cleared
+    expect(input).toHaveValue('');
+  });
+
+  it('submit trims whitespace-only text and does not call onSubmitNew', async () => {
+    const onSubmitNew = vi.fn();
+    const anchor = { anchorText: 'selected text', anchorFrom: '10', anchorTo: '22' };
+    mockUseComments.mockReturnValue({ ...defaultHookReturn });
+    renderTab({ pendingAnchor: anchor, onSubmitNew });
+    const input = screen.getByPlaceholderText('Add a comment...');
+    await userEvent.type(input, '   ');
+    const commentBtn = screen.getByRole('button', { name: /comment/i });
+    await userEvent.click(commentBtn);
+    expect(onSubmitNew).not.toHaveBeenCalled();
+  });
+
+  it('submit clears input after successful submission', async () => {
+    const onSubmitNew = vi.fn();
+    const anchor = { anchorText: 'selected text', anchorFrom: '10', anchorTo: '22' };
+    mockUseComments.mockReturnValue({ ...defaultHookReturn });
+    renderTab({ pendingAnchor: anchor, onSubmitNew });
+    const input = screen.getByPlaceholderText('Add a comment...');
+    await userEvent.type(input, 'My comment');
+    const commentBtn = screen.getByRole('button', { name: /comment/i });
+    await userEvent.click(commentBtn);
+    expect(input).toHaveValue('');
+  });
+
+  it('new comment card shows anchor text in quoted block', () => {
+    const anchor = { anchorText: 'the parties agree', anchorFrom: '10', anchorTo: '27' };
+    mockUseComments.mockReturnValue({ ...defaultHookReturn });
+    renderTab({ pendingAnchor: anchor });
+    expect(screen.getByText('the parties agree')).toBeInTheDocument();
+  });
+
+  it('new comment card renders alongside existing threads', () => {
+    const anchor = { anchorText: 'text', anchorFrom: '1', anchorTo: '5' };
+    mockUseComments.mockReturnValue({
+      ...defaultHookReturn,
+      threads: [threadWithReply],
+    });
+    renderTab({ pendingAnchor: anchor });
+    // Both the new comment card and existing thread should render
+    expect(screen.getByPlaceholderText('Add a comment...')).toBeInTheDocument();
+    expect(screen.getByTestId('thread-c1')).toBeInTheDocument();
   });
 });

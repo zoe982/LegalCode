@@ -6,7 +6,8 @@ export interface Comment {
   authorName: string;
   authorEmail: string;
   content: string;
-  anchorBlockId: string | null;
+  anchorFrom: string | null;
+  anchorTo: string | null;
   anchorText: string | null;
   resolved: boolean;
   resolvedBy: string | null;
@@ -18,7 +19,8 @@ export interface CreateCommentInput {
   templateId: string;
   content: string;
   parentId?: string;
-  anchorBlockId?: string;
+  anchorFrom?: string;
+  anchorTo?: string;
   anchorText?: string;
 }
 

@@ -11,7 +11,8 @@ describe('Comment types', () => {
       authorName: 'Alice',
       authorEmail: 'alice@example.com',
       content: 'Test comment',
-      anchorBlockId: null,
+      anchorFrom: null,
+      anchorTo: null,
       anchorText: null,
       resolved: false,
       resolvedBy: null,
@@ -32,7 +33,8 @@ describe('Comment types', () => {
       authorName: 'Bob',
       authorEmail: 'bob@example.com',
       content: 'Reply text',
-      anchorBlockId: null,
+      anchorFrom: null,
+      anchorTo: null,
       anchorText: null,
       resolved: false,
       resolvedBy: null,
@@ -40,6 +42,28 @@ describe('Comment types', () => {
       updatedAt: '2026-03-01T01:00:00Z',
     };
     expect(reply.parentId).toBe('c1');
+  });
+
+  it('Comment supports anchorFrom and anchorTo fields', () => {
+    const comment: Comment = {
+      id: 'c3',
+      templateId: 'tpl-1',
+      parentId: null,
+      authorId: 'u1',
+      authorName: 'Alice',
+      authorEmail: 'alice@example.com',
+      content: 'Anchored comment',
+      anchorFrom: '10',
+      anchorTo: '25',
+      anchorText: 'selected text',
+      resolved: false,
+      resolvedBy: null,
+      createdAt: '2026-03-01T00:00:00Z',
+      updatedAt: '2026-03-01T00:00:00Z',
+    };
+    expect(comment.anchorFrom).toBe('10');
+    expect(comment.anchorTo).toBe('25');
+    expect(comment.anchorText).toBe('selected text');
   });
 
   it('CreateCommentInput requires templateId and content', () => {
@@ -56,11 +80,13 @@ describe('Comment types', () => {
       templateId: 'tpl-1',
       content: 'Reply',
       parentId: 'c1',
-      anchorBlockId: 'block-1',
+      anchorFrom: '10',
+      anchorTo: '25',
       anchorText: 'quoted text',
     };
     expect(input.parentId).toBe('c1');
-    expect(input.anchorBlockId).toBe('block-1');
+    expect(input.anchorFrom).toBe('10');
+    expect(input.anchorTo).toBe('25');
     expect(input.anchorText).toBe('quoted text');
   });
 
@@ -73,7 +99,8 @@ describe('Comment types', () => {
       authorName: 'Alice',
       authorEmail: 'alice@example.com',
       content: 'Top-level',
-      anchorBlockId: 'block-1',
+      anchorFrom: '5',
+      anchorTo: '20',
       anchorText: 'some text',
       resolved: false,
       resolvedBy: null,
@@ -88,7 +115,8 @@ describe('Comment types', () => {
       authorName: 'Bob',
       authorEmail: 'bob@example.com',
       content: 'Reply',
-      anchorBlockId: null,
+      anchorFrom: null,
+      anchorTo: null,
       anchorText: null,
       resolved: false,
       resolvedBy: null,

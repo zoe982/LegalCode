@@ -72,6 +72,27 @@ export const auditLog = sqliteTable('audit_log', {
   createdAt: text('created_at').notNull(),
 });
 
+export const comments = sqliteTable('comments', {
+  id: text('id').primaryKey(),
+  templateId: text('template_id')
+    .notNull()
+    .references(() => templates.id),
+  parentId: text('parent_id'),
+  authorId: text('author_id')
+    .notNull()
+    .references(() => users.id),
+  authorName: text('author_name').notNull(),
+  authorEmail: text('author_email').notNull(),
+  content: text('content').notNull(),
+  anchorText: text('anchor_text'),
+  anchorFrom: text('anchor_from'),
+  anchorTo: text('anchor_to'),
+  resolved: integer('resolved', { mode: 'boolean' }).notNull().default(false),
+  resolvedBy: text('resolved_by'),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+});
+
 export const errorLog = sqliteTable(
   'error_log',
   {

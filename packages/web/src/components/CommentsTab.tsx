@@ -20,6 +20,14 @@ import type { Comment, CommentThread } from '../types/comments.js';
 
 interface CommentsTabProps {
   templateId: string | undefined;
+  pendingAnchor?: { anchorText: string; anchorFrom: string; anchorTo: string } | null | undefined;
+  onSubmitNew?:
+    | ((
+        content: string,
+        anchor: { anchorText: string; anchorFrom: string; anchorTo: string },
+      ) => void)
+    | undefined;
+  onCancelNew?: (() => void) | undefined;
 }
 
 const AVATAR_COLORS = ['#8027FF', '#1976d2', '#2e7d32', '#d32f2f', '#ed6c02', '#9c27b0'];
@@ -289,7 +297,13 @@ function ThreadCard({ thread, threadIndex, onResolve, onDelete, onReply }: Threa
   );
 }
 
-export function CommentsTab({ templateId }: CommentsTabProps) {
+export function CommentsTab({
+  templateId,
+  pendingAnchor,
+  onSubmitNew,
+  onCancelNew,
+}: CommentsTabProps) {
+  const [newCommentText, setNewCommentText] = useState('');
   const {
     threads,
     isLoading,
@@ -390,6 +404,71 @@ export function CommentsTab({ templateId }: CommentsTabProps) {
         />
       </Box>
 
+      {/* New comment card */}
+      {pendingAnchor != null && (
+        <Box
+          sx={{
+            p: 1.5,
+            borderRadius: '8px',
+            backgroundColor: '#FFF8E1',
+            mx: 1.5,
+            mt: 1,
+            border: '1px solid #F5A623',
+          }}
+        >
+          <Typography
+            sx={{
+              fontSize: '0.75rem',
+              fontStyle: 'italic',
+              color: '#6B6D82',
+              fontFamily: '"DM Sans", sans-serif',
+              borderLeft: '2px solid #F5A623',
+              pl: 1,
+              mb: 1,
+            }}
+          >
+            {pendingAnchor.anchorText}
+          </Typography>
+          <TextField
+            size="small"
+            placeholder="Add a comment..."
+            value={newCommentText}
+            onChange={(e) => {
+              setNewCommentText(e.target.value);
+            }}
+            autoFocus
+            fullWidth
+            multiline
+            maxRows={4}
+            sx={{ mb: 1 }}
+          />
+          <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+            <Button
+              size="small"
+              onClick={() => {
+                setNewCommentText('');
+                onCancelNew?.();
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="small"
+              variant="contained"
+              onClick={() => {
+                if (newCommentText.trim()) {
+                  onSubmitNew?.(newCommentText.trim(), pendingAnchor);
+                  setNewCommentText('');
+                }
+              }}
+              sx={{ backgroundColor: '#8027FF' }}
+            >
+              Comment
+            </Button>
+          </Box>
+        </Box>
+      )}
+
       {/* Thread list or empty state */}
       {threads.length === 0 ? (
         <Box
@@ -424,7 +503,7 @@ export function CommentsTab({ templateId }: CommentsTabProps) {
               fontFamily: '"DM Sans", sans-serif',
             }}
           >
-            Select text in Review mode and press Cmd+Opt+M to comment.
+            Select text in the editor and press Cmd+Opt+M to comment.
           </Typography>
         </Box>
       ) : (

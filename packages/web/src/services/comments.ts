@@ -2,7 +2,7 @@ import type { Comment, CreateCommentInput } from '../types/comments.js';
 
 export const commentService = {
   async getComments(templateId: string): Promise<Comment[]> {
-    const response = await fetch(`/api/templates/${templateId}/comments`, {
+    const response = await fetch(`/templates/${templateId}/comments`, {
       credentials: 'include',
     });
     if (!response.ok) {
@@ -13,7 +13,7 @@ export const commentService = {
 
   async createComment(input: CreateCommentInput): Promise<Comment> {
     const { templateId, ...body } = input;
-    const response = await fetch(`/api/templates/${templateId}/comments`, {
+    const response = await fetch(`/templates/${templateId}/comments`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -26,7 +26,7 @@ export const commentService = {
   },
 
   async resolveComment(templateId: string, commentId: string): Promise<void> {
-    const response = await fetch(`/api/templates/${templateId}/comments/${commentId}/resolve`, {
+    const response = await fetch(`/templates/${templateId}/comments/${commentId}/resolve`, {
       method: 'PATCH',
       credentials: 'include',
     });
@@ -36,7 +36,7 @@ export const commentService = {
   },
 
   async deleteComment(templateId: string, commentId: string): Promise<void> {
-    const response = await fetch(`/api/templates/${templateId}/comments/${commentId}`, {
+    const response = await fetch(`/templates/${templateId}/comments/${commentId}`, {
       method: 'DELETE',
       credentials: 'include',
     });

@@ -233,4 +233,33 @@ describe('MarkdownEditor', () => {
     const { Crepe: CrepeMock } = await import('@milkdown/crepe');
     expect(CrepeMock).toHaveBeenCalledWith(expect.objectContaining({ defaultValue: '' }));
   });
+
+  it('calls onEditorReady with crepe instance when provided', () => {
+    captured.editorCallback = null;
+    const onEditorReady = vi.fn();
+
+    render(<MarkdownEditor onEditorReady={onEditorReady} />);
+
+    const editorCb = captured.editorCallback as ((root: HTMLElement) => unknown) | null;
+    expect(editorCb).not.toBeNull();
+    const fakeRoot = document.createElement('div');
+    editorCb?.(fakeRoot);
+
+    expect(onEditorReady).toHaveBeenCalledTimes(1);
+    // Verify it was called with a Crepe-like object
+    expect(onEditorReady.mock.calls[0]?.[0]).toBeDefined();
+  });
+
+  it('does not throw when onEditorReady is not provided', () => {
+    captured.editorCallback = null;
+
+    render(<MarkdownEditor />);
+
+    const editorCb = captured.editorCallback as ((root: HTMLElement) => unknown) | null;
+    expect(editorCb).not.toBeNull();
+    const fakeRoot = document.createElement('div');
+    expect(() => {
+      editorCb?.(fakeRoot);
+    }).not.toThrow();
+  });
 });

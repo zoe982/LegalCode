@@ -34,6 +34,10 @@ import { KeyboardShortcutHelp } from '../components/KeyboardShortcutHelp.js';
 import { markdownToHtml } from '../utils/markdownToHtml.js';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts.js';
 import { useToast } from '../components/Toast.js';
+import { useEditorComments } from '../hooks/useEditorComments.js';
+import { useComments } from '../hooks/useComments.js';
+import { FloatingCommentButton } from '../components/FloatingCommentButton.js';
+import { useQueryClient } from '@tanstack/react-query';
 import type { Template } from '@legalcode/shared';
 import { useTopAppBarConfig } from '../contexts/TopAppBarContext.js';
 import { StatusChip } from '../components/StatusChip.js';
@@ -97,6 +101,14 @@ export function TemplateEditorPage() {
   }, []);
 
   const { showToast } = useToast();
+  const queryClient = useQueryClient();
+  const { selectionInfo, pendingAnchor, startComment, cancelComment } = useEditorComments();
+  const { createComment } = useComments(id);
+
+  const handleAddComment = useCallback(() => {
+    startComment();
+    setActivePanel('comments');
+  }, [startComment]);
 
   // Keyboard shortcuts
   useKeyboardShortcuts({
@@ -112,6 +124,7 @@ export function TemplateEditorPage() {
     onCtrlS: useCallback(() => {
       showToast("Your work is saved automatically — you're all set", 'success');
     }, [showToast]),
+    onAddComment: handleAddComment,
   });
 
   // Collaboration — only for existing templates with edit permission
@@ -119,7 +132,11 @@ export function TemplateEditorPage() {
     !isCreateMode && !isViewer && user
       ? { userId: user.id, email: user.email, color: '#1976d2' }
       : null;
-  const collaboration = useCollaboration(!isCreateMode ? id : null, collaborationUser);
+  const collaboration = useCollaboration(!isCreateMode ? id : null, collaborationUser, {
+    onCommentEvent: useCallback(() => {
+      void queryClient.invalidateQueries({ queryKey: ['comments', id] });
+    }, [queryClient, id]),
+  });
 
   const status = templateData?.template.status;
   const isReadOnly = isViewer || status === 'archived';
@@ -359,6 +376,24 @@ export function TemplateEditorPage() {
     [id, collaboration, showToast],
   );
 
+  const handleSubmitNewComment = useCallback(
+    (
+      commentContent: string,
+      anchor: { anchorText: string; anchorFrom: string; anchorTo: string },
+    ) => {
+      if (!id) return;
+      createComment({
+        templateId: id,
+        content: commentContent,
+        anchorText: anchor.anchorText,
+        anchorFrom: anchor.anchorFrom,
+        anchorTo: anchor.anchorTo,
+      });
+      cancelComment();
+    },
+    [id, createComment, cancelComment],
+  );
+
   const wordCount = content.trim() === '' ? 0 : content.trim().split(/\s+/).length;
 
   // Loading state for edit mode
@@ -490,6 +525,7 @@ export function TemplateEditorPage() {
               sx={{
                 backgroundColor: '#FFFFFF',
                 flex: 1,
+                position: 'relative',
               }}
             >
               <MarkdownEditor
@@ -501,6 +537,11 @@ export function TemplateEditorPage() {
                     ? { ydoc: collaboration.ydoc, awareness: collaboration.awareness }
                     : undefined
                 }
+              />
+              <FloatingCommentButton
+                position={selectionInfo.buttonPosition}
+                visible={selectionInfo.hasSelection && !isReadOnly}
+                onClick={handleAddComment}
               />
             </Box>
           ) : (
@@ -725,7 +766,12 @@ export function TemplateEditorPage() {
         }}
         title="Comments"
       >
-        <CommentsTab templateId={id} />
+        <CommentsTab
+          templateId={id}
+          pendingAnchor={pendingAnchor}
+          onSubmitNew={handleSubmitNewComment}
+          onCancelNew={cancelComment}
+        />
       </SlideOverPanel>
 
       <SlideOverPanel

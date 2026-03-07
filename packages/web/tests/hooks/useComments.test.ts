@@ -29,7 +29,8 @@ const parentComment: Comment = {
   authorName: 'Alice',
   authorEmail: 'alice@example.com',
   content: 'Check this clause.',
-  anchorBlockId: 'block-1',
+  anchorFrom: '10',
+  anchorTo: '27',
   anchorText: 'the parties agree',
   resolved: false,
   resolvedBy: null,
@@ -45,7 +46,8 @@ const replyComment: Comment = {
   authorName: 'Bob',
   authorEmail: 'bob@example.com',
   content: 'Looks good to me.',
-  anchorBlockId: null,
+  anchorFrom: null,
+  anchorTo: null,
   anchorText: null,
   resolved: false,
   resolvedBy: null,
@@ -61,7 +63,8 @@ const resolvedComment: Comment = {
   authorName: 'Alice',
   authorEmail: 'alice@example.com',
   content: 'Old issue.',
-  anchorBlockId: 'block-2',
+  anchorFrom: '5',
+  anchorTo: '12',
   anchorText: 'whereas',
   resolved: true,
   resolvedBy: 'u2',
@@ -210,13 +213,15 @@ describe('useComments', () => {
       ...parentComment,
       id: 'c-old',
       createdAt: '2026-01-01T00:00:00Z',
-      anchorBlockId: null,
+      anchorFrom: null,
+      anchorTo: null,
     };
     const newerComment: Comment = {
       ...parentComment,
       id: 'c-new',
       createdAt: '2026-03-01T00:00:00Z',
-      anchorBlockId: null,
+      anchorFrom: null,
+      anchorTo: null,
     };
     getCommentsFn.mockResolvedValue([newerComment, olderComment]);
 

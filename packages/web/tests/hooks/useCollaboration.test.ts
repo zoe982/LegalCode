@@ -449,4 +449,83 @@ describe('useCollaboration', () => {
       { userId: 'u2', email: 'other@example.com', color: '#00ff00' },
     ]);
   });
+
+  it('calls onCommentEvent when MSG_COMMENT (type 2) message is received', async () => {
+    vi.useFakeTimers();
+    const onCommentEvent = vi.fn();
+    const { result } = renderHook(() => useCollaboration('tmpl-1', testUser, { onCommentEvent }));
+
+    // Open the WebSocket
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+    expect(result.current.status).toBe('connected');
+
+    // Simulate MSG_COMMENT message (type byte = 2)
+    const ws = wsRef();
+    const commentMsg = new Uint8Array([2]).buffer;
+    act(() => {
+      ws.onmessage?.({ data: commentMsg });
+    });
+
+    expect(onCommentEvent).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not call onCommentEvent for non-comment messages', async () => {
+    vi.useFakeTimers();
+    const onCommentEvent = vi.fn();
+    const { result } = renderHook(() => useCollaboration('tmpl-1', testUser, { onCommentEvent }));
+
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+    expect(result.current.status).toBe('connected');
+
+    const ws = wsRef();
+
+    // MSG_SYNC = 0
+    act(() => {
+      ws.onmessage?.({ data: new Uint8Array([0]).buffer });
+    });
+    // MSG_AWARENESS = 1
+    act(() => {
+      ws.onmessage?.({ data: new Uint8Array([1]).buffer });
+    });
+
+    expect(onCommentEvent).not.toHaveBeenCalled();
+  });
+
+  it('ignores non-ArrayBuffer messages', async () => {
+    vi.useFakeTimers();
+    const onCommentEvent = vi.fn();
+    renderHook(() => useCollaboration('tmpl-1', testUser, { onCommentEvent }));
+
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+
+    const ws = wsRef();
+    act(() => {
+      ws.onmessage?.({ data: 'string message' });
+    });
+
+    expect(onCommentEvent).not.toHaveBeenCalled();
+  });
+
+  it('ignores empty ArrayBuffer messages', async () => {
+    vi.useFakeTimers();
+    const onCommentEvent = vi.fn();
+    renderHook(() => useCollaboration('tmpl-1', testUser, { onCommentEvent }));
+
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+
+    const ws = wsRef();
+    act(() => {
+      ws.onmessage?.({ data: new ArrayBuffer(0) });
+    });
+
+    expect(onCommentEvent).not.toHaveBeenCalled();
+  });
 });

@@ -12,6 +12,7 @@ const GRACE_PERIOD_MS = 30 * 1000;
 
 const MSG_SYNC = 0;
 const MSG_AWARENESS = 1;
+const MSG_COMMENT = 2;
 
 interface ConnectedUser {
   userId: string;
@@ -42,6 +43,12 @@ export class TemplateSession implements DurableObject {
     // Handle save-version POST
     if (request.method === 'POST' && url.pathname === '/save-version') {
       return this.handleSaveVersion(request);
+    }
+
+    // Handle comment event notification
+    if (request.method === 'POST' && url.pathname === '/comment-event') {
+      this.broadcastCommentEvent();
+      return new Response(null, { status: 200 });
     }
 
     // Handle WebSocket upgrade
@@ -256,6 +263,21 @@ export class TemplateSession implements DurableObject {
         } catch {
           /* closed */
         }
+      }
+    }
+  }
+
+  private broadcastCommentEvent(): void {
+    if (this.connections.size === 0) return;
+    const encoder = encoding.createEncoder();
+    encoding.writeVarUint(encoder, MSG_COMMENT);
+    encoding.writeVarString(encoder, JSON.stringify({ type: 'comment_changed' }));
+    const msg = encoding.toUint8Array(encoder);
+    for (const [ws] of this.connections) {
+      try {
+        ws.send(msg);
+      } catch {
+        /* closed */
       }
     }
   }

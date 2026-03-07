@@ -18,9 +18,16 @@ interface MarkdownEditorProps {
   onChange?: ((markdown: string) => void) | undefined;
   readOnly?: boolean | undefined;
   collaboration?: CollaborationConfig | undefined;
+  onEditorReady?: ((crepe: Crepe) => void) | undefined;
 }
 
-function MilkdownEditor({ defaultValue, onChange, readOnly, collaboration }: MarkdownEditorProps) {
+function MilkdownEditor({
+  defaultValue,
+  onChange,
+  readOnly,
+  collaboration,
+  onEditorReady,
+}: MarkdownEditorProps) {
   const crepeRef = useRef<Crepe | null>(null);
   const isCollaborative = collaboration !== undefined;
 
@@ -46,10 +53,11 @@ function MilkdownEditor({ defaultValue, onChange, readOnly, collaboration }: Mar
       }
 
       crepeRef.current = crepe;
+      onEditorReady?.(crepe);
 
       return crepe;
     },
-    [defaultValue, onChange, readOnly, isCollaborative],
+    [defaultValue, onChange, readOnly, isCollaborative, onEditorReady],
   );
 
   useEditor(editorCallback, []);
@@ -84,6 +92,7 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
           onChange={props.onChange}
           readOnly={props.readOnly}
           collaboration={props.collaboration}
+          onEditorReady={props.onEditorReady}
         />
       </MilkdownProvider>
     </Box>

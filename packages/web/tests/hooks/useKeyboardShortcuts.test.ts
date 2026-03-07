@@ -109,4 +109,31 @@ describe('useKeyboardShortcuts', () => {
     fireKey('s', { metaKey: true });
     expect(onCtrlS).toHaveBeenCalledTimes(1);
   });
+
+  it('calls onAddComment on Ctrl+Alt+M', () => {
+    const onAddComment = vi.fn();
+    renderHook(() => {
+      useKeyboardShortcuts({ onAddComment });
+    });
+    fireKey('m', { ctrlKey: true, altKey: true });
+    expect(onAddComment).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls onAddComment on Meta+Alt+M (Mac)', () => {
+    const onAddComment = vi.fn();
+    renderHook(() => {
+      useKeyboardShortcuts({ onAddComment });
+    });
+    fireKey('m', { metaKey: true, altKey: true });
+    expect(onAddComment).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not call onAddComment without Alt key', () => {
+    const onAddComment = vi.fn();
+    renderHook(() => {
+      useKeyboardShortcuts({ onAddComment });
+    });
+    fireKey('m', { ctrlKey: true });
+    expect(onAddComment).not.toHaveBeenCalled();
+  });
 });
