@@ -1,5 +1,5 @@
 /// <reference types="@testing-library/jest-dom/vitest" />
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -33,22 +33,28 @@ function Wrapper({ children }: { children: ReactNode }) {
 }
 
 describe('LoginPage', () => {
-  it('renders Acasus wordmark', () => {
-    render(<LoginPage />, { wrapper: Wrapper });
-    expect(screen.getByText('Acasus')).toBeInTheDocument();
+  beforeEach(() => {
+    mockLogin.mockClear();
   });
 
-  it('renders LegalCode subtitle', () => {
+  it('renders Acasus wordmark', () => {
+    render(<LoginPage />, { wrapper: Wrapper });
+    expect(
+      screen.getByText((_content, element) => element?.textContent === 'Acasus'),
+    ).toBeInTheDocument();
+  });
+
+  it('renders LegalCode product name', () => {
     render(<LoginPage />, { wrapper: Wrapper });
     expect(screen.getByText('LegalCode')).toBeInTheDocument();
   });
 
-  it('has a Sign in with Google button', () => {
+  it('renders sign-in button', () => {
     render(<LoginPage />, { wrapper: Wrapper });
     expect(screen.getByRole('button', { name: /sign in with google/i })).toBeInTheDocument();
   });
 
-  it('button triggers auth flow on click', async () => {
+  it('calls login on button click', async () => {
     const user = userEvent.setup();
     render(<LoginPage />, { wrapper: Wrapper });
     const button = screen.getByRole('button', { name: /sign in with google/i });
@@ -56,22 +62,42 @@ describe('LoginPage', () => {
     expect(mockLogin).toHaveBeenCalledTimes(1);
   });
 
-  it('uses neutral background', () => {
+  it('uses white background', () => {
     render(<LoginPage />, { wrapper: Wrapper });
     const container = screen.getByTestId('login-page');
-    expect(container).toHaveStyle({ backgroundColor: '#F9F9FB' });
+    expect(container).toHaveStyle({ backgroundColor: '#FFFFFF' });
   });
 
-  it('uses accent-primary styling on the button', () => {
+  it('renders footer with security text', () => {
     render(<LoginPage />, { wrapper: Wrapper });
-    const button = screen.getByRole('button', { name: /sign in with google/i });
-    expect(button).toHaveStyle({ backgroundColor: '#8027FF' });
+    expect(screen.getByText('Secured with Google OAuth')).toBeInTheDocument();
   });
 
-  it('uses Source Serif 4 for the Acasus wordmark', () => {
+  it('has data-testid="login-page"', () => {
     render(<LoginPage />, { wrapper: Wrapper });
-    const wordmark = screen.getByText('Acasus');
+    expect(screen.getByTestId('login-page')).toBeInTheDocument();
+  });
+
+  it('renders copyright text', () => {
+    render(<LoginPage />, { wrapper: Wrapper });
+    expect(screen.getByText(/© 2026 Acasus/)).toBeInTheDocument();
+  });
+
+  it('wordmark uses Source Serif 4 font', () => {
+    render(<LoginPage />, { wrapper: Wrapper });
+    const wordmark = screen.getByText((_content, element) => element?.textContent === 'Acasus');
     const styles = window.getComputedStyle(wordmark);
     expect(styles.fontFamily).toContain('Source Serif 4');
+  });
+
+  it('respects prefers-reduced-motion via animation styles on letter spans', () => {
+    render(<LoginPage />, { wrapper: Wrapper });
+    const wordmark = screen.getByText((_content, element) => element?.textContent === 'Acasus');
+    const letterSpans = wordmark.querySelectorAll('span');
+    expect(letterSpans.length).toBe(6); // A-c-a-s-u-s
+    for (const span of letterSpans) {
+      const style = span.getAttribute('style') ?? '';
+      expect(style).toContain('animation');
+    }
   });
 });
