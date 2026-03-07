@@ -123,15 +123,10 @@ export function TemplateEditorPage() {
   // Sync TopAppBar config for editor view
   const { setConfig, clearConfig } = useTopAppBarConfig();
 
-  const handleTitleChangeViaAppBar = useCallback((newTitle: string) => {
-    setTitle(newTitle);
-  }, []);
-
   useEffect(() => {
     if (!isCreateMode && templateData) {
       setConfig({
-        editableTitle: title || templateData.template.title,
-        onTitleChange: isReadOnly ? undefined : handleTitleChangeViaAppBar,
+        breadcrumbTemplateName: title || templateData.template.title,
         statusBadge: <StatusChip status={templateData.template.status} />,
         rightSlot: (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -149,7 +144,7 @@ export function TemplateEditorPage() {
       });
     } else if (isCreateMode) {
       setConfig({
-        editableTitle: 'New Template',
+        breadcrumbTemplateName: 'New Template',
         statusBadge: undefined,
         rightSlot: undefined,
       });
@@ -161,12 +156,10 @@ export function TemplateEditorPage() {
     isCreateMode,
     templateData,
     title,
-    isReadOnly,
     collaboration.status,
     collaboration.connectedUsers,
     setConfig,
     clearConfig,
-    handleTitleChangeViaAppBar,
     handleExport,
   ]);
 

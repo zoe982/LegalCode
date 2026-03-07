@@ -2,9 +2,10 @@ import { createTheme } from '@mui/material/styles';
 
 const serifStack = '"Source Serif 4", Georgia, "Times New Roman", serif';
 const sansStack = '"Source Sans 3", "Helvetica Neue", Arial, sans-serif';
+const dmSansStack = '"DM Sans", "Helvetica Neue", Arial, sans-serif';
 const monoStack = '"JetBrains Mono", "Fira Code", "Cascadia Code", monospace';
 
-export { serifStack, sansStack, monoStack };
+export { serifStack, sansStack, dmSansStack, monoStack };
 
 export const theme = createTheme({
   colorSchemes: {
@@ -12,35 +13,35 @@ export const theme = createTheme({
       palette: {
         primary: { main: '#8027FF' },
         secondary: { main: '#451F61' },
-        error: { main: '#D32F2F' },
-        warning: { main: '#B8860B' },
-        success: { main: '#2D6A4F' },
+        error: { main: '#DC2626' },
+        warning: { main: '#D97706' },
+        success: { main: '#059669' },
         background: {
-          default: '#EFE3D3',
-          paper: '#F7F0E6',
+          default: '#FFFFFF',
+          paper: '#FFFFFF',
         },
         text: {
-          primary: '#451F61',
-          secondary: '#6B5A7A',
+          primary: '#12111A',
+          secondary: '#6B6D82',
         },
       },
     },
   },
   typography: {
-    fontFamily: sansStack,
+    fontFamily: dmSansStack,
     h1: { fontFamily: serifStack, fontWeight: 600 },
     h2: { fontFamily: serifStack, fontWeight: 600 },
     h3: { fontFamily: serifStack, fontWeight: 600 },
     h4: { fontFamily: serifStack, fontWeight: 600 },
     h5: { fontFamily: serifStack, fontWeight: 600 },
     h6: { fontFamily: serifStack, fontWeight: 600 },
-    subtitle1: { fontFamily: sansStack, fontSize: '1rem', fontWeight: 600 },
-    subtitle2: { fontFamily: sansStack, fontSize: '0.875rem', fontWeight: 600 },
-    body1: { fontFamily: sansStack, fontSize: '0.9375rem', fontWeight: 400, lineHeight: 1.5 },
-    body2: { fontFamily: sansStack, fontSize: '0.8125rem', fontWeight: 500, lineHeight: 1.38 },
-    caption: { fontFamily: sansStack, fontSize: '0.75rem', fontWeight: 400 },
+    subtitle1: { fontFamily: dmSansStack, fontSize: '0.875rem', fontWeight: 600 },
+    subtitle2: { fontFamily: dmSansStack, fontSize: '0.875rem', fontWeight: 600 },
+    body1: { fontFamily: dmSansStack, fontSize: '0.875rem', fontWeight: 400, lineHeight: 1.5 },
+    body2: { fontFamily: dmSansStack, fontSize: '0.8125rem', fontWeight: 500, lineHeight: 1.38 },
+    caption: { fontFamily: dmSansStack, fontSize: '0.75rem', fontWeight: 400 },
     overline: {
-      fontFamily: sansStack,
+      fontFamily: dmSansStack,
       fontSize: '0.6875rem',
       fontWeight: 600,
       textTransform: 'uppercase',

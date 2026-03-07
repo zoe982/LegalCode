@@ -65,14 +65,15 @@ function mockAuthenticatedUser() {
 }
 
 describe('App', () => {
-  it('shows AppShell with left nav and app bar when authenticated', async () => {
+  it('shows AppShell with app bar and workspace when authenticated', async () => {
     mockAuthenticatedUser();
     renderWithRouter('/templates');
     await waitFor(() => {
-      expect(screen.getByTestId('left-nav')).toBeInTheDocument();
+      expect(screen.getByTestId('top-app-bar')).toBeInTheDocument();
     });
-    expect(screen.getByTestId('top-app-bar')).toBeInTheDocument();
     expect(screen.getByTestId('workspace')).toBeInTheDocument();
+    // No left nav in v3
+    expect(screen.queryByTestId('left-nav')).not.toBeInTheDocument();
   });
 
   it('renders TemplateListPage at /templates', async () => {
@@ -95,7 +96,7 @@ describe('App', () => {
     mockAuthenticatedUser();
     renderWithRouter('/templates/new');
     await waitFor(() => {
-      // "New Template" appears in both LeftNav CTA and TopAppBar title
+      // "New Template" appears in the editor page
       const elements = screen.getAllByText('New Template');
       expect(elements.length).toBeGreaterThanOrEqual(1);
     });
@@ -134,11 +135,12 @@ describe('App', () => {
     });
   });
 
-  it('displays user name in the left nav', async () => {
+  it('displays user name in the avatar dropdown', async () => {
     mockAuthenticatedUser();
     renderWithRouter('/templates');
     await waitFor(() => {
-      expect(screen.getByText('Alice')).toBeInTheDocument();
+      // User avatar button should be present with initial
+      expect(screen.getByRole('button', { name: /user menu/i })).toBeInTheDocument();
     });
   });
 });

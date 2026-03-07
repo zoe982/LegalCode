@@ -1,52 +1,66 @@
 :root {
-  /* Brand Colors */
+  /* Brand Colors (reference only — used sparingly) */
   --brand-beige: #efe3d3;
   --brand-light-purple: #8027ff;
   --brand-dark-purple: #451f61;
   --brand-orange: #ff0000;
 
   /* Surfaces */
-  --surface-primary: #efe3d3;
-  --surface-secondary: #e6d9c6;
-  --surface-tertiary: #ddd0bc;
-  --surface-elevated: #f7f0e6;
-  --surface-editor: #f5eee3;
+  --surface-primary: #ffffff;
+  --surface-secondary: #f9f9fb;
+  --surface-tertiary: #f3f3f7;
+  --surface-elevated: #ffffff;
+  --surface-sunken: #f3f3f7;
+  --surface-overlay: rgba(0, 0, 0, 0.5);
 
   /* Text */
-  --text-primary: #451f61;
-  --text-body: #2a1a35;
-  --text-secondary: #6b5a7a;
-  --text-tertiary: #9a8da6;
+  --text-primary: #12111a;
+  --text-body: #37354a;
+  --text-secondary: #6b6d82;
+  --text-tertiary: #9b9db0;
   --text-on-purple: #ffffff;
-  --text-on-beige-subtle: #78695a;
+  --text-on-dark: #ffffff;
+  --text-link: #8027ff;
 
   /* Interactive */
   --accent-primary: #8027ff;
   --accent-primary-hover: #6b1fdb;
-  --accent-primary-subtle: #8027ff1a;
-  --accent-primary-ring: #8027ff66;
+  --accent-primary-active: #5a18b8;
+  --accent-primary-subtle: #8027ff0f;
+  --accent-primary-ring: #8027ff33;
+  --accent-beige: #efe3d3;
 
   /* Destructive */
-  --destructive: #d32f2f;
-  --destructive-subtle: #d32f2f1a;
-
-  /* Depth */
-  --depth-primary: #451f61;
-  --depth-secondary: #361850;
-  --depth-tertiary: #2d1343;
+  --destructive: #dc2626;
+  --destructive-hover: #b91c1c;
+  --destructive-subtle: #fee2e2;
+  --destructive-border: #fecaca;
 
   /* Borders */
-  --border-subtle: #d4c5b2;
-  --border-on-dark: #5e3d7a;
+  --border-primary: #e4e5ed;
+  --border-secondary: #f3f3f7;
+  --border-hover: #d1d2de;
   --border-focus: #8027ff;
+  --border-input: #d1d2de;
 
   /* Status */
-  --status-draft: #b8860b;
-  --status-draft-bg: #b8860b1a;
-  --status-published: #2d6a4f;
-  --status-published-bg: #2d6a4f1a;
-  --status-archived: #78695a;
-  --status-archived-bg: #78695a1a;
+  --status-draft: #d97706;
+  --status-draft-bg: #fef3c7;
+  --status-draft-border: #fde68a;
+
+  --status-published: #059669;
+  --status-published-bg: #d1fae5;
+  --status-published-border: #a7f3d0;
+
+  --status-archived: #6b6d82;
+  --status-archived-bg: #f3f3f7;
+  --status-archived-border: #e4e5ed;
+
+  /* Comment highlights */
+  --comment-highlight: #fbbf2433;
+  --comment-highlight-hover: #fbbf2444;
+  --comment-resolved: #fbbf240f;
+  --comment-active: #fbbf2455;
 
   /* Collaboration cursors */
   --cursor-1: #e63946;
@@ -89,21 +103,22 @@
   --icon-lg: 24px;
   --icon-xl: 32px;
 
-  /* Panel widths */
-  --nav-width: 240px;
+  /* Dimensions */
   --pane-width: 400px;
   --pane-width-min: 360px;
   --pane-width-max: 480px;
-  --appbar-height: 64px;
-  --list-max-width: 960px;
+  --appbar-height: 48px;
+  --list-max-width: 1120px;
   --review-max-width: 860px;
   --review-margin-rail: 48px;
 
-  /* Elevation (purple-tinted) */
-  --shadow-sm: 0 1px 3px rgba(69, 31, 97, 0.06);
-  --shadow-md: 0 2px 8px rgba(69, 31, 97, 0.1);
-  --shadow-lg: 0 4px 16px rgba(69, 31, 97, 0.14);
-  --shadow-xl: 0 8px 32px rgba(69, 31, 97, 0.18);
+  /* Elevation */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.08), 0 4px 6px rgba(0, 0, 0, 0.04);
+  --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.08), 0 8px 10px rgba(0, 0, 0, 0.04);
+  --shadow-panel: 0 0 40px rgba(0, 0, 0, 0.12);
 
   /* Motion */
   --spring-standard: cubic-bezier(0.2, 0, 0, 1) 200ms;

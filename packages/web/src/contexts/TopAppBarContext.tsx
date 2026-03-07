@@ -2,8 +2,8 @@ import { createContext, useContext, useState, useCallback, useMemo } from 'react
 import type { ReactNode } from 'react';
 
 interface TopAppBarConfig {
-  editableTitle?: string | undefined;
-  onTitleChange?: ((title: string) => void) | undefined;
+  breadcrumbTemplateName?: string | undefined;
+  panelToggles?: ReactNode | undefined;
   statusBadge?: ReactNode | undefined;
   rightSlot?: ReactNode | undefined;
 }

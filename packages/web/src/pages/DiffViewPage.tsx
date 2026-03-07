@@ -51,7 +51,7 @@ export function DiffViewPage() {
   // Set top app bar config
   useEffect(() => {
     setConfig({
-      editableTitle: 'Version Comparison',
+      breadcrumbTemplateName: 'Version Comparison',
     });
     return () => {
       clearConfig();

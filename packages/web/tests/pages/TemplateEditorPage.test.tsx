@@ -464,7 +464,7 @@ describe('TemplateEditorPage', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
       expect(mockSetConfig).toHaveBeenCalledWith(
         expect.objectContaining({
-          editableTitle: 'New Template',
+          breadcrumbTemplateName: 'New Template',
         }),
       );
     });
@@ -514,7 +514,7 @@ describe('TemplateEditorPage', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
       expect(mockSetConfig).toHaveBeenCalledWith(
         expect.objectContaining({
-          editableTitle: 'Employment Agreement',
+          breadcrumbTemplateName: 'Employment Agreement',
         }),
       );
     });
@@ -563,7 +563,7 @@ describe('TemplateEditorPage', () => {
       // Title editing is now delegated to TopAppBar context
       expect(mockSetConfig).toHaveBeenCalledWith(
         expect.objectContaining({
-          editableTitle: 'Employment Agreement',
+          breadcrumbTemplateName: 'Employment Agreement',
         }),
       );
     });
@@ -1216,12 +1216,11 @@ describe('TemplateEditorPage', () => {
       );
     });
 
-    it('does not pass onTitleChange for archived templates', () => {
+    it('sets breadcrumb template name for archived templates', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-      // Archived templates should not allow title editing
       expect(mockSetConfig).toHaveBeenCalledWith(
         expect.objectContaining({
-          onTitleChange: undefined,
+          breadcrumbTemplateName: expect.any(String) as string,
         }),
       );
     });
@@ -1410,7 +1409,7 @@ describe('TemplateEditorPage', () => {
       // the setConfig is not called (no matching branch)
       expect(mockSetConfig).not.toHaveBeenCalledWith(
         expect.objectContaining({
-          editableTitle: expect.anything(),
+          breadcrumbTemplateName: expect.anything(),
         }),
       );
     });
@@ -1839,46 +1838,6 @@ describe('TemplateEditorPage', () => {
       });
 
       expect(mockShowToast).toHaveBeenCalledWith('Changes save automatically', 'info');
-    });
-  });
-
-  describe('TopAppBar title change from app bar', () => {
-    it('calls handleTitleChangeViaAppBar when onTitleChange is invoked', () => {
-      mockUseParams.mockReturnValue({ id: 't1' });
-      mockUseTemplate.mockReturnValue(
-        createTemplateQueryResult({
-          data: {
-            template: draftTemplate,
-            content: '# Draft content',
-            tags: [],
-          },
-        }),
-      );
-
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-
-      // Get the onTitleChange callback from setConfig calls
-      const setConfigCalls = mockSetConfig.mock.calls as [Record<string, unknown>][];
-      const lastConfigCall = setConfigCalls[setConfigCalls.length - 1];
-      const onTitleChange = lastConfigCall?.[0]?.onTitleChange as
-        | ((title: string) => void)
-        | undefined;
-
-      expect(onTitleChange).toBeDefined();
-      if (onTitleChange) {
-        act(() => {
-          onTitleChange('Updated via AppBar');
-        });
-
-        // After title change, setConfig should be called again with the new title
-        const latestCalls = mockSetConfig.mock.calls as [Record<string, unknown>][];
-        const latestConfig = latestCalls[latestCalls.length - 1]?.[0];
-        expect(latestConfig).toEqual(
-          expect.objectContaining({
-            editableTitle: 'Updated via AppBar',
-          }),
-        );
-      }
     });
   });
 

@@ -45,11 +45,12 @@ function renderShell(path = '/templates') {
 }
 
 describe('AppShell', () => {
-  it('renders left nav, app bar, and workspace', () => {
+  it('renders app bar and workspace (no left nav)', () => {
     renderShell();
-    expect(screen.getByTestId('left-nav')).toBeInTheDocument();
     expect(screen.getByTestId('top-app-bar')).toBeInTheDocument();
     expect(screen.getByTestId('workspace')).toBeInTheDocument();
+    // LeftNav has been removed — no left-nav element
+    expect(screen.queryByTestId('left-nav')).not.toBeInTheDocument();
   });
 
   it('renders the routed page content in the workspace', () => {
@@ -98,5 +99,10 @@ describe('AppShell', () => {
       </QueryClientProvider>,
     );
     expect(container.innerHTML).toBe('');
+  });
+
+  it('renders user avatar in top app bar', () => {
+    renderShell();
+    expect(screen.getByRole('button', { name: /user menu/i })).toBeInTheDocument();
   });
 });
