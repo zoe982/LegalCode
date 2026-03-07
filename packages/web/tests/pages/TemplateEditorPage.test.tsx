@@ -987,7 +987,26 @@ describe('TemplateEditorPage', () => {
       );
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-      expect(screen.getByRole('progressbar')).toBeInTheDocument();
+      expect(screen.getByTestId('editor-skeleton')).toBeInTheDocument();
+    });
+
+    it('shows title and content skeleton elements while loading', () => {
+      mockUseParams.mockReturnValue({ id: 't1' });
+      mockUseTemplate.mockReturnValue(
+        createTemplateQueryResult({
+          data: undefined,
+          isLoading: true,
+          isPending: true,
+          isSuccess: false,
+          status: 'pending',
+          fetchStatus: 'fetching',
+        }),
+      );
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      const skeleton = screen.getByTestId('editor-skeleton');
+      const skeletons = skeleton.querySelectorAll('.MuiSkeleton-root');
+      expect(skeletons.length).toBeGreaterThanOrEqual(5);
     });
   });
 
@@ -1578,7 +1597,7 @@ describe('TemplateEditorPage', () => {
       );
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-      expect(screen.getByRole('progressbar')).toBeInTheDocument();
+      expect(screen.getByTestId('editor-skeleton')).toBeInTheDocument();
     });
   });
 

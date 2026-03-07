@@ -122,7 +122,7 @@ describe('TemplateListPage', () => {
     vi.clearAllMocks();
   });
 
-  it('shows loading spinner while fetching', () => {
+  it('shows 6 skeleton cards while fetching', () => {
     mockUseTemplates.mockReturnValue(
       createQueryResult({
         data: undefined,
@@ -135,7 +135,25 @@ describe('TemplateListPage', () => {
     );
 
     render(<TemplateListPage />, { wrapper: Wrapper });
-    expect(screen.getByRole('progressbar')).toBeInTheDocument();
+    const skeletonCards = screen.getAllByTestId('skeleton-card');
+    expect(skeletonCards).toHaveLength(6);
+  });
+
+  it('shows skeleton cards in a grid layout while loading', () => {
+    mockUseTemplates.mockReturnValue(
+      createQueryResult({
+        data: undefined,
+        isLoading: true,
+        isPending: true,
+        isSuccess: false,
+        status: 'pending',
+        fetchStatus: 'fetching',
+      }),
+    );
+
+    render(<TemplateListPage />, { wrapper: Wrapper });
+    const grid = screen.getByTestId('skeleton-grid');
+    expect(grid).toBeInTheDocument();
   });
 
   it('shows empty state when no templates', () => {
@@ -182,6 +200,77 @@ describe('TemplateListPage', () => {
     render(<TemplateListPage />, { wrapper: Wrapper });
     await user.click(screen.getByRole('button', { name: 'Create template' }));
     expect(mockNavigate).toHaveBeenCalledWith('/templates/new');
+  });
+
+  it('shows "No templates match your filters" when status filter active with no results', async () => {
+    const user = userEvent.setup();
+
+    mockUseTemplates.mockReturnValue(
+      createQueryResult({
+        data: { data: [], total: 0, page: 1, limit: 20 },
+      }),
+    );
+
+    render(<TemplateListPage />, { wrapper: Wrapper });
+    await user.click(screen.getByRole('button', { name: 'Draft' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('No templates match your filters')).toBeInTheDocument();
+    });
+  });
+
+  it('shows "Clear filters" button when filters active with no results', async () => {
+    const user = userEvent.setup();
+
+    mockUseTemplates.mockReturnValue(
+      createQueryResult({
+        data: { data: [], total: 0, page: 1, limit: 20 },
+      }),
+    );
+
+    render(<TemplateListPage />, { wrapper: Wrapper });
+    await user.click(screen.getByRole('button', { name: 'Draft' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Clear filters' })).toBeInTheDocument();
+    });
+  });
+
+  it('"Clear filters" button resets all filters', async () => {
+    const user = userEvent.setup();
+
+    mockUseTemplates.mockReturnValue(
+      createQueryResult({
+        data: { data: [], total: 0, page: 1, limit: 20 },
+      }),
+    );
+
+    render(<TemplateListPage />, { wrapper: Wrapper });
+    await user.click(screen.getByRole('button', { name: 'Draft' }));
+
+    await waitFor(async () => {
+      const clearBtn = screen.getByRole('button', { name: 'Clear filters' });
+      await user.click(clearBtn);
+    });
+
+    await waitFor(() => {
+      const lastCall = mockUseTemplates.mock.calls[mockUseTemplates.mock.calls.length - 1] as [
+        Record<string, unknown>,
+      ];
+      expect(lastCall[0]).toEqual({ sort: 'updated' });
+    });
+  });
+
+  it('shows "No templates yet" when truly empty with no filters', () => {
+    mockUseTemplates.mockReturnValue(
+      createQueryResult({
+        data: { data: [], total: 0, page: 1, limit: 20 },
+      }),
+    );
+
+    render(<TemplateListPage />, { wrapper: Wrapper });
+    expect(screen.getByText('No templates yet')).toBeInTheDocument();
+    expect(screen.queryByText('No templates match your filters')).not.toBeInTheDocument();
   });
 
   it('renders template cards (not rows) with correct data-testids', () => {

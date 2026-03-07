@@ -73,7 +73,31 @@ export function VersionHistory({
   }
 
   if (!versions || versions.length === 0) {
-    return <Typography>No versions</Typography>;
+    return (
+      <Box sx={{ p: 3, textAlign: 'center' }}>
+        <Typography
+          sx={{
+            fontFamily: '"Source Serif 4", Georgia, "Times New Roman", serif',
+            fontSize: '1rem',
+            fontWeight: 600,
+            color: '#12111A',
+            mb: 0.5,
+          }}
+        >
+          No versions yet
+        </Typography>
+        <Typography
+          sx={{
+            fontFamily: '"DM Sans", sans-serif',
+            fontSize: '0.8125rem',
+            color: '#9B9DB0',
+            lineHeight: 1.5,
+          }}
+        >
+          Your version history will build automatically as you work.
+        </Typography>
+      </Box>
+    );
   }
 
   const sorted = [...versions].sort((a, b) => b.version - a.version);

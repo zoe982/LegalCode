@@ -9,7 +9,7 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  CircularProgress,
+  Skeleton,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DownloadIcon from '@mui/icons-material/Download';
@@ -260,8 +260,41 @@ export function TemplateEditorPage() {
   // Loading state for edit mode
   if (!isCreateMode && templateQuery.isLoading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-        <CircularProgress />
+      <Box
+        data-testid="editor-skeleton"
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          height: '100%',
+          backgroundColor: '#FFFFFF',
+        }}
+      >
+        <Box sx={{ px: 2, pt: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Skeleton variant="circular" width={32} height={32} />
+        </Box>
+        <Box
+          sx={{
+            height: '44px',
+            px: 2,
+            display: 'flex',
+            alignItems: 'center',
+            borderBottom: '1px solid var(--border-primary)',
+          }}
+        >
+          <Skeleton variant="rounded" width={120} height={28} sx={{ borderRadius: '8px' }} />
+        </Box>
+        <Box sx={{ flex: 1, overflow: 'auto' }}>
+          <Box sx={{ maxWidth: '720px', mx: 'auto', py: 4, px: 2 }}>
+            <Skeleton variant="text" width="50%" height={40} />
+            <Box sx={{ borderBottom: '1px solid var(--border-secondary)', my: 3 }} />
+            <Skeleton variant="text" width="100%" height={20} />
+            <Skeleton variant="text" width="95%" height={20} />
+            <Skeleton variant="text" width="80%" height={20} />
+            <Skeleton variant="text" width="100%" height={20} sx={{ mt: 2 }} />
+            <Skeleton variant="text" width="70%" height={20} />
+            <Skeleton variant="text" width="90%" height={20} />
+          </Box>
+        </Box>
       </Box>
     );
   }

@@ -197,7 +197,24 @@ describe('VersionHistory', () => {
 
     render(<VersionHistory templateId="t1" currentVersion={1} />);
 
-    expect(screen.getByText('No versions')).toBeInTheDocument();
+    expect(screen.getByText('No versions yet')).toBeInTheDocument();
+  });
+
+  it('shows warm empty state message about automatic version history', () => {
+    mockUseTemplateVersions.mockReturnValue(
+      makeQueryResult({
+        isSuccess: true,
+        isFetched: true,
+        data: [],
+        status: 'success',
+      }),
+    );
+
+    render(<VersionHistory templateId="t1" currentVersion={1} />);
+
+    expect(
+      screen.getByText('Your version history will build automatically as you work.'),
+    ).toBeInTheDocument();
   });
 
   it('shows "View diff" links for non-first versions', () => {

@@ -1,22 +1,15 @@
 import { useState, useRef, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router';
-import {
-  Box,
-  Typography,
-  CircularProgress,
-  InputAdornment,
-  InputBase,
-  Button,
-  Menu,
-  MenuItem,
-} from '@mui/material';
+import { Box, Typography, InputAdornment, InputBase, Button, Menu, MenuItem } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
+import SearchOffIcon from '@mui/icons-material/SearchOff';
 import type { TemplateStatus } from '@legalcode/shared';
 import { useTemplates } from '../hooks/useTemplates.js';
 import { TemplateCard } from '../components/TemplateCard.js';
+import { SkeletonCard } from '../components/SkeletonCard.js';
 
 type StatusFilter = TemplateStatus | 'all';
 type SortBy = 'updated' | 'name' | 'oldest';
@@ -85,10 +78,24 @@ export function TemplateListPage() {
 
   const currentSortLabel = SORT_OPTIONS.find((o) => o.value === sortBy)?.label ?? 'Recently edited';
 
+  const hasActiveFilters =
+    debouncedSearch !== '' || statusFilter !== 'all' || categoryFilter !== null;
+
   if (isLoading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}>
-        <CircularProgress />
+      <Box sx={{ maxWidth: '1120px', mx: 'auto', px: '32px', pt: '24px' }}>
+        <Box
+          data-testid="skeleton-grid"
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+            gap: '16px',
+          }}
+        >
+          {Array.from({ length: 6 }, (_, i) => (
+            <SkeletonCard key={i} />
+          ))}
+        </Box>
       </Box>
     );
   }
@@ -308,56 +315,116 @@ export function TemplateListPage() {
 
       {/* Content: card grid or empty state */}
       {templates.length === 0 ? (
-        <Box
-          sx={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            mt: 8,
-            gap: 1,
-          }}
-        >
-          <DescriptionOutlinedIcon sx={{ fontSize: 48, color: '#9B9DB0' }} />
-          <Typography
+        hasActiveFilters ? (
+          <Box
             sx={{
-              fontFamily: '"Source Serif 4", Georgia, serif',
-              fontSize: '1.5rem',
-              lineHeight: '2rem',
-              fontWeight: 600,
-              color: '#12111A',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              mt: 8,
+              gap: 1,
             }}
           >
-            No templates yet
-          </Typography>
-          <Typography
+            <SearchOffIcon sx={{ fontSize: 48, color: '#9B9DB0' }} />
+            <Typography
+              sx={{
+                fontFamily: '"Source Serif 4", Georgia, serif',
+                fontSize: '1.5rem',
+                lineHeight: '2rem',
+                fontWeight: 600,
+                color: '#12111A',
+              }}
+            >
+              No templates match your filters
+            </Typography>
+            <Typography
+              sx={{
+                fontFamily: '"DM Sans", sans-serif',
+                fontSize: '0.875rem',
+                lineHeight: '1.5rem',
+                color: '#6B6D82',
+              }}
+            >
+              Try adjusting your search or filters.
+            </Typography>
+            <Button
+              variant="outlined"
+              onClick={() => {
+                setSearchInput('');
+                setDebouncedSearch('');
+                setStatusFilter('all');
+                setCategoryFilter(null);
+              }}
+              sx={{
+                mt: 1,
+                borderColor: '#8027FF',
+                color: '#8027FF',
+                borderRadius: '10px',
+                fontFamily: '"DM Sans", sans-serif',
+                fontWeight: 600,
+                textTransform: 'none',
+                '&:hover': {
+                  borderColor: '#6B1FDB',
+                  backgroundColor: 'rgba(128, 39, 255, 0.04)',
+                },
+              }}
+            >
+              Clear filters
+            </Button>
+          </Box>
+        ) : (
+          <Box
             sx={{
-              fontFamily: '"DM Sans", sans-serif',
-              fontSize: '0.875rem',
-              lineHeight: '1.5rem',
-              color: '#6B6D82',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              mt: 8,
+              gap: 1,
             }}
           >
-            Create your first template to get started.
-          </Typography>
-          <Button
-            variant="contained"
-            onClick={() => {
-              void navigate('/templates/new');
-            }}
-            sx={{
-              mt: 1,
-              backgroundColor: '#8027FF',
-              borderRadius: '10px',
-              fontFamily: '"DM Sans", sans-serif',
-              fontWeight: 600,
-              textTransform: 'none',
-              '&:hover': { backgroundColor: '#6B1FDB' },
-            }}
-          >
-            Create template
-          </Button>
-        </Box>
+            <DescriptionOutlinedIcon sx={{ fontSize: 48, color: '#9B9DB0' }} />
+            <Typography
+              sx={{
+                fontFamily: '"Source Serif 4", Georgia, serif',
+                fontSize: '1.5rem',
+                lineHeight: '2rem',
+                fontWeight: 600,
+                color: '#12111A',
+              }}
+            >
+              No templates yet
+            </Typography>
+            <Typography
+              sx={{
+                fontFamily: '"DM Sans", sans-serif',
+                fontSize: '0.875rem',
+                lineHeight: '1.5rem',
+                color: '#6B6D82',
+              }}
+            >
+              Create your first template to get started.
+            </Typography>
+            <Button
+              variant="contained"
+              onClick={() => {
+                void navigate('/templates/new');
+              }}
+              sx={{
+                mt: 1,
+                backgroundColor: '#8027FF',
+                borderRadius: '10px',
+                fontFamily: '"DM Sans", sans-serif',
+                fontWeight: 600,
+                textTransform: 'none',
+                '&:hover': { backgroundColor: '#6B1FDB' },
+              }}
+            >
+              Create template
+            </Button>
+          </Box>
+        )
       ) : (
         <Box
           data-testid="card-grid"
