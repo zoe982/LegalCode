@@ -19,6 +19,7 @@ interface PageTransitionProps {
 export function PageTransition({ children }: PageTransitionProps) {
   return (
     <Box
+      data-testid="page-transition"
       sx={{
         animation: `${pageIn} 200ms cubic-bezier(0.2, 0, 0, 1) both`,
         '@media (prefers-reduced-motion: reduce)': {

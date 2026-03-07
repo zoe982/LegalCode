@@ -220,4 +220,36 @@ describe('EditorToolbar', () => {
     await user.click(screen.getByRole('button', { name: 'Bold' }));
     // Should not throw
   });
+
+  it('mode toggle has a sliding indicator element', () => {
+    renderToolbar({ mode: 'source' });
+    const indicator = screen.getByTestId('mode-toggle-indicator');
+    expect(indicator).toBeInTheDocument();
+  });
+
+  it('sliding indicator is positioned at source (left) when mode is source', () => {
+    renderToolbar({ mode: 'source' });
+    const indicator = screen.getByTestId('mode-toggle-indicator');
+    const styles = window.getComputedStyle(indicator);
+    expect(styles.transform).toContain('translateX(0');
+  });
+
+  it('sliding indicator moves to review (right) when mode is review', () => {
+    renderToolbar({ mode: 'review' });
+    const indicator = screen.getByTestId('mode-toggle-indicator');
+    const styles = window.getComputedStyle(indicator);
+    expect(styles.transform).toContain('translateX(100%');
+  });
+
+  it('clicking mode toggles the slider position', async () => {
+    const user = userEvent.setup();
+    const onModeChange = vi.fn();
+    renderToolbar({ mode: 'source', onModeChange });
+    // Initially at source
+    const indicator = screen.getByTestId('mode-toggle-indicator');
+    expect(indicator).toBeInTheDocument();
+    // Click review
+    await user.click(screen.getByRole('button', { name: 'Review' }));
+    expect(onModeChange).toHaveBeenCalledWith('review');
+  });
 });

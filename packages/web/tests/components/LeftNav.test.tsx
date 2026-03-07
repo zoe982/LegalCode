@@ -139,4 +139,28 @@ describe('LeftNav', () => {
     await user.unhover(templatesLink);
     expect(templatesLink.style.backgroundColor).toBe('transparent');
   });
+
+  it('renders divider between New Template button and navigation items', () => {
+    renderLeftNav();
+    const dividers = screen.getAllByTestId('left-nav-divider');
+    expect(dividers.length).toBeGreaterThanOrEqual(2);
+    expect(dividers[0]).toBeInTheDocument();
+  });
+
+  it('renders divider between navigation items and footer', () => {
+    renderLeftNav();
+    const dividers = screen.getAllByTestId('left-nav-divider');
+    expect(dividers.length).toBeGreaterThanOrEqual(2);
+    expect(dividers[1]).toBeInTheDocument();
+  });
+
+  it('renders dividers with correct border style', () => {
+    renderLeftNav();
+    const dividers = screen.getAllByTestId('left-nav-divider');
+    for (const divider of dividers) {
+      const styles = window.getComputedStyle(divider);
+      expect(styles.borderTopWidth).toBe('1px');
+      expect(styles.borderTopStyle).toBe('solid');
+    }
+  });
 });

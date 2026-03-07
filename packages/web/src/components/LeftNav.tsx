@@ -119,6 +119,7 @@ export function LeftNav({ user, onLogout }: LeftNavProps) {
       {/* Divider between New Template and nav items */}
       <Box
         component="hr"
+        data-testid="left-nav-divider"
         sx={{
           border: 'none',
           borderTop: '1px solid #5E3D7A',
@@ -162,6 +163,7 @@ export function LeftNav({ user, onLogout }: LeftNavProps) {
       {/* Divider between nav items and footer */}
       <Box
         component="hr"
+        data-testid="left-nav-divider"
         sx={{
           border: 'none',
           borderTop: '1px solid #5E3D7A',

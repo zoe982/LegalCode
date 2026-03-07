@@ -5,35 +5,29 @@ const context = await browser.newContext();
 const page = await context.newPage();
 await page.goto('https://legalcode.ax1access.com');
 
-// Wait for the user to log in — poll for an auth cookie or the app shell
-console.log('>>> Waiting for login (up to 120s)...');
-try {
-  await page.waitForURL('**/templates**', { timeout: 120_000 }).catch(() => {});
-  // Give a moment for all cookies to settle
-  await page.waitForTimeout(3000);
-} catch {
-  // timeout is fine, save whatever state we have
-}
+console.log('>>> Browser open. Log in now...');
+// Wait for the app shell to appear (authenticated state)
+await page.waitForSelector('text=Templates', { timeout: 120_000 });
+await page.waitForTimeout(3000);
 
 await context.storageState({ path: '/tmp/legalcode-auth.json' });
-console.log('>>> Auth state saved!');
+console.log('>>> Auth saved! Taking screenshots...');
 
-// Now take screenshots of key pages
-const pages = [
+const urls = [
   ['https://legalcode.ax1access.com', '/tmp/lc-home.png'],
-  ['https://legalcode.ax1access.com/templates', '/tmp/lc-templates.png'],
   ['https://legalcode.ax1access.com/admin', '/tmp/lc-admin.png'],
   ['https://legalcode.ax1access.com/settings', '/tmp/lc-settings.png'],
 ];
 
-for (const [url, path] of pages) {
+for (const [url, path] of urls) {
   try {
-    await page.goto(url, { waitUntil: 'networkidle', timeout: 15000 });
-    await page.waitForTimeout(1000);
+    await page.goto(url, { waitUntil: 'networkidle', timeout: 20000 });
+    await page.waitForTimeout(2000);
     await page.screenshot({ path, fullPage: true });
     console.log(`>>> Captured ${path}`);
   } catch (e) {
-    console.log(`>>> Failed ${url}: ${e.message}`);
+    await page.screenshot({ path, fullPage: true });
+    console.log(`>>> Captured ${path} (with timeout warning)`);
   }
 }
 

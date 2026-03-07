@@ -67,6 +67,12 @@ describe('AppShell', () => {
     expect(screen.getByText('Settings Page')).toBeInTheDocument();
   });
 
+  it('wraps outlet content in PageTransition', () => {
+    renderShell('/templates');
+    expect(screen.getByTestId('page-transition')).toBeInTheDocument();
+    expect(screen.getByText('Template List')).toBeInTheDocument();
+  });
+
   it('returns null when user is not present', () => {
     mockUseAuth.mockReturnValueOnce({
       user: null,
