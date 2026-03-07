@@ -37,6 +37,7 @@ export default defineConfig({
           /^\/admin\//,
           /^\/templates\//,
           /^\/collaborate\//,
+          /^\/errors\//,
           /^\/health/,
         ],
         runtimeCaching: [

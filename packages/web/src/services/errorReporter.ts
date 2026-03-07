@@ -2,14 +2,17 @@ import type { ReportErrorInput } from '@legalcode/shared';
 
 export async function reportError(report: ReportErrorInput): Promise<void> {
   try {
-    await fetch('/admin/errors', {
+    const response = await fetch('/errors/report', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
       body: JSON.stringify(report),
     });
+    if (!response.ok) {
+      console.warn('Error reporting failed:', response.status);
+    }
   } catch {
-    // Silently ignore reporting failures
+    // Silently ignore network failures
   }
 }
 

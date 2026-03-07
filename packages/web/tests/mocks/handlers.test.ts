@@ -15,9 +15,10 @@ describe('MSW handlers', () => {
     expect(paths).toContain('/auth/refresh');
   });
 
-  it('includes admin error handlers', () => {
+  it('includes error handlers', () => {
     const paths = handlers.map((h) => h.info.path);
     expect(paths).toContain('/admin/errors');
+    expect(paths).toContain('/errors/report');
   });
 
   it('includes template handlers', () => {

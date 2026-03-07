@@ -156,7 +156,7 @@ export const handlers = [
   http.get('/admin/errors', () => {
     return HttpResponse.json({ errors: [] });
   }),
-  http.post('/admin/errors', () => {
+  http.post('/errors/report', () => {
     return HttpResponse.json({ ok: true });
   }),
 

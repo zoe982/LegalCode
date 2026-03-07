@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import * as Y from 'yjs';
 import { Awareness } from 'y-protocols/awareness';
 import { IndexeddbPersistence } from 'y-indexeddb';
+import { reportError } from '../services/errorReporter.js';
 
 export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'reconnecting';
 
@@ -112,6 +113,13 @@ export function useCollaboration(
       const attempt = reconnectAttemptRef.current;
       if (attempt >= RECONNECT_DELAYS.length) {
         setStatus('disconnected');
+        void reportError({
+          source: 'websocket',
+          severity: 'warning',
+          message: 'WebSocket disconnected permanently',
+          metadata: JSON.stringify({ templateId }),
+          url: window.location.href,
+        });
         return;
       }
       const delay = RECONNECT_DELAYS[attempt] ?? 16000;

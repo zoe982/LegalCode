@@ -26,12 +26,10 @@ vi.mock('../../src/db/index.js', () => ({
   }),
 }));
 
-const mockLogError = vi.fn().mockResolvedValue({ errorId: 'err-123' });
 const mockListErrors = vi.fn().mockResolvedValue([]);
 const mockResolveError = vi.fn().mockResolvedValue(true);
 
 vi.mock('../../src/services/error-log.js', () => ({
-  logError: (...args: unknown[]) => mockLogError(...args) as unknown,
   listErrors: (...args: unknown[]) => mockListErrors(...args) as unknown,
   resolveError: (...args: unknown[]) => mockResolveError(...args) as unknown,
 }));
@@ -255,79 +253,6 @@ describe('DELETE /admin/users/:id', () => {
     const res = await app.request('/admin/users/user-456', {
       method: 'DELETE',
       headers: { Cookie: `__Host-auth=${token}` },
-    });
-    expect(res.status).toBe(403);
-  });
-});
-
-describe('POST /admin/errors', () => {
-  it('returns 200 with errorId for valid error report', async () => {
-    const app = await importAndCreateApp();
-    const token = await adminToken();
-    const res = await app.request('/admin/errors', {
-      method: 'POST',
-      headers: {
-        Cookie: `__Host-auth=${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        source: 'frontend',
-        message: 'Test error',
-        stack: 'Error at line 1',
-      }),
-    });
-    expect(res.status).toBe(200);
-    const body: { ok: boolean; errorId: string } = await res.json();
-    expect(body.ok).toBe(true);
-    expect(body.errorId).toBe('err-123');
-    expect(mockLogError).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.objectContaining({
-        source: 'frontend',
-        message: 'Test error',
-        userId: 'admin-1',
-      }),
-    );
-  });
-
-  it('returns 400 for invalid input (missing source)', async () => {
-    const app = await importAndCreateApp();
-    const token = await adminToken();
-    const res = await app.request('/admin/errors', {
-      method: 'POST',
-      headers: {
-        Cookie: `__Host-auth=${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ message: 'error without source' }),
-    });
-    expect(res.status).toBe(400);
-  });
-
-  it('returns 400 for invalid input (missing message)', async () => {
-    const app = await importAndCreateApp();
-    const token = await adminToken();
-    const res = await app.request('/admin/errors', {
-      method: 'POST',
-      headers: {
-        Cookie: `__Host-auth=${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ source: 'frontend' }),
-    });
-    expect(res.status).toBe(400);
-  });
-
-  it('returns 403 for non-admin', async () => {
-    const app = await importAndCreateApp();
-    const token = await viewerToken();
-    const res = await app.request('/admin/errors', {
-      method: 'POST',
-      headers: {
-        Cookie: `__Host-auth=${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ source: 'frontend', message: 'error' }),
     });
     expect(res.status).toBe(403);
   });

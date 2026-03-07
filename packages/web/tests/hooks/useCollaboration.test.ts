@@ -77,7 +77,12 @@ function wsRef(): MockWebSocket {
 vi.stubGlobal('WebSocket', MockWebSocket);
 
 // Mock location
-vi.stubGlobal('location', { protocol: 'https:', host: 'example.com' });
+vi.stubGlobal('location', { protocol: 'https:', host: 'example.com', href: 'https://example.com' });
+
+const mockReportError = vi.fn();
+vi.mock('../../src/services/errorReporter.js', () => ({
+  reportError: (...args: unknown[]) => mockReportError(...args) as unknown,
+}));
 
 // Import after mocks
 const { useCollaboration } = await import('../../src/hooks/useCollaboration.js');
@@ -267,7 +272,11 @@ describe('useCollaboration', () => {
   });
 
   it('uses ws: protocol when location is http:', async () => {
-    vi.stubGlobal('location', { protocol: 'http:', host: 'localhost:3000' });
+    vi.stubGlobal('location', {
+      protocol: 'http:',
+      host: 'localhost:3000',
+      href: 'http://localhost:3000',
+    });
     vi.useFakeTimers();
     renderHook(() => useCollaboration('tmpl-1', testUser));
 
@@ -277,7 +286,11 @@ describe('useCollaboration', () => {
 
     expect(wsRef().url).toBe('ws://localhost:3000/collaborate/tmpl-1');
     // Restore https for other tests
-    vi.stubGlobal('location', { protocol: 'https:', host: 'example.com' });
+    vi.stubGlobal('location', {
+      protocol: 'https:',
+      host: 'example.com',
+      href: 'https://example.com',
+    });
   });
 
   it('transitions to disconnected after exhausting all reconnect attempts', async () => {
@@ -527,5 +540,106 @@ describe('useCollaboration', () => {
     });
 
     expect(onCommentEvent).not.toHaveBeenCalled();
+  });
+
+  it('reports error when reconnection exhausts all attempts', async () => {
+    vi.useFakeTimers();
+
+    let shouldAutoOpen = true;
+    const OriginalMockWebSocket = MockWebSocket;
+
+    vi.stubGlobal(
+      'WebSocket',
+      class NoAutoOpenWebSocket {
+        static CONNECTING = 0;
+        static OPEN = 1;
+        static CLOSING = 2;
+        static CLOSED = 3;
+        readyState = 0;
+        onopen: (() => void) | null = null;
+        onclose: (() => void) | null = null;
+        onmessage: ((e: { data: unknown }) => void) | null = null;
+        onerror: (() => void) | null = null;
+        binaryType = 'blob';
+        send = vi.fn();
+        close = vi.fn();
+        url: string;
+        constructor(url: string) {
+          this.url = url;
+          wsInstances.push(this as unknown as MockWebSocket);
+          if (shouldAutoOpen) {
+            setTimeout(() => {
+              this.readyState = 1;
+              this.onopen?.();
+            }, 0);
+          }
+        }
+      },
+    );
+
+    const { result } = renderHook(() => useCollaboration('tmpl-1', testUser));
+
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+    expect(result.current.status).toBe('connected');
+
+    shouldAutoOpen = false;
+
+    act(() => {
+      wsRef().onclose?.();
+    });
+
+    const delays = [1000, 2000, 4000, 8000, 16000];
+    for (const delay of delays) {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(delay);
+      });
+      act(() => {
+        const ws = wsRef();
+        ws.readyState = 3;
+        ws.onclose?.();
+      });
+    }
+
+    expect(result.current.status).toBe('disconnected');
+    expect(mockReportError).toHaveBeenCalledWith({
+      source: 'websocket',
+      severity: 'warning',
+      message: 'WebSocket disconnected permanently',
+      metadata: JSON.stringify({ templateId: 'tmpl-1' }),
+      url: 'https://example.com',
+    });
+
+    vi.stubGlobal('WebSocket', OriginalMockWebSocket);
+  });
+
+  it('does not report error on normal close/reconnect cycle', async () => {
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useCollaboration('tmpl-1', testUser));
+
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+    expect(result.current.status).toBe('connected');
+
+    // Close and reconnect successfully
+    act(() => {
+      wsRef().onclose?.();
+    });
+    expect(result.current.status).toBe('reconnecting');
+
+    // Advance past first reconnect delay
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+
+    // New WS opens
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+    expect(result.current.status).toBe('connected');
+
+    expect(mockReportError).not.toHaveBeenCalled();
   });
 });

@@ -37,13 +37,13 @@ describe('errorReporter', () => {
   });
 
   describe('reportError', () => {
-    it('POSTs to /admin/errors with credentials include', async () => {
+    it('POSTs to /errors/report with credentials include', async () => {
       await reportError({
         source: 'frontend',
         message: 'Test error',
       });
 
-      expect(fetchSpy).toHaveBeenCalledWith('/admin/errors', {
+      expect(fetchSpy).toHaveBeenCalledWith('/errors/report', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -65,7 +65,7 @@ describe('errorReporter', () => {
       });
 
       expect(fetchSpy).toHaveBeenCalledWith(
-        '/admin/errors',
+        '/errors/report',
         expect.objectContaining({
           body: JSON.stringify({
             source: 'functional',
@@ -77,6 +77,16 @@ describe('errorReporter', () => {
           }),
         }),
       );
+    });
+
+    it('warns on non-ok response', async () => {
+      fetchSpy.mockResolvedValue(new Response('Forbidden', { status: 403 }));
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+      await reportError({ source: 'frontend', message: 'Test' });
+
+      expect(warnSpy).toHaveBeenCalledWith('Error reporting failed:', 403);
+      warnSpy.mockRestore();
     });
 
     it('silently catches fetch failures', async () => {
@@ -122,7 +132,7 @@ describe('errorReporter', () => {
       window.dispatchEvent(errorEvent);
 
       expect(fetchSpy).toHaveBeenCalledWith(
-        '/admin/errors',
+        '/errors/report',
         expect.objectContaining({
           method: 'POST',
         }),
@@ -146,7 +156,7 @@ describe('errorReporter', () => {
       window.dispatchEvent(rejectionEvent);
 
       expect(fetchSpy).toHaveBeenCalledWith(
-        '/admin/errors',
+        '/errors/report',
         expect.objectContaining({
           method: 'POST',
         }),

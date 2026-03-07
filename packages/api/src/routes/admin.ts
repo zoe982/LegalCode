@@ -3,11 +3,10 @@ import type { AppEnv } from '../types/env.js';
 import { authMiddleware, requireRole } from '../middleware/auth.js';
 import { getDb } from '../db/index.js';
 import { listAllUsers, createUser, updateUserRole, deactivateUser } from '../services/user.js';
-import { logError, listErrors, resolveError } from '../services/error-log.js';
+import { listErrors, resolveError } from '../services/error-log.js';
 import {
   createUserSchema,
   updateUserRoleSchema,
-  reportErrorSchema,
   errorQuerySchema,
   addAllowedEmailSchema,
 } from '@legalcode/shared';
@@ -52,19 +51,6 @@ adminRoutes.delete('/users/:id', async (c) => {
   const db = getDb(c.env.DB);
   await deactivateUser(db, id);
   return c.json({ ok: true });
-});
-
-adminRoutes.post('/errors', async (c) => {
-  const body: unknown = await c.req.json();
-  const result = reportErrorSchema.safeParse(body);
-  if (!result.success) {
-    return c.json({ error: 'Invalid input', details: result.error.flatten() }, 400);
-  }
-  const { errorId } = await logError(c.env.DB, {
-    ...result.data,
-    userId: c.get('user').id,
-  });
-  return c.json({ ok: true, errorId });
 });
 
 adminRoutes.get('/errors', async (c) => {

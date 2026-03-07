@@ -57,6 +57,14 @@ describe('templateService', () => {
 
       await expect(templateService.list({})).rejects.toThrow('Failed to fetch templates');
     });
+
+    it('includes API error message in thrown error', async () => {
+      vi.mocked(fetch).mockResolvedValue(
+        new Response(JSON.stringify({ error: 'Rate limit exceeded' }), { status: 429 }),
+      );
+
+      await expect(templateService.list({})).rejects.toThrow('Rate limit exceeded');
+    });
   });
 
   describe('get', () => {
@@ -90,6 +98,14 @@ describe('templateService', () => {
       vi.mocked(fetch).mockResolvedValue(new Response('Not Found', { status: 404 }));
 
       await expect(templateService.get('tpl-999')).rejects.toThrow('Failed to fetch template');
+    });
+
+    it('includes API error message in thrown error', async () => {
+      vi.mocked(fetch).mockResolvedValue(
+        new Response(JSON.stringify({ error: 'Access denied' }), { status: 403 }),
+      );
+
+      await expect(templateService.get('tpl-1')).rejects.toThrow('Access denied');
     });
   });
 
@@ -135,6 +151,50 @@ describe('templateService', () => {
         }),
       ).rejects.toThrow('Failed to create template');
     });
+
+    it('includes API error message in thrown error', async () => {
+      vi.mocked(fetch).mockResolvedValue(
+        new Response(JSON.stringify({ error: 'Title already exists' }), { status: 400 }),
+      );
+
+      await expect(
+        templateService.create({ title: 'Dup', category: 'contracts', content: '' }),
+      ).rejects.toThrow('Title already exists');
+    });
+
+    it('includes validation details in thrown error', async () => {
+      vi.mocked(fetch).mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            error: 'Invalid input',
+            details: { fieldErrors: { title: ['Required'] } },
+          }),
+          { status: 400 },
+        ),
+      );
+
+      await expect(
+        templateService.create({ title: '', category: 'contracts', content: '' }),
+      ).rejects.toThrow('Invalid input');
+    });
+
+    it('throws fallback message when response body is not JSON', async () => {
+      vi.mocked(fetch).mockResolvedValue(new Response('Server Error', { status: 500 }));
+
+      await expect(
+        templateService.create({ title: 'X', category: 'contracts', content: '' }),
+      ).rejects.toThrow('Failed to create template');
+    });
+
+    it('throws fallback message when response JSON has no error field', async () => {
+      vi.mocked(fetch).mockResolvedValue(
+        new Response(JSON.stringify({ ok: false }), { status: 400 }),
+      );
+
+      await expect(
+        templateService.create({ title: 'X', category: 'contracts', content: '' }),
+      ).rejects.toThrow('Failed to create template');
+    });
   });
 
   describe('update', () => {
@@ -175,6 +235,16 @@ describe('templateService', () => {
         'Failed to update template',
       );
     });
+
+    it('includes API error message in thrown error', async () => {
+      vi.mocked(fetch).mockResolvedValue(
+        new Response(JSON.stringify({ error: 'Template not found' }), { status: 404 }),
+      );
+
+      await expect(templateService.update('tpl-999', { title: 'X' })).rejects.toThrow(
+        'Template not found',
+      );
+    });
   });
 
   describe('publish', () => {
@@ -210,6 +280,14 @@ describe('templateService', () => {
 
       await expect(templateService.publish('tpl-1')).rejects.toThrow('Failed to publish template');
     });
+
+    it('includes API error message in thrown error', async () => {
+      vi.mocked(fetch).mockResolvedValue(
+        new Response(JSON.stringify({ error: 'Cannot publish draft' }), { status: 400 }),
+      );
+
+      await expect(templateService.publish('tpl-1')).rejects.toThrow('Cannot publish draft');
+    });
   });
 
   describe('archive', () => {
@@ -244,6 +322,14 @@ describe('templateService', () => {
       vi.mocked(fetch).mockResolvedValue(new Response('Forbidden', { status: 403 }));
 
       await expect(templateService.archive('tpl-1')).rejects.toThrow('Failed to archive template');
+    });
+
+    it('includes API error message in thrown error', async () => {
+      vi.mocked(fetch).mockResolvedValue(
+        new Response(JSON.stringify({ error: 'Already archived' }), { status: 400 }),
+      );
+
+      await expect(templateService.archive('tpl-1')).rejects.toThrow('Already archived');
     });
   });
 
@@ -282,6 +368,14 @@ describe('templateService', () => {
         'Failed to unarchive template',
       );
     });
+
+    it('includes API error message in thrown error', async () => {
+      vi.mocked(fetch).mockResolvedValue(
+        new Response(JSON.stringify({ error: 'Not archived' }), { status: 400 }),
+      );
+
+      await expect(templateService.unarchive('tpl-1')).rejects.toThrow('Not archived');
+    });
   });
 
   describe('getVersions', () => {
@@ -318,6 +412,14 @@ describe('templateService', () => {
         'Failed to fetch template versions',
       );
     });
+
+    it('includes API error message in thrown error', async () => {
+      vi.mocked(fetch).mockResolvedValue(
+        new Response(JSON.stringify({ error: 'Template not found' }), { status: 404 }),
+      );
+
+      await expect(templateService.getVersions('tpl-1')).rejects.toThrow('Template not found');
+    });
   });
 
   describe('getVersion', () => {
@@ -351,6 +453,14 @@ describe('templateService', () => {
       await expect(templateService.getVersion('tpl-1', 99)).rejects.toThrow(
         'Failed to fetch template version',
       );
+    });
+
+    it('includes API error message in thrown error', async () => {
+      vi.mocked(fetch).mockResolvedValue(
+        new Response(JSON.stringify({ error: 'Version not found' }), { status: 404 }),
+      );
+
+      await expect(templateService.getVersion('tpl-1', 99)).rejects.toThrow('Version not found');
     });
   });
 
@@ -417,6 +527,14 @@ describe('templateService', () => {
       await expect(templateService.download('tpl-1')).rejects.toThrow(
         'Failed to download template',
       );
+    });
+
+    it('includes API error message in thrown error', async () => {
+      vi.mocked(fetch).mockResolvedValue(
+        new Response(JSON.stringify({ error: 'Download not available' }), { status: 403 }),
+      );
+
+      await expect(templateService.download('tpl-1')).rejects.toThrow('Download not available');
     });
   });
 });

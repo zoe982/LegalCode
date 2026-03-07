@@ -35,6 +35,20 @@ function extractFilename(response: Response): string {
   return 'template.md';
 }
 
+async function extractApiError(response: Response, fallback: string): Promise<never> {
+  let body: { error?: string; details?: unknown } | undefined;
+  try {
+    body = (await response.json()) as { error?: string; details?: unknown };
+  } catch {
+    // Response body is not JSON — use fallback
+  }
+  if (body?.error) {
+    const detailSuffix = body.details ? ` (${JSON.stringify(body.details)})` : '';
+    throw new Error(`${body.error}${detailSuffix}`);
+  }
+  throw new Error(fallback);
+}
+
 export const templateService = {
   async list(params: TemplateListParams): Promise<TemplateListResponse> {
     const searchParams = new URLSearchParams();
@@ -51,7 +65,7 @@ export const templateService = {
       credentials: 'include',
     });
     if (!response.ok) {
-      throw new Error('Failed to fetch templates');
+      return extractApiError(response, 'Failed to fetch templates');
     }
     return (await response.json()) as TemplateListResponse;
   },
@@ -61,7 +75,7 @@ export const templateService = {
       credentials: 'include',
     });
     if (!response.ok) {
-      throw new Error('Failed to fetch template');
+      return extractApiError(response, 'Failed to fetch template');
     }
     return (await response.json()) as Template;
   },
@@ -74,7 +88,7 @@ export const templateService = {
       credentials: 'include',
     });
     if (!response.ok) {
-      throw new Error('Failed to create template');
+      return extractApiError(response, 'Failed to create template');
     }
     return (await response.json()) as { template: Template; tags: string[] };
   },
@@ -87,7 +101,7 @@ export const templateService = {
       credentials: 'include',
     });
     if (!response.ok) {
-      throw new Error('Failed to update template');
+      return extractApiError(response, 'Failed to update template');
     }
     return (await response.json()) as Template;
   },
@@ -98,7 +112,7 @@ export const templateService = {
       credentials: 'include',
     });
     if (!response.ok) {
-      throw new Error('Failed to publish template');
+      return extractApiError(response, 'Failed to publish template');
     }
     return (await response.json()) as Template;
   },
@@ -109,7 +123,7 @@ export const templateService = {
       credentials: 'include',
     });
     if (!response.ok) {
-      throw new Error('Failed to archive template');
+      return extractApiError(response, 'Failed to archive template');
     }
     return (await response.json()) as Template;
   },
@@ -120,7 +134,7 @@ export const templateService = {
       credentials: 'include',
     });
     if (!response.ok) {
-      throw new Error('Failed to unarchive template');
+      return extractApiError(response, 'Failed to unarchive template');
     }
     return (await response.json()) as Template;
   },
@@ -130,7 +144,7 @@ export const templateService = {
       credentials: 'include',
     });
     if (!response.ok) {
-      throw new Error('Failed to fetch template versions');
+      return extractApiError(response, 'Failed to fetch template versions');
     }
     const data = (await response.json()) as { versions: TemplateVersion[] };
     return data.versions;
@@ -141,7 +155,7 @@ export const templateService = {
       credentials: 'include',
     });
     if (!response.ok) {
-      throw new Error('Failed to fetch template version');
+      return extractApiError(response, 'Failed to fetch template version');
     }
     const data = (await response.json()) as { version: TemplateVersion };
     return data.version;
@@ -152,7 +166,7 @@ export const templateService = {
       credentials: 'include',
     });
     if (!response.ok) {
-      throw new Error('Failed to download template');
+      return extractApiError(response, 'Failed to download template');
     }
     const blob = await response.blob();
     const url = URL.createObjectURL(blob);
