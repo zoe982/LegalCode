@@ -1,7 +1,5 @@
 import { Box, Button, IconButton, Typography } from '@mui/material';
 import TitleOutlined from '@mui/icons-material/TitleOutlined';
-import FormatBoldOutlined from '@mui/icons-material/FormatBoldOutlined';
-import FormatItalicOutlined from '@mui/icons-material/FormatItalicOutlined';
 import InsertLinkOutlined from '@mui/icons-material/InsertLinkOutlined';
 import FormatListBulletedOutlined from '@mui/icons-material/FormatListBulletedOutlined';
 import TableChartOutlined from '@mui/icons-material/TableChartOutlined';
@@ -23,20 +21,27 @@ interface EditorToolbarProps {
 
 const modeButtonStyle = {
   backgroundColor: 'transparent',
-  borderRadius: '8px',
+  borderRadius: '6px',
   fontSize: '0.8125rem',
-  fontWeight: 600,
+  fontFamily: '"DM Sans", sans-serif',
   position: 'relative' as const,
   zIndex: 1,
+  padding: '6px 16px',
+  minWidth: 'auto',
+  textTransform: 'none' as const,
   '&:hover': {
     backgroundColor: 'transparent',
   },
 } as const;
 
 const helperButtonStyle = {
-  color: '#6B5A7A',
+  width: '32px',
+  height: '32px',
+  color: 'var(--text-secondary)',
+  borderRadius: '6px',
   '&:hover': {
-    color: '#451F61',
+    backgroundColor: 'var(--surface-tertiary)',
+    color: 'var(--text-primary)',
   },
 } as const;
 
@@ -58,20 +63,20 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
         alignItems: 'center',
         justifyContent: 'space-between',
         px: 2,
-        py: 1,
-        backgroundColor: '#F7F0E6',
-        borderBottom: '1px solid',
-        borderColor: '#D4C5B3',
+        height: '44px',
+        backgroundColor: 'var(--surface-primary)',
+        borderBottom: '1px solid var(--border-primary)',
       }}
     >
       {/* Left: Mode toggle */}
       <Box
         sx={{
-          backgroundColor: '#E6D9C6',
-          borderRadius: '10px',
-          padding: '2px',
+          backgroundColor: 'var(--surface-tertiary)',
+          borderRadius: '8px',
+          padding: '3px',
           display: 'inline-flex',
           position: 'relative',
+          border: '1px solid var(--border-primary)',
         }}
       >
         {/* Sliding pill indicator */}
@@ -79,11 +84,12 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
           data-testid="mode-toggle-indicator"
           sx={{
             position: 'absolute',
-            top: '2px',
-            bottom: '2px',
+            top: '3px',
+            bottom: '3px',
             width: '50%',
-            backgroundColor: '#8027FF',
-            borderRadius: '8px',
+            backgroundColor: '#FFFFFF',
+            borderRadius: '6px',
+            boxShadow: 'var(--shadow-xs)',
             transition: 'transform cubic-bezier(0.2, 0, 0, 1) 200ms',
           }}
           style={{
@@ -94,7 +100,8 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
           size="small"
           sx={{
             ...modeButtonStyle,
-            color: mode === 'source' ? '#fff' : '#451F61',
+            color: mode === 'source' ? 'var(--text-primary)' : 'var(--text-secondary)',
+            fontWeight: mode === 'source' ? 600 : 500,
           }}
           onClick={() => {
             onModeChange('source');
@@ -106,7 +113,8 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
           size="small"
           sx={{
             ...modeButtonStyle,
-            color: mode === 'review' ? '#fff' : '#451F61',
+            color: mode === 'review' ? 'var(--text-primary)' : 'var(--text-secondary)',
+            fontWeight: mode === 'review' ? 600 : 500,
           }}
           onClick={() => {
             onModeChange('review');
@@ -116,7 +124,7 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
         </Button>
       </Box>
 
-      {/* Center: Markdown helper buttons */}
+      {/* Center: Markdown helper buttons — Bold/Italic removed in v3 */}
       {showMarkdownHelpers && (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
           <IconButton
@@ -126,25 +134,7 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
               onInsertMarkdown?.('## ', '');
             }}
           >
-            <TitleOutlined />
-          </IconButton>
-          <IconButton
-            aria-label="Bold"
-            sx={helperButtonStyle}
-            onClick={() => {
-              onInsertMarkdown?.('**', '**');
-            }}
-          >
-            <FormatBoldOutlined />
-          </IconButton>
-          <IconButton
-            aria-label="Italic"
-            sx={helperButtonStyle}
-            onClick={() => {
-              onInsertMarkdown?.('*', '*');
-            }}
-          >
-            <FormatItalicOutlined />
+            <TitleOutlined sx={{ fontSize: '20px' }} />
           </IconButton>
           <IconButton
             aria-label="Link"
@@ -153,16 +143,7 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
               onInsertMarkdown?.('[', '](url)');
             }}
           >
-            <InsertLinkOutlined />
-          </IconButton>
-          <IconButton
-            aria-label="List"
-            sx={helperButtonStyle}
-            onClick={() => {
-              onInsertMarkdown?.('- ', '');
-            }}
-          >
-            <FormatListBulletedOutlined />
+            <InsertLinkOutlined sx={{ fontSize: '20px' }} />
           </IconButton>
           <IconButton
             aria-label="Ordered List"
@@ -171,7 +152,16 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
               onInsertMarkdown?.('1. ', '');
             }}
           >
-            <FormatListNumberedOutlined />
+            <FormatListNumberedOutlined sx={{ fontSize: '20px' }} />
+          </IconButton>
+          <IconButton
+            aria-label="List"
+            sx={helperButtonStyle}
+            onClick={() => {
+              onInsertMarkdown?.('- ', '');
+            }}
+          >
+            <FormatListBulletedOutlined sx={{ fontSize: '20px' }} />
           </IconButton>
           <IconButton
             aria-label="Table"
@@ -180,7 +170,7 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
               onInsertMarkdown?.('| Header | Header |\n| --- | --- |\n| Cell | Cell |', '');
             }}
           >
-            <TableChartOutlined />
+            <TableChartOutlined sx={{ fontSize: '20px' }} />
           </IconButton>
           <IconButton
             aria-label="Clause Reference"
@@ -189,7 +179,7 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
               onInsertMarkdown?.('{{clause:', '}}');
             }}
           >
-            <BookmarkBorderOutlined />
+            <BookmarkBorderOutlined sx={{ fontSize: '20px' }} />
           </IconButton>
           <IconButton
             aria-label="Variable"
@@ -198,7 +188,7 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
               onInsertMarkdown?.('{{var:', '}}');
             }}
           >
-            <CodeOutlined />
+            <CodeOutlined sx={{ fontSize: '20px' }} />
           </IconButton>
           <IconButton
             aria-label="Horizontal Rule"
@@ -207,7 +197,7 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
               onInsertMarkdown?.('\n---\n', '');
             }}
           >
-            <HorizontalRuleOutlined />
+            <HorizontalRuleOutlined sx={{ fontSize: '20px' }} />
           </IconButton>
         </Box>
       )}
@@ -216,8 +206,9 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
         <Typography
           sx={{
+            fontFamily: '"DM Sans", sans-serif',
             fontSize: '0.75rem',
-            color: '#9A8DA6',
+            color: 'var(--text-tertiary)',
           }}
         >
           {wordCount} {wordCount === 1 ? 'word' : 'words'}

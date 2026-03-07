@@ -19,25 +19,28 @@ describe('ConnectionStatus', () => {
     const dot = container.querySelector('[data-testid="status-dot"]');
     if (dot === null) throw new Error('Expected status dot element');
     expect(dot).toBeInTheDocument();
-    expect(dot).toHaveStyle({ backgroundColor: '#2D6A4F' });
+    // v3 token: --status-published (#059669)
+    expect(dot).toHaveStyle({ backgroundColor: '#059669' });
   });
 
-  it('shows "Connecting..." text with gray dot when connecting', () => {
+  it('shows "Connecting..." text with amber dot when connecting', () => {
     const { container } = render(<ConnectionStatus status="connecting" />);
     expect(screen.getByText('Connecting...')).toBeInTheDocument();
     const dot = container.querySelector('[data-testid="status-dot"]');
     if (dot === null) throw new Error('Expected status dot element');
     expect(dot).toBeInTheDocument();
-    expect(dot).toHaveStyle({ backgroundColor: '#9A8DA6' });
+    // v3 token: --status-draft (#D97706)
+    expect(dot).toHaveStyle({ backgroundColor: '#D97706' });
   });
 
-  it('shows "Offline — changes saved locally" with amber dot when disconnected', () => {
+  it('shows "Offline — changes saved locally" with red dot when disconnected', () => {
     const { container } = render(<ConnectionStatus status="disconnected" />);
     expect(screen.getByText('Offline — changes saved locally')).toBeInTheDocument();
     const dot = container.querySelector('[data-testid="status-dot"]');
     if (dot === null) throw new Error('Expected status dot element');
     expect(dot).toBeInTheDocument();
-    expect(dot).toHaveStyle({ backgroundColor: '#B8860B' });
+    // v3 token: --destructive (#DC2626)
+    expect(dot).toHaveStyle({ backgroundColor: '#DC2626' });
   });
 
   it('shows "Reconnecting..." with pulsing amber dot when reconnecting', () => {
@@ -46,7 +49,8 @@ describe('ConnectionStatus', () => {
     const dot = container.querySelector('[data-testid="status-dot"]');
     if (dot === null) throw new Error('Expected status dot element');
     expect(dot).toBeInTheDocument();
-    expect(dot).toHaveStyle({ backgroundColor: '#B8860B' });
+    // v3 token: --status-draft (#D97706)
+    expect(dot).toHaveStyle({ backgroundColor: '#D97706' });
     // Pulsing animation should be applied
     const style = window.getComputedStyle(dot);
     expect(style.animation).toContain('1.5s');
@@ -63,12 +67,13 @@ describe('ConnectionStatus', () => {
     });
   });
 
-  it('renders text in caption style', () => {
+  it('renders text in caption style with v3 token color', () => {
     render(<ConnectionStatus status="connected" />);
     const text = screen.getByText('Saved');
     expect(text).toHaveStyle({
       fontSize: '0.75rem',
-      color: '#9A8DA6',
+      // v3 token: --text-tertiary (#9B9DB0)
+      color: '#9B9DB0',
     });
   });
 

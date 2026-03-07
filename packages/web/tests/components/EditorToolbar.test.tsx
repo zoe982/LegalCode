@@ -66,14 +66,19 @@ describe('EditorToolbar', () => {
     expect(onModeChange).toHaveBeenCalledWith('source');
   });
 
-  it('shows markdown helper buttons in source mode', () => {
+  it('shows markdown helper buttons in source mode (no Bold/Italic)', () => {
     renderToolbar({ mode: 'source' });
     expect(screen.getByRole('button', { name: 'Heading' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Bold' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Italic' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Link' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'List' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Ordered List' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Table' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Clause Reference' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Variable' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Horizontal Rule' })).toBeInTheDocument();
+    // Bold and Italic are removed in v3
+    expect(screen.queryByRole('button', { name: 'Bold' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Italic' })).not.toBeInTheDocument();
   });
 
   it('hides markdown helpers in review mode', () => {
@@ -111,48 +116,12 @@ describe('EditorToolbar', () => {
     expect(screen.getByText('Saved')).toBeInTheDocument();
   });
 
-  it('shows ordered list button in source mode', () => {
-    renderToolbar();
-    expect(screen.getByRole('button', { name: 'Ordered List' })).toBeInTheDocument();
-  });
-
-  it('shows clause reference button in source mode', () => {
-    renderToolbar();
-    expect(screen.getByRole('button', { name: 'Clause Reference' })).toBeInTheDocument();
-  });
-
-  it('shows variable button in source mode', () => {
-    renderToolbar();
-    expect(screen.getByRole('button', { name: 'Variable' })).toBeInTheDocument();
-  });
-
-  it('shows horizontal rule button in source mode', () => {
-    renderToolbar();
-    expect(screen.getByRole('button', { name: 'Horizontal Rule' })).toBeInTheDocument();
-  });
-
   it('calls onInsertMarkdown with heading prefix when Heading is clicked', async () => {
     const user = userEvent.setup();
     const onInsertMarkdown = vi.fn();
     renderToolbar({ onInsertMarkdown });
     await user.click(screen.getByRole('button', { name: 'Heading' }));
     expect(onInsertMarkdown).toHaveBeenCalledWith('## ', '');
-  });
-
-  it('calls onInsertMarkdown with bold markers when Bold is clicked', async () => {
-    const user = userEvent.setup();
-    const onInsertMarkdown = vi.fn();
-    renderToolbar({ onInsertMarkdown });
-    await user.click(screen.getByRole('button', { name: 'Bold' }));
-    expect(onInsertMarkdown).toHaveBeenCalledWith('**', '**');
-  });
-
-  it('calls onInsertMarkdown with italic markers when Italic is clicked', async () => {
-    const user = userEvent.setup();
-    const onInsertMarkdown = vi.fn();
-    renderToolbar({ onInsertMarkdown });
-    await user.click(screen.getByRole('button', { name: 'Italic' }));
-    expect(onInsertMarkdown).toHaveBeenCalledWith('*', '*');
   });
 
   it('calls onInsertMarkdown with link syntax when Link is clicked', async () => {
@@ -217,7 +186,7 @@ describe('EditorToolbar', () => {
   it('does not crash when onInsertMarkdown is not provided', async () => {
     const user = userEvent.setup();
     renderToolbar(); // no onInsertMarkdown
-    await user.click(screen.getByRole('button', { name: 'Bold' }));
+    await user.click(screen.getByRole('button', { name: 'Heading' }));
     // Should not throw
   });
 
@@ -251,5 +220,18 @@ describe('EditorToolbar', () => {
     // Click review
     await user.click(screen.getByRole('button', { name: 'Review' }));
     expect(onModeChange).toHaveBeenCalledWith('review');
+  });
+
+  it('toolbar has 44px height', () => {
+    renderToolbar();
+    const toolbar = screen.getByTestId('editor-toolbar');
+    expect(toolbar).toHaveStyle({ height: '44px' });
+  });
+
+  it('mode toggle active segment has white background', () => {
+    renderToolbar({ mode: 'source' });
+    const indicator = screen.getByTestId('mode-toggle-indicator');
+    // v3: active segment is white with shadow, not purple
+    expect(indicator).toHaveStyle({ backgroundColor: '#FFFFFF' });
   });
 });

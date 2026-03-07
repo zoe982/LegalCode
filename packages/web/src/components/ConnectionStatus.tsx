@@ -16,10 +16,10 @@ const statusConfig: Record<
   ConnectionStatusType,
   { label: string; dotColor: string; pulsing: boolean }
 > = {
-  connected: { label: 'Saved', dotColor: '#2D6A4F', pulsing: false },
-  connecting: { label: 'Connecting...', dotColor: '#9A8DA6', pulsing: false },
-  disconnected: { label: 'Offline — changes saved locally', dotColor: '#B8860B', pulsing: false },
-  reconnecting: { label: 'Reconnecting...', dotColor: '#B8860B', pulsing: true },
+  connected: { label: 'Saved', dotColor: '#059669', pulsing: false },
+  connecting: { label: 'Connecting...', dotColor: '#D97706', pulsing: false },
+  disconnected: { label: 'Offline — changes saved locally', dotColor: '#DC2626', pulsing: false },
+  reconnecting: { label: 'Reconnecting...', dotColor: '#D97706', pulsing: true },
 };
 
 export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({ status }) => {
@@ -48,9 +48,9 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({ status }) =>
       <Box
         component="span"
         sx={{
-          fontFamily: '"Source Sans 3", sans-serif',
+          fontFamily: '"DM Sans", sans-serif',
           fontSize: '0.75rem',
-          color: '#9A8DA6',
+          color: '#9B9DB0',
           lineHeight: 1,
         }}
       >
