@@ -123,6 +123,43 @@ describe('TemplateCard', () => {
     expect(card).toHaveAttribute('role', 'button');
   });
 
+  it('renders description when present', () => {
+    const templateWithDesc = {
+      ...mockTemplate,
+      description: 'Standard employment agreement for full-time hires',
+    };
+    render(<TemplateCard template={templateWithDesc} onClick={onClick} />);
+    expect(
+      screen.getByText('Standard employment agreement for full-time hires'),
+    ).toBeInTheDocument();
+  });
+
+  it('does not render description when null', () => {
+    render(<TemplateCard template={mockTemplate} onClick={onClick} />);
+    const card = screen.getByTestId('template-card-t1');
+    const descriptions = card.querySelectorAll('[data-testid="template-card-description"]');
+    expect(descriptions).toHaveLength(0);
+  });
+
+  it('does not render description when empty string', () => {
+    const templateEmptyDesc = { ...mockTemplate, description: '' };
+    render(<TemplateCard template={templateEmptyDesc} onClick={onClick} />);
+    const card = screen.getByTestId('template-card-t1');
+    const descriptions = card.querySelectorAll('[data-testid="template-card-description"]');
+    expect(descriptions).toHaveLength(0);
+  });
+
+  it('truncates long description with 2-line clamp', () => {
+    const templateLongDesc = {
+      ...mockTemplate,
+      description:
+        'This is a very long description that should be truncated after two lines of text to keep the card compact and clean',
+    };
+    render(<TemplateCard template={templateLongDesc} onClick={onClick} />);
+    const desc = screen.getByTestId('template-card-description');
+    expect(desc).toHaveStyle({ WebkitLineClamp: '2' });
+  });
+
   it('renders card with MUI sx styles applied', () => {
     render(<TemplateCard template={mockTemplate} onClick={onClick} />);
     const card = screen.getByTestId('template-card-t1');

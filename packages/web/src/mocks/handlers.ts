@@ -29,7 +29,7 @@ const mockTemplates: Template[] = [
     title: 'Employment Agreement',
     slug: 'employment-agreement-abc123',
     category: 'Employment',
-    description: null,
+    description: 'Standard employment agreement for full-time hires in the United States',
     country: 'US',
     status: 'active',
     currentVersion: 2,

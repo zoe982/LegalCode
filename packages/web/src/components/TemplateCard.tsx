@@ -82,6 +82,27 @@ export function TemplateCard({ template, onClick }: TemplateCardProps) {
         {template.title}
       </Typography>
 
+      {/* Description */}
+      {template.description != null && template.description !== '' && (
+        <Typography
+          data-testid="template-card-description"
+          sx={{
+            fontFamily: '"DM Sans", sans-serif',
+            fontSize: '0.875rem',
+            color: '#6B6D82',
+            lineHeight: 1.5,
+            mt: 0.5,
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+          }}
+        >
+          {template.description}
+        </Typography>
+      )}
+
       {/* Spacer */}
       <Box sx={{ flex: 1 }} />
 
