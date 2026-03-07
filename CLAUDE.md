@@ -14,6 +14,7 @@ All subagents are dispatched via the Agent tool with `subagent_type: "general-pu
 | **Frontend Engineer** | `.claude/agents/frontend-engineer.md` | React 19/MUI v7/TanStack Query v5. Works in packages/web.    |
 | **Backend Engineer**  | `.claude/agents/backend-engineer.md`  | Hono v4/Drizzle ORM/Workers. Works in packages/api + shared. |
 | **QA Engineer**       | `.claude/agents/qa-engineer.md`       | File-level audit only. No Bash access.                       |
+| **Testing Engineer**  | `.claude/agents/testing-engineer.md`  | Test coverage audit only. No Bash access.                    |
 
 ### Model Selection Policy
 
@@ -42,10 +43,11 @@ All subagents are dispatched via the Agent tool with `subagent_type: "general-pu
 3. **Parallel when independent.** If frontend and backend work are independent, dispatch both simultaneously.
 4. **Sequential when dependent.** For UI work: Ive first (spec) -> Frontend Engineer (implementation with spec).
 5. **Cook runs ALL tests and commands directly.** NEVER delegate `pnpm test`, `pnpm typecheck`, `pnpm lint`, `pnpm security:scan`, or any Bash commands to subagents. Subagents write code only. Cook runs tests in the main session using the Bash tool after subagents finish. Running tests in subagents causes failures.
-6. **QA audit before deploy.** Dispatch QA Engineer for file-level auditing, then Cook runs all commands directly.
+6. **Pre-deploy audits before deploy.** Before running `scripts/deploy.sh`, dispatch Testing Engineer for test coverage audit AND Ive for UX/UI audit. Both must return PASS verdicts before deploying.
 7. **Context limits.** Give each subagent only what they need. Don't dump the full codebase.
 8. **Integrate results.** After subagents complete, Cook runs `pnpm test` directly, then dispatches QA for audit.
 9. **Report concisely.** Summarize what was done, what passed, what failed.
+10. **Use `scripts/deploy.sh` for all deploys.** Never run raw `pnpm test && pnpm build && npx wrangler deploy`. Always use the deploy script which enforces all quality gates.
 
 ### Dispatching Subagents
 
@@ -56,7 +58,8 @@ Every dispatch prompt MUST include:
 1. **Role identity preamble** — tell the subagent who they are:
    - Frontend Engineer: "You are the Frontend Engineer for LegalCode. Tech stack: React 19, MUI v7, TanStack Query v5, Vite 6, Vitest, React Testing Library."
    - Backend Engineer: "You are the Backend Engineer for LegalCode. Tech stack: Hono v4, Drizzle ORM, Cloudflare Workers/D1/KV, Zod, Vitest."
-   - Ive: "You are Ive, the design specialist for LegalCode. Read `.claude/skills/legalcode-design.md` first."
+   - Ive: "You are Ive, the design specialist for LegalCode. Read `.claude/skills/legalcode-design-v3.md` first."
+   - Testing Engineer: "You are the Testing Engineer for LegalCode. You audit test files for comprehensiveness. You do NOT have Bash access."
 
 2. **Context7 research requirement** — Frontend Engineer must research before using APIs:
    - "BEFORE writing any MUI component code, use mcp**context7**query-docs with library ID `/mui/material-ui/v7_3_2` to check the current API."
@@ -89,7 +92,8 @@ pnpm monorepo: `packages/api` (Hono/Cloudflare Worker), `packages/web` (React/Vi
 ## Deployment
 
 - **NEVER run locally.** Always deploy to production and test there.
-- **Deploy:** `pnpm security:scan && pnpm test && pnpm build && npx wrangler deploy`
+- **Deploy:** `bash scripts/deploy.sh` (runs typecheck, lint, security, test+coverage, build, deploy)
+- **Pre-deploy audits (Cook dispatches before script):** Testing Engineer + Ive UX audit must both PASS
 - **Domains:** `legalcode.ax1access.com` (primary), `legalcode.acasus.workers.dev` (fallback)
 - **Platform:** Cloudflare Workers with Static Assets (SPA fallback)
 - **Workflow:** Make changes → build → deploy to production → verify on production URL
@@ -107,7 +111,7 @@ pnpm monorepo: `packages/api` (Hono/Cloudflare Worker), `packages/web` (React/Vi
 - **DB:** Cloudflare D1 (SQLite) via Drizzle ORM
 - **Validation:** Zod schemas shared between FE/BE (packages/shared)
 - **State:** TanStack Query v5 (offlineFirst)
-- **UI:** MUI v7, design system in `.claude/skills/legalcode-design.md`
+- **UI:** MUI v7, design system in `.claude/skills/legalcode-design-v3.md`
 - **Editor:** Milkdown (ProseMirror + Markdown)
 
 ## Code Quality
