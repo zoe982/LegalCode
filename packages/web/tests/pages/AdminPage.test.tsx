@@ -40,6 +40,20 @@ vi.mock('../../src/hooks/useUsers.js', () => ({
   useRemoveAllowedEmail: () => mockMutationResult,
 }));
 
+vi.mock('../../src/hooks/useCategories.js', () => ({
+  useCategories: () => ({ data: { categories: [] }, isLoading: false, error: null }),
+  useCreateCategory: () => mockMutationResult,
+  useUpdateCategory: () => mockMutationResult,
+  useDeleteCategory: () => mockMutationResult,
+}));
+
+vi.mock('../../src/hooks/useCountries.js', () => ({
+  useCountries: () => ({ data: { countries: [] }, isLoading: false, error: null }),
+  useCreateCountry: () => mockMutationResult,
+  useUpdateCountry: () => mockMutationResult,
+  useDeleteCountry: () => mockMutationResult,
+}));
+
 vi.mock('../../src/hooks/useAuth.js', () => ({
   useAuth: () => ({
     user: { id: 'user-1', email: 'admin@test.com', name: 'Admin', role: 'admin' },
@@ -86,23 +100,37 @@ describe('AdminPage', () => {
     expect(screen.getByRole('heading', { level: 2, name: /users/i })).toBeInTheDocument();
   });
 
+  it('renders Categories section heading as h2', () => {
+    renderAdminPage();
+    expect(screen.getByRole('heading', { level: 2, name: /categories/i })).toBeInTheDocument();
+  });
+
+  it('renders Countries section heading as h2', () => {
+    renderAdminPage();
+    expect(screen.getByRole('heading', { level: 2, name: /countries/i })).toBeInTheDocument();
+  });
+
   it('renders Error Log section heading as h2', () => {
     renderAdminPage();
     expect(screen.getByRole('heading', { level: 2, name: /error log/i })).toBeInTheDocument();
   });
 
-  it('renders both sections visible without clicking tabs', () => {
+  it('renders all sections visible without clicking tabs', () => {
     renderAdminPage();
     // UsersTab renders the "Add new user form" region
     expect(screen.getByLabelText('Add new user form')).toBeInTheDocument();
+    // CategoryManager renders the "Add category form" region
+    expect(screen.getByLabelText('Add category form')).toBeInTheDocument();
+    // CountryManager renders the "Add country form" region
+    expect(screen.getByLabelText('Add country form')).toBeInTheDocument();
     // ErrorLogTab renders its content
     expect(screen.getByText('No errors recorded')).toBeInTheDocument();
   });
 
-  it('renders a divider between sections', () => {
+  it('renders dividers between sections', () => {
     renderAdminPage();
     const dividers = document.querySelectorAll('hr.MuiDivider-root');
-    expect(dividers.length).toBeGreaterThanOrEqual(1);
+    expect(dividers.length).toBeGreaterThanOrEqual(3);
   });
 
   it('sets breadcrumb page name on mount', () => {

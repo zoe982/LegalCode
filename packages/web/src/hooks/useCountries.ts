@@ -1,28 +1,47 @@
-import { useQuery } from '@tanstack/react-query';
-
-interface Country {
-  id: string;
-  name: string;
-  code?: string;
-  createdAt: string;
-}
-
-interface CountriesResponse {
-  countries: Country[];
-}
-
-/**
- * Fetches countries from the API.
- * TODO: Wire to real API endpoint when country CRUD is implemented (Phase 2).
- */
-function fetchCountries(): Promise<CountriesResponse> {
-  // Placeholder: return empty list until API is implemented
-  return Promise.resolve({ countries: [] });
-}
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { countryService } from '../services/countries.js';
+import { useTrackedMutation } from './useTrackedMutation.js';
 
 export function useCountries() {
-  return useQuery<CountriesResponse>({
+  return useQuery({
     queryKey: ['countries'],
-    queryFn: fetchCountries,
+    queryFn: () => countryService.list(),
+  });
+}
+
+export function useCreateCountry() {
+  const queryClient = useQueryClient();
+
+  return useTrackedMutation({
+    mutationFn: (data: { name: string; code: string }) => countryService.create(data),
+    mutationLabel: 'create-country',
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['countries'] });
+    },
+  });
+}
+
+export function useUpdateCountry() {
+  const queryClient = useQueryClient();
+
+  return useTrackedMutation({
+    mutationFn: ({ id, name, code }: { id: string; name: string; code: string }) =>
+      countryService.update(id, { name, code }),
+    mutationLabel: 'update-country',
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['countries'] });
+    },
+  });
+}
+
+export function useDeleteCountry() {
+  const queryClient = useQueryClient();
+
+  return useTrackedMutation({
+    mutationFn: (id: string) => countryService.remove(id),
+    mutationLabel: 'delete-country',
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['countries'] });
+    },
   });
 }

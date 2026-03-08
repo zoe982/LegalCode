@@ -1,27 +1,47 @@
-import { useQuery } from '@tanstack/react-query';
-
-interface Category {
-  id: string;
-  name: string;
-  createdAt: string;
-}
-
-interface CategoriesResponse {
-  categories: Category[];
-}
-
-/**
- * Fetches categories from the API.
- * TODO: Wire to real API endpoint when category CRUD is implemented (Phase 2).
- */
-function fetchCategories(): Promise<CategoriesResponse> {
-  // Placeholder: return empty list until API is implemented
-  return Promise.resolve({ categories: [] });
-}
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { categoryService } from '../services/categories.js';
+import { useTrackedMutation } from './useTrackedMutation.js';
 
 export function useCategories() {
-  return useQuery<CategoriesResponse>({
+  return useQuery({
     queryKey: ['categories'],
-    queryFn: fetchCategories,
+    queryFn: () => categoryService.list(),
+  });
+}
+
+export function useCreateCategory() {
+  const queryClient = useQueryClient();
+
+  return useTrackedMutation({
+    mutationFn: (data: { name: string }) => categoryService.create(data),
+    mutationLabel: 'create-category',
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['categories'] });
+    },
+  });
+}
+
+export function useUpdateCategory() {
+  const queryClient = useQueryClient();
+
+  return useTrackedMutation({
+    mutationFn: ({ id, name }: { id: string; name: string }) =>
+      categoryService.update(id, { name }),
+    mutationLabel: 'update-category',
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['categories'] });
+    },
+  });
+}
+
+export function useDeleteCategory() {
+  const queryClient = useQueryClient();
+
+  return useTrackedMutation({
+    mutationFn: (id: string) => categoryService.remove(id),
+    mutationLabel: 'delete-category',
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['categories'] });
+    },
   });
 }

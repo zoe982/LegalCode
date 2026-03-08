@@ -9,6 +9,8 @@ import { adminRoutes } from './routes/admin.js';
 import { templateRoutes } from './routes/templates.js';
 import { collaborateRoutes } from './routes/collaborate.js';
 import { errorRoutes } from './routes/errors.js';
+import { categoryRoutes } from './routes/categories.js';
+import { countryRoutes } from './routes/countries.js';
 
 const app = new Hono<AppEnv>();
 
@@ -38,6 +40,8 @@ app.route('/admin', adminRoutes);
 app.route('/errors', errorRoutes);
 app.route('/templates', templateRoutes);
 app.route('/collaborate', collaborateRoutes);
+app.route('/categories', categoryRoutes);
+app.route('/countries', countryRoutes);
 
 // Serve static assets, with SPA fallback to index.html
 app.all('*', async (c) => {

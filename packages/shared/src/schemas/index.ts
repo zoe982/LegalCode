@@ -81,6 +81,42 @@ export type UpdateTemplateInput = z.infer<typeof updateTemplateSchema>;
 export type AutosaveDraftInput = z.infer<typeof autosaveDraftSchema>;
 export type TemplateQuery = z.infer<typeof templateQuerySchema>;
 
+export const categorySchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  createdAt: z.string(),
+});
+
+export const createCategorySchema = z.object({
+  name: z.string().min(1).max(100),
+});
+
+export const updateCategorySchema = z.object({
+  name: z.string().min(1).max(100),
+});
+
+export const countrySchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  code: z.string(),
+  createdAt: z.string(),
+});
+
+export const createCountrySchema = z.object({
+  name: z.string().min(1).max(100),
+  code: z.string().min(2).max(3),
+});
+
+export const updateCountrySchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  code: z.string().min(2).max(3).optional(),
+});
+
+export type CreateCategoryInput = z.infer<typeof createCategorySchema>;
+export type UpdateCategoryInput = z.infer<typeof updateCategorySchema>;
+export type CreateCountryInput = z.infer<typeof createCountrySchema>;
+export type UpdateCountryInput = z.infer<typeof updateCountrySchema>;
+
 export * from './auth.js';
 export * from './comments.js';
 export * from './errors.js';

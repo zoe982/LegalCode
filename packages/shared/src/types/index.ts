@@ -60,5 +60,18 @@ export interface AuditLogEntry {
   createdAt: string;
 }
 
+export interface Category {
+  id: string;
+  name: string;
+  createdAt: string;
+}
+
+export interface Country {
+  id: string;
+  name: string;
+  code: string;
+  createdAt: string;
+}
+
 export * from './auth.js';
 export * from './errors.js';

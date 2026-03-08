@@ -94,6 +94,19 @@ export const comments = sqliteTable('comments', {
   updatedAt: text('updated_at').notNull(),
 });
 
+export const categories = sqliteTable('categories', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull().unique(),
+  createdAt: text('created_at').notNull(),
+});
+
+export const countries = sqliteTable('countries', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull().unique(),
+  code: text('code').notNull().unique(),
+  createdAt: text('created_at').notNull(),
+});
+
 export const errorLog = sqliteTable(
   'error_log',
   {
