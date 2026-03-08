@@ -46,3 +46,50 @@ rules:
     severity: ERROR
     metadata:
       category: security
+
+  - id: dangerous-innerhtml
+    patterns:
+      - pattern-regex: 'dangerouslySetInnerHTML'
+    message: >-
+      Potential XSS: dangerouslySetInnerHTML bypasses React's escaping. Ensure
+      content is sanitized with DOMPurify before rendering. If unavoidable,
+      add a nosemgrep comment with justification.
+    languages:
+      - typescript
+    severity: WARNING
+    metadata:
+      category: security
+
+  - id: unsafe-json-parse-cast
+    pattern: 'JSON.parse($X) as $TYPE'
+    message: >-
+      Unsafe type assertion on JSON.parse result. Use Zod schema validation
+      instead of 'as' cast to ensure runtime type safety.
+    languages:
+      - typescript
+    severity: WARNING
+    metadata:
+      category: security
+
+  - id: error-stack-in-response
+    patterns:
+      - pattern: 'c.json({..., stack: $ERR.stack, ...}, ...)'
+    message: >-
+      Stack trace leaked in API response. Never expose error stack traces to
+      clients — they reveal internal paths and code structure.
+    languages:
+      - typescript
+    severity: ERROR
+    metadata:
+      category: security
+
+  - id: no-raw-sql-string-concat
+    pattern: 'db.run(`...${$VAR}...`)'
+    message: >-
+      SQL injection risk: string interpolation in raw SQL query. Use
+      parameterized queries with db.run(sql, [params]) instead.
+    languages:
+      - typescript
+    severity: ERROR
+    metadata:
+      category: security

@@ -11,6 +11,7 @@ import { collaborateRoutes } from './routes/collaborate.js';
 import { errorRoutes } from './routes/errors.js';
 import { categoryRoutes } from './routes/categories.js';
 import { countryRoutes } from './routes/countries.js';
+import { requireJsonContentType } from './middleware/content-type.js';
 
 const app = new Hono<AppEnv>();
 
@@ -32,6 +33,8 @@ app.use(
     origin: ['https://legalcode.acasus.workers.dev', 'https://legalcode.ax1access.com'],
   }),
 );
+
+app.use('/api/templates/*', requireJsonContentType);
 
 app.get('/api/health', (c) => c.json({ status: 'ok' }));
 

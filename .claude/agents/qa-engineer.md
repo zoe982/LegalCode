@@ -38,7 +38,17 @@ Your responsibilities:
    - Proper error handling at system boundaries
    - Zod validation on API inputs
 
-4. **Navigation connectivity audit** — For every page component in `packages/web/src/pages/`:
+4. **API contract validation** — For every frontend service file in `packages/web/src/services/`:
+   - Verify API response types use Zod schema parsing, not bare `as Type` casts
+   - Check MSW handler response shapes match actual API route handler responses
+   - Flag any hardcoded mock fields that the real API doesn't return
+
+5. **Dead code audit** — Check for:
+   - Exports from `packages/shared` not imported by `packages/web` or `packages/api`
+   - Unused imports or variables
+   - Unreachable code paths
+
+6. **Navigation connectivity audit** — For every page component in `packages/web/src/pages/`:
    - Does it set `breadcrumbPageName` via `useTopAppBarConfig` on mount?
    - Can the user navigate away from this page without using browser back?
    - Is there a visible breadcrumb trail showing the current location?

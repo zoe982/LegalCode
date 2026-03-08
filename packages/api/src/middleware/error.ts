@@ -10,6 +10,7 @@ export const errorHandler: ErrorHandler<AppEnv> = (err, c) => {
 
   const status = err instanceof HTTPException ? err.status : 500;
 
+  // SECURITY: Do not log request headers — they contain auth tokens and PII
   console.error(
     JSON.stringify({
       timestamp: new Date().toISOString(),

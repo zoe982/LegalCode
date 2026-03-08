@@ -58,6 +58,22 @@ Loading/error/success states, open/closed, connected/disconnected, all transitio
 - WebSocket reconnection tests
 - Auth flow tests
 
+### 7a. Contract Test Existence
+
+Every API route that returns JSON consumed by the frontend MUST have a test that validates the response against the shared Zod schema (e.g., `loginResponseSchema.safeParse(body)`). Flag any endpoint missing contract validation.
+
+### 7b. Security Test Coverage
+
+Auth routes must have tests for:
+
+- Expired tokens (401 response)
+- Invalid PKCE state (400 response)
+- Unauthorized emails (403 response)
+- Missing cookies (401 response)
+- CSRF rejection
+- Rate limiting (429 response)
+- Content-Type enforcement (415 response)
+
 ### 8. MSW Mock Accuracy
 
 Frontend mocks match actual API response shapes. No hardcoded fields that the real API doesn't return.

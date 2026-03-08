@@ -28,6 +28,7 @@
     "audit:security": "pnpm audit --audit-level high",
     "dead-code": "knip",
     "bundle:check": "bash scripts/bundle-check.sh",
+    "contract:check": "bash scripts/contract-test-check.sh",
     "security:headers": "bash scripts/security-headers-check.sh",
     "deploy": "bash scripts/deploy.sh",
     "prepare": "husky"
@@ -48,6 +49,7 @@
     "prettier": "^3.4.0",
     "typescript": "^5.7.0",
     "typescript-eslint": "^8.18.0",
+    "eslint-plugin-security": "^3.0.0",
     "knip": "^5.0.0",
     "vitest": "^2.1.0"
   },

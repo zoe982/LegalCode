@@ -286,6 +286,48 @@ describe('errorHandler', () => {
     consoleSpy.mockRestore();
   });
 
+  it('does not include request headers in console.error log (security)', async () => {
+    const app = createTestApp();
+    app.get('/fail', () => {
+      throw new Error('crash');
+    });
+
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    await app.request('/fail', {
+      headers: {
+        Authorization: 'Bearer secret-token',
+        Cookie: '__Host-auth=jwt-secret',
+        'X-User-Id': 'user-123',
+      },
+    });
+
+    const logArg: unknown = consoleSpy.mock.calls[0]?.[0];
+    const logStr = logArg as string;
+    expect(logStr).not.toContain('secret-token');
+    expect(logStr).not.toContain('jwt-secret');
+    expect(logStr).not.toContain('Authorization');
+    expect(logStr).not.toContain('Cookie');
+
+    const parsed: Record<string, unknown> = JSON.parse(logStr) as Record<string, unknown>;
+    expect(parsed).not.toHaveProperty('headers');
+    consoleSpy.mockRestore();
+  });
+
+  it('500 response body contains only error field with generic message', async () => {
+    const app = createTestApp();
+    app.get('/fail', () => {
+      throw new Error('sensitive db connection info');
+    });
+
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const res = await app.request('/fail');
+    const body: unknown = await res.json();
+
+    expect(body).toStrictEqual({ error: 'Internal server error' });
+    expect(Object.keys(body as Record<string, unknown>)).toEqual(['error']);
+    consoleSpy.mockRestore();
+  });
+
   it('includes method, path, and status in logError metadata', async () => {
     mockLogError.mockClear();
     const app = createTestApp(true);

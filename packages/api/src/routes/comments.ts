@@ -3,6 +3,7 @@ import { Hono } from 'hono';
 import type { AppEnv } from '../types/env.js';
 import { getDb } from '../db/index.js';
 import { getComments, createComment, resolveComment, deleteComment } from '../services/comment.js';
+import { logAudit } from '../services/audit-log.js';
 
 // Parent route mounts at /:id/comments — param is always present
 function getTemplateId(c: Context<AppEnv>): string {
@@ -47,6 +48,17 @@ commentRoutes.post('/', async (c) => {
       );
     }
 
+    c.executionCtx.waitUntil(
+      logAudit(db, {
+        action: 'comment.create',
+        resourceType: 'comment',
+        resourceId: result.id,
+        userId: user.id,
+        userEmail: user.email,
+        metadata: { templateId },
+      }),
+    );
+
     return c.json(result, 201);
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
@@ -88,6 +100,17 @@ commentRoutes.patch('/:commentId/resolve', async (c) => {
     );
   }
 
+  c.executionCtx.waitUntil(
+    logAudit(db, {
+      action: 'comment.resolve',
+      resourceType: 'comment',
+      resourceId: commentId,
+      userId: user.id,
+      userEmail: user.email,
+      metadata: { templateId },
+    }),
+  );
+
   return c.body(null, 204);
 });
 
@@ -121,6 +144,17 @@ commentRoutes.delete('/:commentId', async (c) => {
       ),
     );
   }
+
+  c.executionCtx.waitUntil(
+    logAudit(db, {
+      action: 'comment.delete',
+      resourceType: 'comment',
+      resourceId: commentId,
+      userId: user.id,
+      userEmail: user.email,
+      metadata: { templateId },
+    }),
+  );
 
   return c.body(null, 204);
 });

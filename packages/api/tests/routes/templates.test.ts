@@ -7,6 +7,10 @@ vi.mock('../../src/db/index.js', () => ({
   getDb: vi.fn().mockReturnValue({}),
 }));
 
+vi.mock('../../src/services/audit-log.js', () => ({
+  logAudit: vi.fn().mockResolvedValue(undefined),
+}));
+
 const mockCreateTemplate = vi.fn();
 const mockListTemplates = vi.fn();
 const mockGetTemplate = vi.fn();
@@ -48,6 +52,11 @@ async function importAndCreateApp() {
     const env = c.env as Record<string, unknown>;
     env.JWT_SECRET = JWT_SECRET;
     env.DB = {};
+    // Mock executionCtx for fire-and-forget audit logging
+    Object.defineProperty(c, 'executionCtx', {
+      value: { waitUntil: vi.fn() },
+      writable: true,
+    });
     await next();
   });
   app.route('/templates', templateRoutes);

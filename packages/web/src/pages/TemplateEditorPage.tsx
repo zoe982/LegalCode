@@ -667,6 +667,7 @@ export function TemplateEditorPage() {
                       '& table': { borderCollapse: 'collapse', width: '100%' },
                       '& td, & th': { border: '1px solid var(--border-primary)', padding: '8px' },
                     }}
+                    // nosemgrep: dangerous-innerhtml — markdownToHtml sanitizes input
                     dangerouslySetInnerHTML={{
                       __html: content ? markdownToHtml(content) : '<p>No content yet</p>',
                     }}

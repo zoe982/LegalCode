@@ -147,6 +147,67 @@ describe('comment service', () => {
       ).rejects.toThrow(ZodError);
     });
 
+    it('strips HTML tags from content to prevent XSS', async () => {
+      const valuesMock = vi.fn().mockResolvedValue(undefined);
+      vi.spyOn(db, 'insert').mockReturnValue({ values: valuesMock } as never);
+
+      const result = await createComment(
+        db,
+        't-1',
+        { content: '<script>alert("xss")</script>' },
+        { id: 'u-1', email: 'a@b.com' },
+      );
+
+      expect(result.content).toBe('alert("xss")');
+    });
+
+    it('passes normal text through unchanged', async () => {
+      const valuesMock = vi.fn().mockResolvedValue(undefined);
+      vi.spyOn(db, 'insert').mockReturnValue({ values: valuesMock } as never);
+
+      const result = await createComment(
+        db,
+        't-1',
+        { content: 'This is a normal comment with no HTML' },
+        { id: 'u-1', email: 'a@b.com' },
+      );
+
+      expect(result.content).toBe('This is a normal comment with no HTML');
+    });
+
+    it('strips nested and malformed HTML tags', async () => {
+      const valuesMock = vi.fn().mockResolvedValue(undefined);
+      vi.spyOn(db, 'insert').mockReturnValue({ values: valuesMock } as never);
+
+      const result = await createComment(
+        db,
+        't-1',
+        { content: '<div><b>bold</b> and <img src=x onerror=alert(1)>text</div>' },
+        { id: 'u-1', email: 'a@b.com' },
+      );
+
+      expect(result.content).toBe('bold and text');
+    });
+
+    it('sanitizes anchorText to strip HTML tags', async () => {
+      const valuesMock = vi.fn().mockResolvedValue(undefined);
+      vi.spyOn(db, 'insert').mockReturnValue({ values: valuesMock } as never);
+
+      const result = await createComment(
+        db,
+        't-1',
+        {
+          content: 'comment',
+          anchorText: '<em>highlighted</em> text',
+          anchorFrom: '0',
+          anchorTo: '10',
+        },
+        { id: 'u-1', email: 'a@b.com' },
+      );
+
+      expect(result.anchorText).toBe('highlighted text');
+    });
+
     it('sets null for omitted optional fields', async () => {
       const valuesMock = vi.fn().mockResolvedValue(undefined);
       vi.spyOn(db, 'insert').mockReturnValue({ values: valuesMock } as never);

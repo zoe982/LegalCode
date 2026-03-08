@@ -116,6 +116,22 @@ describe('GET /auth/callback', () => {
     expect(text).toContain('Authentication was unsuccessful.');
   });
 
+  it('returns 500 when PKCE KV data is malformed JSON', async () => {
+    const { app, kv } = createTestApp();
+    await kv.put('pkce:valid-state', 'not-valid-json');
+
+    const res = await app.request('/auth/callback?code=abc&state=valid-state');
+    expect(res.status).toBe(500);
+  });
+
+  it('returns 500 when PKCE KV data is missing codeVerifier field', async () => {
+    const { app, kv } = createTestApp();
+    await kv.put('pkce:valid-state', JSON.stringify({ wrong: 'field' }));
+
+    const res = await app.request('/auth/callback?code=abc&state=valid-state');
+    expect(res.status).toBe(500);
+  });
+
   it('returns 400 when PKCE state is not found in KV', async () => {
     const { app } = createTestApp();
     const res = await app.request('/auth/callback?code=abc&state=unknown-state');
@@ -342,6 +358,28 @@ describe('POST /auth/refresh', () => {
     expect(res.status).toBe(401);
     const body: unknown = await res.json();
     expect(body).toEqual({ error: 'Invalid or expired refresh token' });
+  });
+
+  it('returns 500 when refresh KV data is malformed JSON', async () => {
+    const { app, kv } = createTestApp();
+    await kv.put('refresh:bad-token', 'not-valid-json');
+
+    const res = await app.request('/auth/refresh', {
+      method: 'POST',
+      headers: { Cookie: '__Host-refresh=bad-token' },
+    });
+    expect(res.status).toBe(500);
+  });
+
+  it('returns 500 when refresh KV data is missing required fields', async () => {
+    const { app, kv } = createTestApp();
+    await kv.put('refresh:bad-token', JSON.stringify({ userId: 'u-1' }));
+
+    const res = await app.request('/auth/refresh', {
+      method: 'POST',
+      headers: { Cookie: '__Host-refresh=bad-token' },
+    });
+    expect(res.status).toBe(500);
   });
 
   it('rotates tokens on valid refresh', async () => {

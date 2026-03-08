@@ -22,6 +22,7 @@ import {
   autosaveDraftSchema,
 } from '@legalcode/shared';
 import { commentRoutes } from './comments.js';
+import { logAudit } from '../services/audit-log.js';
 
 export const templateRoutes = new Hono<AppEnv>();
 
@@ -92,6 +93,15 @@ templateRoutes.post('/', requireRole('admin', 'editor'), async (c) => {
   const db = getDb(c.env.DB);
   const user = c.get('user');
   const result = await createTemplate(db, parsed.data, user.id);
+  c.executionCtx.waitUntil(
+    logAudit(db, {
+      action: 'template.create',
+      resourceType: 'template',
+      resourceId: result.template.id,
+      userId: user.id,
+      userEmail: user.email,
+    }),
+  );
   return c.json(result, 201);
 });
 
@@ -109,6 +119,15 @@ templateRoutes.patch('/:id', requireRole('admin', 'editor'), async (c) => {
     if (result.error === 'not_found') return c.json({ error: 'Template not found' }, 404);
     return c.json({ error: 'Cannot update archived template' }, 409);
   }
+  c.executionCtx.waitUntil(
+    logAudit(db, {
+      action: 'template.update',
+      resourceType: 'template',
+      resourceId: id,
+      userId: user.id,
+      userEmail: user.email,
+    }),
+  );
   return c.json(result);
 });
 
@@ -123,6 +142,15 @@ templateRoutes.post('/:id/publish', requireRole('admin', 'editor'), async (c) =>
       return c.json({ error: 'Template is already active' }, 409);
     return c.json({ error: 'Cannot publish archived template' }, 409);
   }
+  c.executionCtx.waitUntil(
+    logAudit(db, {
+      action: 'template.publish',
+      resourceType: 'template',
+      resourceId: id,
+      userId: user.id,
+      userEmail: user.email,
+    }),
+  );
   return c.json(result);
 });
 
@@ -135,6 +163,15 @@ templateRoutes.post('/:id/archive', requireRole('admin', 'editor'), async (c) =>
     if (result.error === 'not_found') return c.json({ error: 'Template not found' }, 404);
     return c.json({ error: 'Template is already archived' }, 409);
   }
+  c.executionCtx.waitUntil(
+    logAudit(db, {
+      action: 'template.archive',
+      resourceType: 'template',
+      resourceId: id,
+      userId: user.id,
+      userEmail: user.email,
+    }),
+  );
   return c.json(result);
 });
 
@@ -146,11 +183,21 @@ templateRoutes.patch('/:id/autosave', requireRole('admin', 'editor'), async (c) 
   }
   const db = getDb(c.env.DB);
   const id = c.req.param('id');
+  const user = c.get('user');
   const result = await saveDraftContent(db, id, parsed.data.content, parsed.data.title);
   if ('error' in result) {
     if (result.error === 'not_found') return c.json({ error: 'Template not found' }, 404);
     return c.json({ error: 'Template is not a draft' }, 409);
   }
+  c.executionCtx.waitUntil(
+    logAudit(db, {
+      action: 'template.autosave',
+      resourceType: 'template',
+      resourceId: id,
+      userId: user.id,
+      userEmail: user.email,
+    }),
+  );
   return c.json({ updatedAt: result.updatedAt });
 });
 
@@ -163,6 +210,15 @@ templateRoutes.post('/:id/unarchive', requireRole('admin', 'editor'), async (c) 
     if (result.error === 'not_found') return c.json({ error: 'Template not found' }, 404);
     return c.json({ error: 'Template is not archived' }, 409);
   }
+  c.executionCtx.waitUntil(
+    logAudit(db, {
+      action: 'template.unarchive',
+      resourceType: 'template',
+      resourceId: id,
+      userId: user.id,
+      userEmail: user.email,
+    }),
+  );
   return c.json(result);
 });
 

@@ -2,6 +2,7 @@ import type { ErrorLogEntry } from '@legalcode/shared';
 
 function extractFilePaths(stack: string): string[] {
   // Match patterns like "at Component (file.tsx:line)" or "(file.ts:line:col)"
+  // eslint-disable-next-line security/detect-unsafe-regex -- runs on internal error stacks only, not user input
   const fileRegex = /(?:at\s+\S+\s+\(|at\s+|\()([^\s()]+\.(?:tsx?|jsx?|mjs|cjs):\d+(?::\d+)?)\)?/g;
   const paths = new Set<string>();
   let match: RegExpExecArray | null;

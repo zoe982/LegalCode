@@ -25,6 +25,21 @@
             "type": "prompt",
             "prompt": "Check the file path being written/edited. If the file is inside a packages/*/src/ directory (implementation code, NOT a test file), check the conversation transcript to determine: Has a corresponding test file been created or edited BEFORE this implementation file in this session? If yes, return 'approve'. If the file is a test file, config file, documentation, agent definition (.claude/agents/), or not in packages/*/src/, return 'approve'. If it's implementation code and tests haven't been written first, return 'deny' with reason: 'TDD VIOLATION: You must write test files before writing implementation code. Write the test file first, then come back to this file.'",
             "timeout": 15
+          },
+          {
+            "type": "prompt",
+            "prompt": "Check if the file being written/edited is in a security-critical path: packages/api/src/middleware/*, packages/api/src/routes/auth.ts, packages/api/src/durable-objects/*, or packages/api/src/services/auth.ts. If yes, add systemMessage: 'SECURITY-CRITICAL FILE CHANGED: After this change is complete, Cook should dispatch the Security Reviewer (Opus) to audit the security implications before deploying.' If not a security-critical file, return 'approve' silently.",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Check if the Bash command contains 'scripts/deploy.sh' or 'wrangler deploy'. If yes, add systemMessage: 'DEPLOY GUARD: Before deploying, ensure you have run: (1) pnpm contract:check, (2) dispatched Security Reviewer if security-critical files changed, (3) dispatched Testing Engineer for coverage audit, (4) dispatched QA Engineer for quality audit.' If the command does not involve deployment, return 'approve' silently.",
+            "timeout": 10
           }
         ]
       },

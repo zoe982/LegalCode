@@ -1,5 +1,8 @@
 import { sign, verify } from 'hono/jwt';
+import { z } from 'zod';
 import type { Role } from '@legalcode/shared';
+
+const emailListSchema = z.array(z.string());
 
 // --- PKCE ---
 
@@ -148,7 +151,7 @@ export async function isEmailAllowedWithKV(
 ): Promise<boolean> {
   const kvData = await kv.get('allowed_emails');
   if (kvData) {
-    const emails = JSON.parse(kvData) as string[];
+    const emails = emailListSchema.parse(JSON.parse(kvData));
     return emails.map((e) => e.toLowerCase()).includes(email.toLowerCase());
   }
   return isEmailAllowed(email, fallbackAllowedEmails);
@@ -160,7 +163,7 @@ export async function getAllowedEmails(
 ): Promise<string[]> {
   const kvData = await kv.get('allowed_emails');
   if (kvData) {
-    return JSON.parse(kvData) as string[];
+    return emailListSchema.parse(JSON.parse(kvData));
   }
   return fallbackAllowedEmails
     .split(',')

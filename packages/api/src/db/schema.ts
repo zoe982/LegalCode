@@ -73,6 +73,17 @@ export const auditLog = sqliteTable('audit_log', {
   createdAt: text('created_at').notNull(),
 });
 
+export const auditLogs = sqliteTable('audit_logs', {
+  id: text('id').primaryKey(),
+  action: text('action').notNull(), // e.g., 'template.create', 'template.update', 'comment.create'
+  resourceType: text('resource_type').notNull(), // 'template' or 'comment'
+  resourceId: text('resource_id').notNull(),
+  userId: text('user_id').notNull(),
+  userEmail: text('user_email').notNull(),
+  metadata: text('metadata'), // JSON string of additional context
+  createdAt: text('created_at').notNull(),
+});
+
 export const comments = sqliteTable('comments', {
   id: text('id').primaryKey(),
   templateId: text('template_id')

@@ -3,6 +3,10 @@ import { createCommentSchema } from '@legalcode/shared';
 import type { AppDb } from '../db/index.js';
 import { comments } from '../db/schema.js';
 
+function stripHtml(text: string): string {
+  return text.replace(/<[^>]*>/g, '');
+}
+
 function nowISO(): string {
   return new Date().toISOString();
 }
@@ -32,8 +36,8 @@ export async function createComment(
     authorId: user.id,
     authorName: user.name ?? user.email,
     authorEmail: user.email,
-    content: parsed.content,
-    anchorText: parsed.anchorText ?? null,
+    content: stripHtml(parsed.content),
+    anchorText: parsed.anchorText ? stripHtml(parsed.anchorText) : null,
     anchorFrom: parsed.anchorFrom ?? null,
     anchorTo: parsed.anchorTo ?? null,
     resolved: false,

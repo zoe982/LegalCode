@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { Hono } from 'hono';
 import { setCookie, getCookie, deleteCookie } from 'hono/cookie';
 import type { AppEnv } from '../types/env.js';
@@ -13,6 +14,14 @@ import {
 } from '../services/auth.js';
 import { getDb } from '../db/index.js';
 import { findUserByEmail } from '../services/user.js';
+import { rateLimit } from '../middleware/rate-limit.js';
+
+const pkceSchema = z.object({ codeVerifier: z.string() });
+const refreshDataSchema = z.object({
+  userId: z.string(),
+  email: z.string(),
+  role: z.string(),
+});
 
 const ACCESS_TOKEN_TTL = 900;
 const REFRESH_TOKEN_TTL = 604800;
@@ -20,7 +29,10 @@ const PKCE_STATE_TTL = 300;
 
 export const authRoutes = new Hono<AppEnv>();
 
-authRoutes.get('/google', async (c) => {
+const authRateLimit = rateLimit({ maxRequests: 5, windowSeconds: 60, prefix: 'auth' });
+const refreshRateLimit = rateLimit({ maxRequests: 10, windowSeconds: 60, prefix: 'refresh' });
+
+authRoutes.get('/google', authRateLimit, async (c) => {
   const { codeVerifier, codeChallenge } = await generatePKCE();
   const state = crypto.randomUUID();
 
@@ -39,7 +51,7 @@ authRoutes.get('/google', async (c) => {
   return c.json({ url });
 });
 
-authRoutes.get('/callback', async (c) => {
+authRoutes.get('/callback', authRateLimit, async (c) => {
   const code = c.req.query('code');
   const state = c.req.query('state');
   const error = c.req.query('error');
@@ -60,7 +72,7 @@ authRoutes.get('/callback', async (c) => {
   }
   await c.env.AUTH_KV.delete(`pkce:${state}`);
 
-  const { codeVerifier } = JSON.parse(pkceData) as { codeVerifier: string };
+  const { codeVerifier } = pkceSchema.parse(JSON.parse(pkceData));
 
   const redirectUri = new URL('/api/auth/callback', c.req.url).toString();
   const tokens = await exchangeCodeForTokens({
@@ -130,7 +142,7 @@ authRoutes.get('/callback', async (c) => {
   );
 });
 
-authRoutes.post('/refresh', async (c) => {
+authRoutes.post('/refresh', refreshRateLimit, async (c) => {
   const refreshToken = getCookie(c, '__Host-refresh');
   if (!refreshToken) {
     return c.json({ error: 'No refresh token' }, 401);
@@ -143,11 +155,7 @@ authRoutes.post('/refresh', async (c) => {
 
   await c.env.AUTH_KV.delete(`refresh:${refreshToken}`);
 
-  const { userId, email, role } = JSON.parse(data) as {
-    userId: string;
-    email: string;
-    role: string;
-  };
+  const { userId, email, role } = refreshDataSchema.parse(JSON.parse(data));
 
   const newAccessToken = await issueJWT(
     { sub: userId, email, role: role as 'admin' | 'editor' | 'viewer' },
