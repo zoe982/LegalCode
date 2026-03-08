@@ -44,6 +44,7 @@ import { useTextSelection } from '../hooks/useTextSelection.js';
 import { useCommentHighlights } from '../hooks/useCommentHighlights.js';
 import { DocumentHeader } from '../components/DocumentHeader.js';
 import { InlineCommentMargin } from '../components/InlineCommentMargin.js';
+import { NewCommentCard } from '../components/NewCommentCard.js';
 
 interface TemplateDetail {
   template: Template;
@@ -92,8 +93,12 @@ export function TemplateEditorPage() {
 
   const { showToast } = useToast();
   const queryClient = useQueryClient();
-  const { selectionInfo, startComment, onSelectionChange } = useEditorComments();
+  const { selectionInfo, pendingAnchor, startComment, cancelComment, onSelectionChange } =
+    useEditorComments();
   const { threads, createComment, resolveComment, deleteComment } = useComments(id);
+
+  // Source mode comment margin ref
+  const sourceContentRef = useRef<HTMLDivElement>(null);
 
   // Review mode comment highlighting
   const reviewContentRef = useRef<HTMLDivElement>(null);
@@ -115,12 +120,44 @@ export function TemplateEditorPage() {
     startComment();
   }, [startComment]);
 
-  /* v8 ignore next 5 -- review mode pending comment flow; anchor stored for future inline creation */
+  const handleSubmitComment = useCallback(
+    (commentContent: string) => {
+      if (!id || !pendingAnchor) return;
+      createComment({
+        templateId: id,
+        content: commentContent,
+        anchorFrom: pendingAnchor.anchorFrom,
+        anchorTo: pendingAnchor.anchorTo,
+        anchorText: pendingAnchor.anchorText,
+      });
+      cancelComment();
+    },
+    [id, pendingAnchor, createComment, cancelComment],
+  );
+
+  // Review mode pending comment state
+  const [reviewPendingAnchor, setReviewPendingAnchor] = useState<{
+    anchorText: string;
+  } | null>(null);
+
   const handleReviewAddComment = useCallback(() => {
-    // In review mode, clicking the FloatingCommentButton is a no-op for now
-    // The inline comment margin handles display; future: open inline new-comment card
-    void reviewTextSelection.selectedText;
+    if (reviewTextSelection.selectedText) {
+      setReviewPendingAnchor({ anchorText: reviewTextSelection.selectedText });
+    }
   }, [reviewTextSelection.selectedText]);
+
+  const handleReviewSubmitComment = useCallback(
+    (commentContent: string) => {
+      if (!id || !reviewPendingAnchor) return;
+      createComment({
+        templateId: id,
+        content: commentContent,
+        anchorText: reviewPendingAnchor.anchorText,
+      });
+      setReviewPendingAnchor(null);
+    },
+    [id, reviewPendingAnchor, createComment],
+  );
 
   // Collaboration — only for existing templates with edit permission
   const collaborationUser =
@@ -544,30 +581,52 @@ export function TemplateEditorPage() {
           >
             {/* Editor content — title/category moved to DocumentHeader */}
             {editorMode === 'source' ? (
-              <Box
-                data-testid="source-editor-surface"
-                sx={{
-                  backgroundColor: '#FFFFFF',
-                  flex: 1,
-                  position: 'relative',
-                }}
-              >
-                <MarkdownEditor
-                  defaultValue={!isCreateMode ? templateData?.content : undefined}
-                  onChange={handleContentChange}
-                  readOnly={isReadOnly}
-                  collaboration={
-                    !isCreateMode && collaboration.ydoc && collaboration.awareness
-                      ? { ydoc: collaboration.ydoc, awareness: collaboration.awareness }
-                      : undefined
-                  }
-                  onSelectionChange={onSelectionChange}
-                />
-                <FloatingCommentButton
-                  position={selectionInfo.buttonPosition}
-                  visible={selectionInfo.hasSelection && !isReadOnly}
-                  onClick={handleAddComment}
-                />
+              <Box sx={{ display: 'flex', position: 'relative' }}>
+                <Box
+                  ref={sourceContentRef}
+                  data-testid="source-editor-surface"
+                  sx={{
+                    backgroundColor: '#FFFFFF',
+                    flex: 1,
+                    position: 'relative',
+                  }}
+                >
+                  <MarkdownEditor
+                    defaultValue={!isCreateMode ? templateData?.content : undefined}
+                    onChange={handleContentChange}
+                    readOnly={isReadOnly}
+                    collaboration={
+                      !isCreateMode && collaboration.ydoc && collaboration.awareness
+                        ? { ydoc: collaboration.ydoc, awareness: collaboration.awareness }
+                        : undefined
+                    }
+                    onSelectionChange={onSelectionChange}
+                  />
+                  <FloatingCommentButton
+                    position={selectionInfo.buttonPosition}
+                    visible={selectionInfo.hasSelection && !isReadOnly}
+                    onClick={handleAddComment}
+                  />
+                </Box>
+                {id != null && (
+                  <InlineCommentMargin
+                    threads={threads}
+                    contentRef={sourceContentRef}
+                    activeCommentId={activeCommentId}
+                    onCommentClick={handleCommentClick}
+                    templateId={id}
+                    onResolve={handleMarginResolve}
+                    onDelete={handleMarginDelete}
+                    onReply={handleMarginReply}
+                  />
+                )}
+                {pendingAnchor != null && (
+                  <NewCommentCard
+                    anchorText={pendingAnchor.anchorText}
+                    onSubmit={handleSubmitComment}
+                    onCancel={cancelComment}
+                  />
+                )}
               </Box>
             ) : (
               <Box sx={{ display: 'flex', position: 'relative' }}>
@@ -635,6 +694,15 @@ export function TemplateEditorPage() {
                   onDelete={handleMarginDelete}
                   onReply={handleMarginReply}
                 />
+                {reviewPendingAnchor != null && (
+                  <NewCommentCard
+                    anchorText={reviewPendingAnchor.anchorText}
+                    onSubmit={handleReviewSubmitComment}
+                    onCancel={() => {
+                      setReviewPendingAnchor(null);
+                    }}
+                  />
+                )}
               </Box>
             )}
           </Box>

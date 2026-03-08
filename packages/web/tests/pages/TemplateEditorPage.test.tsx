@@ -297,6 +297,33 @@ vi.mock('../../src/hooks/useCommentHighlights.js', () => ({
   },
 }));
 
+vi.mock('../../src/components/NewCommentCard.js', () => ({
+  NewCommentCard: ({
+    anchorText,
+    onSubmit,
+    onCancel,
+  }: {
+    anchorText: string;
+    onSubmit: (content: string) => void;
+    onCancel: () => void;
+  }) => (
+    <div data-testid="new-comment-card">
+      <span data-testid="ncc-anchor">{anchorText}</span>
+      <button
+        data-testid="ncc-submit"
+        onClick={() => {
+          onSubmit('test comment');
+        }}
+      >
+        Submit
+      </button>
+      <button data-testid="ncc-cancel" onClick={onCancel}>
+        Cancel
+      </button>
+    </div>
+  ),
+}));
+
 vi.mock('../../src/contexts/CommentAnchorContext.js', () => ({
   CommentAnchorProvider: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="comment-anchor-provider">{children}</div>
@@ -1818,7 +1845,25 @@ describe('TemplateEditorPage', () => {
       expect(screen.getByTestId('inline-comment-margin')).toBeInTheDocument();
     });
 
-    it('does not render InlineCommentMargin in source mode', () => {
+    it('renders InlineCommentMargin in source mode for existing templates', () => {
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      // In edit mode (id exists), InlineCommentMargin renders in source mode too
+      expect(screen.getByTestId('inline-comment-margin')).toBeInTheDocument();
+    });
+
+    it('does not render InlineCommentMargin in source mode for create mode (no id)', () => {
+      mockUseParams.mockReturnValue({});
+      mockUseTemplate.mockReturnValue(
+        createTemplateQueryResult({
+          data: undefined,
+          isLoading: false,
+          isPending: true,
+          isSuccess: false,
+          status: 'pending',
+        }),
+      );
+
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
       expect(screen.queryByTestId('inline-comment-margin')).not.toBeInTheDocument();
@@ -2725,6 +2770,154 @@ describe('TemplateEditorPage', () => {
           }),
         );
       });
+    });
+  });
+
+  describe('Comment creation flow', () => {
+    beforeEach(() => {
+      mockUseParams.mockReturnValue({ id: 't1' });
+      mockUseTemplate.mockReturnValue(
+        createTemplateQueryResult({
+          data: { template: draftTemplate, content: '# Draft content' },
+        }),
+      );
+    });
+
+    it('renders NewCommentCard when pendingAnchor exists in source mode', () => {
+      mockUseEditorComments.mockReturnValue({
+        selectionInfo: { hasSelection: false, text: '', buttonPosition: null },
+        pendingAnchor: { anchorText: 'selected text', anchorFrom: '10', anchorTo: '20' },
+        startComment: mockStartComment,
+        cancelComment: mockCancelComment,
+        onSelectionChange: vi.fn(),
+      });
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      expect(screen.getByTestId('new-comment-card')).toBeInTheDocument();
+      expect(screen.getByTestId('ncc-anchor')).toHaveTextContent('selected text');
+    });
+
+    it('does not render NewCommentCard when no pendingAnchor', () => {
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      expect(screen.queryByTestId('new-comment-card')).not.toBeInTheDocument();
+    });
+
+    it('submit calls createComment with correct data and clears pending anchor', async () => {
+      const user = userEvent.setup();
+      mockUseEditorComments.mockReturnValue({
+        selectionInfo: { hasSelection: false, text: '', buttonPosition: null },
+        pendingAnchor: { anchorText: 'selected text', anchorFrom: '10', anchorTo: '20' },
+        startComment: mockStartComment,
+        cancelComment: mockCancelComment,
+        onSelectionChange: vi.fn(),
+      });
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      await user.click(screen.getByTestId('ncc-submit'));
+
+      expect(mockCreateComment).toHaveBeenCalledWith({
+        templateId: 't1',
+        content: 'test comment',
+        anchorFrom: '10',
+        anchorTo: '20',
+        anchorText: 'selected text',
+      });
+      expect(mockCancelComment).toHaveBeenCalled();
+    });
+
+    it('cancel calls cancelComment', async () => {
+      const user = userEvent.setup();
+      mockUseEditorComments.mockReturnValue({
+        selectionInfo: { hasSelection: false, text: '', buttonPosition: null },
+        pendingAnchor: { anchorText: 'selected text', anchorFrom: '10', anchorTo: '20' },
+        startComment: mockStartComment,
+        cancelComment: mockCancelComment,
+        onSelectionChange: vi.fn(),
+      });
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      await user.click(screen.getByTestId('ncc-cancel'));
+
+      expect(mockCancelComment).toHaveBeenCalled();
+    });
+
+    it('renders NewCommentCard in review mode when review pending anchor exists', async () => {
+      const user = userEvent.setup();
+      mockUseTextSelection.mockReturnValue({
+        selectedText: 'Draft content',
+        selectionRect: { top: 100, left: 200, width: 100, height: 20 } as DOMRect,
+        hasSelection: true,
+      });
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('review');
+      });
+
+      // Click the floating comment button to set review pending anchor
+      const commentBtn = screen.getByTestId('floating-comment-button');
+      await user.click(commentBtn);
+
+      expect(screen.getByTestId('new-comment-card')).toBeInTheDocument();
+      expect(screen.getByTestId('ncc-anchor')).toHaveTextContent('Draft content');
+    });
+
+    it('review mode submit calls createComment and clears review pending anchor', async () => {
+      const user = userEvent.setup();
+      mockUseTextSelection.mockReturnValue({
+        selectedText: 'Draft content',
+        selectionRect: { top: 100, left: 200, width: 100, height: 20 } as DOMRect,
+        hasSelection: true,
+      });
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('review');
+      });
+
+      // Click floating comment button to set pending anchor
+      await user.click(screen.getByTestId('floating-comment-button'));
+
+      // Submit the comment
+      await user.click(screen.getByTestId('ncc-submit'));
+
+      expect(mockCreateComment).toHaveBeenCalledWith({
+        templateId: 't1',
+        content: 'test comment',
+        anchorText: 'Draft content',
+      });
+
+      // NewCommentCard should be gone after submit
+      expect(screen.queryByTestId('new-comment-card')).not.toBeInTheDocument();
+    });
+
+    it('review mode cancel clears review pending anchor', async () => {
+      const user = userEvent.setup();
+      mockUseTextSelection.mockReturnValue({
+        selectedText: 'Draft content',
+        selectionRect: { top: 100, left: 200, width: 100, height: 20 } as DOMRect,
+        hasSelection: true,
+      });
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('review');
+      });
+
+      // Click floating comment button to set pending anchor
+      await user.click(screen.getByTestId('floating-comment-button'));
+      expect(screen.getByTestId('new-comment-card')).toBeInTheDocument();
+
+      // Cancel
+      await user.click(screen.getByTestId('ncc-cancel'));
+      expect(screen.queryByTestId('new-comment-card')).not.toBeInTheDocument();
     });
   });
 });

@@ -24,6 +24,7 @@ function AppShellInner() {
           panelToggles={config.panelToggles}
           rightSlot={config.rightSlot}
           statusBadge={config.statusBadge}
+          documentHeader={config.documentHeader}
           user={user}
           onLogout={logout}
         />

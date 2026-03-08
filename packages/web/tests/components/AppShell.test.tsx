@@ -4,8 +4,10 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from '@mui/material';
+import { useEffect } from 'react';
 import { theme } from '../../src/theme/index.js';
 import { AppShell } from '../../src/components/AppShell.js';
+import { useTopAppBarConfig } from '../../src/contexts/TopAppBarContext.js';
 
 // Mock useMediaQuery to simulate desktop viewport (>= 900px)
 vi.mock('@mui/material/useMediaQuery', () => ({
@@ -25,7 +27,15 @@ vi.mock('../../src/hooks/useAuth.js', () => ({
   useAuth: (...args: unknown[]) => mockUseAuth(...args) as unknown,
 }));
 
-function renderShell(path = '/templates') {
+function ConfigSetter({ documentHeader }: { documentHeader: React.ReactNode }) {
+  const { setConfig } = useTopAppBarConfig();
+  useEffect(() => {
+    setConfig({ documentHeader });
+  }, [setConfig, documentHeader]);
+  return <div>Config Child</div>;
+}
+
+function renderShell(path = '/templates', childElement?: React.ReactElement) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
@@ -33,7 +43,7 @@ function renderShell(path = '/templates') {
         <MemoryRouter initialEntries={[path]}>
           <Routes>
             <Route element={<AppShell />}>
-              <Route path="/templates" element={<div>Template List</div>} />
+              <Route path="/templates" element={childElement ?? <div>Template List</div>} />
               <Route path="/admin" element={<div>Admin Page</div>} />
               <Route path="/settings" element={<div>Settings Page</div>} />
             </Route>
@@ -104,5 +114,16 @@ describe('AppShell', () => {
   it('renders user avatar in top app bar', () => {
     renderShell();
     expect(screen.getByRole('button', { name: /user menu/i })).toBeInTheDocument();
+  });
+
+  it('passes documentHeader to TopAppBar and hides breadcrumbs', () => {
+    renderShell(
+      '/templates',
+      <ConfigSetter documentHeader={<div data-testid="custom-doc-header">Header</div>} />,
+    );
+
+    expect(screen.getByTestId('custom-doc-header')).toBeInTheDocument();
+    // When documentHeader is set, Breadcrumbs should not render
+    expect(screen.queryByTestId('breadcrumbs')).not.toBeInTheDocument();
   });
 });
