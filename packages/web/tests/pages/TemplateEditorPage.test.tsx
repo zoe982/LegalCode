@@ -206,37 +206,50 @@ vi.mock('../../src/components/KeyboardShortcutHelp.js', () => ({
     ) : null,
 }));
 
-vi.mock('../../src/components/CommentsTab.js', () => ({
-  CommentsTab: ({
-    templateId,
-    onSubmitNew,
-    onCancelNew,
+vi.mock('../../src/components/InlineCommentMargin.js', () => ({
+  InlineCommentMargin: ({
+    threads,
+    activeCommentId,
+    onResolve,
+    onDelete,
+    onReply,
   }: {
-    templateId: string;
-    pendingAnchor?: unknown;
-    onSubmitNew?: (
-      content: string,
-      anchor: { anchorText: string; anchorFrom: string; anchorTo: string },
-    ) => void;
-    onCancelNew?: () => void;
+    threads: { comment: { id: string; content: string } }[];
+    contentRef: unknown;
+    activeCommentId?: string | null;
+    onCommentClick?: (id: string) => void;
+    templateId?: string;
+    onResolve: (id: string) => void;
+    onDelete: (id: string) => void;
+    onReply: (parentId: string, content: string) => void;
   }) => (
-    <div data-testid="comments-tab">
-      {templateId}
-      {onSubmitNew != null && (
-        <button
-          data-testid="mock-submit-comment"
-          onClick={() => {
-            onSubmitNew('test comment', { anchorText: 'text', anchorFrom: '1', anchorTo: '5' });
-          }}
-        >
-          Submit
-        </button>
-      )}
-      {onCancelNew != null && (
-        <button data-testid="mock-cancel-comment" onClick={onCancelNew}>
-          Cancel
-        </button>
-      )}
+    <div data-testid="inline-comment-margin" role="complementary" aria-label="Comments">
+      <span data-testid="margin-thread-count">{String(threads.length)}</span>
+      {activeCommentId != null && <span data-testid="margin-active">{activeCommentId}</span>}
+      <button
+        data-testid="margin-resolve"
+        onClick={() => {
+          onResolve('c1');
+        }}
+      >
+        Resolve
+      </button>
+      <button
+        data-testid="margin-delete"
+        onClick={() => {
+          onDelete('c1');
+        }}
+      >
+        Delete
+      </button>
+      <button
+        data-testid="margin-reply"
+        onClick={() => {
+          onReply('c1', 'test reply');
+        }}
+      >
+        Reply
+      </button>
     </div>
   ),
 }));
@@ -306,28 +319,7 @@ vi.mock('../../src/components/FloatingCommentButton.js', () => ({
     ) : null,
 }));
 
-vi.mock('../../src/components/SlideOverPanel.js', () => ({
-  SlideOverPanel: ({
-    open,
-    onClose,
-    title,
-    children,
-  }: {
-    open: boolean;
-    onClose: () => void;
-    title: string;
-    children: React.ReactNode;
-  }) =>
-    open ? (
-      <div data-testid={`slide-over-${title.toLowerCase().replace(/\s+/g, '-')}`}>
-        <span>{title}</span>
-        <button onClick={onClose} data-testid="slide-over-close">
-          Close
-        </button>
-        {children}
-      </div>
-    ) : null,
-}));
+// SlideOverPanel no longer used in TemplateEditorPage (replaced by InlineCommentMargin)
 
 // Store the latest DocumentHeader props so tests can trigger callbacks
 let latestDocumentHeaderProps: Record<string, unknown> = {};
@@ -1785,7 +1777,7 @@ describe('TemplateEditorPage', () => {
     });
   });
 
-  describe('Comments slide-over panel', () => {
+  describe('Inline comment margin in review mode', () => {
     beforeEach(() => {
       mockUseParams.mockReturnValue({ id: 't1' });
       mockUseTemplate.mockReturnValue(
@@ -1799,7 +1791,23 @@ describe('TemplateEditorPage', () => {
       );
     });
 
-    it('opens comments panel when FloatingCommentButton is clicked', async () => {
+    it('renders InlineCommentMargin in review mode', () => {
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('review');
+      });
+
+      expect(screen.getByTestId('inline-comment-margin')).toBeInTheDocument();
+    });
+
+    it('does not render InlineCommentMargin in source mode', () => {
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      expect(screen.queryByTestId('inline-comment-margin')).not.toBeInTheDocument();
+    });
+
+    it('calls startComment when FloatingCommentButton is clicked in source mode', async () => {
       const user = userEvent.setup();
       mockUseEditorComments.mockReturnValue({
         selectionInfo: {
@@ -1819,50 +1827,69 @@ describe('TemplateEditorPage', () => {
       await user.click(commentBtn);
 
       expect(mockStartComment).toHaveBeenCalled();
-      expect(await screen.findByTestId('slide-over-comments')).toBeInTheDocument();
     });
 
-    it('closes comments panel when close button is clicked', async () => {
+    it('wires resolve callback to resolveComment from useComments', async () => {
       const user = userEvent.setup();
-      mockUseEditorComments.mockReturnValue({
-        selectionInfo: {
-          hasSelection: true,
-          text: 'selected',
-          buttonPosition: { top: 100, left: 200 },
-        },
-        pendingAnchor: null,
-        startComment: mockStartComment,
-        cancelComment: mockCancelComment,
-        onSelectionChange: vi.fn(),
+      const mockResolveComment = vi.fn();
+      mockUseComments.mockReturnValue({
+        threads: [],
+        isLoading: false,
+        createComment: mockCreateComment,
+        resolveComment: mockResolveComment,
+        deleteComment: vi.fn(),
+        showResolved: false,
+        toggleShowResolved: vi.fn(),
       });
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('review');
+      });
 
-      await user.click(screen.getByTestId('floating-comment-button'));
-      expect(screen.getByTestId('slide-over-comments')).toBeInTheDocument();
-
-      await user.click(screen.getByTestId('slide-over-close'));
-      expect(screen.queryByTestId('slide-over-comments')).not.toBeInTheDocument();
+      await user.click(screen.getByTestId('margin-resolve'));
+      expect(mockResolveComment).toHaveBeenCalledWith({ templateId: 't1', commentId: 'c1' });
     });
 
-    it('renders CommentsTab inside comments panel', async () => {
+    it('wires delete callback to deleteComment from useComments', async () => {
       const user = userEvent.setup();
-      mockUseEditorComments.mockReturnValue({
-        selectionInfo: {
-          hasSelection: true,
-          text: 'selected',
-          buttonPosition: { top: 100, left: 200 },
-        },
-        pendingAnchor: null,
-        startComment: mockStartComment,
-        cancelComment: mockCancelComment,
-        onSelectionChange: vi.fn(),
+      const mockDeleteComment = vi.fn();
+      mockUseComments.mockReturnValue({
+        threads: [],
+        isLoading: false,
+        createComment: mockCreateComment,
+        resolveComment: vi.fn(),
+        deleteComment: mockDeleteComment,
+        showResolved: false,
+        toggleShowResolved: vi.fn(),
       });
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('review');
+      });
 
-      await user.click(screen.getByTestId('floating-comment-button'));
-      expect(screen.getByTestId('comments-tab')).toBeInTheDocument();
+      await user.click(screen.getByTestId('margin-delete'));
+      expect(mockDeleteComment).toHaveBeenCalledWith({ templateId: 't1', commentId: 'c1' });
+    });
+
+    it('wires reply callback to createComment from useComments', async () => {
+      const user = userEvent.setup();
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('review');
+      });
+
+      await user.click(screen.getByTestId('margin-reply'));
+      expect(mockCreateComment).toHaveBeenCalledWith({
+        templateId: 't1',
+        content: 'test reply',
+        parentId: 'c1',
+      });
     });
   });
 
@@ -2175,8 +2202,7 @@ describe('TemplateEditorPage', () => {
   });
 
   describe('inline comments wiring', () => {
-    it('renders submit button in CommentsTab mock and triggers handleSubmitNewComment', async () => {
-      const user = userEvent.setup();
+    it('InlineCommentMargin receives threads from useComments in review mode', () => {
       mockUseParams.mockReturnValue({ id: 't1' });
       mockUseTemplate.mockReturnValue(
         createTemplateQueryResult({
@@ -2184,66 +2210,49 @@ describe('TemplateEditorPage', () => {
         }),
       );
 
-      // Make floating comment button visible
-      mockUseEditorComments.mockReturnValue({
-        selectionInfo: {
-          hasSelection: true,
-          text: 'selected',
-          buttonPosition: { top: 100, left: 200 },
+      const mockThreads = [
+        {
+          comment: {
+            id: 'c1',
+            templateId: 't1',
+            content: 'test',
+            anchorText: 'Hello',
+            anchorFrom: '0',
+            anchorTo: '5',
+            parentId: null,
+            resolved: false,
+            authorId: 'u1',
+            authorName: 'Alice',
+            authorEmail: 'alice@acasus.com',
+            resolvedBy: null,
+            createdAt: '2026-01-01T00:00:00Z',
+            updatedAt: '2026-01-01T00:00:00Z',
+          },
+          replies: [],
         },
-        pendingAnchor: null,
-        startComment: mockStartComment,
-        cancelComment: mockCancelComment,
-        onSelectionChange: vi.fn(),
+      ];
+      mockUseComments.mockReturnValue({
+        threads: mockThreads,
+        isLoading: false,
+        createComment: mockCreateComment,
+        resolveComment: vi.fn(),
+        deleteComment: vi.fn(),
+        showResolved: false,
+        toggleShowResolved: vi.fn(),
       });
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-
-      // Open comments panel via FloatingCommentButton
-      await user.click(screen.getByTestId('floating-comment-button'));
-
-      // The mock CommentsTab renders a submit button
-      const submitBtn = await screen.findByTestId('mock-submit-comment');
-      await user.click(submitBtn);
-
-      expect(submitBtn).toBeInTheDocument();
-    });
-
-    it('renders cancel button in CommentsTab mock and triggers cancelComment', async () => {
-      const user = userEvent.setup();
-      mockUseParams.mockReturnValue({ id: 't1' });
-      mockUseTemplate.mockReturnValue(
-        createTemplateQueryResult({
-          data: { template: draftTemplate, content: '# Hello', tags: [] },
-        }),
-      );
-
-      mockUseEditorComments.mockReturnValue({
-        selectionInfo: {
-          hasSelection: true,
-          text: 'selected',
-          buttonPosition: { top: 100, left: 200 },
-        },
-        pendingAnchor: null,
-        startComment: mockStartComment,
-        cancelComment: mockCancelComment,
-        onSelectionChange: vi.fn(),
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('review');
       });
 
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-
-      // Open comments panel via FloatingCommentButton
-      await user.click(screen.getByTestId('floating-comment-button'));
-
-      const cancelBtn = await screen.findByTestId('mock-cancel-comment');
-      await user.click(cancelBtn);
-
-      expect(cancelBtn).toBeInTheDocument();
+      expect(screen.getByTestId('margin-thread-count')).toHaveTextContent('1');
     });
   });
 
   describe('handleAddComment', () => {
-    it('calls startComment and opens the comments panel when FloatingCommentButton is clicked', async () => {
+    it('calls startComment when FloatingCommentButton is clicked in source mode', async () => {
       const user = userEvent.setup();
       mockUseParams.mockReturnValue({ id: 't1' });
       mockUseTemplate.mockReturnValue(
@@ -2271,8 +2280,6 @@ describe('TemplateEditorPage', () => {
       await user.click(commentBtn);
 
       expect(mockStartComment).toHaveBeenCalled();
-      // Comments panel should now be open
-      expect(await screen.findByTestId('slide-over-comments')).toBeInTheDocument();
     });
   });
 
@@ -2395,7 +2402,7 @@ describe('TemplateEditorPage', () => {
       expect(commentBtn).toBeInTheDocument();
     });
 
-    it('review mode FloatingCommentButton click opens comments panel', async () => {
+    it('review mode FloatingCommentButton click triggers review add comment', async () => {
       const user = userEvent.setup();
       mockUseTextSelection.mockReturnValue({
         selectedText: 'Draft content',
@@ -2412,8 +2419,8 @@ describe('TemplateEditorPage', () => {
       const commentBtn = screen.getByTestId('floating-comment-button');
       await user.click(commentBtn);
 
-      // Comments panel should be open
-      expect(screen.getByTestId('slide-over-comments')).toBeInTheDocument();
+      // InlineCommentMargin should be rendered in review mode
+      expect(screen.getByTestId('inline-comment-margin')).toBeInTheDocument();
     });
   });
 

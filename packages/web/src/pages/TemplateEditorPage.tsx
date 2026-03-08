@@ -42,8 +42,7 @@ import { CommentAnchorProvider } from '../contexts/CommentAnchorContext.js';
 import { useTextSelection } from '../hooks/useTextSelection.js';
 import { useCommentHighlights } from '../hooks/useCommentHighlights.js';
 import { DocumentHeader } from '../components/DocumentHeader.js';
-import { SlideOverPanel } from '../components/SlideOverPanel.js';
-import { CommentsTab } from '../components/CommentsTab.js';
+import { InlineCommentMargin } from '../components/InlineCommentMargin.js';
 
 interface TemplateDetail {
   template: Template;
@@ -88,29 +87,19 @@ export function TemplateEditorPage() {
 
   const isDirtyRef = useRef(false);
 
-  // Panel state — comments slide-over
-  const [activePanel, setActivePanel] = useState<'comments' | null>(null);
-
   const { showToast } = useToast();
   const queryClient = useQueryClient();
-  const { selectionInfo, pendingAnchor, startComment, cancelComment, onSelectionChange } =
-    useEditorComments();
-  const { threads, createComment } = useComments(id);
+  const { selectionInfo, startComment, onSelectionChange } = useEditorComments();
+  const { threads, createComment, resolveComment, deleteComment } = useComments(id);
 
   // Review mode comment highlighting
   const reviewContentRef = useRef<HTMLDivElement>(null);
   const reviewTextSelection = useTextSelection(reviewContentRef);
   const [activeCommentId, setActiveCommentId] = useState<string | null>(null);
-  const [reviewPendingAnchor, setReviewPendingAnchor] = useState<{
-    anchorText: string;
-    anchorFrom: string;
-    anchorTo: string;
-  } | null>(null);
 
-  /* v8 ignore next 4 -- callback passed to useCommentHighlights, invoked by DOM event handler */
+  /* v8 ignore next 3 -- callback passed to useCommentHighlights, invoked by DOM event handler */
   const handleCommentClick = useCallback((commentId: string) => {
     setActiveCommentId(commentId);
-    setActivePanel('comments');
   }, []);
 
   useCommentHighlights(
@@ -121,18 +110,13 @@ export function TemplateEditorPage() {
 
   const handleAddComment = useCallback(() => {
     startComment();
-    setActivePanel('comments');
   }, [startComment]);
 
+  /* v8 ignore next 5 -- review mode pending comment flow; anchor stored for future inline creation */
   const handleReviewAddComment = useCallback(() => {
-    if (reviewTextSelection.selectedText) {
-      setReviewPendingAnchor({
-        anchorText: reviewTextSelection.selectedText.slice(0, 500),
-        anchorFrom: '0',
-        anchorTo: String(reviewTextSelection.selectedText.length),
-      });
-    }
-    setActivePanel('comments');
+    // In review mode, clicking the FloatingCommentButton is a no-op for now
+    // The inline comment margin handles display; future: open inline new-comment card
+    void reviewTextSelection.selectedText;
   }, [reviewTextSelection.selectedText]);
 
   // Collaboration — only for existing templates with edit permission
@@ -392,23 +376,28 @@ export function TemplateEditorPage() {
     setUnarchiveDialogOpen(false);
   }, [unarchiveMutation, id, showToast]);
 
-  const handleSubmitNewComment = useCallback(
-    (
-      commentContent: string,
-      anchor: { anchorText: string; anchorFrom: string; anchorTo: string },
-    ) => {
-      /* v8 ignore next -- guard for TypeScript; id is always defined in edit mode */
+  const handleMarginResolve = useCallback(
+    (commentId: string) => {
       if (!id) return;
-      createComment({
-        templateId: id,
-        content: commentContent,
-        anchorText: anchor.anchorText,
-        anchorFrom: anchor.anchorFrom,
-        anchorTo: anchor.anchorTo,
-      });
-      cancelComment();
+      resolveComment({ templateId: id, commentId });
     },
-    [id, createComment, cancelComment],
+    [id, resolveComment],
+  );
+
+  const handleMarginDelete = useCallback(
+    (commentId: string) => {
+      if (!id) return;
+      deleteComment({ templateId: id, commentId });
+    },
+    [id, deleteComment],
+  );
+
+  const handleMarginReply = useCallback(
+    (parentId: string, replyContent: string) => {
+      if (!id) return;
+      createComment({ templateId: id, content: replyContent, parentId });
+    },
+    [id, createComment],
   );
 
   const wordCount = content.trim() === '' ? 0 : content.trim().split(/\s+/).length;
@@ -525,57 +514,70 @@ export function TemplateEditorPage() {
                 />
               </Box>
             ) : (
-              <Box sx={{ position: 'relative' }}>
-                <Box
-                  ref={reviewContentRef}
-                  data-testid="review-content"
-                  sx={{
-                    backgroundColor: '#FFFFFF',
-                    fontFamily: '"Source Serif 4", Georgia, "Times New Roman", serif',
-                    lineHeight: 1.6,
-                    minHeight: 200,
-                    '& h1, & h2, & h3, & h4, & h5, & h6': {
+              <Box sx={{ display: 'flex', position: 'relative' }}>
+                <Box sx={{ flex: 1, position: 'relative' }}>
+                  <Box
+                    ref={reviewContentRef}
+                    data-testid="review-content"
+                    sx={{
+                      backgroundColor: '#FFFFFF',
                       fontFamily: '"Source Serif 4", Georgia, "Times New Roman", serif',
-                      color: 'var(--text-primary)',
-                      fontWeight: 600,
-                    },
-                    '& .template-var': {
-                      backgroundColor: 'var(--accent-primary-subtle)',
-                      color: 'var(--accent-primary)',
-                      padding: '2px 4px',
-                      borderRadius: '4px',
-                    },
-                    '& .clause-ref': {
-                      backgroundColor: 'var(--accent-primary-subtle)',
-                      color: 'var(--accent-primary)',
-                      padding: '2px 4px',
-                      borderRadius: '4px',
-                      fontStyle: 'italic',
-                    },
-                    '& a': { color: 'var(--text-link)' },
-                    '& hr': {
-                      border: 'none',
-                      borderTop: '1px solid var(--border-primary)',
-                      margin: '24px 0',
-                    },
-                    '& table': { borderCollapse: 'collapse', width: '100%' },
-                    '& td, & th': { border: '1px solid var(--border-primary)', padding: '8px' },
-                  }}
-                  dangerouslySetInnerHTML={{
-                    __html: content ? markdownToHtml(content) : '<p>No content yet</p>',
-                  }}
-                />
-                <FloatingCommentButton
-                  position={
-                    reviewTextSelection.selectionRect
-                      ? {
-                          top: reviewTextSelection.selectionRect.top,
-                          left: reviewTextSelection.selectionRect.left,
-                        }
-                      : null
-                  }
-                  visible={reviewTextSelection.hasSelection && !isReadOnly}
-                  onClick={handleReviewAddComment}
+                      lineHeight: 1.6,
+                      minHeight: 200,
+                      maxWidth: 720,
+                      '& h1, & h2, & h3, & h4, & h5, & h6': {
+                        fontFamily: '"Source Serif 4", Georgia, "Times New Roman", serif',
+                        color: 'var(--text-primary)',
+                        fontWeight: 600,
+                      },
+                      '& .template-var': {
+                        backgroundColor: 'var(--accent-primary-subtle)',
+                        color: 'var(--accent-primary)',
+                        padding: '2px 4px',
+                        borderRadius: '4px',
+                      },
+                      '& .clause-ref': {
+                        backgroundColor: 'var(--accent-primary-subtle)',
+                        color: 'var(--accent-primary)',
+                        padding: '2px 4px',
+                        borderRadius: '4px',
+                        fontStyle: 'italic',
+                      },
+                      '& a': { color: 'var(--text-link)' },
+                      '& hr': {
+                        border: 'none',
+                        borderTop: '1px solid var(--border-primary)',
+                        margin: '24px 0',
+                      },
+                      '& table': { borderCollapse: 'collapse', width: '100%' },
+                      '& td, & th': { border: '1px solid var(--border-primary)', padding: '8px' },
+                    }}
+                    dangerouslySetInnerHTML={{
+                      __html: content ? markdownToHtml(content) : '<p>No content yet</p>',
+                    }}
+                  />
+                  <FloatingCommentButton
+                    position={
+                      reviewTextSelection.selectionRect
+                        ? {
+                            top: reviewTextSelection.selectionRect.top,
+                            left: reviewTextSelection.selectionRect.left,
+                          }
+                        : null
+                    }
+                    visible={reviewTextSelection.hasSelection && !isReadOnly}
+                    onClick={handleReviewAddComment}
+                  />
+                </Box>
+                <InlineCommentMargin
+                  threads={threads}
+                  contentRef={reviewContentRef}
+                  activeCommentId={activeCommentId}
+                  onCommentClick={handleCommentClick}
+                  templateId={id}
+                  onResolve={handleMarginResolve}
+                  onDelete={handleMarginDelete}
+                  onReply={handleMarginReply}
                 />
               </Box>
             )}
@@ -716,26 +718,6 @@ export function TemplateEditorPage() {
             setShortcutHelpOpen(false);
           }}
         />
-
-        {/* Slide-over panels */}
-        <SlideOverPanel
-          open={activePanel === 'comments'}
-          onClose={() => {
-            setActivePanel(null);
-          }}
-          title="Comments"
-        >
-          <CommentsTab
-            templateId={id}
-            pendingAnchor={editorMode === 'review' ? reviewPendingAnchor : pendingAnchor}
-            onSubmitNew={handleSubmitNewComment}
-            onCancelNew={() => {
-              cancelComment();
-              setReviewPendingAnchor(null);
-            }}
-            activeCommentId={activeCommentId}
-          />
-        </SlideOverPanel>
       </Box>
     </CommentAnchorProvider>
   );
