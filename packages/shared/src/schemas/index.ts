@@ -67,8 +67,18 @@ export const templateQuerySchema = z.object({
   limit: z.coerce.number().int().positive().max(100).default(20),
 });
 
+export const autosaveDraftSchema = z.object({
+  content: z.string().min(1),
+  title: z.string().min(1).max(200).optional(),
+});
+
+export const autosaveDraftResponseSchema = z.object({
+  updatedAt: z.string(),
+});
+
 export type CreateTemplateInput = z.infer<typeof createTemplateSchema>;
 export type UpdateTemplateInput = z.infer<typeof updateTemplateSchema>;
+export type AutosaveDraftInput = z.infer<typeof autosaveDraftSchema>;
 export type TemplateQuery = z.infer<typeof templateQuerySchema>;
 
 export * from './auth.js';

@@ -5,7 +5,9 @@ export type ConnectionStatusType =
   | 'connected'
   | 'disconnected'
   | 'reconnecting'
-  | 'saving';
+  | 'saving'
+  | 'saved'
+  | 'error';
 
 interface ConnectionStatusProps {
   status: ConnectionStatusType;
@@ -27,6 +29,8 @@ const statusConfig: Record<
   disconnected: { label: 'Offline — changes saved locally', dotColor: '#DC2626', pulsing: false },
   reconnecting: { label: 'Reconnecting...', dotColor: '#D97706', pulsing: true },
   saving: { label: 'Saving...', dotColor: '#D97706', pulsing: true },
+  saved: { label: 'All changes saved', dotColor: '#059669', pulsing: false },
+  error: { label: 'Save failed — retrying...', dotColor: '#DC2626', pulsing: true },
 };
 
 export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({ status, onRetry }) => {

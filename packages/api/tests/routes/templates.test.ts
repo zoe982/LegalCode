@@ -17,6 +17,7 @@ const mockUnarchiveTemplate = vi.fn();
 const mockGetTemplateVersions = vi.fn();
 const mockGetTemplateVersion = vi.fn();
 const mockDownloadTemplate = vi.fn();
+const mockSaveDraftContent = vi.fn();
 
 vi.mock('../../src/services/template.js', () => ({
   createTemplate: (...args: unknown[]) => mockCreateTemplate(...args) as unknown,
@@ -29,6 +30,7 @@ vi.mock('../../src/services/template.js', () => ({
   getTemplateVersions: (...args: unknown[]) => mockGetTemplateVersions(...args) as unknown,
   getTemplateVersion: (...args: unknown[]) => mockGetTemplateVersion(...args) as unknown,
   downloadTemplate: (...args: unknown[]) => mockDownloadTemplate(...args) as unknown,
+  saveDraftContent: (...args: unknown[]) => mockSaveDraftContent(...args) as unknown,
 }));
 
 const JWT_SECRET = 'test-secret-that-is-long-enough-for-hmac-testing';
@@ -734,5 +736,146 @@ describe('POST /templates/:id/unarchive', () => {
     expect(res.status).toBe(200);
     const body: { template: { status: string } } = await res.json();
     expect(body.template.status).toBe('draft');
+  });
+});
+
+// ── PATCH /templates/:id/autosave ─────────────────────────────────────
+
+describe('PATCH /templates/:id/autosave', () => {
+  it('returns 401 without auth cookie', async () => {
+    const app = await importAndCreateApp();
+    const res = await app.request('/templates/t-1/autosave', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: '# Draft content' }),
+    });
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 403 for viewer role', async () => {
+    const app = await importAndCreateApp();
+    const token = await viewerToken();
+    const res = await app.request('/templates/t-1/autosave', {
+      method: 'PATCH',
+      headers: {
+        Cookie: `__Host-auth=${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ content: '# Draft content' }),
+    });
+    expect(res.status).toBe(403);
+  });
+
+  it('returns 200 for admin with valid body', async () => {
+    mockSaveDraftContent.mockResolvedValueOnce({
+      updatedAt: '2026-03-08T00:00:00.000Z',
+    });
+
+    const app = await importAndCreateApp();
+    const token = await adminToken();
+    const res = await app.request('/templates/t-1/autosave', {
+      method: 'PATCH',
+      headers: {
+        Cookie: `__Host-auth=${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ content: '# Draft content' }),
+    });
+    expect(res.status).toBe(200);
+    const body: { updatedAt: string } = await res.json();
+    expect(body.updatedAt).toBe('2026-03-08T00:00:00.000Z');
+  });
+
+  it('returns 200 for editor with valid body', async () => {
+    mockSaveDraftContent.mockResolvedValueOnce({
+      updatedAt: '2026-03-08T00:00:00.000Z',
+    });
+
+    const app = await importAndCreateApp();
+    const token = await editorToken();
+    const res = await app.request('/templates/t-1/autosave', {
+      method: 'PATCH',
+      headers: {
+        Cookie: `__Host-auth=${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ content: '# Draft content' }),
+    });
+    expect(res.status).toBe(200);
+  });
+
+  it('returns 404 when template not found', async () => {
+    mockSaveDraftContent.mockResolvedValueOnce({ error: 'not_found' });
+
+    const app = await importAndCreateApp();
+    const token = await adminToken();
+    const res = await app.request('/templates/t-1/autosave', {
+      method: 'PATCH',
+      headers: {
+        Cookie: `__Host-auth=${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ content: '# Draft content' }),
+    });
+    expect(res.status).toBe(404);
+    const body: { error: string } = await res.json();
+    expect(body.error).toBe('Template not found');
+  });
+
+  it('returns 409 when template is not draft', async () => {
+    mockSaveDraftContent.mockResolvedValueOnce({ error: 'not_draft' });
+
+    const app = await importAndCreateApp();
+    const token = await adminToken();
+    const res = await app.request('/templates/t-1/autosave', {
+      method: 'PATCH',
+      headers: {
+        Cookie: `__Host-auth=${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ content: '# Draft content' }),
+    });
+    expect(res.status).toBe(409);
+    const body: { error: string } = await res.json();
+    expect(body.error).toBe('Template is not a draft');
+  });
+
+  it('returns 400 for invalid body (empty content)', async () => {
+    const app = await importAndCreateApp();
+    const token = await adminToken();
+    const res = await app.request('/templates/t-1/autosave', {
+      method: 'PATCH',
+      headers: {
+        Cookie: `__Host-auth=${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ content: '' }),
+    });
+    expect(res.status).toBe(400);
+    const body: { error: string } = await res.json();
+    expect(body.error).toBe('Invalid input');
+  });
+
+  it('validates response matches autosaveDraftResponseSchema', async () => {
+    const { autosaveDraftResponseSchema } = await import('@legalcode/shared');
+
+    mockSaveDraftContent.mockResolvedValueOnce({
+      updatedAt: '2026-03-08T12:00:00.000Z',
+    });
+
+    const app = await importAndCreateApp();
+    const token = await adminToken();
+    const res = await app.request('/templates/t-1/autosave', {
+      method: 'PATCH',
+      headers: {
+        Cookie: `__Host-auth=${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ content: '# Autosaved content' }),
+    });
+    expect(res.status).toBe(200);
+    const body: unknown = await res.json();
+    const parsed = autosaveDraftResponseSchema.safeParse(body);
+    expect(parsed.success).toBe(true);
   });
 });

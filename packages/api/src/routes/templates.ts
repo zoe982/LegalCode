@@ -13,8 +13,14 @@ import {
   getTemplateVersions,
   getTemplateVersion,
   downloadTemplate,
+  saveDraftContent,
 } from '../services/template.js';
-import { createTemplateSchema, updateTemplateSchema, templateQuerySchema } from '@legalcode/shared';
+import {
+  createTemplateSchema,
+  updateTemplateSchema,
+  templateQuerySchema,
+  autosaveDraftSchema,
+} from '@legalcode/shared';
 import { commentRoutes } from './comments.js';
 
 export const templateRoutes = new Hono<AppEnv>();
@@ -130,6 +136,22 @@ templateRoutes.post('/:id/archive', requireRole('admin', 'editor'), async (c) =>
     return c.json({ error: 'Template is already archived' }, 409);
   }
   return c.json(result);
+});
+
+templateRoutes.patch('/:id/autosave', requireRole('admin', 'editor'), async (c) => {
+  const body: unknown = await c.req.json();
+  const parsed = autosaveDraftSchema.safeParse(body);
+  if (!parsed.success) {
+    return c.json({ error: 'Invalid input', details: parsed.error.flatten() }, 400);
+  }
+  const db = getDb(c.env.DB);
+  const id = c.req.param('id');
+  const result = await saveDraftContent(db, id, parsed.data.content, parsed.data.title);
+  if ('error' in result) {
+    if (result.error === 'not_found') return c.json({ error: 'Template not found' }, 404);
+    return c.json({ error: 'Template is not a draft' }, 409);
+  }
+  return c.json({ updatedAt: result.updatedAt });
 });
 
 templateRoutes.post('/:id/unarchive', requireRole('admin', 'editor'), async (c) => {

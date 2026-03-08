@@ -115,4 +115,22 @@ describe('ConnectionStatus', () => {
     const wrapper = container.firstElementChild as HTMLElement;
     expect(wrapper).toHaveStyle({ gap: '8px' });
   });
+
+  it('shows "All changes saved" with green dot when saved', () => {
+    const { container } = render(<ConnectionStatus status="saved" />);
+    expect(screen.getByText('All changes saved')).toBeInTheDocument();
+    const dot = container.querySelector('[data-testid="status-dot"]');
+    if (dot === null) throw new Error('Expected status dot element');
+    expect(dot).toHaveStyle({ backgroundColor: '#059669' });
+  });
+
+  it('shows "Save failed — retrying..." with pulsing red dot when error', () => {
+    const { container } = render(<ConnectionStatus status="error" />);
+    expect(screen.getByText('Save failed — retrying...')).toBeInTheDocument();
+    const dot = container.querySelector('[data-testid="status-dot"]');
+    if (dot === null) throw new Error('Expected status dot element');
+    expect(dot).toHaveStyle({ backgroundColor: '#DC2626' });
+    const style = window.getComputedStyle(dot);
+    expect(style.animation).toContain('1.5s');
+  });
 });

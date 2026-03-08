@@ -526,6 +526,53 @@ export async function unarchiveTemplate(
   };
 }
 
+// ── saveDraftContent (autosave) ───────────────────────────────────────
+
+type SaveDraftResult = { error: 'not_found' } | { error: 'not_draft' } | { updatedAt: string };
+
+export async function saveDraftContent(
+  db: AppDb,
+  templateId: string,
+  content: string,
+  title: string | undefined,
+): Promise<SaveDraftResult> {
+  const existing = await db.query.templates.findFirst({
+    where: eq(templates.id, templateId),
+  });
+
+  if (!existing) {
+    return { error: 'not_found' };
+  }
+
+  if (existing.status !== 'draft') {
+    return { error: 'not_draft' };
+  }
+
+  const now = nowISO();
+
+  const templateUpdate: Record<string, unknown> = { updatedAt: now };
+  if (title !== undefined) {
+    templateUpdate.title = title;
+  }
+
+  const ops: BatchItem<'sqlite'>[] = [
+    db
+      .update(templateVersions)
+      .set({ content })
+      .where(
+        and(
+          eq(templateVersions.templateId, templateId),
+          eq(templateVersions.version, existing.currentVersion),
+        ),
+      ),
+    db.update(templates).set(templateUpdate).where(eq(templates.id, templateId)),
+  ];
+
+  await db.batch(ops as unknown as [BatchItem<'sqlite'>, ...BatchItem<'sqlite'>[]]);
+
+  return { updatedAt: now };
+}
+
 // ── Task 9: getTemplateVersions ───────────────────────────────────────
 
 export async function getTemplateVersions(

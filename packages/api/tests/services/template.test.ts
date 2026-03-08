@@ -11,6 +11,7 @@ import {
   getTemplateVersions,
   getTemplateVersion,
   downloadTemplate,
+  saveDraftContent,
 } from '../../src/services/template.js';
 import { getDb, type AppDb } from '../../src/db/index.js';
 
@@ -1053,6 +1054,127 @@ describe('template service', () => {
 
       const result = await downloadTemplate(db, 't1');
       expect(result).toBeNull();
+    });
+  });
+
+  // ── saveDraftContent ────────────────────────────────────────────────
+
+  describe('saveDraftContent', () => {
+    it('returns not_found when template does not exist', async () => {
+      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue(undefined);
+
+      const result = await saveDraftContent(db, 'nonexistent', '# Content', undefined);
+      expect(result).toEqual({ error: 'not_found' });
+    });
+
+    it('returns not_draft when template is active', async () => {
+      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue({
+        id: 't1',
+        title: 'Active',
+        slug: 'active-abc123',
+        category: 'contracts',
+        description: null,
+        country: null,
+        status: 'active',
+        currentVersion: 1,
+        createdBy: 'user-1',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      });
+
+      const result = await saveDraftContent(db, 't1', '# Content', undefined);
+      expect(result).toEqual({ error: 'not_draft' });
+    });
+
+    it('returns not_draft when template is archived', async () => {
+      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue({
+        id: 't1',
+        title: 'Archived',
+        slug: 'archived-abc123',
+        category: 'contracts',
+        description: null,
+        country: null,
+        status: 'archived',
+        currentVersion: 1,
+        createdBy: 'user-1',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      });
+
+      const result = await saveDraftContent(db, 't1', '# Content', undefined);
+      expect(result).toEqual({ error: 'not_draft' });
+    });
+
+    it('updates content in place without version bump', async () => {
+      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue({
+        id: 't1',
+        title: 'Draft',
+        slug: 'draft-abc123',
+        category: 'contracts',
+        description: null,
+        country: null,
+        status: 'draft',
+        currentVersion: 2,
+        createdBy: 'user-1',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      });
+
+      const batchSpy = vi.spyOn(db, 'batch').mockResolvedValue([] as never);
+
+      const result = await saveDraftContent(db, 't1', '# Updated', undefined);
+
+      expect(result).toHaveProperty('updatedAt');
+      expect(batchSpy).toHaveBeenCalledTimes(1);
+      // Should have exactly 2 ops: update version content + update template updated_at
+      const batchOps = batchSpy.mock.calls[0]?.[0] as readonly unknown[];
+      expect(batchOps.length).toBe(2);
+    });
+
+    it('updates title when provided', async () => {
+      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue({
+        id: 't1',
+        title: 'Old Title',
+        slug: 'old-title-abc123',
+        category: 'contracts',
+        description: null,
+        country: null,
+        status: 'draft',
+        currentVersion: 1,
+        createdBy: 'user-1',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      });
+
+      const batchSpy = vi.spyOn(db, 'batch').mockResolvedValue([] as never);
+
+      const result = await saveDraftContent(db, 't1', '# Content', 'New Title');
+
+      expect(result).toHaveProperty('updatedAt');
+      expect(batchSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not change title when not provided', async () => {
+      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue({
+        id: 't1',
+        title: 'Keep This Title',
+        slug: 'keep-abc123',
+        category: 'contracts',
+        description: null,
+        country: null,
+        status: 'draft',
+        currentVersion: 1,
+        createdBy: 'user-1',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      });
+
+      const batchSpy = vi.spyOn(db, 'batch').mockResolvedValue([] as never);
+
+      const result = await saveDraftContent(db, 't1', '# Content', undefined);
+
+      expect(result).toHaveProperty('updatedAt');
+      expect(batchSpy).toHaveBeenCalledTimes(1);
     });
   });
 });
