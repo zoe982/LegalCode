@@ -4,11 +4,11 @@ import type { ReactNode } from 'react';
 const pageIn = keyframes`
   from {
     opacity: 0;
-    transform: scale(0.985);
+    transform: translateY(4px);
   }
   to {
     opacity: 1;
-    transform: scale(1);
+    transform: translateY(0);
   }
 `;
 
@@ -21,7 +21,7 @@ export function PageTransition({ children }: PageTransitionProps) {
     <Box
       data-testid="page-transition"
       sx={{
-        animation: `${pageIn} 200ms cubic-bezier(0.2, 0, 0, 1) both`,
+        animation: `${pageIn} 200ms ease-out backwards`,
         '@media (prefers-reduced-motion: reduce)': {
           animation: 'none',
         },

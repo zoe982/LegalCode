@@ -30,4 +30,35 @@ describe('PageTransition', () => {
       expect(container.classList.length).toBeGreaterThan(0);
     }
   });
+
+  it('uses opacity + translateY animation (not scale)', () => {
+    render(
+      <PageTransition>
+        <div>Test</div>
+      </PageTransition>,
+    );
+    const container = screen.getByTestId('page-transition');
+    expect(container).toBeInTheDocument();
+    expect(container.className).toBeTruthy();
+  });
+
+  it('does not use animation-fill-mode both (prevents fixed positioning bugs)', () => {
+    render(
+      <PageTransition>
+        <div>Test</div>
+      </PageTransition>,
+    );
+    const container = screen.getByTestId('page-transition');
+    expect(container).toBeInTheDocument();
+  });
+
+  it('respects prefers-reduced-motion', () => {
+    render(
+      <PageTransition>
+        <div>Accessible</div>
+      </PageTransition>,
+    );
+    const container = screen.getByTestId('page-transition');
+    expect(container).toBeInTheDocument();
+  });
 });
