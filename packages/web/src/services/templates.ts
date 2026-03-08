@@ -96,6 +96,8 @@ export const templateService = {
   async publish(id: string): Promise<Template> {
     const response = await fetch(`/api/templates/${id}/publish`, {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
       credentials: 'include',
     });
     if (!response.ok) {
@@ -107,6 +109,8 @@ export const templateService = {
   async archive(id: string): Promise<Template> {
     const response = await fetch(`/api/templates/${id}/archive`, {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
       credentials: 'include',
     });
     if (!response.ok) {
@@ -118,6 +122,8 @@ export const templateService = {
   async unarchive(id: string): Promise<Template> {
     const response = await fetch(`/api/templates/${id}/unarchive`, {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
       credentials: 'include',
     });
     if (!response.ok) {

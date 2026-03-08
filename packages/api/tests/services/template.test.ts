@@ -288,7 +288,7 @@ describe('template service', () => {
       setupListMock(db, mockTemplates, 1);
 
       const result = await listTemplates(db, {});
-      expect(result.templates).toEqual(mockTemplates);
+      expect(result.data).toEqual(mockTemplates);
       expect(result.total).toBe(1);
       expect(result.page).toBe(1);
       expect(result.limit).toBe(20);
@@ -305,21 +305,21 @@ describe('template service', () => {
       setupListMock(db, [], 0);
 
       const result = await listTemplates(db, { status: 'active' });
-      expect(result.templates).toEqual([]);
+      expect(result.data).toEqual([]);
     });
 
     it('applies category filter', async () => {
       setupListMock(db, [], 0);
 
       const result = await listTemplates(db, { category: 'contracts' });
-      expect(result.templates).toEqual([]);
+      expect(result.data).toEqual([]);
     });
 
     it('applies country filter', async () => {
       setupListMock(db, [], 0);
 
       const result = await listTemplates(db, { country: 'US' });
-      expect(result.templates).toEqual([]);
+      expect(result.data).toEqual([]);
     });
 
     it('handles custom page and limit', async () => {
@@ -335,7 +335,7 @@ describe('template service', () => {
       setupListMock(db, [], 0);
 
       const result = await listTemplates(db, {});
-      expect(result.templates).toEqual([]);
+      expect(result.data).toEqual([]);
       expect(result.total).toBe(0);
     });
 
@@ -352,7 +352,7 @@ describe('template service', () => {
       setupListMock(db, [], 0);
 
       const result = await listTemplates(db, { tag: 'employment' });
-      expect(result.templates).toEqual([]);
+      expect(result.data).toEqual([]);
       expect(result.total).toBe(0);
     });
   });

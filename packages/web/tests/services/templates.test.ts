@@ -270,6 +270,8 @@ describe('templateService', () => {
 
       expect(fetch).toHaveBeenCalledWith('/api/templates/tpl-1/publish', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
         credentials: 'include',
       });
       expect(result).toEqual(mockTemplate);
@@ -313,6 +315,8 @@ describe('templateService', () => {
 
       expect(fetch).toHaveBeenCalledWith('/api/templates/tpl-1/archive', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
         credentials: 'include',
       });
       expect(result).toEqual(mockTemplate);
@@ -356,6 +360,8 @@ describe('templateService', () => {
 
       expect(fetch).toHaveBeenCalledWith('/api/templates/tpl-1/unarchive', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
         credentials: 'include',
       });
       expect(result).toEqual(mockTemplate);

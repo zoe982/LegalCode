@@ -126,8 +126,8 @@ describe('template CRUD integration (real SQLite)', () => {
       const result = await listTemplates(db, {});
 
       expect(result.total).toBe(1);
-      expect(result.templates).toHaveLength(1);
-      expect(result.templates[0]?.title).toBe('Listed Template');
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0]?.title).toBe('Listed Template');
     });
 
     it('publishes a draft template to active status', async () => {
@@ -458,19 +458,19 @@ describe('template CRUD integration (real SQLite)', () => {
 
       // Page 1 with limit 3
       const page1 = await listTemplates(db, { page: 1, limit: 3 });
-      expect(page1.templates).toHaveLength(3);
+      expect(page1.data).toHaveLength(3);
       expect(page1.total).toBe(7);
       expect(page1.page).toBe(1);
       expect(page1.limit).toBe(3);
 
       // Page 2 with limit 3
       const page2 = await listTemplates(db, { page: 2, limit: 3 });
-      expect(page2.templates).toHaveLength(3);
+      expect(page2.data).toHaveLength(3);
       expect(page2.total).toBe(7);
 
       // Page 3 with limit 3 (only 1 remaining)
       const page3 = await listTemplates(db, { page: 3, limit: 3 });
-      expect(page3.templates).toHaveLength(1);
+      expect(page3.data).toHaveLength(1);
       expect(page3.total).toBe(7);
     });
 
@@ -482,7 +482,7 @@ describe('template CRUD integration (real SQLite)', () => {
       );
 
       const result = await listTemplates(db, { page: 5, limit: 10 });
-      expect(result.templates).toHaveLength(0);
+      expect(result.data).toHaveLength(0);
       expect(result.total).toBe(1);
     });
   });
@@ -530,7 +530,7 @@ describe('template CRUD integration (real SQLite)', () => {
 
       const result = await listTemplates(db, { search: 'agreement' });
       expect(result.total).toBe(2);
-      const titles = result.templates.map((t) => t.title);
+      const titles = result.data.map((t) => t.title);
       expect(titles).toContain('Employment Agreement');
       expect(titles).toContain('Service Level Agreement');
     });
@@ -540,7 +540,7 @@ describe('template CRUD integration (real SQLite)', () => {
 
       const result = await listTemplates(db, { category: 'policies' });
       expect(result.total).toBe(1);
-      expect(result.templates[0]?.title).toBe('Privacy Policy');
+      expect(result.data[0]?.title).toBe('Privacy Policy');
     });
 
     it('filters by status', async () => {
@@ -559,7 +559,7 @@ describe('template CRUD integration (real SQLite)', () => {
 
       const result = await listTemplates(db, { country: 'UK' });
       expect(result.total).toBe(1);
-      expect(result.templates[0]?.title).toBe('Privacy Policy');
+      expect(result.data[0]?.title).toBe('Privacy Policy');
     });
 
     it('filters by tag', async () => {
@@ -567,7 +567,7 @@ describe('template CRUD integration (real SQLite)', () => {
 
       const result = await listTemplates(db, { tag: 'employment' });
       expect(result.total).toBe(1);
-      expect(result.templates[0]?.title).toBe('Employment Agreement');
+      expect(result.data[0]?.title).toBe('Employment Agreement');
     });
 
     it('combines multiple filters', async () => {
@@ -578,7 +578,7 @@ describe('template CRUD integration (real SQLite)', () => {
 
       const result2 = await listTemplates(db, { category: 'contracts', search: 'employment' });
       expect(result2.total).toBe(1);
-      expect(result2.templates[0]?.title).toBe('Employment Agreement');
+      expect(result2.data[0]?.title).toBe('Employment Agreement');
     });
   });
 

@@ -125,7 +125,7 @@ export async function createTemplate(
 // ── Task 5: listTemplates ─────────────────────────────────────────────
 
 interface ListResult {
-  templates: (typeof templates.$inferSelect)[];
+  data: (typeof templates.$inferSelect)[];
   total: number;
   page: number;
   limit: number;
@@ -180,7 +180,7 @@ export async function listTemplates(db: AppDb, query: Partial<TemplateQuery>): P
     .all();
 
   return {
-    templates: rows,
+    data: rows,
     total,
     page: parsed.page,
     limit: parsed.limit,

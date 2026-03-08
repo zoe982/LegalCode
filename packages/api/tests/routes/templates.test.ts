@@ -90,7 +90,7 @@ describe('GET /templates', () => {
 
   it('returns 200 with template list for authenticated user', async () => {
     mockListTemplates.mockResolvedValueOnce({
-      templates: [{ id: 't-1', title: 'NDA', slug: 'nda-abc123', status: 'draft' }],
+      data: [{ id: 't-1', title: 'NDA', slug: 'nda-abc123', status: 'draft' }],
       total: 1,
       page: 1,
       limit: 20,
@@ -102,14 +102,14 @@ describe('GET /templates', () => {
       headers: { Cookie: `__Host-auth=${token}` },
     });
     expect(res.status).toBe(200);
-    const body: { templates: unknown[]; total: number } = await res.json();
-    expect(body.templates).toHaveLength(1);
+    const body: { data: unknown[]; total: number } = await res.json();
+    expect(body.data).toHaveLength(1);
     expect(body.total).toBe(1);
   });
 
   it('passes query params to listTemplates', async () => {
     mockListTemplates.mockResolvedValueOnce({
-      templates: [],
+      data: [],
       total: 0,
       page: 1,
       limit: 10,
