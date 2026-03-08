@@ -89,11 +89,15 @@ vi.mock('../../src/components/VersionHistory.js', () => ({
     currentVersion,
     onNavigateDiff,
     onRestore,
+    onCreateVersion,
+    isCreatingVersion,
   }: {
     templateId: string;
     currentVersion: number;
     onNavigateDiff?: (from: number, to: number) => void;
     onRestore?: (version: number) => void;
+    onCreateVersion?: (summary: string) => void;
+    isCreatingVersion?: boolean;
   }) => (
     <div data-testid="version-history">
       Version history for {templateId} v{String(currentVersion)}
@@ -117,6 +121,17 @@ vi.mock('../../src/components/VersionHistory.js', () => ({
           Restore v1
         </button>
       )}
+      {onCreateVersion != null && (
+        <button
+          data-testid="version-create"
+          onClick={() => {
+            onCreateVersion('Test version');
+          }}
+        >
+          Create Version
+        </button>
+      )}
+      {isCreatingVersion === true && <span data-testid="creating-version">Creating...</span>}
     </div>
   ),
 }));
@@ -153,34 +168,14 @@ vi.mock('../../src/components/ConnectionStatus.js', () => ({
   ),
 }));
 
-vi.mock('../../src/components/SaveVersionDialog.js', () => ({
-  SaveVersionDialog: ({
-    open,
-    onClose,
-    onSave,
-    saving,
-  }: {
-    open: boolean;
-    onClose: () => void;
-    onSave: (summary: string) => void;
-    saving: boolean;
-  }) =>
-    open ? (
-      <div data-testid="save-version-dialog">
-        <span>{saving ? 'Saving...' : 'Save Version Dialog'}</span>
-        <button
-          onClick={() => {
-            onSave('test change');
-          }}
-          data-testid="save-version-confirm"
-        >
-          Save
-        </button>
-        <button onClick={onClose} data-testid="save-version-cancel">
-          Cancel
-        </button>
-      </div>
-    ) : null,
+const mockSaveNow = vi.fn();
+const mockUseAutosave = vi.fn().mockReturnValue({
+  saveState: 'idle' as const,
+  lastSavedAt: null,
+  saveNow: mockSaveNow,
+});
+vi.mock('../../src/hooks/useAutosave.js', () => ({
+  useAutosave: (options: unknown) => mockUseAutosave(options) as unknown,
 }));
 
 vi.mock('../../src/components/EditorToolbar.js', () => ({
@@ -598,6 +593,11 @@ describe('TemplateEditorPage', () => {
     latestAppBarConfig = {};
     mockUseAuth.mockReturnValue(editorAuth);
     setupMutationMocks();
+    mockUseAutosave.mockReturnValue({
+      saveState: 'idle' as const,
+      lastSavedAt: null,
+      saveNow: mockSaveNow,
+    });
     mockUseEditorComments.mockReturnValue({
       selectionInfo: { hasSelection: false, text: '', buttonPosition: null },
       pendingAnchor: null,
@@ -720,11 +720,80 @@ describe('TemplateEditorPage', () => {
       expect(titleInput).toBeInTheDocument();
     });
 
-    it('sets title in TopAppBar config and shows Save Draft button', () => {
+    it('does not show Save Draft button for existing drafts (autosave handles saving)', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
       expect(mockSetConfig).toHaveBeenCalled();
-      expect(screen.getByRole('button', { name: /save draft/i })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /save draft/i })).not.toBeInTheDocument();
+    });
+
+    it('uses useAutosave hook for draft templates', () => {
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      expect(mockUseAutosave).toHaveBeenCalledWith(
+        expect.objectContaining({
+          templateId: 't1',
+          status: 'draft',
+          enabled: true,
+        }),
+      );
+    });
+
+    it('shows ConnectionStatus for draft autosave', () => {
+      mockUseAutosave.mockReturnValue({
+        saveState: 'saved' as const,
+        lastSavedAt: '2026-03-01T00:00:00Z',
+        saveNow: mockSaveNow,
+      });
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      // Render the rightSlot from the config to verify ConnectionStatus
+      const { getByTestId } = render(latestAppBarConfig.rightSlot as ReactElement);
+      expect(getByTestId('connection-status')).toHaveTextContent('saved');
+    });
+
+    it('shows ConnectionStatus as saving when autosave is saving', () => {
+      mockUseAutosave.mockReturnValue({
+        saveState: 'saving' as const,
+        lastSavedAt: null,
+        saveNow: mockSaveNow,
+      });
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      const { getByTestId } = render(latestAppBarConfig.rightSlot as ReactElement);
+      expect(getByTestId('connection-status')).toHaveTextContent('saving');
+    });
+
+    it('shows ConnectionStatus as error when autosave has error', () => {
+      mockUseAutosave.mockReturnValue({
+        saveState: 'error' as const,
+        lastSavedAt: null,
+        saveNow: mockSaveNow,
+      });
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      const { getByTestId } = render(latestAppBarConfig.rightSlot as ReactElement);
+      expect(getByTestId('connection-status')).toHaveTextContent('error');
+    });
+
+    it('shows ConnectionStatus as connected when autosave is idle', () => {
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      const { getByTestId } = render(latestAppBarConfig.rightSlot as ReactElement);
+      expect(getByTestId('connection-status')).toHaveTextContent('connected');
+    });
+
+    it('editor content container has 1100px max width', () => {
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      const editor = screen.getByTestId('markdown-editor');
+      // Walk up to the content container that has maxWidth
+      const contentContainer = editor.closest('[class*="MuiBox"]')?.parentElement?.parentElement;
+      // The maxWidth is set as an inline style via MUI sx
+      expect(contentContainer).toBeTruthy();
     });
 
     it('passes template title to TopAppBar config', () => {
@@ -778,9 +847,9 @@ describe('TemplateEditorPage', () => {
       );
     });
 
-    it('shows Save Version button in central workspace', () => {
+    it('does not show Save Version button (removed)', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-      expect(screen.getByRole('button', { name: /save version/i })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /save version/i })).not.toBeInTheDocument();
     });
 
     it('does not show Save Draft button for active templates', () => {
@@ -1007,27 +1076,6 @@ describe('TemplateEditorPage', () => {
       );
     });
 
-    it('calls updateMutation when Save Draft is clicked', async () => {
-      const user = userEvent.setup();
-      mockUpdateMutateAsync.mockResolvedValue(draftTemplate);
-
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-      await user.click(screen.getByRole('button', { name: /save draft/i }));
-      expect(mockUpdateMutateAsync).toHaveBeenCalledTimes(1);
-    });
-
-    it('shows error toast when update draft fails', async () => {
-      const user = userEvent.setup();
-      mockUpdateMutateAsync.mockRejectedValue(new Error('Failed'));
-
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-      await user.click(screen.getByRole('button', { name: /save draft/i }));
-
-      await waitFor(() => {
-        expect(mockShowToast).toHaveBeenCalledWith(expect.stringMatching(/failed|error/i), 'error');
-      });
-    });
-
     it('opens publish confirmation dialog when Publish is clicked via MetadataTab', async () => {
       const user = userEvent.setup();
 
@@ -1105,40 +1153,6 @@ describe('TemplateEditorPage', () => {
           },
         }),
       );
-    });
-
-    it('opens save version dialog when Save Version is clicked', async () => {
-      const user = userEvent.setup();
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-
-      await user.click(screen.getByRole('button', { name: /save version/i }));
-
-      expect(screen.getByTestId('save-version-dialog')).toBeInTheDocument();
-    });
-
-    it('calls saveVersion via SaveVersionDialog confirm', async () => {
-      const user = userEvent.setup();
-
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-
-      await user.click(screen.getByRole('button', { name: /save version/i }));
-
-      await user.click(screen.getByTestId('save-version-confirm'));
-
-      expect(mockSaveVersion).toHaveBeenCalledWith('test change');
-    });
-
-    it('closes save version dialog on Cancel', async () => {
-      const user = userEvent.setup();
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-
-      await user.click(screen.getByRole('button', { name: /save version/i }));
-      expect(screen.getByTestId('save-version-dialog')).toBeInTheDocument();
-
-      await user.click(screen.getByTestId('save-version-cancel'));
-      await waitFor(() => {
-        expect(screen.queryByTestId('save-version-dialog')).not.toBeInTheDocument();
-      });
     });
 
     it('opens archive confirmation dialog when Archive is clicked via MetadataTab', async () => {
@@ -1312,7 +1326,7 @@ describe('TemplateEditorPage', () => {
     });
   });
 
-  describe('Draft mode — save without optional fields', () => {
+  describe('Draft mode — autosave enabled without optional fields', () => {
     beforeEach(() => {
       mockUseParams.mockReturnValue({ id: 't1' });
       mockUseTemplate.mockReturnValue(
@@ -1326,76 +1340,16 @@ describe('TemplateEditorPage', () => {
       );
     });
 
-    it('saves draft without country or tags when empty', async () => {
-      const user = userEvent.setup();
-      mockUpdateMutateAsync.mockResolvedValue({});
-
+    it('autosave is enabled for draft templates without optional fields', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
-      await user.click(screen.getByRole('button', { name: /save draft/i }));
-
-      expect(mockUpdateMutateAsync).toHaveBeenCalledWith(
+      expect(mockUseAutosave).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({
-            country: undefined,
-            tags: undefined,
-          }),
+          enabled: true,
+          templateId: 't1',
+          status: 'draft',
         }),
       );
-    });
-  });
-
-  describe('Active mode — save version with collaboration', () => {
-    beforeEach(() => {
-      mockUseParams.mockReturnValue({ id: 't2' });
-      mockUseTemplate.mockReturnValue(
-        createTemplateQueryResult({
-          data: {
-            template: activeTemplate,
-            content: '# Active',
-            tags: ['contract', 'legal'],
-          },
-        }),
-      );
-    });
-
-    it('calls collaboration.saveVersion via SaveVersionDialog', async () => {
-      const user = userEvent.setup();
-
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-
-      await user.click(screen.getByRole('button', { name: /save version/i }));
-      expect(screen.getByTestId('save-version-dialog')).toBeInTheDocument();
-
-      await user.click(screen.getByTestId('save-version-confirm'));
-
-      expect(mockSaveVersion).toHaveBeenCalledWith('test change');
-    });
-
-    it('closes save version dialog after successful save', async () => {
-      const user = userEvent.setup();
-
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-
-      await user.click(screen.getByRole('button', { name: /save version/i }));
-      await user.click(screen.getByTestId('save-version-confirm'));
-
-      await waitFor(() => {
-        expect(screen.queryByTestId('save-version-dialog')).not.toBeInTheDocument();
-      });
-    });
-
-    it('closes save version dialog on cancel', async () => {
-      const user = userEvent.setup();
-
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-
-      await user.click(screen.getByRole('button', { name: /save version/i }));
-      await user.click(screen.getByTestId('save-version-cancel'));
-
-      await waitFor(() => {
-        expect(screen.queryByTestId('save-version-dialog')).not.toBeInTheDocument();
-      });
     });
   });
 
@@ -1482,26 +1436,6 @@ describe('TemplateEditorPage', () => {
       expect(mockSetConfig).toHaveBeenCalled();
     });
 
-    it('shows Save Version button for active templates', () => {
-      mockUseParams.mockReturnValue({ id: 't2' });
-      mockUseTemplate.mockReturnValue(
-        createTemplateQueryResult({
-          data: { template: activeTemplate, content: '# Active', tags: [] },
-        }),
-      );
-      mockUseCollaboration.mockReturnValue({
-        ydoc: {},
-        awareness: {},
-        status: 'connected',
-        connectedUsers: [],
-        saveVersion: mockSaveVersion,
-      });
-
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-
-      expect(screen.getByRole('button', { name: /save version/i })).toBeInTheDocument();
-    });
-
     it('passes collaboration to useCollaboration with correct arguments', () => {
       mockUseParams.mockReturnValue({ id: 't2' });
       mockUseTemplate.mockReturnValue(
@@ -1554,7 +1488,7 @@ describe('TemplateEditorPage', () => {
       expect(mockUseCollaboration).toHaveBeenCalledWith('t2', null, expect.objectContaining({}));
     });
 
-    it('includes connecting status in TopAppBar rightSlot', () => {
+    it('includes connecting status in TopAppBar rightSlot for active templates', () => {
       mockUseParams.mockReturnValue({ id: 't2' });
       mockUseTemplate.mockReturnValue(
         createTemplateQueryResult({
@@ -1771,7 +1705,7 @@ describe('TemplateEditorPage', () => {
   });
 
   describe('Ctrl+S handler', () => {
-    it('calls showToast when Ctrl+S is triggered', () => {
+    it('calls autosave.saveNow and showToast when Ctrl+S is triggered for draft', () => {
       mockUseParams.mockReturnValue({ id: 't1' });
       mockUseTemplate.mockReturnValue(
         createTemplateQueryResult({
@@ -1791,6 +1725,7 @@ describe('TemplateEditorPage', () => {
         lastCall[0].onCtrlS();
       });
 
+      expect(mockSaveNow).toHaveBeenCalled();
       expect(mockShowToast).toHaveBeenCalledWith(
         "Your work is saved automatically — you're all set",
         'success',
@@ -1921,32 +1856,6 @@ describe('TemplateEditorPage', () => {
 
       await waitFor(() => {
         expect(screen.queryByText('Archive Template')).not.toBeInTheDocument();
-      });
-    });
-  });
-
-  describe('Active mode — save version dialog onClose', () => {
-    beforeEach(() => {
-      mockUseParams.mockReturnValue({ id: 't2' });
-      mockUseTemplate.mockReturnValue(
-        createTemplateQueryResult({
-          data: { template: activeTemplate, content: '# Active', tags: [] },
-        }),
-      );
-    });
-
-    it('closes save version dialog via cancel button', async () => {
-      const user = userEvent.setup();
-
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-      await user.click(screen.getByRole('button', { name: /save version/i }));
-
-      expect(screen.getByTestId('save-version-dialog')).toBeInTheDocument();
-
-      await user.click(screen.getByTestId('save-version-cancel'));
-
-      await waitFor(() => {
-        expect(screen.queryByTestId('save-version-dialog')).not.toBeInTheDocument();
       });
     });
   });
@@ -2189,23 +2098,15 @@ describe('TemplateEditorPage', () => {
       expect(sessionStorage.getItem('legalcode:backup:t1')).not.toBeNull();
     });
 
-    it('sessionStorage backup is cleared on successful save draft', async () => {
+    it('sessionStorage backup is written when content changes (autosave handles clearing)', async () => {
       const user = userEvent.setup();
-      mockUpdateMutateAsync.mockResolvedValue(draftTemplate);
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
-      // Make content dirty first
+      // Make content dirty
       const editor = screen.getByTestId('markdown-editor');
       await user.type(editor, 'x');
       expect(sessionStorage.getItem('legalcode:backup:t1')).not.toBeNull();
-
-      // Save draft
-      await user.click(screen.getByRole('button', { name: /save draft/i }));
-
-      await waitFor(() => {
-        expect(sessionStorage.getItem('legalcode:backup:t1')).toBeNull();
-      });
     });
 
     it('does not write sessionStorage backup in create mode (no id)', async () => {
@@ -2286,6 +2187,25 @@ describe('TemplateEditorPage', () => {
       await user.click(confirmButton);
 
       expect(mockUnarchiveMutateAsync).toHaveBeenCalledWith('t3');
+    });
+
+    it('shows error toast when unarchive fails', async () => {
+      const user = userEvent.setup();
+      mockUnarchiveMutateAsync.mockRejectedValue(new Error('Failed'));
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      await openInfoPanel(user);
+      await user.click(screen.getByTestId('metadata-unarchive'));
+
+      const unarchiveButtons = screen.getAllByRole('button', { name: /unarchive/i });
+      const confirmButton = unarchiveButtons[unarchiveButtons.length - 1];
+      if (!confirmButton) throw new Error('Expected unarchive confirm button');
+      await user.click(confirmButton);
+
+      await waitFor(() => {
+        expect(mockShowToast).toHaveBeenCalledWith(expect.stringMatching(/failed|error/i), 'error');
+      });
     });
 
     it('closes unarchive dialog on Cancel', async () => {

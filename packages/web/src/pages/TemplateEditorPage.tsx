@@ -19,7 +19,6 @@ import { useAuth } from '../hooks/useAuth.js';
 import {
   useTemplate,
   useCreateTemplate,
-  useUpdateTemplate,
   usePublishTemplate,
   useArchiveTemplate,
   useUnarchiveTemplate,
@@ -29,7 +28,7 @@ import { useCollaboration } from '../hooks/useCollaboration.js';
 import { PresenceAvatars } from '../components/PresenceAvatars.js';
 import { ConnectionStatus } from '../components/ConnectionStatus.js';
 import type { ConnectionStatusType } from '../components/ConnectionStatus.js';
-import { SaveVersionDialog } from '../components/SaveVersionDialog.js';
+import { useAutosave } from '../hooks/useAutosave.js';
 import { EditorToolbar } from '../components/EditorToolbar.js';
 import { KeyboardShortcutHelp } from '../components/KeyboardShortcutHelp.js';
 import { markdownToHtml } from '../utils/markdownToHtml.js';
@@ -69,7 +68,6 @@ export function TemplateEditorPage() {
   const templateData = templateQuery.data as TemplateDetail | undefined;
 
   const createMutation = useCreateTemplate();
-  const updateMutation = useUpdateTemplate();
   const publishMutation = usePublishTemplate();
   const archiveMutation = useArchiveTemplate();
   const unarchiveMutation = useUnarchiveTemplate();
@@ -87,9 +85,6 @@ export function TemplateEditorPage() {
   // Unarchive confirmation dialog state
   const [unarchiveDialogOpen, setUnarchiveDialogOpen] = useState(false);
 
-  // Save version dialog state
-  const [saveVersionOpen, setSaveVersionOpen] = useState(false);
-  const [savingVersion, setSavingVersion] = useState(false);
   const [editorMode, setEditorMode] = useState<'source' | 'review'>('source');
   const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false);
 
@@ -147,23 +142,6 @@ export function TemplateEditorPage() {
     setActivePanel('comments');
   }, [reviewTextSelection.selectedText]);
 
-  // Keyboard shortcuts
-  useKeyboardShortcuts({
-    onTogglePane: useCallback(() => {
-      // No-op in v3 — panels will be slide-overs in Phase 4-5
-    }, []),
-    onEscape: useCallback(() => {
-      // No-op in v3 — panels will be slide-overs in Phase 4-5
-    }, []),
-    onShowHelp: useCallback(() => {
-      setShortcutHelpOpen(true);
-    }, []),
-    onCtrlS: useCallback(() => {
-      showToast("Your work is saved automatically — you're all set", 'success');
-    }, [showToast]),
-    onAddComment: handleAddComment,
-  });
-
   // Collaboration — only for existing templates with edit permission
   const collaborationUser =
     !isCreateMode && !isViewer && user
@@ -177,6 +155,34 @@ export function TemplateEditorPage() {
 
   const status = templateData?.template.status;
   const isReadOnly = isViewer || status === 'archived';
+
+  const autosave = useAutosave({
+    templateId: id,
+    status,
+    content,
+    title,
+    enabled: !isCreateMode && !isViewer && status === 'draft',
+  });
+
+  // Keyboard shortcuts
+  useKeyboardShortcuts({
+    onTogglePane: useCallback(() => {
+      // No-op in v3 — panels will be slide-overs in Phase 4-5
+    }, []),
+    onEscape: useCallback(() => {
+      // No-op in v3 — panels will be slide-overs in Phase 4-5
+    }, []),
+    onShowHelp: useCallback(() => {
+      setShortcutHelpOpen(true);
+    }, []),
+    onCtrlS: useCallback(() => {
+      if (!isCreateMode && status === 'draft') {
+        autosave.saveNow();
+      }
+      showToast("Your work is saved automatically — you're all set", 'success');
+    }, [isCreateMode, status, autosave, showToast]),
+    onAddComment: handleAddComment,
+  });
 
   const handleExport = useCallback(() => {
     if (id) {
@@ -192,6 +198,18 @@ export function TemplateEditorPage() {
     [activePanel, handlePanelToggle],
   );
 
+  // Derive connection status for draft autosave display
+  const draftSaveStatus: ConnectionStatusType | null =
+    !isCreateMode && status === 'draft' && !isViewer
+      ? autosave.saveState === 'saving'
+        ? 'saving'
+        : autosave.saveState === 'saved'
+          ? 'saved'
+          : autosave.saveState === 'error'
+            ? 'error'
+            : 'connected' // idle -> show as connected/saved
+      : null;
+
   useEffect(() => {
     if (!isCreateMode && templateData) {
       setConfig({
@@ -200,7 +218,8 @@ export function TemplateEditorPage() {
         panelToggles,
         rightSlot: (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            {collaboration.status !== 'disconnected' && (
+            {draftSaveStatus != null && <ConnectionStatus status={draftSaveStatus} />}
+            {collaboration.status !== 'disconnected' && status !== 'draft' && (
               <>
                 <ConnectionStatus status={collaboration.status as ConnectionStatusType} />
                 <PresenceAvatars users={collaboration.connectedUsers} />
@@ -233,11 +252,15 @@ export function TemplateEditorPage() {
     clearConfig,
     handleExport,
     panelToggles,
+    draftSaveStatus,
+    autosave.saveState,
+    status,
+    isViewer,
   ]);
 
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
-      if (isDirtyRef.current) {
+      if (isDirtyRef.current || autosave.saveState === 'saving') {
         e.preventDefault();
       }
     };
@@ -245,7 +268,7 @@ export function TemplateEditorPage() {
     return () => {
       window.removeEventListener('beforeunload', handler);
     };
-  }, []);
+  }, [autosave.saveState]);
 
   // Initialize form when template data loads
   if (!isCreateMode && templateData && !formInitialized) {
@@ -293,29 +316,6 @@ export function TemplateEditorPage() {
         showToast('Failed to create template', 'error');
       });
   }, [createMutation, title, category, country, content, tags, navigate, showToast]);
-
-  const handleSaveDraft = useCallback(() => {
-    /* v8 ignore next -- guard for TypeScript; id is always defined in edit mode */
-    if (!id) return;
-    void updateMutation
-      .mutateAsync({
-        id,
-        data: {
-          title,
-          category,
-          country: country || undefined,
-          content,
-          tags: tags.length > 0 ? tags : undefined,
-        },
-      })
-      .then(() => {
-        isDirtyRef.current = false;
-        sessionStorage.removeItem(`legalcode:backup:${id}`);
-      })
-      .catch(() => {
-        showToast('Failed to save draft', 'error');
-      });
-  }, [updateMutation, id, title, category, country, content, tags, showToast]);
 
   const handlePublishClick = useCallback(() => {
     setPublishDialogOpen(true);
@@ -382,25 +382,6 @@ export function TemplateEditorPage() {
     });
     setUnarchiveDialogOpen(false);
   }, [unarchiveMutation, id, showToast]);
-
-  const handleSaveVersion = useCallback(
-    (summary: string) => {
-      setSavingVersion(true);
-      void collaboration
-        .saveVersion(summary)
-        .then(() => {
-          isDirtyRef.current = false;
-          if (id) {
-            sessionStorage.removeItem(`legalcode:backup:${id}`);
-          }
-        })
-        .finally(() => {
-          setSavingVersion(false);
-          setSaveVersionOpen(false);
-        });
-    },
-    [collaboration.saveVersion, id],
-  );
 
   const handleRestoreVersion = useCallback(
     (version: number) => {
@@ -475,7 +456,7 @@ export function TemplateEditorPage() {
           <Skeleton variant="rounded" width={120} height={28} sx={{ borderRadius: '8px' }} />
         </Box>
         <Box sx={{ flex: 1, overflow: 'auto' }}>
-          <Box sx={{ maxWidth: '720px', mx: 'auto', py: 4, px: 2 }}>
+          <Box sx={{ maxWidth: '1100px', mx: 'auto', py: 4, px: { xs: 2, sm: 4, md: 6 } }}>
             <Skeleton variant="text" width="50%" height={40} />
             <Box sx={{ borderBottom: '1px solid var(--border-secondary)', my: 3 }} />
             <Skeleton variant="text" width="100%" height={20} />
@@ -524,7 +505,7 @@ export function TemplateEditorPage() {
           readOnly={isReadOnly}
         />
 
-        {/* Full-bleed white editor surface with centered 720px content column */}
+        {/* Full-bleed white editor surface with centered 1100px content column */}
         <Box
           sx={{
             flex: 1,
@@ -534,10 +515,10 @@ export function TemplateEditorPage() {
         >
           <Box
             sx={{
-              maxWidth: '720px',
+              maxWidth: '1100px',
               mx: 'auto',
               py: 4,
-              px: 2,
+              px: { xs: 2, sm: 4, md: 6 },
             }}
           >
             {/* Borderless title input — Source Serif 4, 1.75rem, 700 */}
@@ -673,42 +654,15 @@ export function TemplateEditorPage() {
             )}
 
             {/* Action buttons */}
-            {!isViewer && (
+            {!isViewer && isCreateMode && (
               <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
-                {isCreateMode && (
-                  <Button variant="contained" onClick={handleCreateDraft}>
-                    Save Draft
-                  </Button>
-                )}
-                {!isCreateMode && status === 'draft' && (
-                  <Button variant="contained" onClick={handleSaveDraft}>
-                    Save Draft
-                  </Button>
-                )}
-                {!isCreateMode && status === 'active' && (
-                  <Button
-                    variant="contained"
-                    onClick={() => {
-                      setSaveVersionOpen(true);
-                    }}
-                  >
-                    Save Version
-                  </Button>
-                )}
+                <Button variant="contained" onClick={handleCreateDraft}>
+                  Save Draft
+                </Button>
               </Box>
             )}
           </Box>
         </Box>
-
-        {/* Save version dialog */}
-        <SaveVersionDialog
-          open={saveVersionOpen}
-          onClose={() => {
-            setSaveVersionOpen(false);
-          }}
-          onSave={handleSaveVersion}
-          saving={savingVersion}
-        />
 
         {/* Publish confirmation dialog */}
         <Dialog
