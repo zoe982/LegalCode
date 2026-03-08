@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Hono } from 'hono';
+import { countrySchema } from '@legalcode/shared';
 import type { AppEnv } from '../../src/types/env.js';
 import { issueJWT } from '../../src/services/auth.js';
 
@@ -86,7 +87,7 @@ describe('GET /countries', () => {
     expect(res.status).toBe(401);
   });
 
-  it('returns 200 with countries list for authenticated user', async () => {
+  it('returns 200 with countries list matching shared schema', async () => {
     const mockCountries = [{ id: 'c-1', name: 'Germany', code: 'DE', createdAt: '2026-01-01' }];
     mockDbChain.from.mockResolvedValueOnce(mockCountries);
 
@@ -98,6 +99,10 @@ describe('GET /countries', () => {
     expect(res.status).toBe(200);
     const body: { countries: unknown[] } = await res.json();
     expect(body).toHaveProperty('countries');
+    // Contract: validate response items against shared Zod schema
+    for (const c of body.countries) {
+      expect(countrySchema.safeParse(c).success).toBe(true);
+    }
   });
 });
 

@@ -310,7 +310,7 @@ describe('collaborate routes', () => {
       expect(doNamespace().get).toHaveBeenCalledWith('do-id');
     });
 
-    it('forwards the DO response back to the client', async () => {
+    it('forwards the DO response back to the client with valid Schema', async () => {
       mock = createMockEnv(
         new Response(JSON.stringify({ id: 'ver-1', versionNumber: 3 }), {
           status: 200,
@@ -329,6 +329,7 @@ describe('collaborate routes', () => {
       );
 
       expect(res.status).toBe(200);
+      // Contract: validate save-version response shape
       const body: { error?: string; id?: string; versionNumber?: number } = await res.json();
       expect(body.id).toBe('ver-1');
       expect(body.versionNumber).toBe(3);

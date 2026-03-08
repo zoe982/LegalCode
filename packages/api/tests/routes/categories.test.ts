@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Hono } from 'hono';
+import { categorySchema } from '@legalcode/shared';
 import type { AppEnv } from '../../src/types/env.js';
 import { issueJWT } from '../../src/services/auth.js';
 
@@ -87,7 +88,7 @@ describe('GET /categories', () => {
     expect(res.status).toBe(401);
   });
 
-  it('returns 200 with categories list for authenticated user', async () => {
+  it('returns 200 with categories list matching shared schema', async () => {
     const mockCategories = [
       { id: 'cat-1', name: 'Employment', createdAt: '2026-01-01' },
       { id: 'cat-2', name: 'Compliance', createdAt: '2026-01-02' },
@@ -102,6 +103,10 @@ describe('GET /categories', () => {
     expect(res.status).toBe(200);
     const body: { categories: unknown[] } = await res.json();
     expect(body).toHaveProperty('categories');
+    // Contract: validate response items against shared Zod schema
+    for (const cat of body.categories) {
+      expect(categorySchema.safeParse(cat).success).toBe(true);
+    }
   });
 });
 

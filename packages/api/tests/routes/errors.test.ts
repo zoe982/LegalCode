@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Hono } from 'hono';
+import { reportErrorSchema } from '@legalcode/shared';
 import type { AppEnv } from '../../src/types/env.js';
 import { issueJWT } from '../../src/services/auth.js';
 
@@ -146,6 +147,16 @@ describe('POST /errors/report', () => {
       body: JSON.stringify({ source: 'frontend' }),
     });
     expect(res.status).toBe(400);
+  });
+
+  it('validates request payload against shared reportErrorSchema', () => {
+    const validPayload = { source: 'frontend', message: 'Test error' };
+    const result = reportErrorSchema.safeParse(validPayload);
+    expect(result.success).toBe(true);
+
+    const invalidPayload = { message: 'missing source' };
+    const invalid = reportErrorSchema.safeParse(invalidPayload);
+    expect(invalid.success).toBe(false);
   });
 
   it('passes userId from JWT to logError', async () => {
