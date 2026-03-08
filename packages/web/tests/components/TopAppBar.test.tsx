@@ -118,4 +118,21 @@ describe('TopAppBar', () => {
     expect(screen.getByTestId('badge')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /user menu/i })).toBeInTheDocument();
   });
+
+  it('renders documentHeader instead of breadcrumbs when provided', () => {
+    renderAppBar({
+      documentHeader: <span data-testid="doc-header">Document Header</span>,
+    });
+    expect(screen.getByTestId('doc-header')).toBeInTheDocument();
+    // Breadcrumbs should not be rendered
+    expect(screen.queryByText('Acasus')).not.toBeInTheDocument();
+  });
+
+  it('renders avatar alongside documentHeader', () => {
+    renderAppBar({
+      documentHeader: <span data-testid="doc-header">Document Header</span>,
+    });
+    expect(screen.getByTestId('doc-header')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /user menu/i })).toBeInTheDocument();
+  });
 });

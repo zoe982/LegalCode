@@ -9,7 +9,6 @@ import { EditorToolbar } from '../../src/components/EditorToolbar.js';
 function renderToolbar(props: Partial<Parameters<typeof EditorToolbar>[0]> = {}) {
   const defaultProps = {
     mode: 'source' as const,
-    onModeChange: vi.fn(),
     wordCount: 142,
   };
   return render(
@@ -22,52 +21,6 @@ function renderToolbar(props: Partial<Parameters<typeof EditorToolbar>[0]> = {})
 describe('EditorToolbar', () => {
   beforeEach(() => {
     localStorage.clear();
-  });
-
-  it('renders Source and Review toggle buttons', () => {
-    renderToolbar();
-    expect(screen.getByRole('button', { name: 'Source' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Review' })).toBeInTheDocument();
-  });
-
-  it('has a sliding indicator element', () => {
-    renderToolbar({ mode: 'source' });
-    const indicator = screen.getByTestId('mode-toggle-indicator');
-    expect(indicator).toBeInTheDocument();
-  });
-
-  it('indicator position changes when mode changes', () => {
-    const { rerender } = render(
-      <ThemeProvider theme={theme}>
-        <EditorToolbar mode="source" onModeChange={vi.fn()} wordCount={10} />
-      </ThemeProvider>,
-    );
-    const indicator = screen.getByTestId('mode-toggle-indicator');
-    const sourceTransform = indicator.style.transform;
-
-    rerender(
-      <ThemeProvider theme={theme}>
-        <EditorToolbar mode="review" onModeChange={vi.fn()} wordCount={10} />
-      </ThemeProvider>,
-    );
-    const reviewTransform = indicator.style.transform;
-    expect(sourceTransform).not.toBe(reviewTransform);
-  });
-
-  it('calls onModeChange when Review is clicked', async () => {
-    const user = userEvent.setup();
-    const onModeChange = vi.fn();
-    renderToolbar({ mode: 'source', onModeChange });
-    await user.click(screen.getByRole('button', { name: 'Review' }));
-    expect(onModeChange).toHaveBeenCalledWith('review');
-  });
-
-  it('calls onModeChange when Source is clicked', async () => {
-    const user = userEvent.setup();
-    const onModeChange = vi.fn();
-    renderToolbar({ mode: 'review', onModeChange });
-    await user.click(screen.getByRole('button', { name: 'Source' }));
-    expect(onModeChange).toHaveBeenCalledWith('source');
   });
 
   it('shows markdown helper buttons in source mode (no Bold/Italic)', () => {
@@ -194,49 +147,21 @@ describe('EditorToolbar', () => {
     // Should not throw
   });
 
-  it('mode toggle has a sliding indicator element', () => {
-    renderToolbar({ mode: 'source' });
-    const indicator = screen.getByTestId('mode-toggle-indicator');
-    expect(indicator).toBeInTheDocument();
-  });
-
-  it('sliding indicator is positioned at source (left) when mode is source', () => {
-    renderToolbar({ mode: 'source' });
-    const indicator = screen.getByTestId('mode-toggle-indicator');
-    const styles = window.getComputedStyle(indicator);
-    expect(styles.transform).toContain('translateX(0');
-  });
-
-  it('sliding indicator moves to review (right) when mode is review', () => {
-    renderToolbar({ mode: 'review' });
-    const indicator = screen.getByTestId('mode-toggle-indicator');
-    const styles = window.getComputedStyle(indicator);
-    expect(styles.transform).toContain('translateX(100%');
-  });
-
-  it('clicking mode toggles the slider position', async () => {
-    const user = userEvent.setup();
-    const onModeChange = vi.fn();
-    renderToolbar({ mode: 'source', onModeChange });
-    // Initially at source
-    const indicator = screen.getByTestId('mode-toggle-indicator');
-    expect(indicator).toBeInTheDocument();
-    // Click review
-    await user.click(screen.getByRole('button', { name: 'Review' }));
-    expect(onModeChange).toHaveBeenCalledWith('review');
-  });
-
   it('toolbar has 44px height', () => {
     renderToolbar();
     const toolbar = screen.getByTestId('editor-toolbar');
     expect(toolbar).toHaveStyle({ height: '44px' });
   });
 
-  it('mode toggle active segment has white background', () => {
-    renderToolbar({ mode: 'source' });
-    const indicator = screen.getByTestId('mode-toggle-indicator');
-    // v3: active segment is white with shadow, not purple
-    expect(indicator).toHaveStyle({ backgroundColor: '#FFFFFF' });
+  it('does not render mode toggle buttons (moved to DocumentHeader)', () => {
+    renderToolbar();
+    expect(screen.queryByRole('button', { name: 'Source' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Review' })).not.toBeInTheDocument();
+  });
+
+  it('does not render mode toggle indicator (moved to DocumentHeader)', () => {
+    renderToolbar();
+    expect(screen.queryByTestId('mode-toggle-indicator')).not.toBeInTheDocument();
   });
 
   it('shows shortcuts tooltip on first render when not dismissed', () => {
@@ -259,5 +184,10 @@ describe('EditorToolbar', () => {
     await waitFor(() => {
       expect(screen.queryByText('Press Cmd+/ to see keyboard shortcuts')).not.toBeInTheDocument();
     });
+  });
+
+  it('does not render ConnectionStatus when connectionStatus is not provided', () => {
+    renderToolbar();
+    expect(screen.queryByText('All changes saved')).not.toBeInTheDocument();
   });
 });

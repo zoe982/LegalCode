@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo, useRef, createElement } from 'react';
+import { useState, useCallback, useEffect, useRef, createElement } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import {
   Box,
@@ -10,16 +10,13 @@ import {
   DialogContent,
   DialogActions,
   Skeleton,
-  TextField,
 } from '@mui/material';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DownloadIcon from '@mui/icons-material/Download';
 import { MarkdownEditor } from '../components/MarkdownEditor.js';
 import { useAuth } from '../hooks/useAuth.js';
 import {
   useTemplate,
   useCreateTemplate,
-  useUpdateTemplate,
   usePublishTemplate,
   useArchiveTemplate,
   useUnarchiveTemplate,
@@ -44,12 +41,9 @@ import { useTopAppBarConfig } from '../contexts/TopAppBarContext.js';
 import { CommentAnchorProvider } from '../contexts/CommentAnchorContext.js';
 import { useTextSelection } from '../hooks/useTextSelection.js';
 import { useCommentHighlights } from '../hooks/useCommentHighlights.js';
-import { StatusChip } from '../components/StatusChip.js';
-import { MetadataTab } from '../components/MetadataTab.js';
-import { PanelToggleButtons } from '../components/PanelToggleButtons.js';
+import { DocumentHeader } from '../components/DocumentHeader.js';
 import { SlideOverPanel } from '../components/SlideOverPanel.js';
 import { CommentsTab } from '../components/CommentsTab.js';
-import { VersionHistory } from '../components/VersionHistory.js';
 
 interface TemplateDetail {
   template: Template;
@@ -69,7 +63,6 @@ export function TemplateEditorPage() {
   const templateData = templateQuery.data as TemplateDetail | undefined;
 
   const createMutation = useCreateTemplate();
-  const updateMutation = useUpdateTemplate();
   const publishMutation = usePublishTemplate();
   const archiveMutation = useArchiveTemplate();
   const unarchiveMutation = useUnarchiveTemplate();
@@ -80,9 +73,6 @@ export function TemplateEditorPage() {
   const [tags, setTags] = useState<string[]>([]);
   const [content, setContent] = useState('');
   const [formInitialized, setFormInitialized] = useState(false);
-
-  // Version creation state
-  const [isCreatingVersion, setIsCreatingVersion] = useState(false);
 
   // Archive confirmation dialog state
   const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
@@ -98,11 +88,8 @@ export function TemplateEditorPage() {
 
   const isDirtyRef = useRef(false);
 
-  // Panel state
-  const [activePanel, setActivePanel] = useState<'info' | 'comments' | 'history' | null>(null);
-  const handlePanelToggle = useCallback((panel: 'info' | 'comments' | 'history') => {
-    setActivePanel((prev) => (prev === panel ? null : panel));
-  }, []);
+  // Panel state — comments slide-over
+  const [activePanel, setActivePanel] = useState<'comments' | null>(null);
 
   const { showToast } = useToast();
   const queryClient = useQueryClient();
@@ -197,13 +184,38 @@ export function TemplateEditorPage() {
     }
   }, [id]);
 
-  // Sync TopAppBar config for editor view
-  const { setConfig, clearConfig } = useTopAppBarConfig();
+  const handleCreateDraft = useCallback(() => {
+    void createMutation
+      .mutateAsync({
+        title,
+        category,
+        country: country || undefined,
+        content,
+        tags: tags.length > 0 ? tags : undefined,
+      })
+      .then((result: unknown) => {
+        const created = result as { template: Template };
+        void navigate(`/templates/${created.template.id}`);
+      })
+      .catch(() => {
+        showToast('Failed to create template', 'error');
+      });
+  }, [createMutation, title, category, country, content, tags, navigate, showToast]);
 
-  const panelToggles = useMemo(
-    () => <PanelToggleButtons activePanel={activePanel} onToggle={handlePanelToggle} />,
-    [activePanel, handlePanelToggle],
-  );
+  const handlePublishClick = useCallback(() => {
+    setPublishDialogOpen(true);
+  }, []);
+
+  const handleArchiveClick = useCallback(() => {
+    setArchiveDialogOpen(true);
+  }, []);
+
+  const handleUnarchiveClick = useCallback(() => {
+    setUnarchiveDialogOpen(true);
+  }, []);
+
+  // Sync TopAppBar config for editor view — v4: use DocumentHeader
+  const { setConfig, clearConfig } = useTopAppBarConfig();
 
   // Derive connection status for draft autosave display
   const draftSaveStatus: ConnectionStatusType | null =
@@ -217,35 +229,50 @@ export function TemplateEditorPage() {
             : 'connected' // idle -> show as connected/saved
       : null;
 
+  // Right slot content for DocumentHeader
+  const documentHeaderRightSlot = !isCreateMode ? (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+      {draftSaveStatus != null && <ConnectionStatus status={draftSaveStatus} />}
+      {collaboration.status !== 'disconnected' && status !== 'draft' && (
+        <>
+          <ConnectionStatus status={collaboration.status as ConnectionStatusType} />
+          <PresenceAvatars users={collaboration.connectedUsers} />
+        </>
+      )}
+      <IconButton onClick={handleExport} aria-label="export">
+        <DownloadIcon />
+      </IconButton>
+    </Box>
+  ) : undefined;
+
   useEffect(() => {
-    if (!isCreateMode && templateData) {
-      setConfig({
-        breadcrumbTemplateName: title || templateData.template.title,
-        statusBadge: <StatusChip status={templateData.template.status} />,
-        panelToggles,
-        rightSlot: (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            {draftSaveStatus != null && <ConnectionStatus status={draftSaveStatus} />}
-            {collaboration.status !== 'disconnected' && status !== 'draft' && (
-              <>
-                <ConnectionStatus status={collaboration.status as ConnectionStatusType} />
-                <PresenceAvatars users={collaboration.connectedUsers} />
-              </>
-            )}
-            <IconButton onClick={handleExport} aria-label="export">
-              <DownloadIcon />
-            </IconButton>
-          </Box>
-        ),
-      });
-    } else if (isCreateMode) {
-      setConfig({
-        breadcrumbTemplateName: 'New Template',
-        panelToggles,
-        statusBadge: undefined,
-        rightSlot: undefined,
-      });
-    }
+    setConfig({
+      documentHeader: (
+        <DocumentHeader
+          title={title}
+          onTitleChange={setTitle}
+          category={category}
+          onCategoryChange={setCategory}
+          country={country}
+          onCountryChange={setCountry}
+          status={templateData?.template.status}
+          editorMode={editorMode}
+          onModeChange={setEditorMode}
+          templateId={id}
+          isCreateMode={isCreateMode}
+          readOnly={isReadOnly}
+          createdAt={templateData?.template.createdAt}
+          updatedAt={templateData?.template.updatedAt}
+          createdBy={templateData?.template.createdBy}
+          currentVersion={templateData?.template.currentVersion}
+          onPublish={!isReadOnly && status === 'draft' ? handlePublishClick : undefined}
+          onArchive={!isReadOnly && status === 'active' ? handleArchiveClick : undefined}
+          onUnarchive={status === 'archived' ? handleUnarchiveClick : undefined}
+          onSaveDraft={isCreateMode ? handleCreateDraft : undefined}
+          rightSlot={documentHeaderRightSlot}
+        />
+      ),
+    });
     return () => {
       clearConfig();
     };
@@ -253,16 +280,25 @@ export function TemplateEditorPage() {
     isCreateMode,
     templateData,
     title,
+    category,
+    country,
+    editorMode,
+    id,
+    isReadOnly,
+    status,
     collaboration.status,
     collaboration.connectedUsers,
     setConfig,
     clearConfig,
     handleExport,
-    panelToggles,
+    handlePublishClick,
+    handleArchiveClick,
+    handleUnarchiveClick,
+    handleCreateDraft,
     draftSaveStatus,
     autosave.saveState,
-    status,
     isViewer,
+    documentHeaderRightSlot,
   ]);
 
   useEffect(() => {
@@ -302,32 +338,6 @@ export function TemplateEditorPage() {
     [id],
   );
 
-  const handleBack = useCallback(() => {
-    void navigate('/');
-  }, [navigate]);
-
-  const handleCreateDraft = useCallback(() => {
-    void createMutation
-      .mutateAsync({
-        title,
-        category,
-        country: country || undefined,
-        content,
-        tags: tags.length > 0 ? tags : undefined,
-      })
-      .then((result: unknown) => {
-        const created = result as { template: Template };
-        void navigate(`/templates/${created.template.id}`);
-      })
-      .catch(() => {
-        showToast('Failed to create template', 'error');
-      });
-  }, [createMutation, title, category, country, content, tags, navigate, showToast]);
-
-  const handlePublishClick = useCallback(() => {
-    setPublishDialogOpen(true);
-  }, []);
-
   const handlePublishConfirm = useCallback(() => {
     /* v8 ignore next -- guard for TypeScript; id is always defined in edit mode */
     if (!id) return;
@@ -336,10 +346,6 @@ export function TemplateEditorPage() {
     });
     setPublishDialogOpen(false);
   }, [publishMutation, id, showToast]);
-
-  const handleArchiveClick = useCallback(() => {
-    setArchiveDialogOpen(true);
-  }, []);
 
   const handleArchiveConfirm = useCallback(() => {
     /* v8 ignore next -- guard for TypeScript; id is always defined in edit mode */
@@ -377,10 +383,6 @@ export function TemplateEditorPage() {
     setArchiveDialogOpen(false);
   }, [archiveMutation, unarchiveMutation, id, showToast]);
 
-  const handleUnarchiveClick = useCallback(() => {
-    setUnarchiveDialogOpen(true);
-  }, []);
-
   const handleUnarchiveConfirm = useCallback(() => {
     /* v8 ignore next -- guard for TypeScript; id is always defined in edit mode */
     if (!id) return;
@@ -389,78 +391,6 @@ export function TemplateEditorPage() {
     });
     setUnarchiveDialogOpen(false);
   }, [unarchiveMutation, id, showToast]);
-
-  const handleRestoreVersion = useCallback(
-    (version: number) => {
-      if (!id) return;
-      void templateService.getVersion(id, version).then((versionData) => {
-        const restoredContent = versionData.content;
-
-        // Update Yjs doc if collaboration is active
-        if (collaboration.ydoc) {
-          const ydoc = collaboration.ydoc;
-          ydoc.transact(() => {
-            const text = ydoc.getText('content');
-            text.delete(0, text.length);
-            text.insert(0, restoredContent);
-          });
-        }
-        setContent(restoredContent);
-
-        // Save as a new version
-        void collaboration.saveVersion(`Restored from version ${String(version)}`).then(() => {
-          showToast(`Restored to version ${String(version)}`, 'success');
-        });
-      });
-    },
-    [id, collaboration, showToast],
-  );
-
-  const handleCreateVersion = useCallback(
-    (summary: string) => {
-      /* v8 ignore next -- guard for TypeScript; id is always defined in edit mode */
-      if (!id) return;
-      setIsCreatingVersion(true);
-
-      if (status === 'draft') {
-        // For drafts: use updateMutation to create a new version
-        void updateMutation
-          .mutateAsync({
-            id,
-            data: {
-              content,
-              title,
-              changeSummary: summary || undefined,
-            },
-          })
-          .then(() => {
-            showToast('Version created', 'success');
-          })
-          .catch(() => {
-            showToast('Failed to create version', 'error');
-          })
-          .finally(() => {
-            setIsCreatingVersion(false);
-          });
-      } else if (status === 'active') {
-        // For active: use collaboration saveVersion
-        void collaboration
-          .saveVersion(summary)
-          .then(() => {
-            showToast('Version created', 'success');
-          })
-          .catch(() => {
-            showToast('Failed to create version', 'error');
-          })
-          .finally(() => {
-            setIsCreatingVersion(false);
-          });
-      } /* v8 ignore next 3 -- defensive: archived templates never receive onCreateVersion */ else {
-        setIsCreatingVersion(false);
-      }
-    },
-    [id, status, content, title, updateMutation, collaboration, showToast],
-  );
 
   const handleSubmitNewComment = useCallback(
     (
@@ -535,17 +465,9 @@ export function TemplateEditorPage() {
           backgroundColor: '#FFFFFF',
         }}
       >
-        {/* Back button */}
-        <Box sx={{ display: 'flex', alignItems: 'center', px: 2, pt: 1, gap: 1 }}>
-          <IconButton onClick={handleBack} aria-label="back" size="small">
-            <ArrowBackIcon />
-          </IconButton>
-        </Box>
-
-        {/* Editor toolbar */}
+        {/* Editor toolbar — mode toggle moved to DocumentHeader */}
         <EditorToolbar
           mode={editorMode}
-          onModeChange={setEditorMode}
           wordCount={wordCount}
           connectionStatus={
             !isCreateMode && collaboration.status !== 'disconnected'
@@ -575,56 +497,7 @@ export function TemplateEditorPage() {
               px: { xs: 2, sm: 4, md: 6 },
             }}
           >
-            {/* Borderless title input — Source Serif 4, 1.75rem, 700 */}
-            <Box
-              component="input"
-              type="text"
-              placeholder="Untitled"
-              value={title}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                setTitle(e.target.value);
-              }}
-              readOnly={isReadOnly}
-              sx={{
-                width: '100%',
-                border: 'none',
-                outline: 'none',
-                backgroundColor: 'transparent',
-                fontFamily: '"Source Serif 4", Georgia, "Times New Roman", serif',
-                fontSize: '1.75rem',
-                fontWeight: 700,
-                color: 'var(--text-primary)',
-                lineHeight: 1.3,
-                padding: 0,
-                '&::placeholder': {
-                  color: 'var(--text-tertiary)',
-                },
-              }}
-            />
-
-            {isCreateMode && (
-              <TextField
-                label="Category"
-                required
-                fullWidth
-                value={category}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                  setCategory(e.target.value);
-                }}
-                size="small"
-                sx={{ mt: 2 }}
-              />
-            )}
-
-            {/* Separator */}
-            <Box
-              sx={{
-                borderBottom: '1px solid var(--border-secondary)',
-                my: 3,
-              }}
-            />
-
-            {/* Editor content */}
+            {/* Editor content — title/category moved to DocumentHeader */}
             {editorMode === 'source' ? (
               <Box
                 data-testid="source-editor-surface"
@@ -704,15 +577,6 @@ export function TemplateEditorPage() {
                   visible={reviewTextSelection.hasSelection && !isReadOnly}
                   onClick={handleReviewAddComment}
                 />
-              </Box>
-            )}
-
-            {/* Action buttons */}
-            {!isViewer && isCreateMode && (
-              <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
-                <Button variant="contained" onClick={handleCreateDraft}>
-                  Save Draft
-                </Button>
               </Box>
             )}
           </Box>
@@ -871,50 +735,6 @@ export function TemplateEditorPage() {
             }}
             activeCommentId={activeCommentId}
           />
-        </SlideOverPanel>
-
-        <SlideOverPanel
-          open={activePanel === 'info'}
-          onClose={() => {
-            setActivePanel(null);
-          }}
-          title="Info"
-        >
-          {!isCreateMode && templateData != null && (
-            <MetadataTab
-              category={templateData.template.category}
-              country={templateData.template.country ?? ''}
-              tags={templateData.tags}
-              status={templateData.template.status}
-              createdAt={templateData.template.createdAt}
-              updatedAt={templateData.template.updatedAt}
-              readOnly={isReadOnly}
-              onPublish={!isReadOnly && status === 'draft' ? handlePublishClick : undefined}
-              onArchive={!isReadOnly && status === 'active' ? handleArchiveClick : undefined}
-              onUnarchive={status === 'archived' ? handleUnarchiveClick : undefined}
-            />
-          )}
-        </SlideOverPanel>
-
-        <SlideOverPanel
-          open={activePanel === 'history'}
-          onClose={() => {
-            setActivePanel(null);
-          }}
-          title="Version History"
-        >
-          {!isCreateMode && templateData != null && (
-            <VersionHistory
-              templateId={id}
-              currentVersion={templateData.template.currentVersion}
-              onRestore={handleRestoreVersion}
-              onNavigateDiff={(from, to) => {
-                void navigate(`/templates/${id}/diff/${String(from)}/${String(to)}`);
-              }}
-              onCreateVersion={!isReadOnly ? handleCreateVersion : undefined}
-              isCreatingVersion={isCreatingVersion}
-            />
-          )}
         </SlideOverPanel>
       </Box>
     </CommentAnchorProvider>

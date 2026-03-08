@@ -1,4 +1,4 @@
-import { Box, Button, IconButton, Typography } from '@mui/material';
+import { Box, IconButton, Typography } from '@mui/material';
 import TitleOutlined from '@mui/icons-material/TitleOutlined';
 import InsertLinkOutlined from '@mui/icons-material/InsertLinkOutlined';
 import FormatListBulletedOutlined from '@mui/icons-material/FormatListBulletedOutlined';
@@ -13,27 +13,11 @@ import { FirstUseTooltip } from './FirstUseTooltip.js';
 
 interface EditorToolbarProps {
   mode: 'source' | 'review';
-  onModeChange: (mode: 'source' | 'review') => void;
   wordCount: number;
   connectionStatus?: ConnectionStatusType | undefined;
   readOnly?: boolean | undefined;
   onInsertMarkdown?: ((prefix: string, suffix?: string) => void) | undefined;
 }
-
-const modeButtonStyle = {
-  backgroundColor: 'transparent',
-  borderRadius: '6px',
-  fontSize: '0.8125rem',
-  fontFamily: '"DM Sans", sans-serif',
-  position: 'relative' as const,
-  zIndex: 1,
-  padding: '6px 16px',
-  minWidth: 'auto',
-  textTransform: 'none' as const,
-  '&:hover': {
-    backgroundColor: 'transparent',
-  },
-} as const;
 
 const helperButtonStyle = {
   width: '32px',
@@ -48,7 +32,6 @@ const helperButtonStyle = {
 
 export const EditorToolbar: React.FC<EditorToolbarProps> = ({
   mode,
-  onModeChange,
   wordCount,
   connectionStatus,
   readOnly,
@@ -69,63 +52,7 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
         borderBottom: '1px solid var(--border-primary)',
       }}
     >
-      {/* Left: Mode toggle */}
-      <Box
-        sx={{
-          backgroundColor: 'var(--surface-tertiary)',
-          borderRadius: '8px',
-          padding: '3px',
-          display: 'inline-flex',
-          position: 'relative',
-          border: '1px solid var(--border-primary)',
-        }}
-      >
-        {/* Sliding pill indicator */}
-        <Box
-          data-testid="mode-toggle-indicator"
-          sx={{
-            position: 'absolute',
-            top: '3px',
-            bottom: '3px',
-            width: '50%',
-            backgroundColor: '#FFFFFF',
-            borderRadius: '6px',
-            boxShadow: 'var(--shadow-xs)',
-            transition: 'transform cubic-bezier(0.2, 0, 0, 1) 200ms',
-          }}
-          style={{
-            transform: mode === 'source' ? 'translateX(0)' : 'translateX(100%)',
-          }}
-        />
-        <Button
-          size="small"
-          sx={{
-            ...modeButtonStyle,
-            color: mode === 'source' ? 'var(--text-primary)' : 'var(--text-secondary)',
-            fontWeight: mode === 'source' ? 600 : 500,
-          }}
-          onClick={() => {
-            onModeChange('source');
-          }}
-        >
-          Source
-        </Button>
-        <Button
-          size="small"
-          sx={{
-            ...modeButtonStyle,
-            color: mode === 'review' ? 'var(--text-primary)' : 'var(--text-secondary)',
-            fontWeight: mode === 'review' ? 600 : 500,
-          }}
-          onClick={() => {
-            onModeChange('review');
-          }}
-        >
-          Review
-        </Button>
-      </Box>
-
-      {/* Center: Markdown helper buttons — Bold/Italic removed in v3 */}
+      {/* Left: Markdown helper buttons — Bold/Italic removed in v3 */}
       {showMarkdownHelpers && (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
           <IconButton

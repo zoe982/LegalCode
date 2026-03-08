@@ -96,9 +96,8 @@ describe('App', () => {
     mockAuthenticatedUser();
     renderWithRouter('/templates/new');
     await waitFor(() => {
-      // "New Template" appears in the editor page
-      const elements = screen.getAllByText('New Template');
-      expect(elements.length).toBeGreaterThanOrEqual(1);
+      // Editor toolbar appears on the template editor page
+      expect(screen.getByTestId('editor-toolbar')).toBeInTheDocument();
     });
   });
 

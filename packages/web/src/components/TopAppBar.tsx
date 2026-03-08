@@ -16,6 +16,7 @@ interface TopAppBarProps {
   panelToggles?: ReactNode | undefined;
   rightSlot?: ReactNode | undefined;
   statusBadge?: ReactNode | undefined;
+  documentHeader?: ReactNode | undefined;
   user: TopAppBarUser;
   onLogout: () => void;
 }
@@ -34,6 +35,7 @@ export function TopAppBar({
   panelToggles,
   rightSlot,
   statusBadge,
+  documentHeader,
   user,
   onLogout,
 }: TopAppBarProps) {
@@ -51,24 +53,36 @@ export function TopAppBar({
         zIndex: 30,
       }}
     >
-      {/* Left: Breadcrumbs + optional status badge */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0, flex: 1 }}>
-        <Breadcrumbs templateName={breadcrumbTemplateName} pageName={breadcrumbPageName} />
-        {statusBadge != null && (
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>{statusBadge}</Box>
-        )}
-      </Box>
+      {documentHeader != null ? (
+        /* Document header replaces default layout in editor */
+        <>
+          <Box sx={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0 }}>
+            {documentHeader}
+          </Box>
+          <AvatarDropdownMenu user={user} onLogout={onLogout} />
+        </>
+      ) : (
+        <>
+          {/* Left: Breadcrumbs + optional status badge */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0, flex: 1 }}>
+            <Breadcrumbs templateName={breadcrumbTemplateName} pageName={breadcrumbPageName} />
+            {statusBadge != null && (
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>{statusBadge}</Box>
+            )}
+          </Box>
 
-      {/* Right section: panel toggles + right slot + avatar */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        {panelToggles != null && (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>{panelToggles}</Box>
-        )}
-        {rightSlot != null && (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>{rightSlot}</Box>
-        )}
-        <AvatarDropdownMenu user={user} onLogout={onLogout} />
-      </Box>
+          {/* Right section: panel toggles + right slot + avatar */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            {panelToggles != null && (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>{panelToggles}</Box>
+            )}
+            {rightSlot != null && (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>{rightSlot}</Box>
+            )}
+            <AvatarDropdownMenu user={user} onLogout={onLogout} />
+          </Box>
+        </>
+      )}
     </Box>
   );
 }

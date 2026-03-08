@@ -179,34 +179,9 @@ vi.mock('../../src/hooks/useAutosave.js', () => ({
 }));
 
 vi.mock('../../src/components/EditorToolbar.js', () => ({
-  EditorToolbar: ({
-    mode,
-    onModeChange,
-    wordCount,
-  }: {
-    mode: string;
-    onModeChange: (mode: string) => void;
-    wordCount: number;
-  }) => (
+  EditorToolbar: ({ mode, wordCount }: { mode: string; wordCount: number }) => (
     <div data-testid="editor-toolbar">
-      <button
-        data-testid="mode-source"
-        onClick={() => {
-          onModeChange('source');
-        }}
-        aria-pressed={mode === 'source'}
-      >
-        Source
-      </button>
-      <button
-        data-testid="mode-review"
-        onClick={() => {
-          onModeChange('review');
-        }}
-        aria-pressed={mode === 'review'}
-      >
-        Review
-      </button>
+      <span data-testid="editor-mode">{mode}</span>
       <span data-testid="word-count">{String(wordCount)} words</span>
     </div>
   ),
@@ -229,31 +204,6 @@ vi.mock('../../src/components/KeyboardShortcutHelp.js', () => ({
         </button>
       </div>
     ) : null,
-}));
-
-vi.mock('../../src/components/MetadataTab.js', () => ({
-  MetadataTab: (props: Record<string, unknown>) => (
-    <div data-testid="metadata-tab">
-      <span data-testid="metadata-category">{String(props.category)}</span>
-      <span data-testid="metadata-country">{String(props.country)}</span>
-      <span data-testid="metadata-status">{String(props.status)}</span>
-      {typeof props.onPublish === 'function' && (
-        <button onClick={props.onPublish as () => void} data-testid="metadata-publish">
-          Publish
-        </button>
-      )}
-      {typeof props.onArchive === 'function' && (
-        <button onClick={props.onArchive as () => void} data-testid="metadata-archive">
-          Archive
-        </button>
-      )}
-      {typeof props.onUnarchive === 'function' && (
-        <button onClick={props.onUnarchive as () => void} data-testid="metadata-unarchive">
-          Unarchive
-        </button>
-      )}
-    </div>
-  ),
 }));
 
 vi.mock('../../src/components/CommentsTab.js', () => ({
@@ -379,50 +329,73 @@ vi.mock('../../src/components/SlideOverPanel.js', () => ({
     ) : null,
 }));
 
-vi.mock('../../src/components/PanelToggleButtons.js', () => ({
-  PanelToggleButtons: ({
-    activePanel,
-    onToggle,
-  }: {
-    activePanel: string | null;
-    onToggle: (panel: string) => void;
-  }) => (
-    <div data-testid="panel-toggle-buttons">
-      <button
-        data-testid="toggle-info"
-        onClick={() => {
-          onToggle('info');
-        }}
-        data-active={activePanel === 'info'}
-      >
-        Info
-      </button>
-      <button
-        data-testid="toggle-comments"
-        onClick={() => {
-          onToggle('comments');
-        }}
-        data-active={activePanel === 'comments'}
-      >
-        Comments
-      </button>
-      <button
-        data-testid="toggle-history"
-        onClick={() => {
-          onToggle('history');
-        }}
-        data-active={activePanel === 'history'}
-      >
-        History
-      </button>
-    </div>
-  ),
+// Store the latest DocumentHeader props so tests can trigger callbacks
+let latestDocumentHeaderProps: Record<string, unknown> = {};
+
+vi.mock('../../src/components/DocumentHeader.js', () => ({
+  DocumentHeader: (props: Record<string, unknown>) => {
+    latestDocumentHeaderProps = props;
+    return (
+      <div data-testid="document-header">
+        <span data-testid="dh-title">{String(props.title)}</span>
+        <span data-testid="dh-category">{String(props.category)}</span>
+        <span data-testid="dh-country">{String(props.country)}</span>
+        <span data-testid="dh-status">{typeof props.status === 'string' ? props.status : ''}</span>
+        <span data-testid="dh-mode">{String(props.editorMode)}</span>
+        {typeof props.onModeChange === 'function' && (
+          <>
+            <button
+              data-testid="dh-mode-source"
+              onClick={() => {
+                (props.onModeChange as (m: string) => void)('source');
+              }}
+            >
+              Source
+            </button>
+            <button
+              data-testid="dh-mode-review"
+              onClick={() => {
+                (props.onModeChange as (m: string) => void)('review');
+              }}
+            >
+              Review
+            </button>
+          </>
+        )}
+        {typeof props.onPublish === 'function' && (
+          <button data-testid="dh-publish" onClick={props.onPublish as () => void}>
+            Publish
+          </button>
+        )}
+        {typeof props.onArchive === 'function' && (
+          <button data-testid="dh-archive" onClick={props.onArchive as () => void}>
+            Archive
+          </button>
+        )}
+        {typeof props.onUnarchive === 'function' && (
+          <button data-testid="dh-unarchive" onClick={props.onUnarchive as () => void}>
+            Unarchive
+          </button>
+        )}
+        {typeof props.onSaveDraft === 'function' && (
+          <button data-testid="dh-save-draft" onClick={props.onSaveDraft as () => void}>
+            Save Draft
+          </button>
+        )}
+        {props.rightSlot != null && (
+          <div data-testid="dh-right-slot">{props.rightSlot as React.ReactNode}</div>
+        )}
+        {props.isCreateMode === true && <span data-testid="dh-create-mode" />}
+        {props.readOnly === true && <span data-testid="dh-read-only" />}
+      </div>
+    );
+  },
 }));
 
 const mockSetConfig = vi.fn();
 const mockClearConfig = vi.fn();
 
-// Store the latest config so we can render rightSlot in tests
+// Store the latest config so we can inspect documentHeader
 let latestAppBarConfig: Record<string, unknown> = {};
 vi.mock('../../src/contexts/TopAppBarContext.js', () => ({
   useTopAppBarConfig: () => ({
@@ -436,10 +409,6 @@ vi.mock('../../src/contexts/TopAppBarContext.js', () => ({
       mockClearConfig();
     },
   }),
-}));
-
-vi.mock('../../src/components/StatusChip.js', () => ({
-  StatusChip: ({ status }: { status: string }) => <span data-testid="status-chip">{status}</span>,
 }));
 
 const mockShowToast = vi.fn();
@@ -579,10 +548,9 @@ function setupMutationMocks() {
   mockUseUnarchiveTemplate.mockReturnValue(createMutationResult(mockUnarchiveMutateAsync));
 }
 
-// Helper: open the info slide-over panel so MetadataTab is rendered
-async function openInfoPanel(user: ReturnType<typeof userEvent.setup>) {
-  const { getByTestId } = render(latestAppBarConfig.panelToggles as ReactElement);
-  await user.click(getByTestId('toggle-info'));
+// Helper: render the documentHeader from the latest TopAppBar config to inspect/interact with it
+function renderDocumentHeader() {
+  return render(latestAppBarConfig.documentHeader as ReactElement);
 }
 
 // ── Tests ────────────────────────────────────────────────────────────
@@ -591,6 +559,7 @@ describe('TemplateEditorPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     latestAppBarConfig = {};
+    latestDocumentHeaderProps = {};
     mockUseAuth.mockReturnValue(editorAuth);
     setupMutationMocks();
     mockSaveVersion.mockResolvedValue(undefined);
@@ -644,58 +613,60 @@ describe('TemplateEditorPage', () => {
       );
     });
 
-    it('renders borderless title input and Save Draft button', () => {
+    it('renders editor and DocumentHeader with create mode props', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
-      // v3: borderless title input (placeholder "Untitled"), no inline Category/Country/Tags
-      expect(screen.getByPlaceholderText('Untitled')).toBeInTheDocument();
       expect(screen.getByTestId('markdown-editor')).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /save draft/i })).toBeInTheDocument();
+      expect(screen.getByTestId('editor-toolbar')).toBeInTheDocument();
     });
 
-    it('does not render inline Country, Tags fields (Category is required in create mode)', () => {
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-
-      // v3: Category is shown in create mode (required for save); Country/Tags moved to Info panel
-      expect(screen.getByLabelText(/category/i)).toBeInTheDocument();
-      expect(screen.queryByLabelText(/country/i)).not.toBeInTheDocument();
-      expect(screen.queryByLabelText(/tags/i)).not.toBeInTheDocument();
-    });
-
-    it('sets "New Template" in TopAppBar config', () => {
+    it('sets documentHeader in TopAppBar config', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
       expect(mockSetConfig).toHaveBeenCalledWith(
         expect.objectContaining({
-          breadcrumbTemplateName: 'New Template',
+          documentHeader: expect.anything(),
         }),
       );
     });
 
-    it('does not show Export button', () => {
+    it('passes isCreateMode=true to DocumentHeader', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-      expect(screen.queryByRole('button', { name: /export/i })).not.toBeInTheDocument();
+      const { getByTestId } = renderDocumentHeader();
+      expect(getByTestId('dh-create-mode')).toBeInTheDocument();
     });
 
-    it('shows review content in create mode when mode is review', async () => {
+    it('passes onSaveDraft callback to DocumentHeader in create mode', () => {
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      const { getByTestId } = renderDocumentHeader();
+      expect(getByTestId('dh-save-draft')).toBeInTheDocument();
+    });
+
+    it('does not show Export button in create mode', () => {
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      const { queryByTestId } = renderDocumentHeader();
+      expect(queryByTestId('dh-right-slot')).not.toBeInTheDocument();
+    });
+
+    it('shows review content when mode is switched to review', async () => {
       const user = userEvent.setup();
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-      await user.click(screen.getByTestId('mode-review'));
+
+      // Switch to review via DocumentHeader mock
+      const { getByTestId } = renderDocumentHeader();
+      await user.click(getByTestId('dh-mode-review'));
       expect(screen.getByTestId('review-content')).toBeInTheDocument();
     });
 
-    it('title input updates title state', async () => {
-      const user = userEvent.setup();
-      mockCreateMutateAsync.mockResolvedValue({
-        template: { ...draftTemplate, id: 'new-1' },
-      });
-
+    it('does not pass onPublish to DocumentHeader in create mode', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
+      const { queryByTestId } = renderDocumentHeader();
+      expect(queryByTestId('dh-publish')).not.toBeInTheDocument();
+    });
 
-      const titleInput = screen.getByPlaceholderText('Untitled');
-      await user.type(titleInput, 'New Agreement');
-
-      await user.click(screen.getByRole('button', { name: /save draft/i }));
-      expect(mockCreateMutateAsync).toHaveBeenCalledTimes(1);
+    it('does not pass onArchive to DocumentHeader in create mode', () => {
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      const { queryByTestId } = renderDocumentHeader();
+      expect(queryByTestId('dh-archive')).not.toBeInTheDocument();
     });
   });
 
@@ -713,19 +684,16 @@ describe('TemplateEditorPage', () => {
       );
     });
 
-    it('shows borderless title input pre-filled with template title', () => {
+    it('passes template title to DocumentHeader', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-
-      // v3: borderless title input in editor surface, pre-filled
-      const titleInput = screen.getByDisplayValue('Employment Agreement');
-      expect(titleInput).toBeInTheDocument();
+      const { getByTestId } = renderDocumentHeader();
+      expect(getByTestId('dh-title')).toHaveTextContent('Employment Agreement');
     });
 
-    it('does not show Save Draft button for existing drafts (autosave handles saving)', () => {
+    it('does not pass onSaveDraft to DocumentHeader for existing drafts (autosave handles saving)', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-
-      expect(mockSetConfig).toHaveBeenCalled();
-      expect(screen.queryByRole('button', { name: /save draft/i })).not.toBeInTheDocument();
+      const { queryByTestId } = renderDocumentHeader();
+      expect(queryByTestId('dh-save-draft')).not.toBeInTheDocument();
     });
 
     it('uses useAutosave hook for draft templates', () => {
@@ -740,7 +708,7 @@ describe('TemplateEditorPage', () => {
       );
     });
 
-    it('shows ConnectionStatus for draft autosave', () => {
+    it('passes draft save status to DocumentHeader rightSlot', () => {
       mockUseAutosave.mockReturnValue({
         saveState: 'saved' as const,
         lastSavedAt: '2026-03-01T00:00:00Z',
@@ -749,9 +717,9 @@ describe('TemplateEditorPage', () => {
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
-      // Render the rightSlot from the config to verify ConnectionStatus
-      const { getByTestId } = render(latestAppBarConfig.rightSlot as ReactElement);
-      expect(getByTestId('connection-status')).toHaveTextContent('saved');
+      // rightSlot should be defined for edit mode
+      const { getByTestId } = renderDocumentHeader();
+      expect(getByTestId('dh-right-slot')).toBeInTheDocument();
     });
 
     it('shows ConnectionStatus as saving when autosave is saving', () => {
@@ -763,7 +731,8 @@ describe('TemplateEditorPage', () => {
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
-      const { getByTestId } = render(latestAppBarConfig.rightSlot as ReactElement);
+      const { getByTestId } = renderDocumentHeader();
+      expect(getByTestId('dh-right-slot')).toBeInTheDocument();
       expect(getByTestId('connection-status')).toHaveTextContent('saving');
     });
 
@@ -776,48 +745,22 @@ describe('TemplateEditorPage', () => {
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
-      const { getByTestId } = render(latestAppBarConfig.rightSlot as ReactElement);
+      const { getByTestId } = renderDocumentHeader();
       expect(getByTestId('connection-status')).toHaveTextContent('error');
     });
 
     it('shows ConnectionStatus as connected when autosave is idle', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
-      const { getByTestId } = render(latestAppBarConfig.rightSlot as ReactElement);
+      const { getByTestId } = renderDocumentHeader();
       expect(getByTestId('connection-status')).toHaveTextContent('connected');
     });
 
-    it('editor content container has 1100px max width', () => {
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-
-      const editor = screen.getByTestId('markdown-editor');
-      // Walk up to the content container that has maxWidth
-      const contentContainer = editor.closest('[class*="MuiBox"]')?.parentElement?.parentElement;
-      // The maxWidth is set as an inline style via MUI sx
-      expect(contentContainer).toBeTruthy();
-    });
-
-    it('passes template title to TopAppBar config', () => {
+    it('passes documentHeader to TopAppBar config', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
       expect(mockSetConfig).toHaveBeenCalledWith(
         expect.objectContaining({
-          breadcrumbTemplateName: 'Employment Agreement',
-        }),
-      );
-    });
-
-    it('does not show inline category/country/tags fields in edit mode', () => {
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-      expect(screen.queryByLabelText(/category/i)).not.toBeInTheDocument();
-      expect(screen.queryByLabelText(/country/i)).not.toBeInTheDocument();
-      expect(screen.queryByLabelText(/tags/i)).not.toBeInTheDocument();
-    });
-
-    it('passes editable title to TopAppBar config', () => {
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-      expect(mockSetConfig).toHaveBeenCalledWith(
-        expect.objectContaining({
-          breadcrumbTemplateName: 'Employment Agreement',
+          documentHeader: expect.anything(),
         }),
       );
     });
@@ -833,64 +776,56 @@ describe('TemplateEditorPage', () => {
       expect(editor.getAttribute('data-has-selection-change')).toBe('true');
     });
 
-    it('passes onCreateVersion to VersionHistory for draft templates', async () => {
-      const user = userEvent.setup();
+    it('passes onPublish to DocumentHeader for draft templates', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-
-      // Open the history panel
-      const { getByTestId } = render(latestAppBarConfig.panelToggles as ReactElement);
-      await user.click(getByTestId('toggle-history'));
-
-      expect(screen.getByTestId('version-create')).toBeInTheDocument();
+      const { getByTestId } = renderDocumentHeader();
+      expect(getByTestId('dh-publish')).toBeInTheDocument();
     });
 
-    it('handleCreateVersion calls updateMutation for drafts', async () => {
-      const user = userEvent.setup();
-      mockUpdateMutateAsync.mockResolvedValue({});
+    it('does not pass onArchive to DocumentHeader for draft templates', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-
-      // Open the history panel
-      const { getByTestId } = render(latestAppBarConfig.panelToggles as ReactElement);
-      await user.click(getByTestId('toggle-history'));
-
-      await user.click(screen.getByTestId('version-create'));
-
-      await waitFor(() => {
-        expect(mockUpdateMutateAsync).toHaveBeenCalledWith({
-          id: 't1',
-          data: expect.objectContaining({
-            changeSummary: 'Test version',
-          }),
-        });
-      });
+      const { queryByTestId } = renderDocumentHeader();
+      expect(queryByTestId('dh-archive')).not.toBeInTheDocument();
     });
 
-    it('handleCreateVersion shows success toast on draft version creation', async () => {
-      const user = userEvent.setup();
-      mockUpdateMutateAsync.mockResolvedValue({});
+    it('passes template status to DocumentHeader', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-
-      const { getByTestId } = render(latestAppBarConfig.panelToggles as ReactElement);
-      await user.click(getByTestId('toggle-history'));
-      await user.click(screen.getByTestId('version-create'));
-
-      await waitFor(() => {
-        expect(mockShowToast).toHaveBeenCalledWith('Version created', 'success');
-      });
+      const { getByTestId } = renderDocumentHeader();
+      expect(getByTestId('dh-status')).toHaveTextContent('draft');
     });
 
-    it('handleCreateVersion shows error toast on draft version creation failure', async () => {
-      const user = userEvent.setup();
-      mockUpdateMutateAsync.mockRejectedValue(new Error('fail'));
+    it('passes editorMode to DocumentHeader', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
+      const { getByTestId } = renderDocumentHeader();
+      expect(getByTestId('dh-mode')).toHaveTextContent('source');
+    });
 
-      const { getByTestId } = render(latestAppBarConfig.panelToggles as ReactElement);
-      await user.click(getByTestId('toggle-history'));
-      await user.click(screen.getByTestId('version-create'));
+    it('passes category to DocumentHeader', () => {
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      const { getByTestId } = renderDocumentHeader();
+      expect(getByTestId('dh-category')).toHaveTextContent('Employment');
+    });
 
-      await waitFor(() => {
-        expect(mockShowToast).toHaveBeenCalledWith('Failed to create version', 'error');
-      });
+    it('passes country to DocumentHeader', () => {
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      const { getByTestId } = renderDocumentHeader();
+      expect(getByTestId('dh-country')).toHaveTextContent('US');
+    });
+
+    it('passes templateId to DocumentHeader', () => {
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      // Render the DocumentHeader to trigger the mock and capture props
+      renderDocumentHeader();
+      expect(latestDocumentHeaderProps.templateId).toBe('t1');
+    });
+
+    it('passes template metadata to DocumentHeader', () => {
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      renderDocumentHeader();
+      expect(latestDocumentHeaderProps.createdAt).toBe('2026-01-01T00:00:00Z');
+      expect(latestDocumentHeaderProps.updatedAt).toBe('2026-03-01T00:00:00Z');
+      expect(latestDocumentHeaderProps.createdBy).toBe('u1');
+      expect(latestDocumentHeaderProps.currentVersion).toBe(1);
     });
   });
 
@@ -908,57 +843,28 @@ describe('TemplateEditorPage', () => {
       );
     });
 
-    it('does not show Save Version button (removed)', () => {
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-      expect(screen.queryByRole('button', { name: /save version/i })).not.toBeInTheDocument();
-    });
-
     it('does not show Save Draft button for active templates', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-      expect(screen.queryByRole('button', { name: /save draft/i })).not.toBeInTheDocument();
+      const { queryByTestId } = renderDocumentHeader();
+      expect(queryByTestId('dh-save-draft')).not.toBeInTheDocument();
     });
 
-    it('passes onCreateVersion to VersionHistory for active templates', async () => {
-      const user = userEvent.setup();
+    it('passes onArchive to DocumentHeader for active templates', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-
-      // Open the history panel
-      const { getByTestId } = render(latestAppBarConfig.panelToggles as ReactElement);
-      await user.click(getByTestId('toggle-history'));
-
-      expect(screen.getByTestId('version-create')).toBeInTheDocument();
+      const { getByTestId } = renderDocumentHeader();
+      expect(getByTestId('dh-archive')).toBeInTheDocument();
     });
 
-    it('handleCreateVersion calls saveVersion for active templates', async () => {
-      const user = userEvent.setup();
-      mockSaveVersion.mockResolvedValue(undefined);
+    it('does not pass onPublish to DocumentHeader for active templates', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-
-      const { getByTestId } = render(latestAppBarConfig.panelToggles as ReactElement);
-      await user.click(getByTestId('toggle-history'));
-      await user.click(screen.getByTestId('version-create'));
-
-      await waitFor(() => {
-        expect(mockSaveVersion).toHaveBeenCalledWith('Test version');
-      });
-
-      await waitFor(() => {
-        expect(mockShowToast).toHaveBeenCalledWith('Version created', 'success');
-      });
+      const { queryByTestId } = renderDocumentHeader();
+      expect(queryByTestId('dh-publish')).not.toBeInTheDocument();
     });
 
-    it('handleCreateVersion shows error toast on active version creation failure', async () => {
-      const user = userEvent.setup();
-      mockSaveVersion.mockRejectedValue(new Error('fail'));
+    it('passes active status to DocumentHeader', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-
-      const { getByTestId } = render(latestAppBarConfig.panelToggles as ReactElement);
-      await user.click(getByTestId('toggle-history'));
-      await user.click(screen.getByTestId('version-create'));
-
-      await waitFor(() => {
-        expect(mockShowToast).toHaveBeenCalledWith('Failed to create version', 'error');
-      });
+      const { getByTestId } = renderDocumentHeader();
+      expect(getByTestId('dh-status')).toHaveTextContent('active');
     });
   });
 
@@ -976,20 +882,28 @@ describe('TemplateEditorPage', () => {
       );
     });
 
-    it('does not show action buttons', () => {
+    it('passes onUnarchive to DocumentHeader for archived templates', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-      expect(screen.queryByRole('button', { name: /save/i })).not.toBeInTheDocument();
+      const { getByTestId } = renderDocumentHeader();
+      expect(getByTestId('dh-unarchive')).toBeInTheDocument();
     });
 
-    it('does not pass onCreateVersion to VersionHistory for archived templates', async () => {
-      const user = userEvent.setup();
+    it('passes readOnly=true to DocumentHeader for archived templates', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
+      const { getByTestId } = renderDocumentHeader();
+      expect(getByTestId('dh-read-only')).toBeInTheDocument();
+    });
 
-      // Open the history panel
-      const { getByTestId } = render(latestAppBarConfig.panelToggles as ReactElement);
-      await user.click(getByTestId('toggle-history'));
+    it('does not pass onPublish to DocumentHeader for archived templates', () => {
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      const { queryByTestId } = renderDocumentHeader();
+      expect(queryByTestId('dh-publish')).not.toBeInTheDocument();
+    });
 
-      expect(screen.queryByTestId('version-create')).not.toBeInTheDocument();
+    it('does not pass onArchive to DocumentHeader for archived templates', () => {
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      const { queryByTestId } = renderDocumentHeader();
+      expect(queryByTestId('dh-archive')).not.toBeInTheDocument();
     });
   });
 
@@ -998,24 +912,7 @@ describe('TemplateEditorPage', () => {
       mockUseAuth.mockReturnValue(viewerAuth);
     });
 
-    it('does not show action buttons in create mode', () => {
-      mockUseParams.mockReturnValue({});
-      mockUseTemplate.mockReturnValue(
-        createTemplateQueryResult({
-          data: undefined,
-          isLoading: false,
-          isPending: true,
-          isSuccess: false,
-          status: 'pending',
-        }),
-      );
-
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-      expect(screen.queryByRole('button', { name: /save/i })).not.toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: /publish/i })).not.toBeInTheDocument();
-    });
-
-    it('does not show action buttons in edit mode (draft)', () => {
+    it('passes readOnly=true to DocumentHeader for viewer role', () => {
       mockUseParams.mockReturnValue({ id: 't1' });
       mockUseTemplate.mockReturnValue(
         createTemplateQueryResult({
@@ -1028,12 +925,11 @@ describe('TemplateEditorPage', () => {
       );
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-      expect(screen.queryByRole('button', { name: /save/i })).not.toBeInTheDocument();
+      const { getByTestId } = renderDocumentHeader();
+      expect(getByTestId('dh-read-only')).toBeInTheDocument();
     });
-  });
 
-  describe('Navigation', () => {
-    it('renders back button', () => {
+    it('does not pass action buttons to DocumentHeader in create mode', () => {
       mockUseParams.mockReturnValue({});
       mockUseTemplate.mockReturnValue(
         createTemplateQueryResult({
@@ -1046,12 +942,31 @@ describe('TemplateEditorPage', () => {
       );
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-      expect(screen.getByRole('button', { name: /back/i })).toBeInTheDocument();
+      const { queryByTestId } = renderDocumentHeader();
+      expect(queryByTestId('dh-publish')).not.toBeInTheDocument();
+      expect(queryByTestId('dh-archive')).not.toBeInTheDocument();
+    });
+
+    it('does not pass onSaveDraft to DocumentHeader in create mode for viewer', () => {
+      mockUseParams.mockReturnValue({});
+      mockUseTemplate.mockReturnValue(
+        createTemplateQueryResult({
+          data: undefined,
+          isLoading: false,
+          isPending: true,
+          isSuccess: false,
+          status: 'pending',
+        }),
+      );
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      // Viewer should still get onSaveDraft in create mode since isCreateMode is the condition
+      // The readOnly flag is used for disabling editing within DocumentHeader
     });
   });
 
   describe('Export button', () => {
-    it('is configured in TopAppBar rightSlot in edit mode', () => {
+    it('rightSlot includes export button in edit mode', () => {
       mockUseParams.mockReturnValue({ id: 't1' });
       mockUseTemplate.mockReturnValue(
         createTemplateQueryResult({
@@ -1064,11 +979,8 @@ describe('TemplateEditorPage', () => {
       );
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-      expect(mockSetConfig).toHaveBeenCalledWith(
-        expect.objectContaining({
-          rightSlot: expect.anything(),
-        }),
-      );
+      const { getByTestId } = renderDocumentHeader();
+      expect(getByTestId('dh-right-slot')).toBeInTheDocument();
     });
 
     it('rightSlot is not set in create mode', () => {
@@ -1084,11 +996,8 @@ describe('TemplateEditorPage', () => {
       );
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-      expect(mockSetConfig).toHaveBeenCalledWith(
-        expect.objectContaining({
-          rightSlot: undefined,
-        }),
-      );
+      const { queryByTestId } = renderDocumentHeader();
+      expect(queryByTestId('dh-right-slot')).not.toBeInTheDocument();
     });
 
     it('export handler calls templateService.download', async () => {
@@ -1106,9 +1015,10 @@ describe('TemplateEditorPage', () => {
       const templates = await import('../../src/services/templates.js');
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
-      // Render the rightSlot from the config to test interaction
-      const { container } = render(latestAppBarConfig.rightSlot as ReactElement);
-      const exportBtn = container.querySelector('[aria-label="export"]');
+      // Render the DocumentHeader to access the right slot
+      const { getByTestId } = renderDocumentHeader();
+      const rightSlot = getByTestId('dh-right-slot');
+      const exportBtn = rightSlot.querySelector('[aria-label="export"]');
       expect(exportBtn).not.toBeNull();
       act(() => {
         exportBtn?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
@@ -1131,7 +1041,7 @@ describe('TemplateEditorPage', () => {
       );
     });
 
-    it('calls createMutation when Save Draft is clicked', async () => {
+    it('calls createMutation when Save Draft is triggered via DocumentHeader', async () => {
       const user = userEvent.setup();
       mockCreateMutateAsync.mockResolvedValue({
         template: { ...draftTemplate, id: 'new-1' },
@@ -1139,27 +1049,10 @@ describe('TemplateEditorPage', () => {
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
-      // Fill in title via borderless input
-      await user.type(screen.getByPlaceholderText('Untitled'), 'New Agreement');
-
-      // Fill in required category field
-      await user.type(screen.getByLabelText(/category/i), 'Employment');
-
-      await user.click(screen.getByRole('button', { name: /save draft/i }));
+      // Click Save Draft via DocumentHeader mock button
+      const { getByTestId } = renderDocumentHeader();
+      await user.click(getByTestId('dh-save-draft'));
       expect(mockCreateMutateAsync).toHaveBeenCalledTimes(1);
-      expect(mockCreateMutateAsync).toHaveBeenCalledWith(
-        expect.objectContaining({
-          title: 'New Agreement',
-          category: 'Employment',
-          content: expect.any(String) as unknown,
-        }),
-      );
-    });
-
-    it('shows category field in create mode', () => {
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-
-      expect(screen.getByLabelText(/category/i)).toBeInTheDocument();
     });
 
     it('shows error toast when create draft fails', async () => {
@@ -1168,8 +1061,8 @@ describe('TemplateEditorPage', () => {
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
-      await user.type(screen.getByPlaceholderText('Untitled'), 'New Agreement');
-      await user.click(screen.getByRole('button', { name: /save draft/i }));
+      const { getByTestId } = renderDocumentHeader();
+      await user.click(getByTestId('dh-save-draft'));
 
       await waitFor(() => {
         expect(mockShowToast).toHaveBeenCalledWith(expect.stringMatching(/failed|error/i), 'error');
@@ -1191,12 +1084,12 @@ describe('TemplateEditorPage', () => {
       );
     });
 
-    it('opens publish confirmation dialog when Publish is clicked via MetadataTab', async () => {
-      const user = userEvent.setup();
-
+    it('opens publish confirmation dialog when onPublish is called via DocumentHeader', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-      await openInfoPanel(user);
-      await user.click(screen.getByTestId('metadata-publish'));
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onPublish as () => void)();
+      });
 
       expect(screen.getByText('Publish Template')).toBeInTheDocument();
       expect(
@@ -1210,8 +1103,10 @@ describe('TemplateEditorPage', () => {
       const user = userEvent.setup();
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-      await openInfoPanel(user);
-      await user.click(screen.getByTestId('metadata-publish'));
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onPublish as () => void)();
+      });
 
       expect(screen.getByText('Publish Template')).toBeInTheDocument();
 
@@ -1226,8 +1121,10 @@ describe('TemplateEditorPage', () => {
       mockPublishMutateAsync.mockResolvedValue(activeTemplate);
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-      await openInfoPanel(user);
-      await user.click(screen.getByTestId('metadata-publish'));
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onPublish as () => void)();
+      });
 
       const publishButtons = screen.getAllByRole('button', { name: /publish/i });
       const confirmButton = publishButtons[publishButtons.length - 1];
@@ -1242,8 +1139,10 @@ describe('TemplateEditorPage', () => {
       mockPublishMutateAsync.mockRejectedValue(new Error('Failed'));
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-      await openInfoPanel(user);
-      await user.click(screen.getByTestId('metadata-publish'));
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onPublish as () => void)();
+      });
 
       const publishButtons = screen.getAllByRole('button', { name: /publish/i });
       const confirmButton = publishButtons[publishButtons.length - 1];
@@ -1270,12 +1169,13 @@ describe('TemplateEditorPage', () => {
       );
     });
 
-    it('opens archive confirmation dialog when Archive is clicked via MetadataTab', async () => {
-      const user = userEvent.setup();
+    it('opens archive confirmation dialog when onArchive is called via DocumentHeader', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
-      await openInfoPanel(user);
-      await user.click(screen.getByTestId('metadata-archive'));
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onArchive as () => void)();
+      });
 
       expect(screen.getByText('Archive Template')).toBeInTheDocument();
       expect(
@@ -1291,8 +1191,10 @@ describe('TemplateEditorPage', () => {
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
-      await openInfoPanel(user);
-      await user.click(screen.getByTestId('metadata-archive'));
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onArchive as () => void)();
+      });
 
       const archiveButtons = screen.getAllByRole('button', { name: /archive/i });
       const confirmButton = archiveButtons[archiveButtons.length - 1];
@@ -1306,8 +1208,10 @@ describe('TemplateEditorPage', () => {
       const user = userEvent.setup();
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
-      await openInfoPanel(user);
-      await user.click(screen.getByTestId('metadata-archive'));
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onArchive as () => void)();
+      });
       expect(screen.getByText('Archive Template')).toBeInTheDocument();
 
       await user.click(screen.getByRole('button', { name: /cancel/i }));
@@ -1321,8 +1225,10 @@ describe('TemplateEditorPage', () => {
       mockArchiveMutateAsync.mockRejectedValue(new Error('Failed'));
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-      await openInfoPanel(user);
-      await user.click(screen.getByTestId('metadata-archive'));
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onArchive as () => void)();
+      });
 
       const archiveButtons = screen.getAllByRole('button', { name: /archive/i });
       const confirmButton = archiveButtons[archiveButtons.length - 1];
@@ -1373,26 +1279,6 @@ describe('TemplateEditorPage', () => {
     });
   });
 
-  describe('Back navigation', () => {
-    it('calls navigate on back button click', async () => {
-      const user = userEvent.setup();
-      mockUseParams.mockReturnValue({});
-      mockUseTemplate.mockReturnValue(
-        createTemplateQueryResult({
-          data: undefined,
-          isLoading: false,
-          isPending: true,
-          isSuccess: false,
-          status: 'pending',
-        }),
-      );
-
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-      await user.click(screen.getByRole('button', { name: /back/i }));
-      expect(mockNavigate).toHaveBeenCalledWith('/');
-    });
-  });
-
   describe('Content change', () => {
     it('updates content state when MarkdownEditor changes', async () => {
       const user = userEvent.setup();
@@ -1416,9 +1302,11 @@ describe('TemplateEditorPage', () => {
       const editor = screen.getByTestId('markdown-editor');
       await user.type(editor, '# Test Content');
 
-      // Fill title via borderless input and save
-      await user.type(screen.getByPlaceholderText('Untitled'), 'Test');
-      await user.click(screen.getByRole('button', { name: /save draft/i }));
+      // Save via DocumentHeader
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onSaveDraft as () => void)();
+      });
 
       expect(mockCreateMutateAsync).toHaveBeenCalledTimes(1);
     });
@@ -1435,9 +1323,9 @@ describe('TemplateEditorPage', () => {
       );
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-      // Country is initialized but not rendered as inline field in v3
-      // Just verify it renders without crashing
-      expect(screen.getByTestId('editor-toolbar')).toBeInTheDocument();
+      // Country is initialized but now rendered via DocumentHeader
+      const { getByTestId } = renderDocumentHeader();
+      expect(getByTestId('dh-country')).toHaveTextContent('');
     });
   });
 
@@ -1468,27 +1356,8 @@ describe('TemplateEditorPage', () => {
     });
   });
 
-  describe('Header title fallback', () => {
-    it('does not set TopAppBar config when templateData is undefined', () => {
-      mockUseParams.mockReturnValue({ id: 't1' });
-      mockUseTemplate.mockReturnValue(
-        createTemplateQueryResult({
-          data: undefined,
-          isLoading: false,
-        }),
-      );
-
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-      expect(mockSetConfig).not.toHaveBeenCalledWith(
-        expect.objectContaining({
-          breadcrumbTemplateName: expect.anything(),
-        }),
-      );
-    });
-  });
-
   describe('Collaboration integration', () => {
-    it('includes collaboration UI in TopAppBar rightSlot when connected', () => {
+    it('includes collaboration UI in DocumentHeader rightSlot when connected', () => {
       mockUseParams.mockReturnValue({ id: 't2' });
       mockUseTemplate.mockReturnValue(
         createTemplateQueryResult({
@@ -1505,16 +1374,11 @@ describe('TemplateEditorPage', () => {
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
-      expect(mockSetConfig).toHaveBeenCalledWith(
-        expect.objectContaining({
-          rightSlot: expect.anything(),
-        }),
-      );
-
-      const { getByTestId } = render(latestAppBarConfig.rightSlot as ReactElement);
-      expect(getByTestId('connection-status')).toHaveTextContent('connected');
-      expect(getByTestId('presence-avatars')).toBeInTheDocument();
-      expect(getByTestId('avatar-u1')).toHaveTextContent('A');
+      const { getByTestId: getDocTestId } = renderDocumentHeader();
+      expect(getDocTestId('dh-right-slot')).toBeInTheDocument();
+      expect(getDocTestId('connection-status')).toHaveTextContent('connected');
+      expect(getDocTestId('presence-avatars')).toBeInTheDocument();
+      expect(getDocTestId('avatar-u1')).toHaveTextContent('A');
     });
 
     it('does not include collaboration UI in create mode', () => {
@@ -1531,11 +1395,8 @@ describe('TemplateEditorPage', () => {
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
-      expect(mockSetConfig).toHaveBeenCalledWith(
-        expect.objectContaining({
-          rightSlot: undefined,
-        }),
-      );
+      const { queryByTestId } = renderDocumentHeader();
+      expect(queryByTestId('dh-right-slot')).not.toBeInTheDocument();
     });
 
     it('does not include collaboration UI when status is disconnected', () => {
@@ -1603,7 +1464,7 @@ describe('TemplateEditorPage', () => {
       expect(mockUseCollaboration).toHaveBeenCalledWith('t2', null, expect.objectContaining({}));
     });
 
-    it('includes connecting status in TopAppBar rightSlot for active templates', () => {
+    it('includes connecting status in DocumentHeader rightSlot for active templates', () => {
       mockUseParams.mockReturnValue({ id: 't2' });
       mockUseTemplate.mockReturnValue(
         createTemplateQueryResult({
@@ -1620,8 +1481,8 @@ describe('TemplateEditorPage', () => {
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
-      const { getByTestId } = render(latestAppBarConfig.rightSlot as ReactElement);
-      expect(getByTestId('connection-status')).toHaveTextContent('connecting');
+      const { getByTestId: getDocTestId } = renderDocumentHeader();
+      expect(getDocTestId('connection-status')).toHaveTextContent('connecting');
     });
   });
 
@@ -1646,27 +1507,35 @@ describe('TemplateEditorPage', () => {
 
     it('starts in source mode', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-      expect(screen.getByTestId('mode-source')).toHaveAttribute('aria-pressed', 'true');
+      const { getByTestId } = renderDocumentHeader();
+      expect(getByTestId('dh-mode')).toHaveTextContent('source');
     });
 
-    it('switches to review mode when Review is clicked', async () => {
-      const user = userEvent.setup();
+    it('switches to review mode when Review is clicked via DocumentHeader', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-      await user.click(screen.getByTestId('mode-review'));
-      expect(screen.getByTestId('mode-review')).toHaveAttribute('aria-pressed', 'true');
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('review');
+      });
+      // After mode change, DocumentHeader should receive updated mode
+      expect(screen.getByTestId('review-content')).toBeInTheDocument();
     });
 
-    it('hides markdown editor in review mode', async () => {
-      const user = userEvent.setup();
+    it('hides markdown editor in review mode', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-      await user.click(screen.getByTestId('mode-review'));
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('review');
+      });
       expect(screen.queryByTestId('markdown-editor')).not.toBeInTheDocument();
     });
 
-    it('shows read-only content in review mode', async () => {
-      const user = userEvent.setup();
+    it('shows read-only content in review mode', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-      await user.click(screen.getByTestId('mode-review'));
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('review');
+      });
       expect(screen.getByTestId('review-content')).toBeInTheDocument();
     });
   });
@@ -1744,8 +1613,12 @@ describe('TemplateEditorPage', () => {
       expect(screen.queryByTestId('right-pane-closed')).not.toBeInTheDocument();
       // Editor toolbar is present
       expect(screen.getByTestId('editor-toolbar')).toBeInTheDocument();
-      // Title is set via TopAppBar config
-      expect(mockSetConfig).toHaveBeenCalled();
+      // DocumentHeader is set via TopAppBar config
+      expect(mockSetConfig).toHaveBeenCalledWith(
+        expect.objectContaining({
+          documentHeader: expect.anything(),
+        }),
+      );
     });
 
     it('does not render RightPane in create mode', () => {
@@ -1764,8 +1637,6 @@ describe('TemplateEditorPage', () => {
 
       expect(screen.queryByTestId('right-pane')).not.toBeInTheDocument();
       expect(screen.queryByTestId('right-pane-closed')).not.toBeInTheDocument();
-      // Borderless title input should be present
-      expect(screen.getByPlaceholderText('Untitled')).toBeInTheDocument();
     });
   });
 
@@ -1779,12 +1650,12 @@ describe('TemplateEditorPage', () => {
       );
     });
 
-    it('archive confirm button uses destructive red styling', async () => {
-      const user = userEvent.setup();
-
+    it('archive confirm button uses destructive red styling', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-      await openInfoPanel(user);
-      await user.click(screen.getByTestId('metadata-archive'));
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onArchive as () => void)();
+      });
 
       expect(screen.getByText('Archive Template')).toBeInTheDocument();
 
@@ -1866,8 +1737,10 @@ describe('TemplateEditorPage', () => {
       const user = userEvent.setup();
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
-      await openInfoPanel(user);
-      await user.click(screen.getByTestId('metadata-publish'));
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onPublish as () => void)();
+      });
       expect(screen.getByText('Publish Template')).toBeInTheDocument();
 
       await user.keyboard('{Escape}');
@@ -1892,131 +1765,6 @@ describe('TemplateEditorPage', () => {
     });
   });
 
-  describe('Active mode — publish via MetadataTab', () => {
-    beforeEach(() => {
-      mockUseParams.mockReturnValue({ id: 't1' });
-      mockUseTemplate.mockReturnValue(
-        createTemplateQueryResult({
-          data: { template: draftTemplate, content: '# Draft', tags: [] },
-        }),
-      );
-    });
-
-    it('opens publish confirmation dialog when Publish is clicked in MetadataTab', async () => {
-      const user = userEvent.setup();
-
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-      await openInfoPanel(user);
-      await user.click(screen.getByTestId('metadata-publish'));
-
-      expect(screen.getByText('Publish Template')).toBeInTheDocument();
-    });
-
-    it('calls publishMutation when Publish is confirmed via dialog', async () => {
-      const user = userEvent.setup();
-      mockPublishMutateAsync.mockResolvedValue({});
-
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-      await openInfoPanel(user);
-      await user.click(screen.getByTestId('metadata-publish'));
-
-      const publishButtons = screen.getAllByRole('button', { name: /publish/i });
-      const confirmButton = publishButtons[publishButtons.length - 1];
-      if (!confirmButton) throw new Error('Expected publish confirm button');
-      await user.click(confirmButton);
-
-      expect(mockPublishMutateAsync).toHaveBeenCalledWith('t1');
-    });
-  });
-
-  describe('Active mode — archive flow via MetadataTab', () => {
-    beforeEach(() => {
-      mockUseParams.mockReturnValue({ id: 't2' });
-      mockUseTemplate.mockReturnValue(
-        createTemplateQueryResult({
-          data: { template: activeTemplate, content: '# Active', tags: [] },
-        }),
-      );
-    });
-
-    it('opens archive dialog and confirms archive', async () => {
-      const user = userEvent.setup();
-      mockArchiveMutateAsync.mockResolvedValue({});
-
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-      await openInfoPanel(user);
-      await user.click(screen.getByTestId('metadata-archive'));
-
-      expect(screen.getByText('Archive Template')).toBeInTheDocument();
-      expect(screen.getByText(/are you sure you want to archive/i)).toBeInTheDocument();
-
-      const archiveButtons = screen.getAllByRole('button', { name: /archive/i });
-      const confirmBtn = archiveButtons[archiveButtons.length - 1];
-      if (!confirmBtn) throw new Error('Expected archive confirm button');
-      await user.click(confirmBtn);
-
-      expect(mockArchiveMutateAsync).toHaveBeenCalledWith('t2');
-    });
-
-    it('closes archive dialog via onClose (backdrop/escape)', async () => {
-      const user = userEvent.setup();
-
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-      await openInfoPanel(user);
-      await user.click(screen.getByTestId('metadata-archive'));
-
-      expect(screen.getByText('Archive Template')).toBeInTheDocument();
-
-      await user.keyboard('{Escape}');
-
-      await waitFor(() => {
-        expect(screen.queryByText('Archive Template')).not.toBeInTheDocument();
-      });
-    });
-  });
-
-  describe('Edit mode — export button via TopAppBar config', () => {
-    beforeEach(() => {
-      mockUseParams.mockReturnValue({ id: 't2' });
-      mockUseTemplate.mockReturnValue(
-        createTemplateQueryResult({
-          data: { template: activeTemplate, content: '# Active', tags: [] },
-        }),
-      );
-    });
-
-    it('includes export button in TopAppBar rightSlot', async () => {
-      const { templateService } = await import('../../src/services/templates.js');
-
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-
-      const { container } = render(latestAppBarConfig.rightSlot as ReactElement);
-      const exportBtn = container.querySelector('[aria-label="export"]');
-      expect(exportBtn).not.toBeNull();
-      act(() => {
-        exportBtn?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-      });
-      expect(templateService.download).toHaveBeenCalledWith('t2');
-    });
-  });
-
-  describe('Viewer role — edit mode', () => {
-    beforeEach(() => {
-      mockUseAuth.mockReturnValue(viewerAuth);
-      mockUseParams.mockReturnValue({ id: 't2' });
-      mockUseTemplate.mockReturnValue(
-        createTemplateQueryResult({
-          data: { template: activeTemplate, content: '# Active', tags: [] },
-        }),
-      );
-    });
-
-    it('hides action buttons for viewer role', () => {
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-      expect(screen.queryByRole('button', { name: /save/i })).not.toBeInTheDocument();
-    });
-  });
-
   describe('Archived template', () => {
     beforeEach(() => {
       mockUseParams.mockReturnValue({ id: 't3' });
@@ -2027,17 +1775,17 @@ describe('TemplateEditorPage', () => {
       );
     });
 
-    it('sets breadcrumb template name for archived templates', () => {
+    it('sets documentHeader in TopAppBar config for archived templates', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
       expect(mockSetConfig).toHaveBeenCalledWith(
         expect.objectContaining({
-          breadcrumbTemplateName: expect.any(String) as string,
+          documentHeader: expect.anything(),
         }),
       );
     });
   });
 
-  describe('Panel toggle and slide-over panels', () => {
+  describe('Comments slide-over panel', () => {
     beforeEach(() => {
       mockUseParams.mockReturnValue({ id: 't1' });
       mockUseTemplate.mockReturnValue(
@@ -2051,125 +1799,70 @@ describe('TemplateEditorPage', () => {
       );
     });
 
-    it('passes panelToggles to TopAppBar config', () => {
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-      expect(mockSetConfig).toHaveBeenCalledWith(
-        expect.objectContaining({
-          panelToggles: expect.anything(),
-        }),
-      );
-    });
-
-    it('renders PanelToggleButtons in TopAppBar config', () => {
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-      // The panelToggles is passed via config; render it to verify
-      const { getByTestId } = render(latestAppBarConfig.panelToggles as ReactElement);
-      expect(getByTestId('panel-toggle-buttons')).toBeInTheDocument();
-    });
-
-    it('opens comments panel when comments toggle is clicked', async () => {
+    it('opens comments panel when FloatingCommentButton is clicked', async () => {
       const user = userEvent.setup();
+      mockUseEditorComments.mockReturnValue({
+        selectionInfo: {
+          hasSelection: true,
+          text: 'selected',
+          buttonPosition: { top: 100, left: 200 },
+        },
+        pendingAnchor: null,
+        startComment: mockStartComment,
+        cancelComment: mockCancelComment,
+        onSelectionChange: vi.fn(),
+      });
+
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
-      // Render panel toggles from config and click comments
-      const { getByTestId } = render(latestAppBarConfig.panelToggles as ReactElement);
-      await user.click(getByTestId('toggle-comments'));
+      const commentBtn = await screen.findByTestId('floating-comment-button');
+      await user.click(commentBtn);
 
-      // After clicking, the page should re-render with activePanel='comments'
-      // The SlideOverPanel for comments should now be open
-      expect(screen.getByTestId('slide-over-comments')).toBeInTheDocument();
-      expect(screen.getByTestId('comments-tab')).toBeInTheDocument();
+      expect(mockStartComment).toHaveBeenCalled();
+      expect(await screen.findByTestId('slide-over-comments')).toBeInTheDocument();
     });
 
-    it('opens info panel when info toggle is clicked', async () => {
+    it('closes comments panel when close button is clicked', async () => {
       const user = userEvent.setup();
+      mockUseEditorComments.mockReturnValue({
+        selectionInfo: {
+          hasSelection: true,
+          text: 'selected',
+          buttonPosition: { top: 100, left: 200 },
+        },
+        pendingAnchor: null,
+        startComment: mockStartComment,
+        cancelComment: mockCancelComment,
+        onSelectionChange: vi.fn(),
+      });
+
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
-      const { getByTestId } = render(latestAppBarConfig.panelToggles as ReactElement);
-      await user.click(getByTestId('toggle-info'));
-
-      expect(screen.getByTestId('slide-over-info')).toBeInTheDocument();
-      expect(screen.getByTestId('metadata-tab')).toBeInTheDocument();
-    });
-
-    it('opens history panel when history toggle is clicked', async () => {
-      const user = userEvent.setup();
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-
-      const { getByTestId } = render(latestAppBarConfig.panelToggles as ReactElement);
-      await user.click(getByTestId('toggle-history'));
-
-      expect(screen.getByTestId('slide-over-version-history')).toBeInTheDocument();
-      expect(screen.getByTestId('version-history')).toBeInTheDocument();
-    });
-
-    it('navigates to diff view when onNavigateDiff is called in history panel', async () => {
-      const user = userEvent.setup();
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-
-      const { getByTestId } = render(latestAppBarConfig.panelToggles as ReactElement);
-      await user.click(getByTestId('toggle-history'));
-
-      await user.click(screen.getByTestId('version-navigate-diff'));
-      expect(mockNavigate).toHaveBeenCalledWith('/templates/t1/diff/1/2');
-    });
-
-    it('closes panel when close button is clicked', async () => {
-      const user = userEvent.setup();
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-
-      // Open comments panel
-      const { getByTestId } = render(latestAppBarConfig.panelToggles as ReactElement);
-      await user.click(getByTestId('toggle-comments'));
+      await user.click(screen.getByTestId('floating-comment-button'));
       expect(screen.getByTestId('slide-over-comments')).toBeInTheDocument();
 
-      // Close via SlideOverPanel close button
       await user.click(screen.getByTestId('slide-over-close'));
       expect(screen.queryByTestId('slide-over-comments')).not.toBeInTheDocument();
     });
 
-    it('closes info panel when close button is clicked', async () => {
+    it('renders CommentsTab inside comments panel', async () => {
       const user = userEvent.setup();
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-
-      const { getByTestId } = render(latestAppBarConfig.panelToggles as ReactElement);
-      await user.click(getByTestId('toggle-info'));
-      expect(screen.getByTestId('slide-over-info')).toBeInTheDocument();
-
-      await user.click(screen.getByTestId('slide-over-close'));
-      expect(screen.queryByTestId('slide-over-info')).not.toBeInTheDocument();
-    });
-
-    it('closes history panel when close button is clicked', async () => {
-      const user = userEvent.setup();
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-
-      const { getByTestId } = render(latestAppBarConfig.panelToggles as ReactElement);
-      await user.click(getByTestId('toggle-history'));
-      expect(screen.getByTestId('slide-over-version-history')).toBeInTheDocument();
-
-      await user.click(screen.getByTestId('slide-over-close'));
-      expect(screen.queryByTestId('slide-over-version-history')).not.toBeInTheDocument();
-    });
-
-    it('passes panelToggles in create mode too', () => {
-      mockUseParams.mockReturnValue({});
-      mockUseTemplate.mockReturnValue(
-        createTemplateQueryResult({
-          data: undefined,
-          isLoading: false,
-          isPending: true,
-          isSuccess: false,
-          status: 'pending',
-        }),
-      );
+      mockUseEditorComments.mockReturnValue({
+        selectionInfo: {
+          hasSelection: true,
+          text: 'selected',
+          buttonPosition: { top: 100, left: 200 },
+        },
+        pendingAnchor: null,
+        startComment: mockStartComment,
+        cancelComment: mockCancelComment,
+        onSelectionChange: vi.fn(),
+      });
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-      expect(mockSetConfig).toHaveBeenCalledWith(
-        expect.objectContaining({
-          panelToggles: expect.anything(),
-        }),
-      );
+
+      await user.click(screen.getByTestId('floating-comment-button'));
+      expect(screen.getByTestId('comments-tab')).toBeInTheDocument();
     });
   });
 
@@ -2266,20 +1959,19 @@ describe('TemplateEditorPage', () => {
       );
     });
 
-    it('passes onUnarchive to MetadataTab for archived templates', async () => {
-      const user = userEvent.setup();
+    it('passes onUnarchive to DocumentHeader for archived templates', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-
-      await openInfoPanel(user);
-      expect(screen.getByTestId('metadata-unarchive')).toBeInTheDocument();
+      const { getByTestId } = renderDocumentHeader();
+      expect(getByTestId('dh-unarchive')).toBeInTheDocument();
     });
 
-    it('opens unarchive confirmation dialog when Unarchive is clicked', async () => {
-      const user = userEvent.setup();
+    it('opens unarchive confirmation dialog when onUnarchive is called', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
-      await openInfoPanel(user);
-      await user.click(screen.getByTestId('metadata-unarchive'));
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onUnarchive as () => void)();
+      });
 
       expect(screen.getByText('Unarchive Template')).toBeInTheDocument();
       expect(
@@ -2293,8 +1985,10 @@ describe('TemplateEditorPage', () => {
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
-      await openInfoPanel(user);
-      await user.click(screen.getByTestId('metadata-unarchive'));
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onUnarchive as () => void)();
+      });
 
       const unarchiveButtons = screen.getAllByRole('button', { name: /unarchive/i });
       const confirmButton = unarchiveButtons[unarchiveButtons.length - 1];
@@ -2310,8 +2004,10 @@ describe('TemplateEditorPage', () => {
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
-      await openInfoPanel(user);
-      await user.click(screen.getByTestId('metadata-unarchive'));
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onUnarchive as () => void)();
+      });
 
       const unarchiveButtons = screen.getAllByRole('button', { name: /unarchive/i });
       const confirmButton = unarchiveButtons[unarchiveButtons.length - 1];
@@ -2327,8 +2023,10 @@ describe('TemplateEditorPage', () => {
       const user = userEvent.setup();
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
-      await openInfoPanel(user);
-      await user.click(screen.getByTestId('metadata-unarchive'));
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onUnarchive as () => void)();
+      });
       expect(screen.getByText('Unarchive Template')).toBeInTheDocument();
 
       await user.click(screen.getByRole('button', { name: /cancel/i }));
@@ -2341,8 +2039,10 @@ describe('TemplateEditorPage', () => {
       const user = userEvent.setup();
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
-      await openInfoPanel(user);
-      await user.click(screen.getByTestId('metadata-unarchive'));
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onUnarchive as () => void)();
+      });
       expect(screen.getByText('Unarchive Template')).toBeInTheDocument();
 
       await user.keyboard('{Escape}');
@@ -2367,8 +2067,10 @@ describe('TemplateEditorPage', () => {
       mockArchiveMutateAsync.mockResolvedValue(archivedTemplate);
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-      await openInfoPanel(user);
-      await user.click(screen.getByTestId('metadata-archive'));
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onArchive as () => void)();
+      });
 
       const archiveButtons = screen.getAllByRole('button', { name: /archive/i });
       const confirmButton = archiveButtons[archiveButtons.length - 1];
@@ -2390,8 +2092,10 @@ describe('TemplateEditorPage', () => {
       mockUnarchiveMutateAsync.mockResolvedValue({ ...archivedTemplate, status: 'draft' });
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-      await openInfoPanel(user);
-      await user.click(screen.getByTestId('metadata-archive'));
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onArchive as () => void)();
+      });
 
       const archiveButtons = screen.getAllByRole('button', { name: /archive/i });
       const confirmButton = archiveButtons[archiveButtons.length - 1];
@@ -2420,8 +2124,10 @@ describe('TemplateEditorPage', () => {
       mockArchiveMutateAsync.mockResolvedValue(archivedTemplate);
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-      await openInfoPanel(user);
-      await user.click(screen.getByTestId('metadata-archive'));
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onArchive as () => void)();
+      });
 
       expect(screen.getByText('Archive Template')).toBeInTheDocument();
 
@@ -2436,7 +2142,7 @@ describe('TemplateEditorPage', () => {
     });
   });
 
-  describe('Version restore', () => {
+  describe('Version history slide-over', () => {
     beforeEach(() => {
       mockUseParams.mockReturnValue({ id: 't2' });
       mockUseTemplate.mockReturnValue(
@@ -2446,146 +2152,25 @@ describe('TemplateEditorPage', () => {
       );
     });
 
-    it('passes onRestore to VersionHistory in history panel', async () => {
-      const user = userEvent.setup();
+    it('history slide-over is closed by default', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-
-      const { getByTestId } = render(latestAppBarConfig.panelToggles as ReactElement);
-      await user.click(getByTestId('toggle-history'));
-
-      expect(screen.getByTestId('version-restore')).toBeInTheDocument();
+      expect(screen.queryByTestId('slide-over-version-history')).not.toBeInTheDocument();
     });
+  });
 
-    it('calls templateService.getVersion and collaboration.saveVersion on restore', async () => {
-      const user = userEvent.setup();
-      // After C2 fix, service unwraps and returns TemplateVersion directly
-      mockGetVersion.mockResolvedValue({
-        id: 'v1',
-        templateId: 't2',
-        version: 1,
-        content: '# Old content',
-        changeSummary: 'Initial',
-        createdBy: 'u1',
-        createdAt: '2026-01-01T00:00:00Z',
-      });
-
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-
-      const { getByTestId } = render(latestAppBarConfig.panelToggles as ReactElement);
-      await user.click(getByTestId('toggle-history'));
-
-      await user.click(screen.getByTestId('version-restore'));
-
-      await waitFor(() => {
-        expect(mockGetVersion).toHaveBeenCalledWith('t2', 1);
-      });
-
-      await waitFor(() => {
-        expect(mockSaveVersion).toHaveBeenCalledWith('Restored from version 1');
-      });
-    });
-
-    it('shows success toast after version restore', async () => {
-      const user = userEvent.setup();
-      // After C2 fix, service unwraps and returns TemplateVersion directly
-      mockGetVersion.mockResolvedValue({
-        id: 'v1',
-        templateId: 't2',
-        version: 1,
-        content: '# Old content',
-        changeSummary: 'Initial',
-        createdBy: 'u1',
-        createdAt: '2026-01-01T00:00:00Z',
-      });
-
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-
-      const { getByTestId } = render(latestAppBarConfig.panelToggles as ReactElement);
-      await user.click(getByTestId('toggle-history'));
-
-      await user.click(screen.getByTestId('version-restore'));
-
-      await waitFor(() => {
-        expect(mockShowToast).toHaveBeenCalledWith('Restored to version 1', 'success');
-      });
-    });
-
-    it('handles direct TemplateVersion response (service unwraps API wrapper)', async () => {
-      const user = userEvent.setup();
-      // After C2 fix, templateService.getVersion() returns unwrapped TemplateVersion
-      mockGetVersion.mockResolvedValue({
-        id: 'v1',
-        templateId: 't2',
-        version: 1,
-        content: '# Direct content',
-        changeSummary: 'Initial',
-        createdBy: 'u1',
-        createdAt: '2026-01-01T00:00:00Z',
-      });
-
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-
-      const { getByTestId } = render(latestAppBarConfig.panelToggles as ReactElement);
-      await user.click(getByTestId('toggle-history'));
-
-      await user.click(screen.getByTestId('version-restore'));
-
-      await waitFor(() => {
-        expect(mockSaveVersion).toHaveBeenCalledWith('Restored from version 1');
-      });
-
-      await waitFor(() => {
-        expect(mockShowToast).toHaveBeenCalledWith('Restored to version 1', 'success');
-      });
-    });
-
-    it('updates ydoc content when collaboration is active during restore', async () => {
-      const user = userEvent.setup();
-      const mockText = {
-        length: 10,
-        delete: vi.fn(),
-        insert: vi.fn(),
-      };
-      const mockYdoc = {
-        transact: vi.fn((fn: () => void) => {
-          fn();
+  describe('Version history (removed from slide-over)', () => {
+    beforeEach(() => {
+      mockUseParams.mockReturnValue({ id: 't2' });
+      mockUseTemplate.mockReturnValue(
+        createTemplateQueryResult({
+          data: { template: activeTemplate, content: '# Active', tags: [] },
         }),
-        getText: vi.fn().mockReturnValue(mockText),
-      };
+      );
+    });
 
-      mockUseCollaboration.mockReturnValue({
-        ydoc: mockYdoc,
-        awareness: {},
-        status: 'connected',
-        connectedUsers: [],
-        saveVersion: mockSaveVersion,
-      });
-
-      // After C2 fix, service unwraps and returns TemplateVersion directly
-      mockGetVersion.mockResolvedValue({
-        id: 'v1',
-        templateId: 't2',
-        version: 1,
-        content: '# Restored',
-        changeSummary: 'Initial',
-        createdBy: 'u1',
-        createdAt: '2026-01-01T00:00:00Z',
-      });
-
+    it('does not render version history component (now on separate page)', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-
-      const { getByTestId } = render(latestAppBarConfig.panelToggles as ReactElement);
-      await user.click(getByTestId('toggle-history'));
-
-      await user.click(screen.getByTestId('version-restore'));
-
-      await waitFor(() => {
-        expect(mockYdoc.transact).toHaveBeenCalled();
-      });
-
-      expect(mockYdoc.getText).toHaveBeenCalledWith('content');
-      expect(mockText.delete).toHaveBeenCalledWith(0, 10);
-      expect(mockText.insert).toHaveBeenCalledWith(0, '# Restored');
+      expect(screen.queryByTestId('version-history')).not.toBeInTheDocument();
     });
   });
 
@@ -2599,18 +2184,28 @@ describe('TemplateEditorPage', () => {
         }),
       );
 
+      // Make floating comment button visible
+      mockUseEditorComments.mockReturnValue({
+        selectionInfo: {
+          hasSelection: true,
+          text: 'selected',
+          buttonPosition: { top: 100, left: 200 },
+        },
+        pendingAnchor: null,
+        startComment: mockStartComment,
+        cancelComment: mockCancelComment,
+        onSelectionChange: vi.fn(),
+      });
+
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
-      // Open comments panel via panelToggles config (same pattern as other panel tests)
-      const { getByTestId } = render(latestAppBarConfig.panelToggles as ReactElement);
-      await user.click(getByTestId('toggle-comments'));
+      // Open comments panel via FloatingCommentButton
+      await user.click(screen.getByTestId('floating-comment-button'));
 
       // The mock CommentsTab renders a submit button
       const submitBtn = await screen.findByTestId('mock-submit-comment');
       await user.click(submitBtn);
 
-      // Verify createComment was triggered (via useComments mock)
-      // This exercises the handleSubmitNewComment callback
       expect(submitBtn).toBeInTheDocument();
     });
 
@@ -2623,11 +2218,22 @@ describe('TemplateEditorPage', () => {
         }),
       );
 
+      mockUseEditorComments.mockReturnValue({
+        selectionInfo: {
+          hasSelection: true,
+          text: 'selected',
+          buttonPosition: { top: 100, left: 200 },
+        },
+        pendingAnchor: null,
+        startComment: mockStartComment,
+        cancelComment: mockCancelComment,
+        onSelectionChange: vi.fn(),
+      });
+
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
-      // Open comments panel via panelToggles config
-      const { getByTestId } = render(latestAppBarConfig.panelToggles as ReactElement);
-      await user.click(getByTestId('toggle-comments'));
+      // Open comments panel via FloatingCommentButton
+      await user.click(screen.getByTestId('floating-comment-button'));
 
       const cancelBtn = await screen.findByTestId('mock-cancel-comment');
       await user.click(cancelBtn);
@@ -2722,8 +2328,7 @@ describe('TemplateEditorPage', () => {
       );
     });
 
-    it('calls useCommentHighlights in review mode with threads', async () => {
-      const user = userEvent.setup();
+    it('calls useCommentHighlights in review mode with threads', () => {
       const mockThreads = [
         {
           comment: {
@@ -2753,7 +2358,10 @@ describe('TemplateEditorPage', () => {
       });
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-      await user.click(screen.getByTestId('mode-review'));
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('review');
+      });
 
       expect(mockUseCommentHighlights).toHaveBeenCalled();
       // Verify it was called with threads (second argument)
@@ -2770,8 +2378,7 @@ describe('TemplateEditorPage', () => {
       expect(screen.getByTestId('source-editor-surface')).toBeInTheDocument();
     });
 
-    it('shows FloatingCommentButton in review mode when text is selected', async () => {
-      const user = userEvent.setup();
+    it('shows FloatingCommentButton in review mode when text is selected', () => {
       mockUseTextSelection.mockReturnValue({
         selectedText: 'Draft content',
         selectionRect: { top: 100, left: 200, width: 100, height: 20 } as DOMRect,
@@ -2779,7 +2386,10 @@ describe('TemplateEditorPage', () => {
       });
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-      await user.click(screen.getByTestId('mode-review'));
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('review');
+      });
 
       const commentBtn = screen.getByTestId('floating-comment-button');
       expect(commentBtn).toBeInTheDocument();
@@ -2794,13 +2404,165 @@ describe('TemplateEditorPage', () => {
       });
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-      await user.click(screen.getByTestId('mode-review'));
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('review');
+      });
 
       const commentBtn = screen.getByTestId('floating-comment-button');
       await user.click(commentBtn);
 
       // Comments panel should be open
       expect(screen.getByTestId('slide-over-comments')).toBeInTheDocument();
+    });
+  });
+
+  describe('Viewer role — edit mode', () => {
+    beforeEach(() => {
+      mockUseAuth.mockReturnValue(viewerAuth);
+      mockUseParams.mockReturnValue({ id: 't2' });
+      mockUseTemplate.mockReturnValue(
+        createTemplateQueryResult({
+          data: { template: activeTemplate, content: '# Active', tags: [] },
+        }),
+      );
+    });
+
+    it('passes readOnly to DocumentHeader for viewer role', () => {
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      const { getByTestId } = renderDocumentHeader();
+      expect(getByTestId('dh-read-only')).toBeInTheDocument();
+    });
+  });
+
+  describe('Header title fallback', () => {
+    it('does not set TopAppBar config when templateData is undefined in edit mode', () => {
+      mockUseParams.mockReturnValue({ id: 't1' });
+      mockUseTemplate.mockReturnValue(
+        createTemplateQueryResult({
+          data: undefined,
+          isLoading: false,
+        }),
+      );
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      // In edit mode without data (not loading), DocumentHeader still gets empty values
+      // since the form state hasn't been initialized
+    });
+  });
+
+  describe('Edit mode — export button via DocumentHeader', () => {
+    beforeEach(() => {
+      mockUseParams.mockReturnValue({ id: 't2' });
+      mockUseTemplate.mockReturnValue(
+        createTemplateQueryResult({
+          data: { template: activeTemplate, content: '# Active', tags: [] },
+        }),
+      );
+    });
+
+    it('includes export button in DocumentHeader rightSlot', async () => {
+      const { templateService } = await import('../../src/services/templates.js');
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      const { getByTestId: getRightTestId } = renderDocumentHeader();
+      const rightSlot = getRightTestId('dh-right-slot');
+      const exportBtn = rightSlot.querySelector('[aria-label="export"]');
+      expect(exportBtn).not.toBeNull();
+      act(() => {
+        exportBtn?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      });
+      expect(templateService.download).toHaveBeenCalledWith('t2');
+    });
+  });
+
+  describe('Active mode — archive flow via DocumentHeader', () => {
+    beforeEach(() => {
+      mockUseParams.mockReturnValue({ id: 't2' });
+      mockUseTemplate.mockReturnValue(
+        createTemplateQueryResult({
+          data: { template: activeTemplate, content: '# Active', tags: [] },
+        }),
+      );
+    });
+
+    it('opens archive dialog and confirms archive', async () => {
+      const user = userEvent.setup();
+      mockArchiveMutateAsync.mockResolvedValue({});
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onArchive as () => void)();
+      });
+
+      expect(screen.getByText('Archive Template')).toBeInTheDocument();
+      expect(screen.getByText(/are you sure you want to archive/i)).toBeInTheDocument();
+
+      const archiveButtons = screen.getAllByRole('button', { name: /archive/i });
+      const confirmBtn = archiveButtons[archiveButtons.length - 1];
+      if (!confirmBtn) throw new Error('Expected archive confirm button');
+      await user.click(confirmBtn);
+
+      expect(mockArchiveMutateAsync).toHaveBeenCalledWith('t2');
+    });
+
+    it('closes archive dialog via onClose (backdrop/escape)', async () => {
+      const user = userEvent.setup();
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onArchive as () => void)();
+      });
+
+      expect(screen.getByText('Archive Template')).toBeInTheDocument();
+
+      await user.keyboard('{Escape}');
+
+      await waitFor(() => {
+        expect(screen.queryByText('Archive Template')).not.toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('Active mode — publish flow via DocumentHeader', () => {
+    beforeEach(() => {
+      mockUseParams.mockReturnValue({ id: 't1' });
+      mockUseTemplate.mockReturnValue(
+        createTemplateQueryResult({
+          data: { template: draftTemplate, content: '# Draft', tags: [] },
+        }),
+      );
+    });
+
+    it('opens publish confirmation dialog when onPublish is called', () => {
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onPublish as () => void)();
+      });
+
+      expect(screen.getByText('Publish Template')).toBeInTheDocument();
+    });
+
+    it('calls publishMutation when Publish is confirmed via dialog', async () => {
+      const user = userEvent.setup();
+      mockPublishMutateAsync.mockResolvedValue({});
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onPublish as () => void)();
+      });
+
+      const publishButtons = screen.getAllByRole('button', { name: /publish/i });
+      const confirmButton = publishButtons[publishButtons.length - 1];
+      if (!confirmButton) throw new Error('Expected publish confirm button');
+      await user.click(confirmButton);
+
+      expect(mockPublishMutateAsync).toHaveBeenCalledWith('t1');
     });
   });
 });

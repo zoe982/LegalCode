@@ -7,6 +7,7 @@ interface TopAppBarConfig {
   panelToggles?: ReactNode | undefined;
   statusBadge?: ReactNode | undefined;
   rightSlot?: ReactNode | undefined;
+  documentHeader?: ReactNode | undefined;
 }
 
 interface TopAppBarContextValue {
