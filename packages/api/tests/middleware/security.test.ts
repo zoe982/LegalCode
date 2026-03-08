@@ -56,4 +56,13 @@ describe('securityHeaders', () => {
 
     expect(res.headers.get('Cache-Control')).toBe('no-store');
   });
+
+  it('sets Strict-Transport-Security header', async () => {
+    const app = createTestApp();
+    const res = await app.request('/test');
+
+    expect(res.headers.get('Strict-Transport-Security')).toBe(
+      'max-age=63072000; includeSubDomains; preload',
+    );
+  });
 });

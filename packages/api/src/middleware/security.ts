@@ -13,4 +13,5 @@ export const securityHeaders = createMiddleware<AppEnv>(async (c, next): Promise
   c.header('Referrer-Policy', 'strict-origin-when-cross-origin');
   c.header('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
   c.header('Cache-Control', 'no-store');
+  c.header('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
 });
