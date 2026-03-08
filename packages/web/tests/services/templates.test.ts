@@ -464,6 +464,62 @@ describe('templateService', () => {
     });
   });
 
+  describe('autosaveDraft', () => {
+    it('sends PATCH request to /templates/:id/autosave with content', async () => {
+      const mockResponse = { updatedAt: '2026-03-08T00:00:00Z' };
+      vi.mocked(fetch).mockResolvedValue(
+        new Response(JSON.stringify(mockResponse), { status: 200 }),
+      );
+
+      const result = await templateService.autosaveDraft('tpl-1', { content: '# Draft content' });
+
+      expect(fetch).toHaveBeenCalledWith('/templates/tpl-1/autosave', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: '# Draft content' }),
+        credentials: 'include',
+      });
+      expect(result).toEqual(mockResponse);
+    });
+
+    it('sends title when provided', async () => {
+      const mockResponse = { updatedAt: '2026-03-08T00:00:00Z' };
+      vi.mocked(fetch).mockResolvedValue(
+        new Response(JSON.stringify(mockResponse), { status: 200 }),
+      );
+
+      await templateService.autosaveDraft('tpl-1', {
+        content: '# Draft',
+        title: 'New Title',
+      });
+
+      expect(fetch).toHaveBeenCalledWith('/templates/tpl-1/autosave', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: '# Draft', title: 'New Title' }),
+        credentials: 'include',
+      });
+    });
+
+    it('throws error on non-ok response', async () => {
+      vi.mocked(fetch).mockResolvedValue(new Response('Server Error', { status: 500 }));
+
+      await expect(templateService.autosaveDraft('tpl-1', { content: '# Draft' })).rejects.toThrow(
+        'Failed to autosave draft',
+      );
+    });
+
+    it('extracts error message from response body', async () => {
+      vi.mocked(fetch).mockResolvedValue(
+        new Response(JSON.stringify({ error: 'Template is locked' }), { status: 409 }),
+      );
+
+      await expect(templateService.autosaveDraft('tpl-1', { content: '# Draft' })).rejects.toThrow(
+        'Template is locked',
+      );
+    });
+  });
+
   describe('download', () => {
     it('creates a download link for the template', async () => {
       const blob = new Blob(['# NDA'], { type: 'text/markdown' });

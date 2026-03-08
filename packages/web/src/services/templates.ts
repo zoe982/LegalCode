@@ -161,6 +161,22 @@ export const templateService = {
     return data.version;
   },
 
+  async autosaveDraft(
+    id: string,
+    data: { content: string; title?: string },
+  ): Promise<{ updatedAt: string }> {
+    const response = await fetch(`/templates/${id}/autosave`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+      credentials: 'include',
+    });
+    if (!response.ok) {
+      return extractApiError(response, 'Failed to autosave draft');
+    }
+    return (await response.json()) as { updatedAt: string };
+  },
+
   async download(id: string): Promise<void> {
     const response = await fetch(`/templates/${id}/download`, {
       credentials: 'include',
