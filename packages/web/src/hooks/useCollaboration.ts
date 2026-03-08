@@ -79,7 +79,7 @@ export function useCollaboration(
       setStatus('connecting');
 
       const protocol = globalThis.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${globalThis.location.host}/collaborate/${String(templateId)}`;
+      const wsUrl = `${protocol}//${globalThis.location.host}/api/collaborate/${String(templateId)}`;
       const ws = new WebSocket(wsUrl);
       ws.binaryType = 'arraybuffer';
       wsRef.current = ws;
@@ -159,7 +159,7 @@ export function useCollaboration(
     async (changeSummary: string) => {
       if (!templateId) return;
 
-      const response = await fetch(`/collaborate/${templateId}/save-version`, {
+      const response = await fetch(`/api/collaborate/${templateId}/save-version`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

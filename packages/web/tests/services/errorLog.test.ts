@@ -23,7 +23,7 @@ describe('errorLogService', () => {
 
       const result = await errorLogService.list();
 
-      expect(fetchSpy).toHaveBeenCalledWith('/admin/errors', {
+      expect(fetchSpy).toHaveBeenCalledWith('/api/admin/errors', {
         credentials: 'include',
       });
       expect(result).toEqual({ errors: [] });
@@ -79,7 +79,7 @@ describe('errorLogService', () => {
 
       await errorLogService.resolve('err-123');
 
-      expect(fetchSpy).toHaveBeenCalledWith('/admin/errors/err-123/resolve', {
+      expect(fetchSpy).toHaveBeenCalledWith('/api/admin/errors/err-123/resolve', {
         method: 'PATCH',
         credentials: 'include',
       });
@@ -90,7 +90,7 @@ describe('errorLogService', () => {
         new Response(JSON.stringify({ error: 'Not found' }), { status: 404 }),
       );
 
-      await expect(errorLogService.resolve('bad-id')).rejects.toThrow('Failed to resolve error');
+      await expect(errorLogService.resolve('bad-id')).rejects.toThrow('Not found');
     });
   });
 });

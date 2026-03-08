@@ -141,27 +141,27 @@ const mockComments: Comment[] = [
 let commentIdCounter = 4;
 
 export const handlers = [
-  http.get('/health', () => {
+  http.get('/api/health', () => {
     return HttpResponse.json({ status: 'ok' });
   }),
-  http.get('/auth/me', () => {
+  http.get('/api/auth/me', () => {
     return HttpResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }),
-  http.post('/auth/logout', () => {
+  http.post('/api/auth/logout', () => {
     return HttpResponse.json({ ok: true });
   }),
-  http.post('/auth/refresh', () => {
+  http.post('/api/auth/refresh', () => {
     return HttpResponse.json({ ok: true });
   }),
-  http.get('/admin/errors', () => {
+  http.get('/api/admin/errors', () => {
     return HttpResponse.json({ errors: [] });
   }),
-  http.post('/errors/report', () => {
+  http.post('/api/errors/report', () => {
     return HttpResponse.json({ ok: true });
   }),
 
   // Template handlers
-  http.get('/templates', () => {
+  http.get('/api/templates', () => {
     return HttpResponse.json({
       templates: mockTemplates,
       total: 3,
@@ -170,7 +170,7 @@ export const handlers = [
     });
   }),
 
-  http.get('/templates/:id/versions/:version', ({ params }) => {
+  http.get('/api/templates/:id/versions/:version', ({ params }) => {
     const version = mockVersions.find(
       (v) => v.templateId === params.id && v.version === Number(params.version),
     );
@@ -180,12 +180,12 @@ export const handlers = [
     return HttpResponse.json({ version });
   }),
 
-  http.get('/templates/:id/versions', ({ params }) => {
+  http.get('/api/templates/:id/versions', ({ params }) => {
     const versions = mockVersions.filter((v) => v.templateId === params.id);
     return HttpResponse.json({ versions });
   }),
 
-  http.get('/templates/:id/download', () => {
+  http.get('/api/templates/:id/download', () => {
     return new HttpResponse('# Employment Agreement\n\nThis agreement...', {
       status: 200,
       headers: {
@@ -195,7 +195,7 @@ export const handlers = [
     });
   }),
 
-  http.get('/templates/:id', ({ params }) => {
+  http.get('/api/templates/:id', ({ params }) => {
     const template = mockTemplates.find((t) => t.id === params.id);
     if (!template) {
       return HttpResponse.json({ error: 'Not found' }, { status: 404 });
@@ -208,7 +208,7 @@ export const handlers = [
     });
   }),
 
-  http.post('/templates', async ({ request }) => {
+  http.post('/api/templates', async ({ request }) => {
     const body = (await request.json()) as Record<string, unknown>;
     const parsed = createTemplateSchema.safeParse(body);
     if (!parsed.success) {
@@ -233,7 +233,7 @@ export const handlers = [
     return HttpResponse.json({ template: created, tags: parsed.data.tags ?? [] }, { status: 201 });
   }),
 
-  http.patch('/templates/:id', async ({ params, request }) => {
+  http.patch('/api/templates/:id', async ({ params, request }) => {
     const body = (await request.json()) as Record<string, unknown>;
     const parsed = updateTemplateSchema.safeParse(body);
     if (!parsed.success) {
@@ -253,7 +253,7 @@ export const handlers = [
     });
   }),
 
-  http.post('/templates/:id/publish', ({ params }) => {
+  http.post('/api/templates/:id/publish', ({ params }) => {
     const template = mockTemplates.find((t) => t.id === params.id);
     if (!template) {
       return HttpResponse.json({ error: 'Not found' }, { status: 404 });
@@ -265,7 +265,7 @@ export const handlers = [
     });
   }),
 
-  http.post('/templates/:id/archive', ({ params }) => {
+  http.post('/api/templates/:id/archive', ({ params }) => {
     const template = mockTemplates.find((t) => t.id === params.id);
     if (!template) {
       return HttpResponse.json({ error: 'Not found' }, { status: 404 });
@@ -278,12 +278,12 @@ export const handlers = [
   }),
 
   // Comment handlers
-  http.get('/templates/:id/comments', ({ params }) => {
+  http.get('/api/templates/:id/comments', ({ params }) => {
     const comments = mockComments.filter((c) => c.templateId === params.id);
     return HttpResponse.json(comments);
   }),
 
-  http.post('/templates/:id/comments', async ({ params, request }) => {
+  http.post('/api/templates/:id/comments', async ({ params, request }) => {
     const body = (await request.json()) as Record<string, unknown>;
     const newComment: Comment = {
       id: `c${String(commentIdCounter++)}`,
@@ -305,7 +305,7 @@ export const handlers = [
     return HttpResponse.json(newComment, { status: 201 });
   }),
 
-  http.patch('/templates/:id/comments/:commentId/resolve', ({ params }) => {
+  http.patch('/api/templates/:id/comments/:commentId/resolve', ({ params }) => {
     const comment = mockComments.find(
       (c) => c.templateId === params.id && c.id === params.commentId,
     );
@@ -318,7 +318,7 @@ export const handlers = [
     return new HttpResponse(null, { status: 204 });
   }),
 
-  http.delete('/templates/:id/comments/:commentId', ({ params }) => {
+  http.delete('/api/templates/:id/comments/:commentId', ({ params }) => {
     const index = mockComments.findIndex(
       (c) => c.templateId === params.id && c.id === params.commentId,
     );
@@ -330,11 +330,11 @@ export const handlers = [
   }),
 
   // Admin user handlers
-  http.get('/admin/users', () => {
+  http.get('/api/admin/users', () => {
     return HttpResponse.json({ users: mockUsers });
   }),
 
-  http.post('/admin/users', async ({ request }) => {
+  http.post('/api/admin/users', async ({ request }) => {
     const body = (await request.json()) as Record<string, unknown>;
     const newUser: User = {
       id: `u${String(mockUsers.length + 1)}`,
@@ -347,27 +347,27 @@ export const handlers = [
     return HttpResponse.json({ user: newUser }, { status: 201 });
   }),
 
-  http.patch('/admin/users/:id', () => {
+  http.patch('/api/admin/users/:id', () => {
     return HttpResponse.json({ ok: true });
   }),
 
-  http.delete('/admin/users/:id', () => {
+  http.delete('/api/admin/users/:id', () => {
     return HttpResponse.json({ ok: true });
   }),
 
   // Allowed emails handlers
-  http.get('/admin/allowed-emails', () => {
+  http.get('/api/admin/allowed-emails', () => {
     return HttpResponse.json({ emails: mockAllowedEmails });
   }),
 
-  http.post('/admin/allowed-emails', async ({ request }) => {
+  http.post('/api/admin/allowed-emails', async ({ request }) => {
     const body = (await request.json()) as Record<string, unknown>;
     const email = body.email as string;
     mockAllowedEmails.push(email);
     return HttpResponse.json({ ok: true });
   }),
 
-  http.delete('/admin/allowed-emails/:email', ({ params }) => {
+  http.delete('/api/admin/allowed-emails/:email', ({ params }) => {
     const email = params.email as string;
     mockAllowedEmails = mockAllowedEmails.filter((e) => e !== email);
     return HttpResponse.json({ ok: true });

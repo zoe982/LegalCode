@@ -45,6 +45,7 @@ export const routes: RouteObject[] = [
       { path: 'templates/:id/history', element: <VersionHistoryPage /> },
       { path: 'admin', element: <AdminPage /> },
       { path: 'settings', element: <SettingsPage /> },
+      { path: '*', element: <Navigate to="/templates" replace /> },
     ],
   },
 ];

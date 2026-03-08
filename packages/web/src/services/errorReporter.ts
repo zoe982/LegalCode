@@ -2,7 +2,7 @@ import type { ReportErrorInput } from '@legalcode/shared';
 
 export async function reportError(report: ReportErrorInput): Promise<void> {
   try {
-    const response = await fetch('/errors/report', {
+    const response = await fetch('/api/errors/report', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',

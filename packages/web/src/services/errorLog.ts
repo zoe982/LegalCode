@@ -1,4 +1,5 @@
 import type { ErrorSource, ErrorStatus, ErrorSeverity, ErrorLogEntry } from '@legalcode/shared';
+import { extractApiError } from './apiUtils.js';
 
 export interface ErrorLogFilters {
   source?: ErrorSource | undefined;
@@ -12,7 +13,7 @@ export interface ErrorLogResponse {
 
 export const errorLogService = {
   async list(filters?: ErrorLogFilters): Promise<ErrorLogResponse> {
-    let url = '/admin/errors';
+    let url = '/api/admin/errors';
 
     if (filters) {
       const params = new URLSearchParams();
@@ -25,18 +26,18 @@ export const errorLogService = {
 
     const response = await fetch(url, { credentials: 'include' });
     if (!response.ok) {
-      throw new Error('Failed to fetch error log');
+      return extractApiError(response, 'Failed to fetch error log');
     }
     return (await response.json()) as ErrorLogResponse;
   },
 
   async resolve(id: string): Promise<{ ok: boolean }> {
-    const response = await fetch(`/admin/errors/${id}/resolve`, {
+    const response = await fetch(`/api/admin/errors/${id}/resolve`, {
       method: 'PATCH',
       credentials: 'include',
     });
     if (!response.ok) {
-      throw new Error('Failed to resolve error');
+      return extractApiError(response, 'Failed to resolve error');
     }
     return (await response.json()) as { ok: boolean };
   },

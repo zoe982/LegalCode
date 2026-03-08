@@ -32,14 +32,7 @@ export default defineConfig({
       workbox: {
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024, // 3 MiB — main bundle is ~2.3 MiB
         navigateFallback: '/index.html',
-        navigateFallbackDenylist: [
-          /^\/auth\//,
-          /^\/admin\//,
-          /^\/templates\//,
-          /^\/collaborate\//,
-          /^\/errors\//,
-          /^\/health/,
-        ],
+        navigateFallbackDenylist: [/^\/api\//],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
@@ -64,15 +57,7 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      '/auth': {
-        target: 'http://localhost:8787',
-        changeOrigin: true,
-      },
-      '/admin': {
-        target: 'http://localhost:8787',
-        changeOrigin: true,
-      },
-      '/health': {
+      '/api': {
         target: 'http://localhost:8787',
         changeOrigin: true,
       },

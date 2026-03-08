@@ -51,7 +51,7 @@ function renderWithRouter(initialRoute = '/') {
 
 function mockAuthenticatedUser() {
   server.use(
-    http.get('/auth/me', () =>
+    http.get('/api/auth/me', () =>
       HttpResponse.json({
         user: {
           id: '1',

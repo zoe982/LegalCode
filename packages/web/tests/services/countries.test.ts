@@ -23,7 +23,7 @@ describe('countryService', () => {
 
       const result = await countryService.list();
 
-      expect(fetchSpy).toHaveBeenCalledWith('/countries', {
+      expect(fetchSpy).toHaveBeenCalledWith('/api/countries', {
         credentials: 'include',
       });
       expect(result).toEqual({ countries: [] });
@@ -50,7 +50,7 @@ describe('countryService', () => {
 
       const result = await countryService.create({ name: 'United States', code: 'US' });
 
-      expect(fetchSpy).toHaveBeenCalledWith('/countries', {
+      expect(fetchSpy).toHaveBeenCalledWith('/api/countries', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -82,7 +82,7 @@ describe('countryService', () => {
 
       const result = await countryService.update('ctry-1', { name: 'United Kingdom', code: 'UK' });
 
-      expect(fetchSpy).toHaveBeenCalledWith('/countries/ctry-1', {
+      expect(fetchSpy).toHaveBeenCalledWith('/api/countries/ctry-1', {
         method: 'PUT',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -106,7 +106,7 @@ describe('countryService', () => {
 
       const result = await countryService.remove('ctry-1');
 
-      expect(fetchSpy).toHaveBeenCalledWith('/countries/ctry-1', {
+      expect(fetchSpy).toHaveBeenCalledWith('/api/countries/ctry-1', {
         method: 'DELETE',
         credentials: 'include',
       });

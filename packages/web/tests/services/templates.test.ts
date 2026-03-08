@@ -20,7 +20,7 @@ describe('templateService', () => {
 
       const result = await templateService.list({});
 
-      expect(fetch).toHaveBeenCalledWith('/templates?', {
+      expect(fetch).toHaveBeenCalledWith('/api/templates?', {
         credentials: 'include',
       });
       expect(result).toEqual(mockResponse);
@@ -88,7 +88,7 @@ describe('templateService', () => {
 
       const result = await templateService.get('tpl-1');
 
-      expect(fetch).toHaveBeenCalledWith('/templates/tpl-1', {
+      expect(fetch).toHaveBeenCalledWith('/api/templates/tpl-1', {
         credentials: 'include',
       });
       expect(result).toEqual(mockTemplate);
@@ -131,7 +131,7 @@ describe('templateService', () => {
 
       const result = await templateService.create(input);
 
-      expect(fetch).toHaveBeenCalledWith('/templates', {
+      expect(fetch).toHaveBeenCalledWith('/api/templates', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(input),
@@ -219,7 +219,7 @@ describe('templateService', () => {
 
       const result = await templateService.update('tpl-1', input);
 
-      expect(fetch).toHaveBeenCalledWith('/templates/tpl-1', {
+      expect(fetch).toHaveBeenCalledWith('/api/templates/tpl-1', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(input),
@@ -268,7 +268,7 @@ describe('templateService', () => {
 
       const result = await templateService.publish('tpl-1');
 
-      expect(fetch).toHaveBeenCalledWith('/templates/tpl-1/publish', {
+      expect(fetch).toHaveBeenCalledWith('/api/templates/tpl-1/publish', {
         method: 'POST',
         credentials: 'include',
       });
@@ -311,7 +311,7 @@ describe('templateService', () => {
 
       const result = await templateService.archive('tpl-1');
 
-      expect(fetch).toHaveBeenCalledWith('/templates/tpl-1/archive', {
+      expect(fetch).toHaveBeenCalledWith('/api/templates/tpl-1/archive', {
         method: 'POST',
         credentials: 'include',
       });
@@ -354,7 +354,7 @@ describe('templateService', () => {
 
       const result = await templateService.unarchive('tpl-1');
 
-      expect(fetch).toHaveBeenCalledWith('/templates/tpl-1/unarchive', {
+      expect(fetch).toHaveBeenCalledWith('/api/templates/tpl-1/unarchive', {
         method: 'POST',
         credentials: 'include',
       });
@@ -398,7 +398,7 @@ describe('templateService', () => {
 
       const result = await templateService.getVersions('tpl-1');
 
-      expect(fetch).toHaveBeenCalledWith('/templates/tpl-1/versions', {
+      expect(fetch).toHaveBeenCalledWith('/api/templates/tpl-1/versions', {
         credentials: 'include',
       });
       // Service unwraps and returns the array directly
@@ -440,7 +440,7 @@ describe('templateService', () => {
 
       const result = await templateService.getVersion('tpl-1', 1);
 
-      expect(fetch).toHaveBeenCalledWith('/templates/tpl-1/versions/1', {
+      expect(fetch).toHaveBeenCalledWith('/api/templates/tpl-1/versions/1', {
         credentials: 'include',
       });
       // Service unwraps and returns the version directly
@@ -473,7 +473,7 @@ describe('templateService', () => {
 
       const result = await templateService.autosaveDraft('tpl-1', { content: '# Draft content' });
 
-      expect(fetch).toHaveBeenCalledWith('/templates/tpl-1/autosave', {
+      expect(fetch).toHaveBeenCalledWith('/api/templates/tpl-1/autosave', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content: '# Draft content' }),
@@ -493,7 +493,7 @@ describe('templateService', () => {
         title: 'New Title',
       });
 
-      expect(fetch).toHaveBeenCalledWith('/templates/tpl-1/autosave', {
+      expect(fetch).toHaveBeenCalledWith('/api/templates/tpl-1/autosave', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content: '# Draft', title: 'New Title' }),
@@ -547,7 +547,7 @@ describe('templateService', () => {
 
       await templateService.download('tpl-1');
 
-      expect(fetch).toHaveBeenCalledWith('/templates/tpl-1/download', {
+      expect(fetch).toHaveBeenCalledWith('/api/templates/tpl-1/download', {
         credentials: 'include',
       });
       expect(mockAnchor.href).toBe('blob:mock-url');

@@ -23,7 +23,7 @@ describe('categoryService', () => {
 
       const result = await categoryService.list();
 
-      expect(fetchSpy).toHaveBeenCalledWith('/categories', {
+      expect(fetchSpy).toHaveBeenCalledWith('/api/categories', {
         credentials: 'include',
       });
       expect(result).toEqual({ categories: [] });
@@ -49,7 +49,7 @@ describe('categoryService', () => {
 
       const result = await categoryService.create({ name: 'Contract' });
 
-      expect(fetchSpy).toHaveBeenCalledWith('/categories', {
+      expect(fetchSpy).toHaveBeenCalledWith('/api/categories', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -80,7 +80,7 @@ describe('categoryService', () => {
 
       const result = await categoryService.update('cat-1', { name: 'Updated Contract' });
 
-      expect(fetchSpy).toHaveBeenCalledWith('/categories/cat-1', {
+      expect(fetchSpy).toHaveBeenCalledWith('/api/categories/cat-1', {
         method: 'PUT',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -104,7 +104,7 @@ describe('categoryService', () => {
 
       const result = await categoryService.remove('cat-1');
 
-      expect(fetchSpy).toHaveBeenCalledWith('/categories/cat-1', {
+      expect(fetchSpy).toHaveBeenCalledWith('/api/categories/cat-1', {
         method: 'DELETE',
         credentials: 'include',
       });

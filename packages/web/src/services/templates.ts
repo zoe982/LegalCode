@@ -5,6 +5,7 @@ import type {
   UpdateTemplateInput,
   TemplateStatus,
 } from '@legalcode/shared';
+import { extractApiError } from './apiUtils.js';
 
 export interface TemplateListParams {
   search?: string;
@@ -35,20 +36,6 @@ function extractFilename(response: Response): string {
   return 'template.md';
 }
 
-async function extractApiError(response: Response, fallback: string): Promise<never> {
-  let body: { error?: string; details?: unknown } | undefined;
-  try {
-    body = (await response.json()) as { error?: string; details?: unknown };
-  } catch {
-    // Response body is not JSON — use fallback
-  }
-  if (body?.error) {
-    const detailSuffix = body.details ? ` (${JSON.stringify(body.details)})` : '';
-    throw new Error(`${body.error}${detailSuffix}`);
-  }
-  throw new Error(fallback);
-}
-
 export const templateService = {
   async list(params: TemplateListParams): Promise<TemplateListResponse> {
     const searchParams = new URLSearchParams();
@@ -61,7 +48,7 @@ export const templateService = {
     if (params.page != null) searchParams.set('page', String(params.page));
     if (params.limit != null) searchParams.set('limit', String(params.limit));
 
-    const response = await fetch(`/templates?${searchParams.toString()}`, {
+    const response = await fetch(`/api/templates?${searchParams.toString()}`, {
       credentials: 'include',
     });
     if (!response.ok) {
@@ -71,7 +58,7 @@ export const templateService = {
   },
 
   async get(id: string): Promise<Template> {
-    const response = await fetch(`/templates/${id}`, {
+    const response = await fetch(`/api/templates/${id}`, {
       credentials: 'include',
     });
     if (!response.ok) {
@@ -81,7 +68,7 @@ export const templateService = {
   },
 
   async create(data: CreateTemplateInput): Promise<{ template: Template; tags: string[] }> {
-    const response = await fetch('/templates', {
+    const response = await fetch('/api/templates', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -94,7 +81,7 @@ export const templateService = {
   },
 
   async update(id: string, data: UpdateTemplateInput): Promise<Template> {
-    const response = await fetch(`/templates/${id}`, {
+    const response = await fetch(`/api/templates/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -107,7 +94,7 @@ export const templateService = {
   },
 
   async publish(id: string): Promise<Template> {
-    const response = await fetch(`/templates/${id}/publish`, {
+    const response = await fetch(`/api/templates/${id}/publish`, {
       method: 'POST',
       credentials: 'include',
     });
@@ -118,7 +105,7 @@ export const templateService = {
   },
 
   async archive(id: string): Promise<Template> {
-    const response = await fetch(`/templates/${id}/archive`, {
+    const response = await fetch(`/api/templates/${id}/archive`, {
       method: 'POST',
       credentials: 'include',
     });
@@ -129,7 +116,7 @@ export const templateService = {
   },
 
   async unarchive(id: string): Promise<Template> {
-    const response = await fetch(`/templates/${id}/unarchive`, {
+    const response = await fetch(`/api/templates/${id}/unarchive`, {
       method: 'POST',
       credentials: 'include',
     });
@@ -140,7 +127,7 @@ export const templateService = {
   },
 
   async getVersions(id: string): Promise<TemplateVersion[]> {
-    const response = await fetch(`/templates/${id}/versions`, {
+    const response = await fetch(`/api/templates/${id}/versions`, {
       credentials: 'include',
     });
     if (!response.ok) {
@@ -151,7 +138,7 @@ export const templateService = {
   },
 
   async getVersion(id: string, version: number): Promise<TemplateVersion> {
-    const response = await fetch(`/templates/${id}/versions/${String(version)}`, {
+    const response = await fetch(`/api/templates/${id}/versions/${String(version)}`, {
       credentials: 'include',
     });
     if (!response.ok) {
@@ -165,7 +152,7 @@ export const templateService = {
     id: string,
     data: { content: string; title?: string },
   ): Promise<{ updatedAt: string }> {
-    const response = await fetch(`/templates/${id}/autosave`, {
+    const response = await fetch(`/api/templates/${id}/autosave`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -178,7 +165,7 @@ export const templateService = {
   },
 
   async download(id: string): Promise<void> {
-    const response = await fetch(`/templates/${id}/download`, {
+    const response = await fetch(`/api/templates/${id}/download`, {
       credentials: 'include',
     });
     if (!response.ok) {

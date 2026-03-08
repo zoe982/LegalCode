@@ -23,7 +23,7 @@ describe('userService', () => {
 
       const result = await userService.list();
 
-      expect(fetchSpy).toHaveBeenCalledWith('/admin/users', {
+      expect(fetchSpy).toHaveBeenCalledWith('/api/admin/users', {
         credentials: 'include',
       });
       expect(result).toEqual({ users: [] });
@@ -54,7 +54,7 @@ describe('userService', () => {
         role: 'editor',
       });
 
-      expect(fetchSpy).toHaveBeenCalledWith('/admin/users', {
+      expect(fetchSpy).toHaveBeenCalledWith('/api/admin/users', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -82,7 +82,7 @@ describe('userService', () => {
 
       const result = await userService.updateRole('u1', 'admin');
 
-      expect(fetchSpy).toHaveBeenCalledWith('/admin/users/u1', {
+      expect(fetchSpy).toHaveBeenCalledWith('/api/admin/users/u1', {
         method: 'PATCH',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -106,7 +106,7 @@ describe('userService', () => {
 
       const result = await userService.remove('u1');
 
-      expect(fetchSpy).toHaveBeenCalledWith('/admin/users/u1', {
+      expect(fetchSpy).toHaveBeenCalledWith('/api/admin/users/u1', {
         method: 'DELETE',
         credentials: 'include',
       });
@@ -128,7 +128,7 @@ describe('userService', () => {
 
       const result = await userService.listAllowedEmails();
 
-      expect(fetchSpy).toHaveBeenCalledWith('/admin/allowed-emails', {
+      expect(fetchSpy).toHaveBeenCalledWith('/api/admin/allowed-emails', {
         credentials: 'include',
       });
       expect(result).toEqual({ emails: ['a@b.com'] });
@@ -149,7 +149,7 @@ describe('userService', () => {
 
       const result = await userService.addAllowedEmail('new@acasus.com');
 
-      expect(fetchSpy).toHaveBeenCalledWith('/admin/allowed-emails', {
+      expect(fetchSpy).toHaveBeenCalledWith('/api/admin/allowed-emails', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -173,7 +173,7 @@ describe('userService', () => {
 
       const result = await userService.removeAllowedEmail('old@acasus.com');
 
-      expect(fetchSpy).toHaveBeenCalledWith('/admin/allowed-emails/old@acasus.com', {
+      expect(fetchSpy).toHaveBeenCalledWith('/api/admin/allowed-emails/old@acasus.com', {
         method: 'DELETE',
         credentials: 'include',
       });

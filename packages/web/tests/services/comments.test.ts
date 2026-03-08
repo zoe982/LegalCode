@@ -36,7 +36,7 @@ describe('commentService', () => {
 
       const result = await commentService.getComments('tpl-1');
 
-      expect(fetch).toHaveBeenCalledWith('/templates/tpl-1/comments', {
+      expect(fetch).toHaveBeenCalledWith('/api/templates/tpl-1/comments', {
         credentials: 'include',
       });
       expect(result).toEqual([mockComment]);
@@ -66,7 +66,7 @@ describe('commentService', () => {
 
       const result = await commentService.createComment(input);
 
-      expect(fetch).toHaveBeenCalledWith('/templates/tpl-1/comments', {
+      expect(fetch).toHaveBeenCalledWith('/api/templates/tpl-1/comments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -116,7 +116,7 @@ describe('commentService', () => {
 
       await commentService.resolveComment('tpl-1', 'c1');
 
-      expect(fetch).toHaveBeenCalledWith('/templates/tpl-1/comments/c1/resolve', {
+      expect(fetch).toHaveBeenCalledWith('/api/templates/tpl-1/comments/c1/resolve', {
         method: 'PATCH',
         credentials: 'include',
       });
@@ -137,7 +137,7 @@ describe('commentService', () => {
 
       await commentService.deleteComment('tpl-1', 'c1');
 
-      expect(fetch).toHaveBeenCalledWith('/templates/tpl-1/comments/c1', {
+      expect(fetch).toHaveBeenCalledWith('/api/templates/tpl-1/comments/c1', {
         method: 'DELETE',
         credentials: 'include',
       });

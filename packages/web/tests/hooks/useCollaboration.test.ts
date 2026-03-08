@@ -156,7 +156,7 @@ describe('useCollaboration', () => {
       await result.current.saveVersion('My changes');
     });
 
-    expect(mockFetch).toHaveBeenCalledWith('/collaborate/tmpl-1/save-version', {
+    expect(mockFetch).toHaveBeenCalledWith('/api/collaborate/tmpl-1/save-version', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
@@ -284,7 +284,7 @@ describe('useCollaboration', () => {
       await vi.runAllTimersAsync();
     });
 
-    expect(wsRef().url).toBe('ws://localhost:3000/collaborate/tmpl-1');
+    expect(wsRef().url).toBe('ws://localhost:3000/api/collaborate/tmpl-1');
     // Restore https for other tests
     vi.stubGlobal('location', {
       protocol: 'https:',

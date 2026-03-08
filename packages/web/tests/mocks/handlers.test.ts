@@ -10,39 +10,39 @@ describe('MSW handlers', () => {
   it('includes auth handlers', () => {
     const handlerInfo = handlers.map((h) => h.info);
     const paths = handlerInfo.map((i) => i.path);
-    expect(paths).toContain('/auth/me');
-    expect(paths).toContain('/auth/logout');
-    expect(paths).toContain('/auth/refresh');
+    expect(paths).toContain('/api/auth/me');
+    expect(paths).toContain('/api/auth/logout');
+    expect(paths).toContain('/api/auth/refresh');
   });
 
   it('includes error handlers', () => {
     const paths = handlers.map((h) => h.info.path);
-    expect(paths).toContain('/admin/errors');
-    expect(paths).toContain('/errors/report');
+    expect(paths).toContain('/api/admin/errors');
+    expect(paths).toContain('/api/errors/report');
   });
 
   it('includes template handlers', () => {
     const paths = handlers.map((h) => h.info.path);
-    expect(paths).toContain('/templates');
-    expect(paths).toContain('/templates/:id');
+    expect(paths).toContain('/api/templates');
+    expect(paths).toContain('/api/templates/:id');
   });
 
   it('includes health check handler', () => {
     const paths = handlers.map((h) => h.info.path);
-    expect(paths).toContain('/health');
+    expect(paths).toContain('/api/health');
   });
 
   it('includes comment handlers', () => {
     const paths = handlers.map((h) => h.info.path);
-    expect(paths).toContain('/templates/:id/comments');
-    expect(paths).toContain('/templates/:id/comments/:commentId/resolve');
-    expect(paths).toContain('/templates/:id/comments/:commentId');
+    expect(paths).toContain('/api/templates/:id/comments');
+    expect(paths).toContain('/api/templates/:id/comments/:commentId/resolve');
+    expect(paths).toContain('/api/templates/:id/comments/:commentId');
   });
 
   it('includes admin user handlers', () => {
     const paths = handlers.map((h) => h.info.path);
-    expect(paths).toContain('/admin/users');
-    expect(paths).toContain('/admin/users/:id');
+    expect(paths).toContain('/api/admin/users');
+    expect(paths).toContain('/api/admin/users/:id');
   });
 
   it('includes admin user handlers for all methods', () => {
@@ -50,25 +50,25 @@ describe('MSW handlers', () => {
       path: h.info.path,
       method: h.info.method,
     }));
-    expect(handlerInfo).toContainEqual({ path: '/admin/users', method: 'GET' });
+    expect(handlerInfo).toContainEqual({ path: '/api/admin/users', method: 'GET' });
     expect(handlerInfo).toContainEqual({
-      path: '/admin/users',
+      path: '/api/admin/users',
       method: 'POST',
     });
     expect(handlerInfo).toContainEqual({
-      path: '/admin/users/:id',
+      path: '/api/admin/users/:id',
       method: 'PATCH',
     });
     expect(handlerInfo).toContainEqual({
-      path: '/admin/users/:id',
+      path: '/api/admin/users/:id',
       method: 'DELETE',
     });
   });
 
   it('includes allowed-emails handlers', () => {
     const paths = handlers.map((h) => h.info.path);
-    expect(paths).toContain('/admin/allowed-emails');
-    expect(paths).toContain('/admin/allowed-emails/:email');
+    expect(paths).toContain('/api/admin/allowed-emails');
+    expect(paths).toContain('/api/admin/allowed-emails/:email');
   });
 
   it('includes allowed-emails handlers for all methods', () => {
@@ -77,15 +77,15 @@ describe('MSW handlers', () => {
       method: h.info.method,
     }));
     expect(handlerInfo).toContainEqual({
-      path: '/admin/allowed-emails',
+      path: '/api/admin/allowed-emails',
       method: 'GET',
     });
     expect(handlerInfo).toContainEqual({
-      path: '/admin/allowed-emails',
+      path: '/api/admin/allowed-emails',
       method: 'POST',
     });
     expect(handlerInfo).toContainEqual({
-      path: '/admin/allowed-emails/:email',
+      path: '/api/admin/allowed-emails/:email',
       method: 'DELETE',
     });
   });

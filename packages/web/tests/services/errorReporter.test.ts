@@ -43,7 +43,7 @@ describe('errorReporter', () => {
         message: 'Test error',
       });
 
-      expect(fetchSpy).toHaveBeenCalledWith('/errors/report', {
+      expect(fetchSpy).toHaveBeenCalledWith('/api/errors/report', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -65,7 +65,7 @@ describe('errorReporter', () => {
       });
 
       expect(fetchSpy).toHaveBeenCalledWith(
-        '/errors/report',
+        '/api/errors/report',
         expect.objectContaining({
           body: JSON.stringify({
             source: 'functional',
@@ -132,7 +132,7 @@ describe('errorReporter', () => {
       window.dispatchEvent(errorEvent);
 
       expect(fetchSpy).toHaveBeenCalledWith(
-        '/errors/report',
+        '/api/errors/report',
         expect.objectContaining({
           method: 'POST',
         }),
@@ -156,7 +156,7 @@ describe('errorReporter', () => {
       window.dispatchEvent(rejectionEvent);
 
       expect(fetchSpy).toHaveBeenCalledWith(
-        '/errors/report',
+        '/api/errors/report',
         expect.objectContaining({
           method: 'POST',
         }),
