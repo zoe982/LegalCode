@@ -18,8 +18,25 @@ describe('securityHeaders', () => {
     expect(res.status).toBe(200);
     const csp = res.headers.get('Content-Security-Policy');
     expect(csp).toBe(
-      "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; frame-ancestors 'none'",
+      "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data:; connect-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com; font-src 'self' https://fonts.gstatic.com; object-src 'none'; frame-ancestors 'none'",
     );
+  });
+
+  it('allows Google Fonts domains in CSP directives', async () => {
+    const app = createTestApp();
+    const res = await app.request('/test');
+
+    const csp = res.headers.get('Content-Security-Policy') ?? '';
+
+    const styleMatch = /style-src\s+([^;]+)/.exec(csp);
+    expect(styleMatch?.[1]).toContain('https://fonts.googleapis.com');
+
+    const fontMatch = /font-src\s+([^;]+)/.exec(csp);
+    expect(fontMatch?.[1]).toContain('https://fonts.gstatic.com');
+
+    const connectMatch = /connect-src\s+([^;]+)/.exec(csp);
+    expect(connectMatch?.[1]).toContain('https://fonts.googleapis.com');
+    expect(connectMatch?.[1]).toContain('https://fonts.gstatic.com');
   });
 
   it('sets X-Content-Type-Options header', async () => {
