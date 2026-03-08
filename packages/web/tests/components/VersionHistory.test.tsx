@@ -330,6 +330,136 @@ describe('VersionHistory', () => {
     expect(onRestore).toHaveBeenCalledWith(1);
   });
 
+  it('shows "Create Version" button when onCreateVersion is provided', () => {
+    mockUseTemplateVersions.mockReturnValue(
+      makeQueryResult({
+        isSuccess: true,
+        isFetched: true,
+        data: mockVersions,
+        status: 'success',
+      }),
+    );
+
+    render(<VersionHistory templateId="t1" currentVersion={2} onCreateVersion={vi.fn()} />);
+
+    expect(screen.getByRole('button', { name: /create version/i })).toBeInTheDocument();
+  });
+
+  it('does not show "Create Version" button when onCreateVersion is not provided', () => {
+    mockUseTemplateVersions.mockReturnValue(
+      makeQueryResult({
+        isSuccess: true,
+        isFetched: true,
+        data: mockVersions,
+        status: 'success',
+      }),
+    );
+
+    render(<VersionHistory templateId="t1" currentVersion={2} />);
+
+    expect(screen.queryByRole('button', { name: /create version/i })).not.toBeInTheDocument();
+  });
+
+  it('clicking "Create Version" shows inline form with text field and Create/Cancel buttons', async () => {
+    const user = userEvent.setup();
+    mockUseTemplateVersions.mockReturnValue(
+      makeQueryResult({
+        isSuccess: true,
+        isFetched: true,
+        data: mockVersions,
+        status: 'success',
+      }),
+    );
+
+    render(<VersionHistory templateId="t1" currentVersion={2} onCreateVersion={vi.fn()} />);
+
+    await user.click(screen.getByRole('button', { name: /create version/i }));
+
+    expect(screen.getByLabelText('Version summary')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^create$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /cancel/i })).toBeInTheDocument();
+  });
+
+  it('calls onCreateVersion with summary when Create is clicked', async () => {
+    const user = userEvent.setup();
+    const onCreateVersion = vi.fn();
+    mockUseTemplateVersions.mockReturnValue(
+      makeQueryResult({
+        isSuccess: true,
+        isFetched: true,
+        data: mockVersions,
+        status: 'success',
+      }),
+    );
+
+    render(<VersionHistory templateId="t1" currentVersion={2} onCreateVersion={onCreateVersion} />);
+
+    await user.click(screen.getByRole('button', { name: /create version/i }));
+    await user.type(screen.getByLabelText('Version summary'), 'Added clause 5');
+    await user.click(screen.getByRole('button', { name: /^create$/i }));
+
+    expect(onCreateVersion).toHaveBeenCalledWith('Added clause 5');
+  });
+
+  it('hides form and resets summary when Cancel is clicked', async () => {
+    const user = userEvent.setup();
+    mockUseTemplateVersions.mockReturnValue(
+      makeQueryResult({
+        isSuccess: true,
+        isFetched: true,
+        data: mockVersions,
+        status: 'success',
+      }),
+    );
+
+    render(<VersionHistory templateId="t1" currentVersion={2} onCreateVersion={vi.fn()} />);
+
+    await user.click(screen.getByRole('button', { name: /create version/i }));
+    await user.type(screen.getByLabelText('Version summary'), 'Some text');
+    await user.click(screen.getByRole('button', { name: /cancel/i }));
+
+    // Form should be hidden, button should be visible again
+    expect(screen.getByRole('button', { name: /create version/i })).toBeInTheDocument();
+    expect(screen.queryByLabelText('Version summary')).not.toBeInTheDocument();
+  });
+
+  it('shows "Creating..." text when isCreatingVersion is true', async () => {
+    const user = userEvent.setup();
+    mockUseTemplateVersions.mockReturnValue(
+      makeQueryResult({
+        isSuccess: true,
+        isFetched: true,
+        data: mockVersions,
+        status: 'success',
+      }),
+    );
+
+    const { rerender } = render(
+      <VersionHistory
+        templateId="t1"
+        currentVersion={2}
+        onCreateVersion={vi.fn()}
+        isCreatingVersion={false}
+      />,
+    );
+
+    // Open the form first
+    await user.click(screen.getByRole('button', { name: /create version/i }));
+
+    // Rerender with isCreatingVersion=true
+    rerender(
+      <VersionHistory
+        templateId="t1"
+        currentVersion={2}
+        onCreateVersion={vi.fn()}
+        isCreatingVersion={true}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: /creating\.\.\./i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /creating\.\.\./i })).toBeDisabled();
+  });
+
   it('does not show "Compare versions" button when only one version exists', () => {
     const singleVersion = [mockVersions[0]].filter(Boolean) as TemplateVersion[];
     mockUseTemplateVersions.mockReturnValue(

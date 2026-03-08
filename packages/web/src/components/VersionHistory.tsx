@@ -12,6 +12,7 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  TextField,
 } from '@mui/material';
 import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
 import type { TemplateVersion } from '@legalcode/shared';
@@ -24,6 +25,8 @@ interface VersionHistoryProps {
   currentVersion: number;
   onNavigateDiff?: ((fromVersion: number, toVersion: number) => void) | undefined;
   onRestore?: ((version: number) => void) | undefined;
+  onCreateVersion?: ((summary: string) => void) | undefined;
+  isCreatingVersion?: boolean | undefined;
 }
 
 export function VersionHistory({
@@ -31,11 +34,15 @@ export function VersionHistory({
   currentVersion,
   onNavigateDiff,
   onRestore,
+  onCreateVersion,
+  isCreatingVersion,
 }: VersionHistoryProps) {
   const { data: versions, isLoading } = useTemplateVersions(templateId);
   const [selectedVersion, setSelectedVersion] = useState<TemplateVersion | null>(null);
   const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
   const [restoreVersion, setRestoreVersion] = useState<number | null>(null);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [createSummary, setCreateSummary] = useState('');
 
   const handleVersionClick = useCallback(
     (version: number) => {
@@ -104,6 +111,75 @@ export function VersionHistory({
 
   return (
     <Box>
+      {/* Create version inline form */}
+      {onCreateVersion != null && (
+        <Box sx={{ mb: 2 }}>
+          {!showCreateForm ? (
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => {
+                setShowCreateForm(true);
+              }}
+              sx={{
+                color: '#8027FF',
+                borderColor: '#8027FF',
+                textTransform: 'none',
+                fontWeight: 600,
+                fontSize: '0.8125rem',
+                '&:hover': { borderColor: '#6B1FD6', backgroundColor: 'rgba(128, 39, 255, 0.04)' },
+              }}
+            >
+              + Create Version
+            </Button>
+          ) : (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              <TextField
+                size="small"
+                placeholder="Version summary (optional)"
+                value={createSummary}
+                onChange={(e) => {
+                  setCreateSummary(e.target.value);
+                }}
+                fullWidth
+                autoFocus
+                slotProps={{ htmlInput: { 'aria-label': 'Version summary' } }}
+              />
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <Button
+                  variant="contained"
+                  size="small"
+                  disabled={isCreatingVersion === true}
+                  onClick={() => {
+                    onCreateVersion(createSummary);
+                    setCreateSummary('');
+                    setShowCreateForm(false);
+                  }}
+                  sx={{
+                    backgroundColor: '#8027FF',
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    '&:hover': { backgroundColor: '#6B1FD6' },
+                  }}
+                >
+                  {isCreatingVersion === true ? 'Creating...' : 'Create'}
+                </Button>
+                <Button
+                  size="small"
+                  onClick={() => {
+                    setShowCreateForm(false);
+                    setCreateSummary('');
+                  }}
+                  sx={{ color: '#6B6D82', textTransform: 'none' }}
+                >
+                  Cancel
+                </Button>
+              </Box>
+            </Box>
+          )}
+        </Box>
+      )}
+
       {/* Compare versions button — only when 2+ versions exist */}
       {sorted.length >= 2 && onNavigateDiff != null && (
         <Button

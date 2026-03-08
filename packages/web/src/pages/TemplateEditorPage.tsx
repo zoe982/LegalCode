@@ -19,6 +19,7 @@ import { useAuth } from '../hooks/useAuth.js';
 import {
   useTemplate,
   useCreateTemplate,
+  useUpdateTemplate,
   usePublishTemplate,
   useArchiveTemplate,
   useUnarchiveTemplate,
@@ -68,6 +69,7 @@ export function TemplateEditorPage() {
   const templateData = templateQuery.data as TemplateDetail | undefined;
 
   const createMutation = useCreateTemplate();
+  const updateMutation = useUpdateTemplate();
   const publishMutation = usePublishTemplate();
   const archiveMutation = useArchiveTemplate();
   const unarchiveMutation = useUnarchiveTemplate();
@@ -78,6 +80,9 @@ export function TemplateEditorPage() {
   const [tags, setTags] = useState<string[]>([]);
   const [content, setContent] = useState('');
   const [formInitialized, setFormInitialized] = useState(false);
+
+  // Version creation state
+  const [isCreatingVersion, setIsCreatingVersion] = useState(false);
 
   // Archive confirmation dialog state
   const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
@@ -115,6 +120,7 @@ export function TemplateEditorPage() {
     anchorTo: string;
   } | null>(null);
 
+  /* v8 ignore next 4 -- callback passed to useCommentHighlights, invoked by DOM event handler */
   const handleCommentClick = useCallback((commentId: string) => {
     setActiveCommentId(commentId);
     setActivePanel('comments');
@@ -185,6 +191,7 @@ export function TemplateEditorPage() {
   });
 
   const handleExport = useCallback(() => {
+    /* v8 ignore next -- guard for TypeScript; id is always defined when export is visible */
     if (id) {
       void templateService.download(id);
     }
@@ -409,11 +416,58 @@ export function TemplateEditorPage() {
     [id, collaboration, showToast],
   );
 
+  const handleCreateVersion = useCallback(
+    (summary: string) => {
+      /* v8 ignore next -- guard for TypeScript; id is always defined in edit mode */
+      if (!id) return;
+      setIsCreatingVersion(true);
+
+      if (status === 'draft') {
+        // For drafts: use updateMutation to create a new version
+        void updateMutation
+          .mutateAsync({
+            id,
+            data: {
+              content,
+              title,
+              changeSummary: summary || undefined,
+            },
+          })
+          .then(() => {
+            showToast('Version created', 'success');
+          })
+          .catch(() => {
+            showToast('Failed to create version', 'error');
+          })
+          .finally(() => {
+            setIsCreatingVersion(false);
+          });
+      } else if (status === 'active') {
+        // For active: use collaboration saveVersion
+        void collaboration
+          .saveVersion(summary)
+          .then(() => {
+            showToast('Version created', 'success');
+          })
+          .catch(() => {
+            showToast('Failed to create version', 'error');
+          })
+          .finally(() => {
+            setIsCreatingVersion(false);
+          });
+      } /* v8 ignore next 3 -- defensive: archived templates never receive onCreateVersion */ else {
+        setIsCreatingVersion(false);
+      }
+    },
+    [id, status, content, title, updateMutation, collaboration, showToast],
+  );
+
   const handleSubmitNewComment = useCallback(
     (
       commentContent: string,
       anchor: { anchorText: string; anchorFrom: string; anchorTo: string },
     ) => {
+      /* v8 ignore next -- guard for TypeScript; id is always defined in edit mode */
       if (!id) return;
       createComment({
         templateId: id,
@@ -857,6 +911,8 @@ export function TemplateEditorPage() {
               onNavigateDiff={(from, to) => {
                 void navigate(`/templates/${id}/diff/${String(from)}/${String(to)}`);
               }}
+              onCreateVersion={!isReadOnly ? handleCreateVersion : undefined}
+              isCreatingVersion={isCreatingVersion}
             />
           )}
         </SlideOverPanel>

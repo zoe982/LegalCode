@@ -593,6 +593,7 @@ describe('TemplateEditorPage', () => {
     latestAppBarConfig = {};
     mockUseAuth.mockReturnValue(editorAuth);
     setupMutationMocks();
+    mockSaveVersion.mockResolvedValue(undefined);
     mockUseAutosave.mockReturnValue({
       saveState: 'idle' as const,
       lastSavedAt: null,
@@ -831,6 +832,66 @@ describe('TemplateEditorPage', () => {
       const editor = screen.getByTestId('markdown-editor');
       expect(editor.getAttribute('data-has-selection-change')).toBe('true');
     });
+
+    it('passes onCreateVersion to VersionHistory for draft templates', async () => {
+      const user = userEvent.setup();
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      // Open the history panel
+      const { getByTestId } = render(latestAppBarConfig.panelToggles as ReactElement);
+      await user.click(getByTestId('toggle-history'));
+
+      expect(screen.getByTestId('version-create')).toBeInTheDocument();
+    });
+
+    it('handleCreateVersion calls updateMutation for drafts', async () => {
+      const user = userEvent.setup();
+      mockUpdateMutateAsync.mockResolvedValue({});
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      // Open the history panel
+      const { getByTestId } = render(latestAppBarConfig.panelToggles as ReactElement);
+      await user.click(getByTestId('toggle-history'));
+
+      await user.click(screen.getByTestId('version-create'));
+
+      await waitFor(() => {
+        expect(mockUpdateMutateAsync).toHaveBeenCalledWith({
+          id: 't1',
+          data: expect.objectContaining({
+            changeSummary: 'Test version',
+          }),
+        });
+      });
+    });
+
+    it('handleCreateVersion shows success toast on draft version creation', async () => {
+      const user = userEvent.setup();
+      mockUpdateMutateAsync.mockResolvedValue({});
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      const { getByTestId } = render(latestAppBarConfig.panelToggles as ReactElement);
+      await user.click(getByTestId('toggle-history'));
+      await user.click(screen.getByTestId('version-create'));
+
+      await waitFor(() => {
+        expect(mockShowToast).toHaveBeenCalledWith('Version created', 'success');
+      });
+    });
+
+    it('handleCreateVersion shows error toast on draft version creation failure', async () => {
+      const user = userEvent.setup();
+      mockUpdateMutateAsync.mockRejectedValue(new Error('fail'));
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      const { getByTestId } = render(latestAppBarConfig.panelToggles as ReactElement);
+      await user.click(getByTestId('toggle-history'));
+      await user.click(screen.getByTestId('version-create'));
+
+      await waitFor(() => {
+        expect(mockShowToast).toHaveBeenCalledWith('Failed to create version', 'error');
+      });
+    });
   });
 
   describe('Edit mode - active', () => {
@@ -856,6 +917,49 @@ describe('TemplateEditorPage', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
       expect(screen.queryByRole('button', { name: /save draft/i })).not.toBeInTheDocument();
     });
+
+    it('passes onCreateVersion to VersionHistory for active templates', async () => {
+      const user = userEvent.setup();
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      // Open the history panel
+      const { getByTestId } = render(latestAppBarConfig.panelToggles as ReactElement);
+      await user.click(getByTestId('toggle-history'));
+
+      expect(screen.getByTestId('version-create')).toBeInTheDocument();
+    });
+
+    it('handleCreateVersion calls saveVersion for active templates', async () => {
+      const user = userEvent.setup();
+      mockSaveVersion.mockResolvedValue(undefined);
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      const { getByTestId } = render(latestAppBarConfig.panelToggles as ReactElement);
+      await user.click(getByTestId('toggle-history'));
+      await user.click(screen.getByTestId('version-create'));
+
+      await waitFor(() => {
+        expect(mockSaveVersion).toHaveBeenCalledWith('Test version');
+      });
+
+      await waitFor(() => {
+        expect(mockShowToast).toHaveBeenCalledWith('Version created', 'success');
+      });
+    });
+
+    it('handleCreateVersion shows error toast on active version creation failure', async () => {
+      const user = userEvent.setup();
+      mockSaveVersion.mockRejectedValue(new Error('fail'));
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      const { getByTestId } = render(latestAppBarConfig.panelToggles as ReactElement);
+      await user.click(getByTestId('toggle-history'));
+      await user.click(screen.getByTestId('version-create'));
+
+      await waitFor(() => {
+        expect(mockShowToast).toHaveBeenCalledWith('Failed to create version', 'error');
+      });
+    });
   });
 
   describe('Edit mode - archived', () => {
@@ -875,6 +979,17 @@ describe('TemplateEditorPage', () => {
     it('does not show action buttons', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
       expect(screen.queryByRole('button', { name: /save/i })).not.toBeInTheDocument();
+    });
+
+    it('does not pass onCreateVersion to VersionHistory for archived templates', async () => {
+      const user = userEvent.setup();
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      // Open the history panel
+      const { getByTestId } = render(latestAppBarConfig.panelToggles as ReactElement);
+      await user.click(getByTestId('toggle-history'));
+
+      expect(screen.queryByTestId('version-create')).not.toBeInTheDocument();
     });
   });
 
