@@ -296,20 +296,24 @@ export function DocumentHeader({
         aria-label="Template country"
         disabled={readOnly}
         IconComponent={ExpandMoreRounded}
-        renderValue={(value: string) =>
-          value || (
-            <Typography
-              component="span"
-              sx={{
-                color: 'var(--text-tertiary)',
-                fontFamily: '"DM Sans", sans-serif',
-                fontSize: '0.8125rem',
-              }}
-            >
-              Country
-            </Typography>
-          )
-        }
+        renderValue={(value: string) => {
+          if (!value) {
+            return (
+              <Typography
+                component="span"
+                sx={{
+                  color: 'var(--text-tertiary)',
+                  fontFamily: '"DM Sans", sans-serif',
+                  fontSize: '0.8125rem',
+                }}
+              >
+                Country
+              </Typography>
+            );
+          }
+          const match = countries.find((c) => c.code === value);
+          return match?.name ?? value;
+        }}
         sx={{ ...compactSelectStyle, mr: '12px' }}
         MenuProps={{
           slotProps: {
@@ -325,7 +329,7 @@ export function DocumentHeader({
         }}
       >
         {countries.map((co) => (
-          <MenuItem key={co.id} value={co.name} sx={{ height: '36px', fontSize: '0.875rem' }}>
+          <MenuItem key={co.id} value={co.code} sx={{ height: '36px', fontSize: '0.875rem' }}>
             {co.name}
           </MenuItem>
         ))}

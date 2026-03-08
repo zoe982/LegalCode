@@ -1,6 +1,6 @@
 /// <reference types="@testing-library/jest-dom/vitest" />
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -487,8 +487,30 @@ describe('DocumentHeader', () => {
 
   // Country renderValue branch: non-empty shows the value
   it('country select shows value when country is set', () => {
-    renderHeader({ country: 'United States' });
+    renderHeader({ country: 'US' });
     expect(screen.queryByText('Country')).not.toBeInTheDocument();
+  });
+
+  // Country select displays country name for code value
+  it('country select displays country name for code value', () => {
+    renderHeader({ country: 'US' });
+    expect(screen.getByText('United States')).toBeInTheDocument();
+  });
+
+  // Country select sends code via onCountryChange
+  it('onCountryChange receives country code when selected', () => {
+    const onCountryChange = vi.fn();
+    renderHeader({ country: '', onCountryChange });
+    // MUI Select: the clickable trigger has role="combobox"
+    const comboboxes = screen.getAllByRole('combobox');
+    // Country select is the second combobox (after category)
+    expect(comboboxes).toHaveLength(2);
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- length asserted above
+    fireEvent.mouseDown(comboboxes[1]!);
+    const listbox = within(screen.getByRole('listbox'));
+    const option = listbox.getByText('United States');
+    fireEvent.click(option);
+    expect(onCountryChange).toHaveBeenCalledWith('US');
   });
 
   // Title input editable affordance (hover/focus border styles)
