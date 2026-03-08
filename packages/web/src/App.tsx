@@ -4,6 +4,7 @@ import { createBrowserRouter, RouterProvider, Navigate } from 'react-router';
 import type { RouteObject } from 'react-router';
 import { theme } from './theme/index.js';
 import { ErrorBoundary } from './components/ErrorBoundary.js';
+import { RouteErrorBoundary } from './components/RouteErrorBoundary.js';
 import { AuthGuard } from './components/AuthGuard.js';
 import { AppShell } from './components/AppShell.js';
 import { TemplateListPage } from './pages/TemplateListPage.js';
@@ -28,6 +29,7 @@ export const routes: RouteObject[] = [
   {
     path: '/login',
     element: <LoginPage />,
+    errorElement: <RouteErrorBoundary />,
   },
   {
     path: '/',
@@ -36,6 +38,7 @@ export const routes: RouteObject[] = [
         <AppShell />
       </AuthGuard>
     ),
+    errorElement: <RouteErrorBoundary />,
     children: [
       { index: true, element: <Navigate to="/templates" replace /> },
       { path: 'templates', element: <TemplateListPage /> },

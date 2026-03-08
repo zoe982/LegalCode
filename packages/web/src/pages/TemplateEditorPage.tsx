@@ -46,11 +46,6 @@ import { useCommentHighlights } from '../hooks/useCommentHighlights.js';
 import { DocumentHeader } from '../components/DocumentHeader.js';
 import { InlineCommentMargin } from '../components/InlineCommentMargin.js';
 
-interface TemplateDetail {
-  template: Template;
-  content: string;
-}
-
 export function TemplateEditorPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -60,7 +55,7 @@ export function TemplateEditorPage() {
   const isViewer = user?.role === 'viewer';
 
   const templateQuery = useTemplate(id ?? '');
-  const templateData = templateQuery.data as TemplateDetail | undefined;
+  const templateData = templateQuery.data;
 
   const createMutation = useCreateTemplate();
   const publishMutation = usePublishTemplate();

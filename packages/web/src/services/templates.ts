@@ -25,6 +25,13 @@ export interface TemplateListResponse {
   limit: number;
 }
 
+export interface GetTemplateResponse {
+  template: Template;
+  content: string;
+  changeSummary: string | null;
+  tags: string[];
+}
+
 function extractFilename(response: Response): string {
   const disposition = response.headers.get('Content-Disposition');
   if (disposition) {
@@ -57,14 +64,14 @@ export const templateService = {
     return (await response.json()) as TemplateListResponse;
   },
 
-  async get(id: string): Promise<Template> {
+  async get(id: string): Promise<GetTemplateResponse> {
     const response = await fetch(`/api/templates/${id}`, {
       credentials: 'include',
     });
     if (!response.ok) {
       return extractApiError(response, 'Failed to fetch template');
     }
-    return (await response.json()) as Template;
+    return (await response.json()) as GetTemplateResponse;
   },
 
   async create(data: CreateTemplateInput): Promise<{ template: Template; tags: string[] }> {

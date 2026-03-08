@@ -4,6 +4,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { UseQueryResult } from '@tanstack/react-query';
 import type { TemplateVersion, Template } from '@legalcode/shared';
+import type { GetTemplateResponse } from '../../src/services/templates.js';
 import { VersionHistoryPage } from '../../src/pages/VersionHistoryPage.js';
 
 // ── Mocks ────────────────────────────────────────────────────────────
@@ -20,8 +21,7 @@ vi.mock('react-router', async () => {
   };
 });
 
-const mockUseTemplate =
-  vi.fn<() => UseQueryResult<{ template: Template; content: string; tags: string[] }>>();
+const mockUseTemplate = vi.fn<() => UseQueryResult<GetTemplateResponse>>();
 const mockUseTemplateVersions = vi.fn<() => UseQueryResult<TemplateVersion[]>>();
 
 vi.mock('../../src/hooks/useTemplates.js', () => ({
@@ -101,7 +101,7 @@ const mockVersions: TemplateVersion[] = [
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
-type TemplateDetailResult = UseQueryResult<{ template: Template; content: string; tags: string[] }>;
+type TemplateDetailResult = UseQueryResult<GetTemplateResponse>;
 
 function makeTemplateQueryResult(overrides: Partial<TemplateDetailResult>): TemplateDetailResult {
   return {
@@ -126,7 +126,12 @@ function makeTemplateQueryResult(overrides: Partial<TemplateDetailResult>): Temp
     isRefetching: false,
     isStale: false,
     isSuccess: false,
-    promise: Promise.resolve({ template: mockTemplate, content: '', tags: [] }),
+    promise: Promise.resolve({
+      template: mockTemplate,
+      content: '',
+      changeSummary: null,
+      tags: [],
+    }),
     refetch: vi.fn(),
     fetchStatus: 'idle',
     status: 'pending',
@@ -173,7 +178,12 @@ function setupLoadedMocks() {
     makeTemplateQueryResult({
       isSuccess: true,
       isFetched: true,
-      data: { template: mockTemplate, content: mockVersions[2]?.content ?? '', tags: [] },
+      data: {
+        template: mockTemplate,
+        content: mockVersions[2]?.content ?? '',
+        changeSummary: null,
+        tags: [],
+      },
       status: 'success',
     }),
   );

@@ -163,7 +163,7 @@ export const handlers = [
   // Template handlers
   http.get('/api/templates', () => {
     return HttpResponse.json({
-      templates: mockTemplates,
+      data: mockTemplates,
       total: 3,
       page: 1,
       limit: 20,

@@ -15,7 +15,6 @@ import {
   Tooltip,
 } from '@mui/material';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
-import type { Template } from '@legalcode/shared';
 import { useTemplate, useTemplateVersions } from '../hooks/useTemplates.js';
 import { templateService } from '../services/templates.js';
 import { useTopAppBarConfig } from '../contexts/TopAppBarContext.js';
@@ -23,19 +22,13 @@ import { markdownToHtml } from '../utils/markdownToHtml.js';
 import { relativeTime } from '../utils/relativeTime.js';
 import { computeDiff } from '../utils/diff.js';
 
-interface TemplateDetail {
-  template: Template;
-  content: string;
-  tags: string[];
-}
-
 export function VersionHistoryPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const templateId = id ?? '';
 
   const templateQuery = useTemplate(templateId);
-  const templateData = templateQuery.data as TemplateDetail | undefined;
+  const templateData = templateQuery.data;
 
   const { data: versions, isLoading: versionsLoading } = useTemplateVersions(templateId);
 
