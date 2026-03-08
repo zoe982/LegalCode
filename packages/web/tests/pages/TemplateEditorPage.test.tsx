@@ -1,6 +1,6 @@
 /// <reference types="@testing-library/jest-dom/vitest" />
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/unbound-method */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
@@ -741,6 +741,42 @@ describe('TemplateEditorPage', () => {
 
       const { getByTestId } = renderDocumentHeader();
       expect(getByTestId('connection-status')).toHaveTextContent('connected');
+    });
+
+    it('shows toast when autosave transitions from saving to saved', () => {
+      // Start with saving state
+      mockUseAutosave.mockReturnValue({
+        saveState: 'saving' as const,
+        lastSavedAt: null,
+        saveNow: mockSaveNow,
+      });
+
+      const { rerender } = render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      // Transition to saved
+      mockUseAutosave.mockReturnValue({
+        saveState: 'saved' as const,
+        lastSavedAt: '2026-03-08T00:00:00Z',
+        saveNow: mockSaveNow,
+      });
+
+      rerender(<TemplateEditorPage />);
+
+      expect(mockShowToast).toHaveBeenCalledWith('Changes saved', 'success');
+    });
+
+    it('does not show toast when autosave state is saved on mount (idle -> saved)', () => {
+      // Start directly with saved state (not transitioning from saving)
+      mockUseAutosave.mockReturnValue({
+        saveState: 'saved' as const,
+        lastSavedAt: '2026-03-08T00:00:00Z',
+        saveNow: mockSaveNow,
+      });
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      // Should not toast because the previous state was idle, not saving
+      expect(mockShowToast).not.toHaveBeenCalledWith('Changes saved', 'success');
     });
 
     it('passes documentHeader to TopAppBar config', () => {
@@ -2550,6 +2586,145 @@ describe('TemplateEditorPage', () => {
       await user.click(confirmButton);
 
       expect(mockPublishMutateAsync).toHaveBeenCalledWith('t1');
+    });
+  });
+
+  describe('Auto-create draft on title input', () => {
+    beforeEach(() => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      mockUseParams.mockReturnValue({});
+      mockUseTemplate.mockReturnValue(
+        createTemplateQueryResult({
+          data: undefined,
+          isLoading: false,
+          isPending: true,
+          isSuccess: false,
+          status: 'pending',
+        }),
+      );
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('auto-creates draft after debounce when title is entered in create mode', async () => {
+      mockCreateMutateAsync.mockResolvedValue({
+        template: { ...draftTemplate, id: 'auto-1' },
+      });
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      // Simulate title change via DocumentHeader
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onTitleChange as (t: string) => void)('My New Template');
+      });
+
+      // Advance past the 1.5s debounce
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1600);
+      });
+
+      await waitFor(() => {
+        expect(mockCreateMutateAsync).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title: 'My New Template',
+          }),
+        );
+      });
+    });
+
+    it('navigates to new template after auto-create succeeds', async () => {
+      mockCreateMutateAsync.mockResolvedValue({
+        template: { ...draftTemplate, id: 'auto-2' },
+      });
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onTitleChange as (t: string) => void)('Auto Draft');
+      });
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1600);
+      });
+
+      await waitFor(() => {
+        expect(mockNavigate).toHaveBeenCalledWith('/templates/auto-2', { replace: true });
+      });
+    });
+
+    it('shows error toast and allows retry when auto-create fails', async () => {
+      mockCreateMutateAsync.mockRejectedValueOnce(new Error('Network error'));
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onTitleChange as (t: string) => void)('Retry Draft');
+      });
+
+      act(() => {
+        vi.advanceTimersByTime(1600);
+      });
+
+      await waitFor(() => {
+        expect(mockShowToast).toHaveBeenCalledWith('Failed to save draft', 'error');
+      });
+    });
+
+    it('does not auto-create when title is empty', () => {
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      // Title starts as empty string — should not trigger auto-create
+      act(() => {
+        vi.advanceTimersByTime(2000);
+      });
+
+      expect(mockCreateMutateAsync).not.toHaveBeenCalled();
+    });
+
+    it('debounces and only creates once', async () => {
+      mockCreateMutateAsync.mockResolvedValue({
+        template: { ...draftTemplate, id: 'auto-3' },
+      });
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      renderDocumentHeader();
+
+      // First title change
+      act(() => {
+        (latestDocumentHeaderProps.onTitleChange as (t: string) => void)('First');
+      });
+
+      // Advance part way (not enough for debounce)
+      act(() => {
+        vi.advanceTimersByTime(500);
+      });
+
+      // Re-render to get updated props, change title again
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onTitleChange as (t: string) => void)('Second');
+      });
+
+      // Advance past the debounce
+      act(() => {
+        vi.advanceTimersByTime(1600);
+      });
+
+      await waitFor(() => {
+        // Should only have been called once with the latest title
+        expect(mockCreateMutateAsync).toHaveBeenCalledTimes(1);
+        expect(mockCreateMutateAsync).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title: 'Second',
+          }),
+        );
+      });
     });
   });
 });

@@ -27,6 +27,7 @@ import { PresenceAvatars } from '../components/PresenceAvatars.js';
 import { ConnectionStatus } from '../components/ConnectionStatus.js';
 import type { ConnectionStatusType } from '../components/ConnectionStatus.js';
 import { useAutosave } from '../hooks/useAutosave.js';
+import type { AutosaveState } from '../hooks/useAutosave.js';
 import { EditorToolbar } from '../components/EditorToolbar.js';
 import { KeyboardShortcutHelp } from '../components/KeyboardShortcutHelp.js';
 import { markdownToHtml } from '../utils/markdownToHtml.js';
@@ -85,6 +86,10 @@ export function TemplateEditorPage() {
 
   const isDirtyRef = useRef(false);
 
+  // Auto-create draft when user starts typing in create mode
+  const autoCreateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasAutoCreatedRef = useRef(false);
+
   const { showToast } = useToast();
   const queryClient = useQueryClient();
   const { selectionInfo, startComment, onSelectionChange } = useEditorComments();
@@ -138,6 +143,61 @@ export function TemplateEditorPage() {
     title,
     enabled: !isCreateMode && !isViewer && status === 'draft',
   });
+
+  // Toast notification when autosave completes (saving -> saved transition)
+  const prevSaveStateRef = useRef<AutosaveState>('idle');
+  useEffect(() => {
+    if (autosave.saveState === 'saved' && prevSaveStateRef.current === 'saving') {
+      showToast('Changes saved', 'success');
+    }
+    prevSaveStateRef.current = autosave.saveState;
+  }, [autosave.saveState, showToast]);
+
+  // Auto-create draft when user starts typing in create mode
+  useEffect(() => {
+    if (!isCreateMode || hasAutoCreatedRef.current) return;
+    // Need at least a title to create
+    if (title.trim() === '') return;
+
+    // Clear previous timer
+    if (autoCreateTimerRef.current) {
+      clearTimeout(autoCreateTimerRef.current);
+    }
+
+    autoCreateTimerRef.current = setTimeout(() => {
+      hasAutoCreatedRef.current = true;
+      void createMutation
+        .mutateAsync({
+          title,
+          category,
+          country: country || undefined,
+          content,
+        })
+        .then((result: unknown) => {
+          const created = result as { template: Template };
+          void navigate(`/templates/${created.template.id}`, { replace: true });
+        })
+        .catch(() => {
+          hasAutoCreatedRef.current = false; // Allow retry
+          showToast('Failed to save draft', 'error');
+        });
+    }, 1500); // 1.5s debounce
+
+    return () => {
+      if (autoCreateTimerRef.current) {
+        clearTimeout(autoCreateTimerRef.current);
+      }
+    };
+  }, [isCreateMode, title, category, country, content, createMutation, navigate, showToast]);
+
+  // Clean up auto-create timer on unmount
+  useEffect(() => {
+    return () => {
+      if (autoCreateTimerRef.current) {
+        clearTimeout(autoCreateTimerRef.current);
+      }
+    };
+  }, []);
 
   // Keyboard shortcuts
   useKeyboardShortcuts({

@@ -216,6 +216,14 @@ export function DocumentHeader({
           border: 'none',
           outline: 'none',
           backgroundColor: 'transparent',
+          borderBottom: '1px solid transparent',
+          transition: 'border-color 0.2s ease',
+          '&:hover': {
+            borderBottom: '1px solid var(--border-primary)',
+          },
+          '&:focus': {
+            borderBottom: '1px solid var(--accent-primary)',
+          },
           fontFamily: '"Source Serif 4", Georgia, "Times New Roman", serif',
           fontSize: '1.125rem',
           fontWeight: 600,
