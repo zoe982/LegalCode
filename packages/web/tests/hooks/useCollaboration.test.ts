@@ -642,4 +642,204 @@ describe('useCollaboration', () => {
 
     expect(mockReportError).not.toHaveBeenCalled();
   });
+
+  it('resets reconnection attempts when effect re-runs', async () => {
+    vi.useFakeTimers();
+
+    let shouldAutoOpen = true;
+    const OriginalMockWebSocket = MockWebSocket;
+
+    // WebSocket where close() triggers onclose synchronously (realistic browser behavior)
+    // and auto-open is controllable
+    vi.stubGlobal(
+      'WebSocket',
+      class RealisticWebSocket {
+        static CONNECTING = 0;
+        static OPEN = 1;
+        static CLOSING = 2;
+        static CLOSED = 3;
+        readyState = 0;
+        onopen: (() => void) | null = null;
+        onclose: (() => void) | null = null;
+        onmessage: ((e: { data: unknown }) => void) | null = null;
+        onerror: (() => void) | null = null;
+        binaryType = 'blob';
+        send = vi.fn();
+        url: string;
+        close() {
+          this.readyState = 3;
+          this.onclose?.();
+        }
+        constructor(url: string) {
+          this.url = url;
+          wsInstances.push(this as unknown as MockWebSocket);
+          if (shouldAutoOpen) {
+            setTimeout(() => {
+              this.readyState = 1;
+              this.onopen?.();
+            }, 0);
+          }
+        }
+      },
+    );
+
+    // Start with a connection that opens successfully
+    let currentUser = { ...testUser };
+    const { result, rerender } = renderHook(({ user }) => useCollaboration('tmpl-1', user), {
+      initialProps: { user: currentUser },
+    });
+
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+    expect(result.current.status).toBe('connected');
+
+    // Disable auto-open and exhaust all 5 retry attempts
+    shouldAutoOpen = false;
+
+    act(() => {
+      wsRef().onclose?.();
+    });
+
+    const delays = [1000, 2000, 4000, 8000, 16000];
+    for (const delay of delays) {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(delay);
+      });
+      act(() => {
+        const ws = wsRef();
+        ws.readyState = 3;
+        ws.onclose?.();
+      });
+    }
+
+    // Verify we're permanently disconnected and reportError was called
+    expect(result.current.status).toBe('disconnected');
+    expect(mockReportError).toHaveBeenCalled();
+    mockReportError.mockClear();
+
+    // Re-enable auto-open for the fresh connection
+    shouldAutoOpen = true;
+
+    // Re-render with a new user object reference (same data, different object)
+    // This simulates what TemplateEditorPage does on every render.
+    // Effect cleanup calls ws.close() → onclose fires → scheduleReconnect() runs
+    // with the stale reconnectAttemptRef (still at 5), immediately calling reportError.
+    currentUser = { ...testUser };
+    rerender({ user: currentUser });
+
+    // Let the new WS open
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+
+    // Bug: the cleanup-triggered onclose called scheduleReconnect with stale counter,
+    // which called reportError again even though this is just an effect re-run
+    expect(mockReportError).not.toHaveBeenCalled();
+
+    vi.stubGlobal('WebSocket', OriginalMockWebSocket);
+  });
+
+  it('cleanup does not leak reconnect timer', async () => {
+    vi.useFakeTimers();
+
+    // Track WebSocket instances created AFTER unmount
+    const { result, unmount } = renderHook(() => useCollaboration('tmpl-1', testUser));
+
+    // Open the WebSocket
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+    expect(result.current.status).toBe('connected');
+
+    // Override this specific WS instance's close() to trigger onclose synchronously
+    // (this is realistic browser behavior)
+    const ws = wsRef();
+    ws.close = vi.fn().mockImplementation(() => {
+      ws.readyState = MockWebSocket.CLOSED;
+      ws.onclose?.();
+    });
+
+    const instanceCountBeforeUnmount = wsInstances.length;
+
+    // Unmount triggers cleanup:
+    // 1. clearTimeout(reconnectTimerRef.current) — clears any existing timer
+    // 2. ws.close() — fires onclose synchronously
+    // 3. onclose calls scheduleReconnect() — sets a NEW timer (leaked!)
+    unmount();
+
+    // Advance timers well past the longest reconnect delay
+    // If a timer leaked, it will fire and create a new WebSocket
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20000);
+    });
+
+    // No new WebSocket instances should have been created after unmount
+    // Bug: the leaked timer from scheduleReconnect creates a new connection
+    expect(wsInstances.length).toBe(instanceCountBeforeUnmount);
+  });
+
+  it('rapid user reference changes do not cause error spam', async () => {
+    vi.useFakeTimers();
+    const OriginalMockWebSocket = MockWebSocket;
+
+    // WebSocket where close() triggers onclose synchronously (realistic browser behavior)
+    vi.stubGlobal(
+      'WebSocket',
+      class RealisticWebSocket {
+        static CONNECTING = 0;
+        static OPEN = 1;
+        static CLOSING = 2;
+        static CLOSED = 3;
+        readyState = 0;
+        onopen: (() => void) | null = null;
+        onclose: (() => void) | null = null;
+        onmessage: ((e: { data: unknown }) => void) | null = null;
+        onerror: (() => void) | null = null;
+        binaryType = 'blob';
+        send = vi.fn();
+        url: string;
+        close() {
+          this.readyState = 3;
+          this.onclose?.();
+        }
+        constructor(url: string) {
+          this.url = url;
+          wsInstances.push(this as unknown as MockWebSocket);
+          // Always auto-open
+          setTimeout(() => {
+            this.readyState = 1;
+            this.onopen?.();
+          }, 0);
+        }
+      },
+    );
+
+    let currentUser = { ...testUser };
+    const { result, rerender } = renderHook(({ user }) => useCollaboration('tmpl-1', user), {
+      initialProps: { user: currentUser },
+    });
+
+    // Open the initial WebSocket
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+    expect(result.current.status).toBe('connected');
+
+    // Simulate 10 rapid re-renders with new user object references WITHOUT
+    // advancing timers between them. Each re-render triggers:
+    // effect cleanup → ws.close() → onclose (sync) → scheduleReconnect()
+    // Since onopen never fires (timers not advanced), reconnectAttemptRef accumulates.
+    // After 5 re-renders, the counter hits max and scheduleReconnect calls reportError.
+    for (let i = 0; i < 10; i++) {
+      currentUser = { ...testUser };
+      rerender({ user: currentUser });
+    }
+
+    // reportError should NEVER be called — these are intentional teardowns from
+    // React effect cleanup, not real connection failures.
+    expect(mockReportError).not.toHaveBeenCalled();
+
+    vi.stubGlobal('WebSocket', OriginalMockWebSocket);
+  });
 });

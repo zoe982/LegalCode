@@ -46,6 +46,9 @@ export function useCollaboration(
   useEffect(() => {
     if (!templateId || !user) return undefined;
 
+    reconnectAttemptRef.current = 0;
+    let cancelled = false;
+
     const ydoc = new Y.Doc();
     const awareness = new Awareness(ydoc);
     ydocRef.current = ydoc;
@@ -76,6 +79,8 @@ export function useCollaboration(
     awareness.on('change', onAwarenessChange);
 
     function connect() {
+      /* v8 ignore next -- defensive guard; cancelled checked first in scheduleReconnect */
+      if (cancelled) return;
       setStatus('connecting');
 
       const protocol = globalThis.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -110,6 +115,7 @@ export function useCollaboration(
     }
 
     function scheduleReconnect() {
+      if (cancelled) return;
       const attempt = reconnectAttemptRef.current;
       if (attempt >= RECONNECT_DELAYS.length) {
         setStatus('disconnected');
@@ -136,6 +142,7 @@ export function useCollaboration(
       if (reconnectTimerRef.current) {
         clearTimeout(reconnectTimerRef.current);
       }
+      cancelled = true;
       connectFnRef.current = null;
       wsRef.current?.close();
       void idbRef.current?.destroy();

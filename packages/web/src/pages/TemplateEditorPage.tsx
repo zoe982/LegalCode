@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef, createElement } from 'react';
+import { useState, useCallback, useEffect, useRef, createElement, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import {
   Box,
@@ -187,10 +187,13 @@ export function TemplateEditorPage() {
   );
 
   // Collaboration — only for existing templates with edit permission
-  const collaborationUser =
-    !isCreateMode && !isViewer && user
-      ? { userId: user.id, email: user.email, color: '#1976d2' }
-      : null;
+  const collaborationUser = useMemo(
+    () =>
+      !isCreateMode && !isViewer && user
+        ? { userId: user.id, email: user.email, color: '#1976d2' }
+        : null,
+    [isCreateMode, isViewer, user?.id, user?.email],
+  );
   const collaboration = useCollaboration(!isCreateMode ? id : null, collaborationUser, {
     onCommentEvent: useCallback(() => {
       void queryClient.invalidateQueries({ queryKey: ['comments', id] });
