@@ -1,35 +1,15 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
+  "ignore": ["drizzle.config.ts", "pw-auth.mjs", "e2e/**"],
+  "ignoreBinaries": ["drizzle-kit", "wrangler", "semgrep", "gitleaks"],
+  "ignoreExportsUsedInFile": true,
   "workspaces": {
-    "packages/shared": {
-      "entry": ["src/index.ts"]
-    },
     "packages/api": {
-      "entry": ["src/index.ts"]
+      "entry": ["src/index.ts"],
+      "ignoreDependencies": ["drizzle-kit"]
     },
     "packages/web": {
-      "entry": ["src/main.tsx"]
+      "ignoreDependencies": ["lib0", "y-prosemirror"]
     }
-  },
-  "ignore": [
-    "**/*.test.ts",
-    "**/*.test.tsx",
-    "**/*.spec.ts",
-    "tests/**",
-    "e2e/**",
-    "**/__mocks__/**"
-  ],
-  "ignoreDependencies": [
-    "husky",
-    "lint-staged",
-    "jiti",
-    "@vitest/coverage-v8",
-    "jsdom",
-    "@playwright/test",
-    "@testing-library/react",
-    "@testing-library/jest-dom",
-    "prettier",
-    "workbox-window",
-    "concurrently"
-  ]
+  }
 }

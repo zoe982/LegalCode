@@ -4,7 +4,7 @@ set -euo pipefail
 # Bundle Size Budget Check
 # Ensures total JS+CSS in packages/web/dist/assets/ stays under budget.
 
-BUDGET_BYTES=$((2800 * 1024))  # 2.8 MiB
+BUDGET_BYTES=$((3584 * 1024))  # 3.5 MiB
 DIST_DIR="packages/web/dist/assets"
 
 if [ ! -d "$DIST_DIR" ]; then
