@@ -25,12 +25,22 @@ gate() {
 echo -e "${CYAN}=== LegalCode Deploy Pipeline ===${NC}"
 echo ""
 
-gate "TypeCheck"      pnpm typecheck
-gate "Lint"           pnpm lint
-gate "Security Scan"  pnpm security:scan
+gate "Dep Audit"       pnpm audit:security
+gate "TypeCheck"       pnpm typecheck
+gate "Lint"            pnpm lint
+gate "Dead Code"       pnpm dead-code
+gate "Security Scan"   pnpm security:scan
 gate "Test + Coverage" pnpm test
-gate "Build"          pnpm build
-gate "Deploy"         npx wrangler deploy
+gate "Build"           pnpm build
+gate "Bundle Size"     pnpm bundle:check
+gate "Deploy"          npx wrangler deploy
 
 echo ""
 echo -e "${GREEN}=== Deploy complete ===${NC}"
+echo ""
+
+# Post-deploy validation (non-blocking on failure, but reports)
+echo -e "${CYAN}=== Post-Deploy Validation ===${NC}"
+echo "Waiting 5s for edge propagation..."
+sleep 5
+gate "Security Headers" pnpm security:headers

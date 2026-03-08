@@ -1,0 +1,35 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "workspaces": {
+    "packages/shared": {
+      "entry": ["src/index.ts"]
+    },
+    "packages/api": {
+      "entry": ["src/index.ts"]
+    },
+    "packages/web": {
+      "entry": ["src/main.tsx"]
+    }
+  },
+  "ignore": [
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.spec.ts",
+    "tests/**",
+    "e2e/**",
+    "**/__mocks__/**"
+  ],
+  "ignoreDependencies": [
+    "husky",
+    "lint-staged",
+    "jiti",
+    "@vitest/coverage-v8",
+    "jsdom",
+    "@playwright/test",
+    "@testing-library/react",
+    "@testing-library/jest-dom",
+    "prettier",
+    "workbox-window",
+    "concurrently"
+  ]
+}

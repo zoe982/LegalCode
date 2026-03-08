@@ -4,6 +4,8 @@ if ! command -v gitleaks > /dev/null 2>&1; then
 fi
 gitleaks protect --staged --verbose
 
+pnpm audit:security --audit-level critical
+
 if ! command -v semgrep > /dev/null 2>&1; then
   echo "ERROR: semgrep not installed. Run: brew install semgrep"
   exit 1
