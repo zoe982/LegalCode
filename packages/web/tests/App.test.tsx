@@ -119,6 +119,15 @@ describe('App', () => {
     });
   });
 
+  it('renders VersionHistoryPage at /templates/:id/history', async () => {
+    mockAuthenticatedUser();
+    renderWithRouter('/templates/t1/history');
+    await waitFor(() => {
+      // VersionHistoryPage shows a loading skeleton while fetching
+      expect(screen.getByTestId('version-history-skeleton')).toBeInTheDocument();
+    });
+  });
+
   it('renders AdminPage at /admin', async () => {
     mockAuthenticatedUser();
     renderWithRouter('/admin');
