@@ -47,7 +47,6 @@ import { InlineCommentMargin } from '../components/InlineCommentMargin.js';
 interface TemplateDetail {
   template: Template;
   content: string;
-  tags: string[];
 }
 
 export function TemplateEditorPage() {
@@ -69,7 +68,6 @@ export function TemplateEditorPage() {
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState('');
   const [country, setCountry] = useState('');
-  const [tags, setTags] = useState<string[]>([]);
   const [content, setContent] = useState('');
   const [formInitialized, setFormInitialized] = useState(false);
 
@@ -175,7 +173,6 @@ export function TemplateEditorPage() {
         category,
         country: country || undefined,
         content,
-        tags: tags.length > 0 ? tags : undefined,
       })
       .then((result: unknown) => {
         const created = result as { template: Template };
@@ -184,7 +181,7 @@ export function TemplateEditorPage() {
       .catch(() => {
         showToast('Failed to create template', 'error');
       });
-  }, [createMutation, title, category, country, content, tags, navigate, showToast]);
+  }, [createMutation, title, category, country, content, navigate, showToast]);
 
   const handlePublishClick = useCallback(() => {
     setPublishDialogOpen(true);
@@ -302,7 +299,6 @@ export function TemplateEditorPage() {
     setTitle(templateData.template.title);
     setCategory(templateData.template.category);
     setCountry(templateData.template.country ?? '');
-    setTags(templateData.tags);
     setContent(templateData.content);
     setFormInitialized(true);
   }

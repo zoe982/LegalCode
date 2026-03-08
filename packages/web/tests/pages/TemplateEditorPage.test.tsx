@@ -319,8 +319,6 @@ vi.mock('../../src/components/FloatingCommentButton.js', () => ({
     ) : null,
 }));
 
-// SlideOverPanel no longer used in TemplateEditorPage (replaced by InlineCommentMargin)
-
 // Store the latest DocumentHeader props so tests can trigger callbacks
 let latestDocumentHeaderProps: Record<string, unknown> = {};
 
@@ -415,7 +413,6 @@ vi.mock('../../src/components/Toast.js', () => ({
 interface TemplateDetail {
   template: Template;
   content: string;
-  tags: string[];
 }
 
 function createTemplateQueryResult(
@@ -447,7 +444,6 @@ function createTemplateQueryResult(
     promise: Promise.resolve({
       template: draftTemplate,
       content: '# Draft',
-      tags: [],
     }),
     refetch: vi.fn(),
     status: 'success',
@@ -670,7 +666,6 @@ describe('TemplateEditorPage', () => {
           data: {
             template: draftTemplate,
             content: '# Draft content',
-            tags: ['employment', 'legal'],
           },
         }),
       );
@@ -829,7 +824,6 @@ describe('TemplateEditorPage', () => {
           data: {
             template: activeTemplate,
             content: '# Active content',
-            tags: [],
           },
         }),
       );
@@ -868,7 +862,6 @@ describe('TemplateEditorPage', () => {
           data: {
             template: archivedTemplate,
             content: '# Archived content',
-            tags: [],
           },
         }),
       );
@@ -911,7 +904,6 @@ describe('TemplateEditorPage', () => {
           data: {
             template: draftTemplate,
             content: '# Draft content',
-            tags: [],
           },
         }),
       );
@@ -965,7 +957,6 @@ describe('TemplateEditorPage', () => {
           data: {
             template: draftTemplate,
             content: '# Draft content',
-            tags: [],
           },
         }),
       );
@@ -999,7 +990,6 @@ describe('TemplateEditorPage', () => {
           data: {
             template: draftTemplate,
             content: '# Draft content',
-            tags: [],
           },
         }),
       );
@@ -1070,7 +1060,6 @@ describe('TemplateEditorPage', () => {
           data: {
             template: draftTemplate,
             content: '# Draft content',
-            tags: ['employment', 'legal'],
           },
         }),
       );
@@ -1155,7 +1144,6 @@ describe('TemplateEditorPage', () => {
           data: {
             template: activeTemplate,
             content: '# Active content',
-            tags: [],
           },
         }),
       );
@@ -1310,7 +1298,7 @@ describe('TemplateEditorPage', () => {
       const templateNoCountry = { ...draftTemplate, country: null };
       mockUseTemplate.mockReturnValue(
         createTemplateQueryResult({
-          data: { template: templateNoCountry, content: '# Draft', tags: [] },
+          data: { template: templateNoCountry, content: '# Draft' },
         }),
       );
 
@@ -1329,7 +1317,6 @@ describe('TemplateEditorPage', () => {
           data: {
             template: { ...draftTemplate, country: null },
             content: '# Draft',
-            tags: [],
           },
         }),
       );
@@ -1353,7 +1340,7 @@ describe('TemplateEditorPage', () => {
       mockUseParams.mockReturnValue({ id: 't2' });
       mockUseTemplate.mockReturnValue(
         createTemplateQueryResult({
-          data: { template: activeTemplate, content: '# Active', tags: [] },
+          data: { template: activeTemplate, content: '# Active' },
         }),
       );
       mockUseCollaboration.mockReturnValue({
@@ -1395,7 +1382,7 @@ describe('TemplateEditorPage', () => {
       mockUseParams.mockReturnValue({ id: 't2' });
       mockUseTemplate.mockReturnValue(
         createTemplateQueryResult({
-          data: { template: activeTemplate, content: '# Active', tags: [] },
+          data: { template: activeTemplate, content: '# Active' },
         }),
       );
 
@@ -1408,7 +1395,7 @@ describe('TemplateEditorPage', () => {
       mockUseParams.mockReturnValue({ id: 't2' });
       mockUseTemplate.mockReturnValue(
         createTemplateQueryResult({
-          data: { template: activeTemplate, content: '# Active', tags: [] },
+          data: { template: activeTemplate, content: '# Active' },
         }),
       );
 
@@ -1447,7 +1434,7 @@ describe('TemplateEditorPage', () => {
       mockUseParams.mockReturnValue({ id: 't2' });
       mockUseTemplate.mockReturnValue(
         createTemplateQueryResult({
-          data: { template: activeTemplate, content: '# Active', tags: [] },
+          data: { template: activeTemplate, content: '# Active' },
         }),
       );
 
@@ -1460,7 +1447,7 @@ describe('TemplateEditorPage', () => {
       mockUseParams.mockReturnValue({ id: 't2' });
       mockUseTemplate.mockReturnValue(
         createTemplateQueryResult({
-          data: { template: activeTemplate, content: '# Active', tags: [] },
+          data: { template: activeTemplate, content: '# Active' },
         }),
       );
       mockUseCollaboration.mockReturnValue({
@@ -1486,7 +1473,6 @@ describe('TemplateEditorPage', () => {
           data: {
             template: draftTemplate,
             content: '# Draft content',
-            tags: [],
           },
         }),
       );
@@ -1540,7 +1526,6 @@ describe('TemplateEditorPage', () => {
           data: {
             template: draftTemplate,
             content: '# Draft content',
-            tags: ['employment', 'legal'],
           },
         }),
       );
@@ -1593,7 +1578,6 @@ describe('TemplateEditorPage', () => {
           data: {
             template: draftTemplate,
             content: '# Draft',
-            tags: [],
           },
         }),
       );
@@ -1637,7 +1621,7 @@ describe('TemplateEditorPage', () => {
       mockUseParams.mockReturnValue({ id: 't2' });
       mockUseTemplate.mockReturnValue(
         createTemplateQueryResult({
-          data: { template: activeTemplate, content: '# Active', tags: [] },
+          data: { template: activeTemplate, content: '# Active' },
         }),
       );
     });
@@ -1690,7 +1674,6 @@ describe('TemplateEditorPage', () => {
           data: {
             template: draftTemplate,
             content: '# Draft content',
-            tags: [],
           },
         }),
       );
@@ -1719,7 +1702,6 @@ describe('TemplateEditorPage', () => {
           data: {
             template: draftTemplate,
             content: '# Draft content',
-            tags: [],
           },
         }),
       );
@@ -1762,7 +1744,7 @@ describe('TemplateEditorPage', () => {
       mockUseParams.mockReturnValue({ id: 't3' });
       mockUseTemplate.mockReturnValue(
         createTemplateQueryResult({
-          data: { template: archivedTemplate, content: '# Archived', tags: [] },
+          data: { template: archivedTemplate, content: '# Archived' },
         }),
       );
     });
@@ -1785,7 +1767,6 @@ describe('TemplateEditorPage', () => {
           data: {
             template: draftTemplate,
             content: '# Draft content',
-            tags: [],
           },
         }),
       );
@@ -1901,7 +1882,6 @@ describe('TemplateEditorPage', () => {
           data: {
             template: draftTemplate,
             content: '# Draft content',
-            tags: ['employment', 'legal'],
           },
         }),
       );
@@ -1981,7 +1961,7 @@ describe('TemplateEditorPage', () => {
       mockUseParams.mockReturnValue({ id: 't3' });
       mockUseTemplate.mockReturnValue(
         createTemplateQueryResult({
-          data: { template: archivedTemplate, content: '# Archived', tags: [] },
+          data: { template: archivedTemplate, content: '# Archived' },
         }),
       );
     });
@@ -2084,7 +2064,7 @@ describe('TemplateEditorPage', () => {
       mockUseParams.mockReturnValue({ id: 't2' });
       mockUseTemplate.mockReturnValue(
         createTemplateQueryResult({
-          data: { template: activeTemplate, content: '# Active', tags: [] },
+          data: { template: activeTemplate, content: '# Active' },
         }),
       );
     });
@@ -2174,7 +2154,7 @@ describe('TemplateEditorPage', () => {
       mockUseParams.mockReturnValue({ id: 't2' });
       mockUseTemplate.mockReturnValue(
         createTemplateQueryResult({
-          data: { template: activeTemplate, content: '# Active', tags: [] },
+          data: { template: activeTemplate, content: '# Active' },
         }),
       );
     });
@@ -2190,7 +2170,7 @@ describe('TemplateEditorPage', () => {
       mockUseParams.mockReturnValue({ id: 't2' });
       mockUseTemplate.mockReturnValue(
         createTemplateQueryResult({
-          data: { template: activeTemplate, content: '# Active', tags: [] },
+          data: { template: activeTemplate, content: '# Active' },
         }),
       );
     });
@@ -2206,7 +2186,7 @@ describe('TemplateEditorPage', () => {
       mockUseParams.mockReturnValue({ id: 't1' });
       mockUseTemplate.mockReturnValue(
         createTemplateQueryResult({
-          data: { template: draftTemplate, content: '# Hello', tags: [] },
+          data: { template: draftTemplate, content: '# Hello' },
         }),
       );
 
@@ -2257,7 +2237,7 @@ describe('TemplateEditorPage', () => {
       mockUseParams.mockReturnValue({ id: 't1' });
       mockUseTemplate.mockReturnValue(
         createTemplateQueryResult({
-          data: { template: draftTemplate, content: '# Draft', tags: [] },
+          data: { template: draftTemplate, content: '# Draft' },
         }),
       );
 
@@ -2288,7 +2268,7 @@ describe('TemplateEditorPage', () => {
       mockUseParams.mockReturnValue({ id: 't1' });
       mockUseTemplate.mockReturnValue(
         createTemplateQueryResult({
-          data: { template: draftTemplate, content: '# Draft', tags: [] },
+          data: { template: draftTemplate, content: '# Draft' },
         }),
       );
 
@@ -2316,7 +2296,7 @@ describe('TemplateEditorPage', () => {
       mockUseParams.mockReturnValue({ id: 't1' });
       mockUseTemplate.mockReturnValue(
         createTemplateQueryResult({
-          data: { template: draftTemplate, content: '# Draft', tags: [] },
+          data: { template: draftTemplate, content: '# Draft' },
         }),
       );
 
@@ -2330,7 +2310,7 @@ describe('TemplateEditorPage', () => {
       mockUseParams.mockReturnValue({ id: 't1' });
       mockUseTemplate.mockReturnValue(
         createTemplateQueryResult({
-          data: { template: draftTemplate, content: '# Draft content', tags: [] },
+          data: { template: draftTemplate, content: '# Draft content' },
         }),
       );
     });
@@ -2430,7 +2410,7 @@ describe('TemplateEditorPage', () => {
       mockUseParams.mockReturnValue({ id: 't2' });
       mockUseTemplate.mockReturnValue(
         createTemplateQueryResult({
-          data: { template: activeTemplate, content: '# Active', tags: [] },
+          data: { template: activeTemplate, content: '# Active' },
         }),
       );
     });
@@ -2463,7 +2443,7 @@ describe('TemplateEditorPage', () => {
       mockUseParams.mockReturnValue({ id: 't2' });
       mockUseTemplate.mockReturnValue(
         createTemplateQueryResult({
-          data: { template: activeTemplate, content: '# Active', tags: [] },
+          data: { template: activeTemplate, content: '# Active' },
         }),
       );
     });
@@ -2489,7 +2469,7 @@ describe('TemplateEditorPage', () => {
       mockUseParams.mockReturnValue({ id: 't2' });
       mockUseTemplate.mockReturnValue(
         createTemplateQueryResult({
-          data: { template: activeTemplate, content: '# Active', tags: [] },
+          data: { template: activeTemplate, content: '# Active' },
         }),
       );
     });
@@ -2539,7 +2519,7 @@ describe('TemplateEditorPage', () => {
       mockUseParams.mockReturnValue({ id: 't1' });
       mockUseTemplate.mockReturnValue(
         createTemplateQueryResult({
-          data: { template: draftTemplate, content: '# Draft', tags: [] },
+          data: { template: draftTemplate, content: '# Draft' },
         }),
       );
     });
