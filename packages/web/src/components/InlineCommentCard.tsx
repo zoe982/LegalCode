@@ -1,7 +1,16 @@
 import { useState, useCallback } from 'react';
-import { Box, Typography, TextField, IconButton, Button, Avatar, Collapse } from '@mui/material';
+import {
+  Box,
+  Typography,
+  TextField,
+  IconButton,
+  Avatar,
+  Collapse,
+  Menu,
+  MenuItem,
+} from '@mui/material';
 import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
 import SendIcon from '@mui/icons-material/Send';
 import type { CommentThread, Comment } from '../types/comments.js';
 import { formatRelativeTime, getAvatarColor } from '../utils/commentHelpers.js';
@@ -19,12 +28,10 @@ export interface InlineCommentCardProps {
 function CommentRow({
   comment,
   authorIndex,
-  onDelete,
   isReply,
 }: {
   comment: Comment;
   authorIndex: number;
-  onDelete: (commentId: string) => void;
   isReply?: boolean;
 }) {
   const avatarSize = isReply === true ? 20 : 24;
@@ -75,23 +82,6 @@ function CommentRow({
         >
           {comment.content}
         </Typography>
-        <IconButton
-          size="small"
-          aria-label="delete comment"
-          onClick={() => {
-            onDelete(comment.id);
-          }}
-          sx={{
-            opacity: 0,
-            transition: 'opacity 0.2s',
-            '.MuiBox-root:hover > &, .MuiBox-root:hover > .MuiBox-root > &': { opacity: 1 },
-            '&:focus-visible': { opacity: 1 },
-            ml: 0.5,
-            flexShrink: 0,
-          }}
-        >
-          <DeleteOutlineIcon sx={{ fontSize: 14 }} />
-        </IconButton>
       </Box>
     </Box>
   );
@@ -109,6 +99,7 @@ export function InlineCommentCard({
   const [replyText, setReplyText] = useState('');
   const [replyFocused, setReplyFocused] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
 
   const handleSendReply = useCallback(() => {
     if (replyText.trim() === '') return;
@@ -116,6 +107,24 @@ export function InlineCommentCard({
     setReplyText('');
     setReplyFocused(false);
   }, [replyText, onReply, thread.comment.id]);
+
+  const handleMenuOpen = useCallback((event: React.MouseEvent<HTMLElement>) => {
+    setMenuAnchor(event.currentTarget);
+  }, []);
+
+  const handleMenuClose = useCallback(() => {
+    setMenuAnchor(null);
+  }, []);
+
+  const handleDelete = useCallback(() => {
+    onDelete(thread.comment.id);
+    setMenuAnchor(null);
+  }, [onDelete, thread.comment.id]);
+
+  const handleEdit = useCallback(() => {
+    // Edit functionality — close menu for now
+    setMenuAnchor(null);
+  }, []);
 
   // Resolved thread: collapsed view
   if (thread.comment.resolved) {
@@ -127,8 +136,8 @@ export function InlineCommentCard({
         sx={{
           p: 1.5,
           borderRadius: '8px',
-          backgroundColor: '#F9F9FB',
-          borderLeft: '2px solid var(--comment-highlight, #F5A623)',
+          backgroundColor: '#FFFFFF',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.08)',
           opacity: 0.7,
           cursor: 'pointer',
           width: '100%',
@@ -146,7 +155,7 @@ export function InlineCommentCard({
         </Typography>
         <Collapse in={expanded}>
           <Box sx={{ mt: 1 }}>
-            <CommentRow comment={thread.comment} authorIndex={threadIndex} onDelete={onDelete} />
+            <CommentRow comment={thread.comment} authorIndex={threadIndex} />
           </Box>
         </Collapse>
       </Box>
@@ -162,70 +171,92 @@ export function InlineCommentCard({
       sx={{
         p: 1.5,
         borderRadius: '8px',
-        backgroundColor: isActive === true ? 'rgba(128, 39, 255, 0.04)' : '#F9F9FB',
-        borderLeft:
+        backgroundColor: isActive === true ? 'rgba(128, 39, 255, 0.04)' : '#FFFFFF',
+        boxShadow:
           isActive === true
-            ? '2px solid var(--comment-active, #8027FF)'
-            : '2px solid var(--comment-highlight, #F5A623)',
+            ? '0 4px 12px rgba(0,0,0,0.15), 0 2px 4px rgba(0,0,0,0.1)'
+            : '0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.08)',
         width: '100%',
         boxSizing: 'border-box',
       }}
     >
-      {/* Anchor quote */}
-      {thread.comment.anchorText != null && thread.comment.anchorText !== '' && (
+      {/* Header row: Avatar + author + timestamp + resolve + more menu */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.5 }}>
+        <Avatar
+          sx={{
+            width: 24,
+            height: 24,
+            fontSize: '0.75rem',
+            bgcolor: getAvatarColor(threadIndex),
+          }}
+        >
+          {thread.comment.authorName.charAt(0).toUpperCase()}
+        </Avatar>
+        <Typography
+          sx={{
+            fontSize: '0.8125rem',
+            fontWeight: 600,
+            color: '#12111A',
+            fontFamily: '"DM Sans", sans-serif',
+          }}
+        >
+          {thread.comment.authorName}
+        </Typography>
         <Typography
           sx={{
             fontSize: '0.75rem',
-            fontStyle: 'italic',
-            color: '#6B6D82',
+            color: '#9B9DB0',
             fontFamily: '"DM Sans", sans-serif',
-            borderLeft: '2px solid var(--comment-highlight, #F5A623)',
-            pl: 1,
-            mb: 1,
-            display: '-webkit-box',
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: 'vertical',
-            overflow: 'hidden',
+            flex: 1,
           }}
         >
-          {thread.comment.anchorText}
+          {formatRelativeTime(thread.comment.createdAt)}
         </Typography>
-      )}
-
-      {/* Parent comment */}
-      <CommentRow comment={thread.comment} authorIndex={threadIndex} onDelete={onDelete} />
-
-      {/* Resolve button */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 4, mt: 0.5, mb: 0.5 }}>
-        <Button
+        <IconButton
           size="small"
-          startIcon={<CheckRoundedIcon sx={{ fontSize: 14 }} />}
+          aria-label="resolve"
           onClick={() => {
             onResolve(thread.comment.id);
           }}
-          aria-label="resolve"
+          sx={{ color: '#6B6D82' }}
+        >
+          <CheckRoundedIcon sx={{ fontSize: 16 }} />
+        </IconButton>
+        <IconButton
+          size="small"
+          aria-label="more options"
+          onClick={handleMenuOpen}
+          sx={{ color: '#6B6D82' }}
+        >
+          <MoreVertIcon sx={{ fontSize: 16 }} />
+        </IconButton>
+        <Menu anchorEl={menuAnchor} open={menuAnchor != null} onClose={handleMenuClose}>
+          <MenuItem onClick={handleEdit}>Edit</MenuItem>
+          <MenuItem onClick={handleDelete}>Delete</MenuItem>
+        </Menu>
+      </Box>
+
+      {/* Comment content */}
+      <Box sx={{ pl: 4 }}>
+        <Typography
           sx={{
-            fontSize: '0.75rem',
-            color: '#6B6D82',
+            fontSize: '0.875rem',
+            color: '#37354A',
             fontFamily: '"DM Sans", sans-serif',
-            textTransform: 'none',
-            minWidth: 'auto',
-            p: '2px 8px',
           }}
         >
-          Resolve
-        </Button>
+          {thread.comment.content}
+        </Typography>
       </Box>
 
       {/* Replies */}
       {thread.replies.length > 0 && (
-        <Box sx={{ pl: 4 }}>
+        <Box sx={{ pl: 4, mt: 0.5 }}>
           {thread.replies.map((reply, rIdx) => (
             <CommentRow
               key={reply.id}
               comment={reply}
               authorIndex={threadIndex + rIdx + 1}
-              onDelete={onDelete}
               isReply
             />
           ))}

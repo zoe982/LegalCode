@@ -1,7 +1,7 @@
 /// <reference types="@testing-library/jest-dom/vitest" />
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/unbound-method */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor, act } from '@testing-library/react';
+import { render, screen, waitFor, act, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -59,20 +59,28 @@ vi.mock('../../src/components/MarkdownEditor.js', () => ({
     onChange,
     readOnly,
     onSelectionChange,
+    onEditorReady,
   }: {
     defaultValue?: string;
     onChange?: (md: string) => void;
     readOnly?: boolean;
     onSelectionChange?: (...args: unknown[]) => void;
-  }) => (
-    <textarea
-      data-testid="markdown-editor"
-      data-has-selection-change={String(onSelectionChange != null)}
-      defaultValue={defaultValue}
-      onChange={(e) => onChange?.(e.target.value)}
-      readOnly={readOnly}
-    />
-  ),
+    onEditorReady?: (crepe: unknown) => void;
+  }) => {
+    // Call onEditorReady with a mock crepe if provided
+    if (onEditorReady) {
+      onEditorReady({ editor: { action: vi.fn() } });
+    }
+    return (
+      <textarea
+        data-testid="markdown-editor"
+        data-has-selection-change={String(onSelectionChange != null)}
+        defaultValue={defaultValue}
+        onChange={(e) => onChange?.(e.target.value)}
+        readOnly={readOnly}
+      />
+    );
+  },
 }));
 
 const mockGetVersion = vi.fn();
@@ -179,10 +187,19 @@ vi.mock('../../src/hooks/useAutosave.js', () => ({
 }));
 
 vi.mock('../../src/components/EditorToolbar.js', () => ({
-  EditorToolbar: ({ mode, wordCount }: { mode: string; wordCount: number }) => (
+  EditorToolbar: ({
+    mode,
+    wordCount,
+    crepeRef,
+  }: {
+    mode: string;
+    wordCount: number;
+    crepeRef?: unknown;
+  }) => (
     <div data-testid="editor-toolbar">
       <span data-testid="editor-mode">{mode}</span>
       <span data-testid="word-count">{String(wordCount)} words</span>
+      {crepeRef != null && <span data-testid="toolbar-has-crepe-ref" />}
     </div>
   ),
 }));
@@ -302,13 +319,16 @@ vi.mock('../../src/components/NewCommentCard.js', () => ({
     anchorText,
     onSubmit,
     onCancel,
+    top,
   }: {
     anchorText: string;
     onSubmit: (content: string) => void;
     onCancel: () => void;
+    top?: number;
   }) => (
     <div data-testid="new-comment-card">
       <span data-testid="ncc-anchor">{anchorText}</span>
+      {top != null && <span data-testid="ncc-top">{String(top)}</span>}
       <button
         data-testid="ncc-submit"
         onClick={() => {
@@ -2665,6 +2685,14 @@ describe('TemplateEditorPage', () => {
       act(() => {
         (latestDocumentHeaderProps.onTitleChange as (t: string) => void)('My New Template');
       });
+      // Set category
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onCategoryChange as (c: string) => void)('contracts');
+      });
+      // Set content via MarkdownEditor
+      const editor = screen.getByTestId('markdown-editor');
+      fireEvent.change(editor, { target: { value: '# Test content' } });
 
       // Advance past the 1.5s debounce
       await act(async () => {
@@ -2691,6 +2719,12 @@ describe('TemplateEditorPage', () => {
       act(() => {
         (latestDocumentHeaderProps.onTitleChange as (t: string) => void)('Auto Draft');
       });
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onCategoryChange as (c: string) => void)('contracts');
+      });
+      const editor = screen.getByTestId('markdown-editor');
+      fireEvent.change(editor, { target: { value: '# Test content' } });
 
       await act(async () => {
         await vi.advanceTimersByTimeAsync(1600);
@@ -2710,6 +2744,12 @@ describe('TemplateEditorPage', () => {
       act(() => {
         (latestDocumentHeaderProps.onTitleChange as (t: string) => void)('Retry Draft');
       });
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onCategoryChange as (c: string) => void)('contracts');
+      });
+      const editor = screen.getByTestId('markdown-editor');
+      fireEvent.change(editor, { target: { value: '# Test content' } });
 
       act(() => {
         vi.advanceTimersByTime(1600);
@@ -2731,6 +2771,78 @@ describe('TemplateEditorPage', () => {
       expect(mockCreateMutateAsync).not.toHaveBeenCalled();
     });
 
+    it('does not auto-create when category is empty', async () => {
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      // Set title but leave category empty (default)
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onTitleChange as (t: string) => void)('My Template');
+      });
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1600);
+      });
+
+      expect(mockCreateMutateAsync).not.toHaveBeenCalled();
+    });
+
+    it('does not auto-create when content is empty', async () => {
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      // Set title and category but leave content empty
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onTitleChange as (t: string) => void)('My Template');
+      });
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onCategoryChange as (c: string) => void)('contracts');
+      });
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1600);
+      });
+
+      expect(mockCreateMutateAsync).not.toHaveBeenCalled();
+    });
+
+    it('auto-creates when all required fields are filled', async () => {
+      mockCreateMutateAsync.mockResolvedValue({
+        template: { ...draftTemplate, id: 'auto-full' },
+      });
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      // Set title
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onTitleChange as (t: string) => void)('Full Template');
+      });
+      // Set category
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onCategoryChange as (c: string) => void)('contracts');
+      });
+      // Set content via MarkdownEditor
+      const editor = screen.getByTestId('markdown-editor');
+      fireEvent.change(editor, { target: { value: '# Content here' } });
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1600);
+      });
+
+      await waitFor(() => {
+        expect(mockCreateMutateAsync).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title: 'Full Template',
+            category: 'contracts',
+            content: '# Content here',
+          }),
+        );
+      });
+    });
+
     it('debounces and only creates once', async () => {
       mockCreateMutateAsync.mockResolvedValue({
         template: { ...draftTemplate, id: 'auto-3' },
@@ -2744,6 +2856,14 @@ describe('TemplateEditorPage', () => {
       act(() => {
         (latestDocumentHeaderProps.onTitleChange as (t: string) => void)('First');
       });
+
+      // Set category and content for the guard
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onCategoryChange as (c: string) => void)('contracts');
+      });
+      const editor = screen.getByTestId('markdown-editor');
+      fireEvent.change(editor, { target: { value: '# Test content' } });
 
       // Advance part way (not enough for debounce)
       act(() => {
@@ -2796,6 +2916,25 @@ describe('TemplateEditorPage', () => {
 
       expect(screen.getByTestId('new-comment-card')).toBeInTheDocument();
       expect(screen.getByTestId('ncc-anchor')).toHaveTextContent('selected text');
+    });
+
+    it('passes top position to NewCommentCard when buttonPosition is available', () => {
+      mockUseEditorComments.mockReturnValue({
+        selectionInfo: {
+          hasSelection: true,
+          text: 'hello',
+          buttonPosition: { top: 150, left: 200 },
+        },
+        pendingAnchor: { anchorText: 'selected text', anchorFrom: '10', anchorTo: '20' },
+        startComment: mockStartComment,
+        cancelComment: mockCancelComment,
+        onSelectionChange: vi.fn(),
+      });
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      expect(screen.getByTestId('new-comment-card')).toBeInTheDocument();
+      expect(screen.getByTestId('ncc-top')).toHaveTextContent('150');
     });
 
     it('does not render NewCommentCard when no pendingAnchor', () => {
@@ -2865,6 +3004,8 @@ describe('TemplateEditorPage', () => {
 
       expect(screen.getByTestId('new-comment-card')).toBeInTheDocument();
       expect(screen.getByTestId('ncc-anchor')).toHaveTextContent('Draft content');
+      // Verify top position is passed from selectionRect
+      expect(screen.getByTestId('ncc-top')).toHaveTextContent('100');
     });
 
     it('review mode submit calls createComment and clears review pending anchor', async () => {

@@ -396,6 +396,48 @@ describe('POST /templates', () => {
     expect(parsed.success).toBe(true);
   });
 
+  it('returns 500 when createTemplate returns db_error', async () => {
+    mockCreateTemplate.mockResolvedValueOnce({ error: 'db_error' });
+
+    const app = await importAndCreateApp();
+    const token = await adminToken();
+    const res = await app.request('/templates', {
+      method: 'POST',
+      headers: {
+        Cookie: `__Host-auth=${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        title: 'Test',
+        category: 'Legal',
+        content: '# Test',
+      }),
+    });
+    expect(res.status).toBe(500);
+    const body: { error: string } = await res.json();
+    expect(body.error).toBe('Failed to create template');
+  });
+
+  it('returns 500 when createTemplate throws unexpectedly', async () => {
+    mockCreateTemplate.mockRejectedValueOnce(new Error('unexpected'));
+
+    const app = await importAndCreateApp();
+    const token = await adminToken();
+    const res = await app.request('/templates', {
+      method: 'POST',
+      headers: {
+        Cookie: `__Host-auth=${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        title: 'Test',
+        category: 'Legal',
+        content: '# Test',
+      }),
+    });
+    expect(res.status).toBe(500);
+  });
+
   it('returns 201 on success for editor', async () => {
     mockCreateTemplate.mockResolvedValueOnce({
       template: { id: 't-new', title: 'NDA', slug: 'nda-abc123', status: 'draft' },

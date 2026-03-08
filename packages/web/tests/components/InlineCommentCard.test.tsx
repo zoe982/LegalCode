@@ -149,7 +149,7 @@ describe('InlineCommentCard', () => {
     expect(onReply).toHaveBeenCalledWith('c1', 'My reply');
   });
 
-  it('calls onResolve when resolve button is clicked', async () => {
+  it('calls onResolve when resolve icon button is clicked', async () => {
     const user = userEvent.setup();
     const onResolve = vi.fn();
     const thread = createThread();
@@ -164,7 +164,7 @@ describe('InlineCommentCard', () => {
     expect(onResolve).toHaveBeenCalledWith('c1');
   });
 
-  it('calls onDelete when delete button is clicked', async () => {
+  it('opens three-dot menu with Edit and Delete items', async () => {
     const user = userEvent.setup();
     const onDelete = vi.fn();
     const thread = createThread();
@@ -173,8 +173,31 @@ describe('InlineCommentCard', () => {
       wrapper: Wrapper,
     });
 
-    const deleteBtn = screen.getByRole('button', { name: /delete comment/i });
-    await user.click(deleteBtn);
+    // Click the MoreVert (three-dot) menu button
+    const menuBtn = screen.getByRole('button', { name: /more options/i });
+    await user.click(menuBtn);
+
+    // Menu should open with Edit and Delete items
+    expect(screen.getByRole('menuitem', { name: /edit/i })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: /delete/i })).toBeInTheDocument();
+  });
+
+  it('calls onDelete when Delete menu item is clicked', async () => {
+    const user = userEvent.setup();
+    const onDelete = vi.fn();
+    const thread = createThread();
+
+    render(<InlineCommentCard thread={thread} {...defaultProps} onDelete={onDelete} />, {
+      wrapper: Wrapper,
+    });
+
+    // Open menu
+    const menuBtn = screen.getByRole('button', { name: /more options/i });
+    await user.click(menuBtn);
+
+    // Click Delete
+    const deleteItem = screen.getByRole('menuitem', { name: /delete/i });
+    await user.click(deleteItem);
 
     expect(onDelete).toHaveBeenCalledWith('c1');
   });
@@ -206,12 +229,13 @@ describe('InlineCommentCard', () => {
     expect(screen.queryByRole('button', { name: /send/i })).not.toBeInTheDocument();
   });
 
-  it('shows anchor text quote when available', () => {
+  it('does not show anchor text quote (removed in Google Docs style)', () => {
     const thread = createThread({ anchorText: 'highlighted passage' });
 
     render(<InlineCommentCard thread={thread} {...defaultProps} />, { wrapper: Wrapper });
 
-    expect(screen.getByText('highlighted passage')).toBeInTheDocument();
+    // Anchor quote block removed — should not render anchorText
+    expect(screen.queryByText('highlighted passage')).not.toBeInTheDocument();
   });
 
   it('does not clear reply text on failed send (empty text)', async () => {

@@ -93,6 +93,9 @@ templateRoutes.post('/', requireRole('admin', 'editor'), async (c) => {
   const db = getDb(c.env.DB);
   const user = c.get('user');
   const result = await createTemplate(db, parsed.data, user.id);
+  if ('error' in result) {
+    return c.json({ error: 'Failed to create template' }, 500);
+  }
   c.executionCtx.waitUntil(
     logAudit(db, {
       action: 'template.create',

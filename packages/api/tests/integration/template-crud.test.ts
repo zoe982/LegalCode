@@ -14,6 +14,12 @@ import {
 } from '../../src/services/template.js';
 import { createTestDb, clearAllData } from './helpers.js';
 
+/** Asserts createTemplate succeeded and narrows the type. */
+function expectSuccess(result: Awaited<ReturnType<typeof createTemplate>>) {
+  if ('error' in result) throw new Error(`Expected success but got error: ${result.error}`);
+  return result;
+}
+
 const USER_ID = 'test-user-1';
 const ADMIN_ID = 'test-admin-1';
 
@@ -35,14 +41,16 @@ describe('template CRUD integration (real SQLite)', () => {
 
   describe('full CRUD lifecycle', () => {
     it('creates a template with status draft and version 1', async () => {
-      const result = await createTemplate(
-        db,
-        {
-          title: 'Employment Contract',
-          category: 'contracts',
-          content: '# Employment\n\nContent here.',
-        },
-        USER_ID,
+      const result = expectSuccess(
+        await createTemplate(
+          db,
+          {
+            title: 'Employment Contract',
+            category: 'contracts',
+            content: '# Employment\n\nContent here.',
+          },
+          USER_ID,
+        ),
       );
 
       expect(result.template.status).toBe('draft');
@@ -55,15 +63,17 @@ describe('template CRUD integration (real SQLite)', () => {
     });
 
     it('retrieves template with content and tags via getTemplate', async () => {
-      const { template } = await createTemplate(
-        db,
-        {
-          title: 'NDA Template',
-          category: 'contracts',
-          content: '# NDA\n\nNon-disclosure agreement.',
-          tags: ['nda', 'confidential'],
-        },
-        USER_ID,
+      const { template } = expectSuccess(
+        await createTemplate(
+          db,
+          {
+            title: 'NDA Template',
+            category: 'contracts',
+            content: '# NDA\n\nNon-disclosure agreement.',
+            tags: ['nda', 'confidential'],
+          },
+          USER_ID,
+        ),
       );
 
       const result = await getTemplate(db, template.id);
@@ -76,10 +86,12 @@ describe('template CRUD integration (real SQLite)', () => {
     });
 
     it('updates template creating version 2 while preserving version 1', async () => {
-      const { template } = await createTemplate(
-        db,
-        { title: 'Original', category: 'contracts', content: '# V1 content' },
-        USER_ID,
+      const { template } = expectSuccess(
+        await createTemplate(
+          db,
+          { title: 'Original', category: 'contracts', content: '# V1 content' },
+          USER_ID,
+        ),
       );
 
       const updateResult = await updateTemplate(
@@ -119,10 +131,12 @@ describe('template CRUD integration (real SQLite)', () => {
     });
 
     it('publishes a draft template to active status', async () => {
-      const { template } = await createTemplate(
-        db,
-        { title: 'To Publish', category: 'contracts', content: '# Content' },
-        USER_ID,
+      const { template } = expectSuccess(
+        await createTemplate(
+          db,
+          { title: 'To Publish', category: 'contracts', content: '# Content' },
+          USER_ID,
+        ),
       );
 
       const result = await publishTemplate(db, template.id, USER_ID);
@@ -138,10 +152,12 @@ describe('template CRUD integration (real SQLite)', () => {
     });
 
     it('archives a template', async () => {
-      const { template } = await createTemplate(
-        db,
-        { title: 'To Archive', category: 'contracts', content: '# Content' },
-        USER_ID,
+      const { template } = expectSuccess(
+        await createTemplate(
+          db,
+          { title: 'To Archive', category: 'contracts', content: '# Content' },
+          USER_ID,
+        ),
       );
 
       const result = await archiveTemplate(db, template.id, USER_ID);
@@ -157,10 +173,12 @@ describe('template CRUD integration (real SQLite)', () => {
     });
 
     it('rejects update on archived template', async () => {
-      const { template } = await createTemplate(
-        db,
-        { title: 'Archived Doc', category: 'contracts', content: '# Content' },
-        USER_ID,
+      const { template } = expectSuccess(
+        await createTemplate(
+          db,
+          { title: 'Archived Doc', category: 'contracts', content: '# Content' },
+          USER_ID,
+        ),
       );
 
       await archiveTemplate(db, template.id, USER_ID);
@@ -171,10 +189,12 @@ describe('template CRUD integration (real SQLite)', () => {
     });
 
     it('rejects publish on archived template', async () => {
-      const { template } = await createTemplate(
-        db,
-        { title: 'Archived Doc', category: 'contracts', content: '# Content' },
-        USER_ID,
+      const { template } = expectSuccess(
+        await createTemplate(
+          db,
+          { title: 'Archived Doc', category: 'contracts', content: '# Content' },
+          USER_ID,
+        ),
       );
 
       await archiveTemplate(db, template.id, USER_ID);
@@ -185,10 +205,12 @@ describe('template CRUD integration (real SQLite)', () => {
     });
 
     it('downloads template with correct filename and content', async () => {
-      const { template } = await createTemplate(
-        db,
-        { title: 'Download Me', category: 'contracts', content: '# Download content' },
-        USER_ID,
+      const { template } = expectSuccess(
+        await createTemplate(
+          db,
+          { title: 'Download Me', category: 'contracts', content: '# Download content' },
+          USER_ID,
+        ),
       );
 
       const result = await downloadTemplate(db, template.id);
@@ -203,10 +225,12 @@ describe('template CRUD integration (real SQLite)', () => {
 
   describe('state transitions', () => {
     it('allows draft -> active (publish)', async () => {
-      const { template } = await createTemplate(
-        db,
-        { title: 'Draft', category: 'contracts', content: '# D' },
-        USER_ID,
+      const { template } = expectSuccess(
+        await createTemplate(
+          db,
+          { title: 'Draft', category: 'contracts', content: '# D' },
+          USER_ID,
+        ),
       );
 
       const result = await publishTemplate(db, template.id, USER_ID);
@@ -217,10 +241,12 @@ describe('template CRUD integration (real SQLite)', () => {
     });
 
     it('allows draft -> archived (archive/discard)', async () => {
-      const { template } = await createTemplate(
-        db,
-        { title: 'Draft', category: 'contracts', content: '# D' },
-        USER_ID,
+      const { template } = expectSuccess(
+        await createTemplate(
+          db,
+          { title: 'Draft', category: 'contracts', content: '# D' },
+          USER_ID,
+        ),
       );
 
       const result = await archiveTemplate(db, template.id, USER_ID);
@@ -231,10 +257,12 @@ describe('template CRUD integration (real SQLite)', () => {
     });
 
     it('allows active -> archived (archive)', async () => {
-      const { template } = await createTemplate(
-        db,
-        { title: 'Active', category: 'contracts', content: '# A' },
-        USER_ID,
+      const { template } = expectSuccess(
+        await createTemplate(
+          db,
+          { title: 'Active', category: 'contracts', content: '# A' },
+          USER_ID,
+        ),
       );
 
       await publishTemplate(db, template.id, USER_ID);
@@ -247,10 +275,12 @@ describe('template CRUD integration (real SQLite)', () => {
     });
 
     it('rejects archived -> active (publish)', async () => {
-      const { template } = await createTemplate(
-        db,
-        { title: 'Archived', category: 'contracts', content: '# A' },
-        USER_ID,
+      const { template } = expectSuccess(
+        await createTemplate(
+          db,
+          { title: 'Archived', category: 'contracts', content: '# A' },
+          USER_ID,
+        ),
       );
 
       await archiveTemplate(db, template.id, USER_ID);
@@ -260,10 +290,12 @@ describe('template CRUD integration (real SQLite)', () => {
     });
 
     it('rejects publish on already active template', async () => {
-      const { template } = await createTemplate(
-        db,
-        { title: 'Active', category: 'contracts', content: '# A' },
-        USER_ID,
+      const { template } = expectSuccess(
+        await createTemplate(
+          db,
+          { title: 'Active', category: 'contracts', content: '# A' },
+          USER_ID,
+        ),
       );
 
       await publishTemplate(db, template.id, USER_ID);
@@ -273,10 +305,12 @@ describe('template CRUD integration (real SQLite)', () => {
     });
 
     it('rejects archive on already archived template', async () => {
-      const { template } = await createTemplate(
-        db,
-        { title: 'Archived', category: 'contracts', content: '# A' },
-        USER_ID,
+      const { template } = expectSuccess(
+        await createTemplate(
+          db,
+          { title: 'Archived', category: 'contracts', content: '# A' },
+          USER_ID,
+        ),
       );
 
       await archiveTemplate(db, template.id, USER_ID);
@@ -286,10 +320,12 @@ describe('template CRUD integration (real SQLite)', () => {
     });
 
     it('rejects update on archived template', async () => {
-      const { template } = await createTemplate(
-        db,
-        { title: 'Archived', category: 'contracts', content: '# A' },
-        USER_ID,
+      const { template } = expectSuccess(
+        await createTemplate(
+          db,
+          { title: 'Archived', category: 'contracts', content: '# A' },
+          USER_ID,
+        ),
       );
 
       await archiveTemplate(db, template.id, USER_ID);
@@ -303,15 +339,17 @@ describe('template CRUD integration (real SQLite)', () => {
 
   describe('tag management', () => {
     it('creates tags when creating template with tags', async () => {
-      const result = await createTemplate(
-        db,
-        {
-          title: 'Tagged',
-          category: 'contracts',
-          content: '# Tagged',
-          tags: ['employment', 'compliance'],
-        },
-        USER_ID,
+      const result = expectSuccess(
+        await createTemplate(
+          db,
+          {
+            title: 'Tagged',
+            category: 'contracts',
+            content: '# Tagged',
+            tags: ['employment', 'compliance'],
+          },
+          USER_ID,
+        ),
       );
 
       expect(result.tags).toEqual(expect.arrayContaining(['employment', 'compliance']));
@@ -323,15 +361,17 @@ describe('template CRUD integration (real SQLite)', () => {
     });
 
     it('updates template tags — old tags removed, new tags added', async () => {
-      const { template } = await createTemplate(
-        db,
-        {
-          title: 'Tag Update',
-          category: 'contracts',
-          content: '# Body',
-          tags: ['old-tag-1', 'old-tag-2'],
-        },
-        USER_ID,
+      const { template } = expectSuccess(
+        await createTemplate(
+          db,
+          {
+            title: 'Tag Update',
+            category: 'contracts',
+            content: '# Body',
+            tags: ['old-tag-1', 'old-tag-2'],
+          },
+          USER_ID,
+        ),
       );
 
       await updateTemplate(
@@ -379,15 +419,17 @@ describe('template CRUD integration (real SQLite)', () => {
     });
 
     it('clears templateTags when updating to empty tags array', async () => {
-      const { template } = await createTemplate(
-        db,
-        {
-          title: 'Remove Tags',
-          category: 'contracts',
-          content: '# Body',
-          tags: ['tag-to-remove'],
-        },
-        USER_ID,
+      const { template } = expectSuccess(
+        await createTemplate(
+          db,
+          {
+            title: 'Remove Tags',
+            category: 'contracts',
+            content: '# Body',
+            tags: ['tag-to-remove'],
+          },
+          USER_ID,
+        ),
       );
 
       await updateTemplate(db, template.id, { content: '# Updated', tags: [] }, USER_ID);
@@ -544,10 +586,12 @@ describe('template CRUD integration (real SQLite)', () => {
 
   describe('version history', () => {
     it('tracks multiple versions with correct content', async () => {
-      const { template } = await createTemplate(
-        db,
-        { title: 'Versioned', category: 'contracts', content: '# Version 1' },
-        USER_ID,
+      const { template } = expectSuccess(
+        await createTemplate(
+          db,
+          { title: 'Versioned', category: 'contracts', content: '# Version 1' },
+          USER_ID,
+        ),
       );
 
       await updateTemplate(
@@ -573,10 +617,12 @@ describe('template CRUD integration (real SQLite)', () => {
     });
 
     it('returns specific version content via getTemplateVersion', async () => {
-      const { template } = await createTemplate(
-        db,
-        { title: 'Versioned', category: 'contracts', content: '# V1 content' },
-        USER_ID,
+      const { template } = expectSuccess(
+        await createTemplate(
+          db,
+          { title: 'Versioned', category: 'contracts', content: '# V1 content' },
+          USER_ID,
+        ),
       );
 
       await updateTemplate(
@@ -596,10 +642,12 @@ describe('template CRUD integration (real SQLite)', () => {
     });
 
     it('returns null for nonexistent version', async () => {
-      const { template } = await createTemplate(
-        db,
-        { title: 'One Version', category: 'contracts', content: '# Only' },
-        USER_ID,
+      const { template } = expectSuccess(
+        await createTemplate(
+          db,
+          { title: 'One Version', category: 'contracts', content: '# Only' },
+          USER_ID,
+        ),
       );
 
       const result = await getTemplateVersion(db, template.id, 99);
@@ -607,10 +655,12 @@ describe('template CRUD integration (real SQLite)', () => {
     });
 
     it('preserves content from previous version when only metadata changes', async () => {
-      const { template } = await createTemplate(
-        db,
-        { title: 'Original Title', category: 'contracts', content: '# Preserved content' },
-        USER_ID,
+      const { template } = expectSuccess(
+        await createTemplate(
+          db,
+          { title: 'Original Title', category: 'contracts', content: '# Preserved content' },
+          USER_ID,
+        ),
       );
 
       await updateTemplate(db, template.id, { title: 'New Title' }, USER_ID);
@@ -638,10 +688,12 @@ describe('template CRUD integration (real SQLite)', () => {
     }
 
     it('logs create action', async () => {
-      const { template } = await createTemplate(
-        db,
-        { title: 'Audited', category: 'contracts', content: '# Audit' },
-        USER_ID,
+      const { template } = expectSuccess(
+        await createTemplate(
+          db,
+          { title: 'Audited', category: 'contracts', content: '# Audit' },
+          USER_ID,
+        ),
       );
 
       const entries = getAuditEntries(template.id);
@@ -653,10 +705,12 @@ describe('template CRUD integration (real SQLite)', () => {
     });
 
     it('logs update action', async () => {
-      const { template } = await createTemplate(
-        db,
-        { title: 'Audited', category: 'contracts', content: '# Audit' },
-        USER_ID,
+      const { template } = expectSuccess(
+        await createTemplate(
+          db,
+          { title: 'Audited', category: 'contracts', content: '# Audit' },
+          USER_ID,
+        ),
       );
 
       await updateTemplate(db, template.id, { title: 'Updated' }, ADMIN_ID);
@@ -668,10 +722,12 @@ describe('template CRUD integration (real SQLite)', () => {
     });
 
     it('logs publish action', async () => {
-      const { template } = await createTemplate(
-        db,
-        { title: 'Audited', category: 'contracts', content: '# Audit' },
-        USER_ID,
+      const { template } = expectSuccess(
+        await createTemplate(
+          db,
+          { title: 'Audited', category: 'contracts', content: '# Audit' },
+          USER_ID,
+        ),
       );
 
       await publishTemplate(db, template.id, ADMIN_ID);
@@ -683,10 +739,12 @@ describe('template CRUD integration (real SQLite)', () => {
     });
 
     it('logs archive action', async () => {
-      const { template } = await createTemplate(
-        db,
-        { title: 'Audited', category: 'contracts', content: '# Audit' },
-        USER_ID,
+      const { template } = expectSuccess(
+        await createTemplate(
+          db,
+          { title: 'Audited', category: 'contracts', content: '# Audit' },
+          USER_ID,
+        ),
       );
 
       await archiveTemplate(db, template.id, USER_ID);
@@ -697,10 +755,12 @@ describe('template CRUD integration (real SQLite)', () => {
     });
 
     it('captures full lifecycle audit trail', async () => {
-      const { template } = await createTemplate(
-        db,
-        { title: 'Full Lifecycle', category: 'contracts', content: '# Body' },
-        USER_ID,
+      const { template } = expectSuccess(
+        await createTemplate(
+          db,
+          { title: 'Full Lifecycle', category: 'contracts', content: '# Body' },
+          USER_ID,
+        ),
       );
 
       await updateTemplate(db, template.id, { content: '# Updated' }, USER_ID);
@@ -743,10 +803,12 @@ describe('template CRUD integration (real SQLite)', () => {
     });
 
     it('handles template with null country', async () => {
-      const { template } = await createTemplate(
-        db,
-        { title: 'No Country', category: 'contracts', content: '# Body' },
-        USER_ID,
+      const { template } = expectSuccess(
+        await createTemplate(
+          db,
+          { title: 'No Country', category: 'contracts', content: '# Body' },
+          USER_ID,
+        ),
       );
 
       const fetched = await getTemplate(db, template.id);
@@ -754,10 +816,12 @@ describe('template CRUD integration (real SQLite)', () => {
     });
 
     it('handles country set then cleared to null via update', async () => {
-      const { template } = await createTemplate(
-        db,
-        { title: 'Has Country', category: 'contracts', content: '# Body', country: 'US' },
-        USER_ID,
+      const { template } = expectSuccess(
+        await createTemplate(
+          db,
+          { title: 'Has Country', category: 'contracts', content: '# Body', country: 'US' },
+          USER_ID,
+        ),
       );
 
       await updateTemplate(db, template.id, { country: null, content: '# Body' }, USER_ID);

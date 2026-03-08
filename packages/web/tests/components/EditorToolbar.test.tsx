@@ -4,7 +4,35 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ThemeProvider } from '@mui/material/styles';
 import { theme } from '../../src/theme/index.js';
+
+// Mock milkdown imports used by EditorToolbar
+vi.mock('@milkdown/crepe', () => ({
+  Crepe: vi.fn(),
+}));
+
+vi.mock('@milkdown/kit/preset/commonmark', () => ({
+  toggleStrongCommand: { key: 'toggleStrong' },
+  toggleEmphasisCommand: { key: 'toggleEmphasis' },
+  wrapInHeadingCommand: { key: 'wrapInHeading' },
+  wrapInBulletListCommand: { key: 'wrapInBulletList' },
+  wrapInOrderedListCommand: { key: 'wrapInOrderedList' },
+  insertHrCommand: { key: 'insertHr' },
+}));
+
+vi.mock('@milkdown/kit/utils', () => ({
+  callCommand: (key: string, ...args: unknown[]) => `callCommand:${key}:${JSON.stringify(args)}`,
+}));
+
 import { EditorToolbar } from '../../src/components/EditorToolbar.js';
+
+const mockAction = vi.fn();
+const mockCrepeRef = {
+  current: {
+    editor: {
+      action: mockAction,
+    },
+  },
+};
 
 function renderToolbar(props: Partial<Parameters<typeof EditorToolbar>[0]> = {}) {
   const defaultProps = {
@@ -21,10 +49,13 @@ function renderToolbar(props: Partial<Parameters<typeof EditorToolbar>[0]> = {})
 describe('EditorToolbar', () => {
   beforeEach(() => {
     localStorage.clear();
+    mockAction.mockClear();
   });
 
-  it('shows markdown helper buttons in source mode (no Bold/Italic)', () => {
+  it('shows all markdown helper buttons in source mode including Bold and Italic', () => {
     renderToolbar({ mode: 'source' });
+    expect(screen.getByRole('button', { name: 'Bold' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Italic' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Heading' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Link' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'List' })).toBeInTheDocument();
@@ -33,14 +64,12 @@ describe('EditorToolbar', () => {
     expect(screen.getByRole('button', { name: 'Clause Reference' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Variable' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Horizontal Rule' })).toBeInTheDocument();
-    // Bold and Italic are removed in v3
-    expect(screen.queryByRole('button', { name: 'Bold' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Italic' })).not.toBeInTheDocument();
   });
 
   it('hides markdown helpers in review mode', () => {
     renderToolbar({ mode: 'review' });
     expect(screen.queryByRole('button', { name: 'Heading' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Bold' })).not.toBeInTheDocument();
   });
 
   it('hides markdown helpers when readOnly', () => {
@@ -73,12 +102,46 @@ describe('EditorToolbar', () => {
     expect(screen.getByText('All changes saved')).toBeInTheDocument();
   });
 
-  it('calls onInsertMarkdown with heading prefix when Heading is clicked', async () => {
+  it('calls crepeRef.editor.action for Bold button', async () => {
     const user = userEvent.setup();
-    const onInsertMarkdown = vi.fn();
-    renderToolbar({ onInsertMarkdown });
+    renderToolbar({ crepeRef: mockCrepeRef as never });
+    await user.click(screen.getByRole('button', { name: 'Bold' }));
+    expect(mockAction).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls crepeRef.editor.action for Italic button', async () => {
+    const user = userEvent.setup();
+    renderToolbar({ crepeRef: mockCrepeRef as never });
+    await user.click(screen.getByRole('button', { name: 'Italic' }));
+    expect(mockAction).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls crepeRef.editor.action for Heading button', async () => {
+    const user = userEvent.setup();
+    renderToolbar({ crepeRef: mockCrepeRef as never });
     await user.click(screen.getByRole('button', { name: 'Heading' }));
-    expect(onInsertMarkdown).toHaveBeenCalledWith('## ', '');
+    expect(mockAction).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls crepeRef.editor.action for Ordered List button', async () => {
+    const user = userEvent.setup();
+    renderToolbar({ crepeRef: mockCrepeRef as never });
+    await user.click(screen.getByRole('button', { name: 'Ordered List' }));
+    expect(mockAction).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls crepeRef.editor.action for List button', async () => {
+    const user = userEvent.setup();
+    renderToolbar({ crepeRef: mockCrepeRef as never });
+    await user.click(screen.getByRole('button', { name: 'List' }));
+    expect(mockAction).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls crepeRef.editor.action for Horizontal Rule button', async () => {
+    const user = userEvent.setup();
+    renderToolbar({ crepeRef: mockCrepeRef as never });
+    await user.click(screen.getByRole('button', { name: 'Horizontal Rule' }));
+    expect(mockAction).toHaveBeenCalledTimes(1);
   });
 
   it('calls onInsertMarkdown with link syntax when Link is clicked', async () => {
@@ -87,14 +150,6 @@ describe('EditorToolbar', () => {
     renderToolbar({ onInsertMarkdown });
     await user.click(screen.getByRole('button', { name: 'Link' }));
     expect(onInsertMarkdown).toHaveBeenCalledWith('[', '](url)');
-  });
-
-  it('calls onInsertMarkdown with list prefix when List is clicked', async () => {
-    const user = userEvent.setup();
-    const onInsertMarkdown = vi.fn();
-    renderToolbar({ onInsertMarkdown });
-    await user.click(screen.getByRole('button', { name: 'List' }));
-    expect(onInsertMarkdown).toHaveBeenCalledWith('- ', '');
   });
 
   it('calls onInsertMarkdown with table template when Table is clicked', async () => {
@@ -106,14 +161,6 @@ describe('EditorToolbar', () => {
       '| Header | Header |\n| --- | --- |\n| Cell | Cell |',
       '',
     );
-  });
-
-  it('calls onInsertMarkdown with ordered list prefix when Ordered List is clicked', async () => {
-    const user = userEvent.setup();
-    const onInsertMarkdown = vi.fn();
-    renderToolbar({ onInsertMarkdown });
-    await user.click(screen.getByRole('button', { name: 'Ordered List' }));
-    expect(onInsertMarkdown).toHaveBeenCalledWith('1. ', '');
   });
 
   it('calls onInsertMarkdown with clause reference when Clause Reference is clicked', async () => {
@@ -132,18 +179,24 @@ describe('EditorToolbar', () => {
     expect(onInsertMarkdown).toHaveBeenCalledWith('{{var:', '}}');
   });
 
-  it('calls onInsertMarkdown with horizontal rule when Horizontal Rule is clicked', async () => {
+  it('Bold/Italic/Heading/List/OrderedList/HR buttons do nothing when crepeRef is null', async () => {
     const user = userEvent.setup();
-    const onInsertMarkdown = vi.fn();
-    renderToolbar({ onInsertMarkdown });
+    const nullCrepeRef = { current: null };
+    renderToolbar({ crepeRef: nullCrepeRef as never });
+    // Should not throw when clicking any Milkdown command button with null crepeRef
+    await user.click(screen.getByRole('button', { name: 'Bold' }));
+    await user.click(screen.getByRole('button', { name: 'Italic' }));
+    await user.click(screen.getByRole('button', { name: 'Heading' }));
+    await user.click(screen.getByRole('button', { name: 'List' }));
+    await user.click(screen.getByRole('button', { name: 'Ordered List' }));
     await user.click(screen.getByRole('button', { name: 'Horizontal Rule' }));
-    expect(onInsertMarkdown).toHaveBeenCalledWith('\n---\n', '');
+    // No crash = pass
   });
 
   it('does not crash when onInsertMarkdown is not provided', async () => {
     const user = userEvent.setup();
     renderToolbar(); // no onInsertMarkdown
-    await user.click(screen.getByRole('button', { name: 'Heading' }));
+    await user.click(screen.getByRole('button', { name: 'Link' }));
     // Should not throw
   });
 

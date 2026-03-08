@@ -25,7 +25,8 @@ vi.mock('@milkdown/crepe', () => {
     destroy: mockDestroy,
     editor: { use: mockEditorUse },
   }));
-  return { Crepe: CrepeClass };
+  const CrepeFeature = { Toolbar: 'toolbar' };
+  return { Crepe: CrepeClass, CrepeFeature };
 });
 
 vi.mock('@milkdown/kit/utils', () => ({

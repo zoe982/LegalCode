@@ -119,28 +119,14 @@ describe('InlineCommentMargin', () => {
     expect(screen.getByTestId('inline-card-c3')).toBeInTheDocument();
   });
 
-  it('toggles collapse and expand', async () => {
-    const user = userEvent.setup();
+  it('does not render a collapse toggle button', () => {
     const threads = [createThread('c1', 'Comment')];
 
     render(<InlineCommentMargin threads={threads} {...defaultProps} />, { wrapper: Wrapper });
 
-    // Should initially be expanded
-    expect(screen.getByTestId('inline-card-c1')).toBeInTheDocument();
-
-    // Click collapse button
-    const collapseBtn = screen.getByRole('button', { name: /hide comments/i });
-    await user.click(collapseBtn);
-
-    // Cards should be hidden
-    expect(screen.queryByTestId('inline-card-c1')).not.toBeInTheDocument();
-
-    // Click expand button
-    const expandBtn = screen.getByRole('button', { name: /show comments/i });
-    await user.click(expandBtn);
-
-    // Cards should reappear
-    expect(screen.getByTestId('inline-card-c1')).toBeInTheDocument();
+    // Collapse feature removed — no hide/show comments toggle
+    expect(screen.queryByRole('button', { name: /hide comments/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /show comments/i })).not.toBeInTheDocument();
   });
 
   it('highlights active card', () => {
@@ -213,18 +199,12 @@ describe('InlineCommentMargin', () => {
     expect(screen.queryByRole('button', { name: /show resolved/i })).not.toBeInTheDocument();
   });
 
-  it('shows collapse toggle with correct aria-expanded state', async () => {
-    const user = userEvent.setup();
+  it('always shows comment cards without collapse chrome', () => {
     const threads = [createThread('c1', 'Comment')];
 
     render(<InlineCommentMargin threads={threads} {...defaultProps} />, { wrapper: Wrapper });
 
-    const collapseBtn = screen.getByRole('button', { name: /hide comments/i });
-    expect(collapseBtn.getAttribute('aria-expanded')).toBe('true');
-
-    await user.click(collapseBtn);
-
-    const expandBtn = screen.getByRole('button', { name: /show comments/i });
-    expect(expandBtn.getAttribute('aria-expanded')).toBe('false');
+    // Cards always visible — no collapse mechanism
+    expect(screen.getByTestId('inline-card-c1')).toBeInTheDocument();
   });
 });

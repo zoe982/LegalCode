@@ -1,5 +1,5 @@
 import { useRef, useCallback } from 'react';
-import { Crepe } from '@milkdown/crepe';
+import { Crepe, CrepeFeature } from '@milkdown/crepe';
 import { Milkdown, MilkdownProvider, useEditor } from '@milkdown/react';
 import { $prose } from '@milkdown/kit/utils';
 import { Box } from '@mui/material';
@@ -42,6 +42,9 @@ function MilkdownEditor({
       const crepe = new Crepe({
         root,
         defaultValue: isCollaborative ? '' : (defaultValue ?? ''),
+        features: {
+          [CrepeFeature.Toolbar]: false,
+        },
       });
 
       if (onChange && !isCollaborative) {
@@ -87,10 +90,6 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
           minHeight: 300,
         },
         '& .milkdown-slash-menu': {
-          position: 'fixed',
-          zIndex: 1300,
-        },
-        '& .milkdown-toolbar': {
           position: 'fixed',
           zIndex: 1300,
         },

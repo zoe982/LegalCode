@@ -35,16 +35,30 @@ describe('template service', () => {
   // ── Task 4: createTemplate ──────────────────────────────────────────
 
   describe('createTemplate', () => {
-    it('validates input with createTemplateSchema', async () => {
-      await expect(
-        createTemplate(db, { title: '', category: 'contracts', content: 'body' }, 'user-1'),
-      ).rejects.toThrow(ZodError);
+    it('returns db_error when db.batch throws', async () => {
+      vi.spyOn(db, 'batch').mockRejectedValue(new Error('D1_ERROR'));
+
+      const result = await createTemplate(
+        db,
+        { title: 'Failing', category: 'contracts', content: '# Fail' },
+        'user-1',
+      );
+
+      expect(result).toEqual({ error: 'db_error' });
     });
 
-    it('rejects empty content', async () => {
-      await expect(
-        createTemplate(db, { title: 'Good Title', category: 'contracts', content: '' }, 'user-1'),
-      ).rejects.toThrow(ZodError);
+    it('returns db_error on UNIQUE constraint failure', async () => {
+      vi.spyOn(db, 'batch').mockRejectedValue(
+        new Error('UNIQUE constraint failed: templates.slug'),
+      );
+
+      const result = await createTemplate(
+        db,
+        { title: 'Duplicate', category: 'contracts', content: '# Dup' },
+        'user-1',
+      );
+
+      expect(result).toEqual({ error: 'db_error' });
     });
 
     it('generates slug from title with random suffix', async () => {
@@ -56,7 +70,9 @@ describe('template service', () => {
         'user-1',
       );
 
-      expect(result.template.slug).toMatch(/^my-template-title-[\da-f]{6}$/);
+      expect('template' in result && result.template.slug).toMatch(
+        /^my-template-title-[\da-f]{6}$/,
+      );
     });
 
     it('strips special characters from slug', async () => {
@@ -68,7 +84,7 @@ describe('template service', () => {
         'user-1',
       );
 
-      expect(result.template.slug).toMatch(/^hello-world-[\da-f]{6}$/);
+      expect('template' in result && result.template.slug).toMatch(/^hello-world-[\da-f]{6}$/);
     });
 
     it('creates template with status draft and currentVersion 1', async () => {
@@ -80,8 +96,11 @@ describe('template service', () => {
         'user-1',
       );
 
-      expect(result.template.status).toBe('draft');
-      expect(result.template.currentVersion).toBe(1);
+      expect('template' in result).toBe(true);
+      if ('template' in result) {
+        expect(result.template.status).toBe('draft');
+        expect(result.template.currentVersion).toBe(1);
+      }
       expect(batchSpy).toHaveBeenCalledTimes(1);
     });
 
@@ -120,7 +139,7 @@ describe('template service', () => {
         'user-1',
       );
 
-      expect(result.tags).toEqual(['employment', 'compliance']);
+      expect('tags' in result && result.tags).toEqual(['employment', 'compliance']);
       // batch should have extra ops for tag creation + templateTags linking
       const batchOps = batchSpy.mock.calls[0]?.[0] as readonly unknown[];
       expect(batchOps.length).toBeGreaterThanOrEqual(3);
@@ -147,7 +166,7 @@ describe('template service', () => {
         'user-1',
       );
 
-      expect(result.tags).toEqual(['employment']);
+      expect('tags' in result && result.tags).toEqual(['employment']);
     });
 
     it('returns template with tags array', async () => {
@@ -159,11 +178,14 @@ describe('template service', () => {
         'user-1',
       );
 
-      expect(result.template).toBeDefined();
-      expect(result.template.id).toBeDefined();
-      expect(result.template.title).toBe('No Tags');
-      expect(result.template.category).toBe('contracts');
-      expect(result.tags).toEqual([]);
+      expect('template' in result).toBe(true);
+      if ('template' in result) {
+        expect(result.template).toBeDefined();
+        expect(result.template.id).toBeDefined();
+        expect(result.template.title).toBe('No Tags');
+        expect(result.template.category).toBe('contracts');
+        expect(result.tags).toEqual([]);
+      }
     });
 
     it('sets country to null when not provided', async () => {
@@ -175,7 +197,10 @@ describe('template service', () => {
         'user-1',
       );
 
-      expect(result.template.country).toBeNull();
+      expect('template' in result).toBe(true);
+      if ('template' in result) {
+        expect(result.template.country).toBeNull();
+      }
     });
 
     it('sets country when provided', async () => {
@@ -187,7 +212,10 @@ describe('template service', () => {
         'user-1',
       );
 
-      expect(result.template.country).toBe('US');
+      expect('template' in result).toBe(true);
+      if ('template' in result) {
+        expect(result.template.country).toBe('US');
+      }
     });
 
     it('sets createdBy to the userId', async () => {
@@ -199,7 +227,10 @@ describe('template service', () => {
         'author-42',
       );
 
-      expect(result.template.createdBy).toBe('author-42');
+      expect('template' in result).toBe(true);
+      if ('template' in result) {
+        expect(result.template.createdBy).toBe('author-42');
+      }
     });
   });
 

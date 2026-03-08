@@ -1,13 +1,14 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { Box, Typography, TextField, Button } from '@mui/material';
+import { Box, TextField, Button } from '@mui/material';
 
 export interface NewCommentCardProps {
   anchorText: string;
   onSubmit: (content: string) => void;
   onCancel: () => void;
+  top?: number | undefined;
 }
 
-export function NewCommentCard({ anchorText, onSubmit, onCancel }: NewCommentCardProps) {
+export function NewCommentCard({ onSubmit, onCancel, top }: NewCommentCardProps) {
   const [text, setText] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -36,35 +37,17 @@ export function NewCommentCard({ anchorText, onSubmit, onCancel }: NewCommentCar
 
   return (
     <Box
+      style={top != null ? { position: 'absolute', top } : undefined}
       sx={{
         p: 1.5,
         borderRadius: '8px',
-        backgroundColor: '#F9F9FB',
-        borderLeft: '2px solid var(--comment-highlight, #F5A623)',
+        backgroundColor: '#FFFFFF',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.08)',
         width: '100%',
         boxSizing: 'border-box',
         fontFamily: '"DM Sans", sans-serif',
       }}
     >
-      {/* Anchor text quote */}
-      <Typography
-        sx={{
-          fontSize: '0.75rem',
-          fontStyle: 'italic',
-          color: '#6B6D82',
-          fontFamily: '"DM Sans", sans-serif',
-          borderLeft: '2px solid var(--comment-highlight, #F5A623)',
-          pl: 1,
-          mb: 1,
-          display: '-webkit-box',
-          WebkitLineClamp: 2,
-          WebkitBoxOrient: 'vertical',
-          overflow: 'hidden',
-        }}
-      >
-        {anchorText}
-      </Typography>
-
       {/* Comment input */}
       <TextField
         inputRef={inputRef}
@@ -75,7 +58,7 @@ export function NewCommentCard({ anchorText, onSubmit, onCancel }: NewCommentCar
           setText(e.target.value);
         }}
         multiline
-        minRows={2}
+        minRows={1}
         fullWidth
         slotProps={{ htmlInput: { 'aria-label': 'Comment' } }}
         sx={{

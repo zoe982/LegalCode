@@ -12,6 +12,7 @@ import {
   Skeleton,
 } from '@mui/material';
 import DownloadIcon from '@mui/icons-material/Download';
+import type { Crepe } from '@milkdown/crepe';
 import { MarkdownEditor } from '../components/MarkdownEditor.js';
 import { useAuth } from '../hooks/useAuth.js';
 import {
@@ -96,6 +97,9 @@ export function TemplateEditorPage() {
   const { selectionInfo, pendingAnchor, startComment, cancelComment, onSelectionChange } =
     useEditorComments();
   const { threads, createComment, resolveComment, deleteComment } = useComments(id);
+
+  // Crepe editor ref for Milkdown commands
+  const crepeRef = useRef<Crepe | null>(null);
 
   // Source mode comment margin ref
   const sourceContentRef = useRef<HTMLDivElement>(null);
@@ -195,6 +199,8 @@ export function TemplateEditorPage() {
     if (!isCreateMode || hasAutoCreatedRef.current) return;
     // Need at least a title to create
     if (title.trim() === '') return;
+    if (category.trim() === '') return;
+    if (content.trim() === '') return;
 
     // Clear previous timer
     if (autoCreateTimerRef.current) {
@@ -522,7 +528,7 @@ export function TemplateEditorPage() {
           <Skeleton variant="rounded" width={120} height={28} sx={{ borderRadius: '8px' }} />
         </Box>
         <Box sx={{ flex: 1, overflow: 'auto' }}>
-          <Box sx={{ maxWidth: '1100px', mx: 'auto', py: 4, px: { xs: 2, sm: 4, md: 6 } }}>
+          <Box sx={{ maxWidth: '720px', mx: 'auto', py: 4, px: { xs: 2, sm: 4, md: 6 } }}>
             <Skeleton variant="text" width="50%" height={40} />
             <Box sx={{ borderBottom: '1px solid var(--border-secondary)', my: 3 }} />
             <Skeleton variant="text" width="100%" height={20} />
@@ -561,9 +567,10 @@ export function TemplateEditorPage() {
               : undefined
           }
           readOnly={isReadOnly}
+          crepeRef={crepeRef}
         />
 
-        {/* Full-bleed white editor surface with centered 1100px content column */}
+        {/* Full-bleed white editor surface */}
         <Box
           sx={{
             flex: 1,
@@ -573,21 +580,24 @@ export function TemplateEditorPage() {
         >
           <Box
             sx={{
-              maxWidth: '1100px',
-              mx: 'auto',
               py: 4,
               px: { xs: 2, sm: 4, md: 6 },
             }}
           >
             {/* Editor content — title/category moved to DocumentHeader */}
             {editorMode === 'source' ? (
-              <Box sx={{ display: 'flex', position: 'relative' }}>
+              <Box
+                sx={{
+                  maxWidth: '720px',
+                  mx: 'auto',
+                  position: 'relative',
+                }}
+              >
                 <Box
                   ref={sourceContentRef}
                   data-testid="source-editor-surface"
                   sx={{
                     backgroundColor: '#FFFFFF',
-                    flex: 1,
                     position: 'relative',
                   }}
                 >
@@ -600,6 +610,9 @@ export function TemplateEditorPage() {
                         ? { ydoc: collaboration.ydoc, awareness: collaboration.awareness }
                         : undefined
                     }
+                    onEditorReady={(crepe) => {
+                      crepeRef.current = crepe;
+                    }}
                     onSelectionChange={onSelectionChange}
                   />
                   <FloatingCommentButton
@@ -625,12 +638,19 @@ export function TemplateEditorPage() {
                     anchorText={pendingAnchor.anchorText}
                     onSubmit={handleSubmitComment}
                     onCancel={cancelComment}
+                    top={selectionInfo.buttonPosition?.top ?? undefined}
                   />
                 )}
               </Box>
             ) : (
-              <Box sx={{ display: 'flex', position: 'relative' }}>
-                <Box sx={{ flex: 1, position: 'relative' }}>
+              <Box
+                sx={{
+                  maxWidth: '720px',
+                  mx: 'auto',
+                  position: 'relative',
+                }}
+              >
+                <Box sx={{ position: 'relative' }}>
                   <Box
                     ref={reviewContentRef}
                     data-testid="review-content"
@@ -639,7 +659,6 @@ export function TemplateEditorPage() {
                       fontFamily: '"Source Serif 4", Georgia, "Times New Roman", serif',
                       lineHeight: 1.6,
                       minHeight: 200,
-                      maxWidth: 720,
                       '& h1, & h2, & h3, & h4, & h5, & h6': {
                         fontFamily: '"Source Serif 4", Georgia, "Times New Roman", serif',
                         color: 'var(--text-primary)',
@@ -665,7 +684,10 @@ export function TemplateEditorPage() {
                         margin: '24px 0',
                       },
                       '& table': { borderCollapse: 'collapse', width: '100%' },
-                      '& td, & th': { border: '1px solid var(--border-primary)', padding: '8px' },
+                      '& td, & th': {
+                        border: '1px solid var(--border-primary)',
+                        padding: '8px',
+                      },
                     }}
                     // nosemgrep: dangerous-innerhtml — markdownToHtml sanitizes input
                     dangerouslySetInnerHTML={{
@@ -702,6 +724,7 @@ export function TemplateEditorPage() {
                     onCancel={() => {
                       setReviewPendingAnchor(null);
                     }}
+                    top={reviewTextSelection.selectionRect?.top ?? undefined}
                   />
                 )}
               </Box>

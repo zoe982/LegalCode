@@ -16,15 +16,16 @@ const defaultProps = {
   onCancel: vi.fn(),
 };
 
-function renderCard(overrides: Partial<typeof defaultProps> = {}) {
+function renderCard(overrides: Partial<typeof defaultProps & { top?: number }> = {}) {
   const props = { ...defaultProps, ...overrides };
   return render(<NewCommentCard {...props} />, { wrapper: Wrapper });
 }
 
 describe('NewCommentCard', () => {
-  it('renders anchor text', () => {
+  it('does not render anchor text (removed in compact card style)', () => {
     renderCard();
-    expect(screen.getByText('Selected text from the document')).toBeInTheDocument();
+    // anchorText prop is accepted but not displayed
+    expect(screen.queryByText('Selected text from the document')).not.toBeInTheDocument();
   });
 
   it('input is autofocused', () => {
@@ -84,5 +85,20 @@ describe('NewCommentCard', () => {
     const button = screen.getByRole('button', { name: /comment/i });
     await user.click(button);
     expect(input).toHaveValue('');
+  });
+
+  it('applies top positioning when top prop is provided', () => {
+    const { container } = renderCard({ top: 200 });
+    // The root Box should have position: absolute and top: 200px
+    const rootBox = container.firstChild as HTMLElement;
+    expect(rootBox.style.top).toBe('200px');
+    expect(rootBox.style.position).toBe('absolute');
+  });
+
+  it('does not apply absolute positioning when top prop is not provided', () => {
+    const { container } = renderCard();
+    const rootBox = container.firstChild as HTMLElement;
+    // Without top prop, no absolute positioning
+    expect(rootBox.style.position).not.toBe('absolute');
   });
 });

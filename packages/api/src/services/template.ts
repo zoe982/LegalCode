@@ -1,6 +1,6 @@
 import { eq, and, like, sql, desc, inArray } from 'drizzle-orm';
 import type { BatchItem } from 'drizzle-orm/batch';
-import { createTemplateSchema, updateTemplateSchema, templateQuerySchema } from '@legalcode/shared';
+import { updateTemplateSchema, templateQuerySchema } from '@legalcode/shared';
 import type { CreateTemplateInput, UpdateTemplateInput, TemplateQuery } from '@legalcode/shared';
 import type { AppDb } from '../db/index.js';
 import { templates, templateVersions, tags, templateTags, auditLog } from '../db/schema.js';
@@ -52,22 +52,20 @@ export async function createTemplate(
   db: AppDb,
   input: CreateTemplateInput,
   userId: string,
-): Promise<{ template: typeof templates.$inferSelect; tags: string[] }> {
-  const parsed = createTemplateSchema.parse(input);
-
+): Promise<{ template: typeof templates.$inferSelect; tags: string[] } | { error: 'db_error' }> {
   const id = crypto.randomUUID();
-  const slug = generateSlug(parsed.title);
+  const slug = generateSlug(input.title);
   const now = nowISO();
   const versionId = crypto.randomUUID();
-  const tagNames = parsed.tags ?? [];
+  const tagNames = input.tags ?? [];
 
   const templateRow = {
     id,
-    title: parsed.title,
+    title: input.title,
     slug,
-    category: parsed.category,
-    description: parsed.description ?? null,
-    country: parsed.country ?? null,
+    category: input.category,
+    description: input.description ?? null,
+    country: input.country ?? null,
     status: 'draft' as const,
     currentVersion: 1,
     createdBy: userId,
@@ -79,7 +77,7 @@ export async function createTemplate(
     id: versionId,
     templateId: id,
     version: 1,
-    content: parsed.content,
+    content: input.content,
     changeSummary: 'Initial version',
     createdBy: userId,
     createdAt: now,
@@ -91,7 +89,7 @@ export async function createTemplate(
     action: 'create',
     entityType: 'template',
     entityId: id,
-    metadata: JSON.stringify({ title: parsed.title, category: parsed.category }),
+    metadata: JSON.stringify({ title: input.title, category: input.category }),
     createdAt: now,
   };
 
@@ -112,7 +110,11 @@ export async function createTemplate(
     ops.push(db.insert(templateTags).values({ templateId: id, tagId: tag.tagId }));
   }
 
-  await db.batch(ops as unknown as [BatchItem<'sqlite'>, ...BatchItem<'sqlite'>[]]);
+  try {
+    await db.batch(ops as unknown as [BatchItem<'sqlite'>, ...BatchItem<'sqlite'>[]]);
+  } catch {
+    return { error: 'db_error' as const };
+  }
 
   return {
     template: templateRow,
