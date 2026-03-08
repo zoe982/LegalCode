@@ -28,7 +28,7 @@ authRoutes.get('/google', async (c) => {
     expirationTtl: PKCE_STATE_TTL,
   });
 
-  const redirectUri = new URL('/auth/callback', c.req.url).toString();
+  const redirectUri = new URL('/api/auth/callback', c.req.url).toString();
   const url = buildGoogleAuthUrl({
     clientId: c.env.GOOGLE_CLIENT_ID,
     redirectUri,
@@ -53,13 +53,16 @@ authRoutes.get('/callback', async (c) => {
 
   const pkceData = await c.env.AUTH_KV.get(`pkce:${state}`);
   if (!pkceData) {
-    return c.json({ error: 'Invalid or expired state' }, 400);
+    return c.html(
+      '<h1>Login failed</h1><p>Invalid or expired state. Please try again.</p><a href="/">Try again</a>',
+      400,
+    );
   }
   await c.env.AUTH_KV.delete(`pkce:${state}`);
 
   const { codeVerifier } = JSON.parse(pkceData) as { codeVerifier: string };
 
-  const redirectUri = new URL('/auth/callback', c.req.url).toString();
+  const redirectUri = new URL('/api/auth/callback', c.req.url).toString();
   const tokens = await exchangeCodeForTokens({
     code: code,
     clientId: c.env.GOOGLE_CLIENT_ID,
@@ -76,13 +79,19 @@ authRoutes.get('/callback', async (c) => {
     c.env.ALLOWED_EMAILS,
   );
   if (!emailAllowed) {
-    return c.json({ error: 'Email not authorized' }, 403);
+    return c.html(
+      '<h1>Login failed</h1><p>Your email is not authorized to access this application.</p><a href="/">Try again</a>',
+      403,
+    );
   }
 
   const db = getDb(c.env.DB);
   const user = await findUserByEmail(db, googleUser.email);
   if (!user) {
-    return c.json({ error: 'User not provisioned. Contact an admin.' }, 403);
+    return c.html(
+      '<h1>Login failed</h1><p>Your account has not been provisioned. Please contact an administrator.</p><a href="/">Try again</a>',
+      403,
+    );
   }
 
   const accessToken = await issueJWT(

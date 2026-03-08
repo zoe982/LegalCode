@@ -33,15 +33,15 @@ app.use(
   }),
 );
 
-app.get('/health', (c) => c.json({ status: 'ok' }));
+app.get('/api/health', (c) => c.json({ status: 'ok' }));
 
-app.route('/auth', authRoutes);
-app.route('/admin', adminRoutes);
-app.route('/errors', errorRoutes);
-app.route('/templates', templateRoutes);
-app.route('/collaborate', collaborateRoutes);
-app.route('/categories', categoryRoutes);
-app.route('/countries', countryRoutes);
+app.route('/api/auth', authRoutes);
+app.route('/api/admin', adminRoutes);
+app.route('/api/errors', errorRoutes);
+app.route('/api/templates', templateRoutes);
+app.route('/api/collaborate', collaborateRoutes);
+app.route('/api/categories', categoryRoutes);
+app.route('/api/countries', countryRoutes);
 
 // Serve static assets, with SPA fallback to index.html
 app.all('*', async (c) => {

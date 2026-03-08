@@ -2,15 +2,15 @@ import { describe, it, expect, vi } from 'vitest';
 import app from '../src/index.js';
 
 describe('app', () => {
-  it('responds to /health', async () => {
-    const res = await app.request('/health');
+  it('responds to /api/health', async () => {
+    const res = await app.request('/api/health');
     expect(res.status).toBe(200);
     const body = await res.json();
     expect((body as { status: string }).status).toBe('ok');
   });
 
-  it('mounts auth routes at /auth', async () => {
-    const res = await app.request('/auth/google', undefined, {
+  it('mounts auth routes at /api/auth', async () => {
+    const res = await app.request('/api/auth/google', undefined, {
       JWT_SECRET: 'test',
       GOOGLE_CLIENT_ID: 'test',
       GOOGLE_CLIENT_SECRET: 'test',
@@ -31,8 +31,8 @@ describe('app', () => {
     expect(res.status).toBe(200);
   });
 
-  it('mounts admin routes at /admin', async () => {
-    const res = await app.request('/admin/users');
+  it('mounts admin routes at /api/admin', async () => {
+    const res = await app.request('/api/admin/users');
     expect(res.status).toBe(401);
   });
 

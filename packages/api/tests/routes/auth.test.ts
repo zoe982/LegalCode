@@ -120,8 +120,8 @@ describe('GET /auth/callback', () => {
     const { app } = createTestApp();
     const res = await app.request('/auth/callback?code=abc&state=unknown-state');
     expect(res.status).toBe(400);
-    const body: unknown = await res.json();
-    expect(body).toEqual({ error: 'Invalid or expired state' });
+    const text = await res.text();
+    expect(text).toContain('Invalid or expired state');
   });
 
   it('returns 403 when email is not in allowed list', async () => {
@@ -142,8 +142,8 @@ describe('GET /auth/callback', () => {
 
     const res = await app.request('/auth/callback?code=auth-code&state=valid-state');
     expect(res.status).toBe(403);
-    const body: unknown = await res.json();
-    expect(body).toEqual({ error: 'Email not authorized' });
+    const text = await res.text();
+    expect(text).toContain('not authorized');
   });
 
   it('returns 403 when user is not provisioned in DB', async () => {
@@ -164,8 +164,8 @@ describe('GET /auth/callback', () => {
 
     const res = await app.request('/auth/callback?code=auth-code&state=valid-state');
     expect(res.status).toBe(403);
-    const body: unknown = await res.json();
-    expect(body).toEqual({ error: 'User not provisioned. Contact an admin.' });
+    const text = await res.text();
+    expect(text).toContain('not been provisioned');
   });
 
   it('sets cookies and redirects on successful callback', async () => {
