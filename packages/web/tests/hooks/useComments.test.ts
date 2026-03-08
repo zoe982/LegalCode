@@ -238,6 +238,99 @@ describe('useComments', () => {
     expect(result.current.threads[1]?.comment.id).toBe('c-new');
   });
 
+  it('isCreating is true while create mutation is pending', async () => {
+    getCommentsFn.mockResolvedValue([parentComment]);
+    // Return a never-resolving promise to keep mutation pending
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
+    createCommentFn.mockReturnValue(new Promise(() => {}));
+
+    const wrapper = createWrapper();
+    const { result } = renderHook(() => useComments('tpl-1'), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    expect(result.current.isCreating).toBe(false);
+
+    act(() => {
+      result.current.createComment({
+        templateId: 'tpl-1',
+        content: 'New comment',
+      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.isCreating).toBe(true);
+    });
+  });
+
+  it('calls onCreateError when create mutation fails', async () => {
+    getCommentsFn.mockResolvedValue([parentComment]);
+    createCommentFn.mockRejectedValue(new Error('create failed'));
+    const onCreateError = vi.fn();
+
+    const wrapper = createWrapper();
+    const { result } = renderHook(() => useComments('tpl-1', { onCreateError }), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    act(() => {
+      result.current.createComment({
+        templateId: 'tpl-1',
+        content: 'New comment',
+      });
+    });
+
+    await waitFor(() => {
+      expect(onCreateError).toHaveBeenCalledOnce();
+    });
+  });
+
+  it('calls onResolveError when resolve mutation fails', async () => {
+    getCommentsFn.mockResolvedValue([parentComment]);
+    resolveCommentFn.mockRejectedValue(new Error('resolve failed'));
+    const onResolveError = vi.fn();
+
+    const wrapper = createWrapper();
+    const { result } = renderHook(() => useComments('tpl-1', { onResolveError }), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    act(() => {
+      result.current.resolveComment({ templateId: 'tpl-1', commentId: 'c1' });
+    });
+
+    await waitFor(() => {
+      expect(onResolveError).toHaveBeenCalledOnce();
+    });
+  });
+
+  it('calls onDeleteError when delete mutation fails', async () => {
+    getCommentsFn.mockResolvedValue([parentComment]);
+    deleteCommentFn.mockRejectedValue(new Error('delete failed'));
+    const onDeleteError = vi.fn();
+
+    const wrapper = createWrapper();
+    const { result } = renderHook(() => useComments('tpl-1', { onDeleteError }), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    act(() => {
+      result.current.deleteComment({ templateId: 'tpl-1', commentId: 'c1' });
+    });
+
+    await waitFor(() => {
+      expect(onDeleteError).toHaveBeenCalledOnce();
+    });
+  });
+
   it('replies within a thread are ordered by createdAt', async () => {
     const reply1: Comment = {
       ...replyComment,

@@ -35,7 +35,13 @@ function groupIntoThreads(comments: Comment[], showResolved: boolean): CommentTh
   return filtered;
 }
 
-export function useComments(templateId: string | undefined) {
+export interface UseCommentsOptions {
+  onCreateError?: (() => void) | undefined;
+  onResolveError?: (() => void) | undefined;
+  onDeleteError?: (() => void) | undefined;
+}
+
+export function useComments(templateId: string | undefined, options?: UseCommentsOptions) {
   const queryClient = useQueryClient();
   const [showResolved, setShowResolved] = useState(false);
   const id = templateId ?? '';
@@ -56,6 +62,9 @@ export function useComments(templateId: string | undefined) {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['comments', templateId] });
     },
+    onError: () => {
+      options?.onCreateError?.();
+    },
   });
 
   const resolveMutation = useMutation({
@@ -64,6 +73,9 @@ export function useComments(templateId: string | undefined) {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['comments', templateId] });
     },
+    onError: () => {
+      options?.onResolveError?.();
+    },
   });
 
   const deleteMutation = useMutation({
@@ -71,6 +83,9 @@ export function useComments(templateId: string | undefined) {
       commentService.deleteComment(tId, commentId),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['comments', templateId] });
+    },
+    onError: () => {
+      options?.onDeleteError?.();
     },
   });
 
@@ -81,6 +96,7 @@ export function useComments(templateId: string | undefined) {
   return {
     threads,
     isLoading: query.isLoading,
+    isCreating: createMutation.isPending,
     createComment: createMutation.mutate,
     resolveComment: resolveMutation.mutate,
     deleteComment: deleteMutation.mutate,

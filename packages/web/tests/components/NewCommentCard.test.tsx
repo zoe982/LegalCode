@@ -16,16 +16,24 @@ const defaultProps = {
   onCancel: vi.fn(),
 };
 
-function renderCard(overrides: Partial<typeof defaultProps & { top?: number }> = {}) {
+function renderCard(
+  overrides: Partial<
+    typeof defaultProps & {
+      top?: number;
+      authorName?: string;
+      authorEmail?: string;
+      isCreating?: boolean;
+    }
+  > = {},
+) {
   const props = { ...defaultProps, ...overrides };
   return render(<NewCommentCard {...props} />, { wrapper: Wrapper });
 }
 
 describe('NewCommentCard', () => {
-  it('does not render anchor text (removed in compact card style)', () => {
+  it('renders anchor text quote block', () => {
     renderCard();
-    // anchorText prop is accepted but not displayed
-    expect(screen.queryByText('Selected text from the document')).not.toBeInTheDocument();
+    expect(screen.getByText('Selected text from the document')).toBeInTheDocument();
   });
 
   it('input is autofocused', () => {
@@ -100,5 +108,21 @@ describe('NewCommentCard', () => {
     const rootBox = container.firstChild as HTMLElement;
     // Without top prop, no absolute positioning
     expect(rootBox.style.position).not.toBe('absolute');
+  });
+
+  it('renders author avatar and name when authorName is provided', () => {
+    renderCard({ authorName: 'Alice Smith', authorEmail: 'alice@example.com' });
+    expect(screen.getByText('Alice Smith')).toBeInTheDocument();
+    // Avatar shows first letter
+    expect(screen.getByText('A')).toBeInTheDocument();
+  });
+
+  it('Comment button disabled when isCreating is true', async () => {
+    const user = userEvent.setup();
+    renderCard({ isCreating: true });
+    const input = screen.getByRole('textbox', { name: /comment/i });
+    await user.type(input, 'Some text');
+    const button = screen.getByRole('button', { name: /comment/i });
+    expect(button).toBeDisabled();
   });
 });

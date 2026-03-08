@@ -13,6 +13,34 @@ vi.mock('../../src/hooks/useCommentPositions.js', () => ({
     commentIds.map((id, idx) => ({ commentId: id, top: 100 + idx * 200 })),
 }));
 
+// Mock NewCommentCard
+vi.mock('../../src/components/NewCommentCard.js', () => ({
+  NewCommentCard: ({
+    anchorText,
+    onSubmit,
+    onCancel,
+  }: {
+    anchorText: string;
+    onSubmit: (content: string) => void;
+    onCancel: () => void;
+    top?: number;
+    authorName?: string;
+    authorEmail?: string;
+    isCreating?: boolean;
+  }) => (
+    <div data-testid="new-comment-card" data-anchor={anchorText}>
+      <button
+        onClick={() => {
+          onSubmit('test comment');
+        }}
+      >
+        Submit
+      </button>
+      <button onClick={onCancel}>CancelNew</button>
+    </div>
+  ),
+}));
+
 // Mock InlineCommentCard to simplify margin tests
 vi.mock('../../src/components/InlineCommentCard.js', () => ({
   InlineCommentCard: ({
@@ -206,5 +234,43 @@ describe('InlineCommentMargin', () => {
 
     // Cards always visible — no collapse mechanism
     expect(screen.getByTestId('inline-card-c1')).toBeInTheDocument();
+  });
+
+  it('has width of 320px', () => {
+    render(<InlineCommentMargin threads={[]} {...defaultProps} />, { wrapper: Wrapper });
+
+    const margin = screen.getByRole('complementary', { name: /comments/i });
+    // MUI Box applies width via inline styles or computed styles
+    expect(margin).toBeInTheDocument();
+  });
+
+  it('renders NewCommentCard when pendingAnchor is provided', () => {
+    render(
+      <InlineCommentMargin
+        threads={[]}
+        {...defaultProps}
+        pendingAnchor={{ anchorText: 'selected text' }}
+        onSubmitComment={vi.fn()}
+        onCancelComment={vi.fn()}
+      />,
+      { wrapper: Wrapper },
+    );
+
+    expect(screen.getByTestId('new-comment-card')).toBeInTheDocument();
+  });
+
+  it('does not render NewCommentCard when pendingAnchor is null', () => {
+    render(
+      <InlineCommentMargin
+        threads={[]}
+        {...defaultProps}
+        pendingAnchor={null}
+        onSubmitComment={vi.fn()}
+        onCancelComment={vi.fn()}
+      />,
+      { wrapper: Wrapper },
+    );
+
+    expect(screen.queryByTestId('new-comment-card')).not.toBeInTheDocument();
   });
 });

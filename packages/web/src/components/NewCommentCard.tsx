@@ -1,14 +1,25 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { Box, TextField, Button } from '@mui/material';
+import { Avatar, Box, Button, TextField, Typography } from '@mui/material';
+import { getAvatarColor } from '../utils/commentHelpers.js';
 
 export interface NewCommentCardProps {
   anchorText: string;
   onSubmit: (content: string) => void;
   onCancel: () => void;
   top?: number | undefined;
+  authorName?: string | undefined;
+  authorEmail?: string | undefined;
+  isCreating?: boolean | undefined;
 }
 
-export function NewCommentCard({ onSubmit, onCancel, top }: NewCommentCardProps) {
+export function NewCommentCard({
+  anchorText,
+  onSubmit,
+  onCancel,
+  top,
+  authorName,
+  isCreating,
+}: NewCommentCardProps) {
   const [text, setText] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -48,6 +59,49 @@ export function NewCommentCard({ onSubmit, onCancel, top }: NewCommentCardProps)
         fontFamily: '"DM Sans", sans-serif',
       }}
     >
+      {/* Anchor text quote */}
+      <Box
+        sx={{
+          fontStyle: 'italic',
+          borderLeft: '2px solid var(--border-primary, #E0E0E0)',
+          pl: 1,
+          mb: 1,
+          color: '#6B6D82',
+          display: '-webkit-box',
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: 'vertical',
+          overflow: 'hidden',
+          fontSize: '0.8125rem',
+        }}
+      >
+        {anchorText}
+      </Box>
+
+      {/* Author row */}
+      {authorName != null && authorName !== '' && (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+          <Avatar
+            sx={{
+              width: 24,
+              height: 24,
+              fontSize: '0.75rem',
+              backgroundColor: getAvatarColor(0),
+            }}
+          >
+            {authorName.charAt(0)}
+          </Avatar>
+          <Typography
+            sx={{
+              fontSize: '0.8125rem',
+              fontFamily: '"DM Sans", sans-serif',
+              color: '#37354A',
+            }}
+          >
+            {authorName}
+          </Typography>
+        </Box>
+      )}
+
       {/* Comment input */}
       <TextField
         inputRef={inputRef}
@@ -88,7 +142,7 @@ export function NewCommentCard({ onSubmit, onCancel, top }: NewCommentCardProps)
         <Button
           size="small"
           variant="contained"
-          disabled={text.trim() === ''}
+          disabled={text.trim() === '' || isCreating === true}
           onClick={handleSubmit}
           sx={{
             fontSize: '0.75rem',

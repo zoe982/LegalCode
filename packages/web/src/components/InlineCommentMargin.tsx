@@ -3,6 +3,7 @@ import { Box, Button } from '@mui/material';
 import type { CommentThread } from '../types/comments.js';
 import { useCommentPositions } from '../hooks/useCommentPositions.js';
 import { InlineCommentCard } from './InlineCommentCard.js';
+import { NewCommentCard } from './NewCommentCard.js';
 
 export interface InlineCommentMarginProps {
   threads: CommentThread[];
@@ -13,6 +14,13 @@ export interface InlineCommentMarginProps {
   onResolve: (commentId: string) => void;
   onDelete: (commentId: string) => void;
   onReply: (parentId: string, content: string) => void;
+  pendingAnchor?: { anchorText: string } | null | undefined;
+  onSubmitComment?: ((content: string) => void) | undefined;
+  onCancelComment?: (() => void) | undefined;
+  authorName?: string | undefined;
+  authorEmail?: string | undefined;
+  isCreating?: boolean | undefined;
+  pendingCommentTop?: number | undefined;
 }
 
 export function InlineCommentMargin({
@@ -23,6 +31,13 @@ export function InlineCommentMargin({
   onResolve,
   onDelete,
   onReply,
+  pendingAnchor,
+  onSubmitComment,
+  onCancelComment,
+  authorName,
+  authorEmail,
+  isCreating,
+  pendingCommentTop,
 }: InlineCommentMarginProps) {
   const [showResolved, setShowResolved] = useState(false);
 
@@ -50,7 +65,7 @@ export function InlineCommentMargin({
         top: 0,
         left: '100%',
         ml: 3,
-        width: 280,
+        width: 320,
       }}
     >
       {/* Comment cards */}
@@ -81,6 +96,21 @@ export function InlineCommentMargin({
           );
         })}
       </Box>
+
+      {/* New comment card */}
+      {pendingAnchor != null && onSubmitComment != null && onCancelComment != null && (
+        <Box sx={{ position: 'relative' }}>
+          <NewCommentCard
+            anchorText={pendingAnchor.anchorText}
+            onSubmit={onSubmitComment}
+            onCancel={onCancelComment}
+            top={pendingCommentTop ?? 0}
+            authorName={authorName}
+            authorEmail={authorEmail}
+            isCreating={isCreating}
+          />
+        </Box>
+      )}
 
       {/* Show resolved toggle */}
       {resolvedCount > 0 && (

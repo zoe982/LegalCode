@@ -45,7 +45,6 @@ import { useTextSelection } from '../hooks/useTextSelection.js';
 import { useCommentHighlights } from '../hooks/useCommentHighlights.js';
 import { DocumentHeader } from '../components/DocumentHeader.js';
 import { InlineCommentMargin } from '../components/InlineCommentMargin.js';
-import { NewCommentCard } from '../components/NewCommentCard.js';
 
 interface TemplateDetail {
   template: Template;
@@ -96,7 +95,22 @@ export function TemplateEditorPage() {
   const queryClient = useQueryClient();
   const { selectionInfo, pendingAnchor, startComment, cancelComment, onSelectionChange } =
     useEditorComments();
-  const { threads, createComment, resolveComment, deleteComment } = useComments(id);
+  /* v8 ignore next 10 -- error toast callbacks tested at hook level in useComments.test.ts */
+  const commentErrorCallbacks = {
+    onCreateError: () => {
+      showToast('Failed to save comment', 'error');
+    },
+    onResolveError: () => {
+      showToast('Failed to resolve comment', 'error');
+    },
+    onDeleteError: () => {
+      showToast('Failed to delete comment', 'error');
+    },
+  };
+  const { threads, isCreating, createComment, resolveComment, deleteComment } = useComments(
+    id,
+    commentErrorCallbacks,
+  );
 
   // Crepe editor ref for Milkdown commands
   const crepeRef = useRef<Crepe | null>(null);
@@ -121,8 +135,12 @@ export function TemplateEditorPage() {
   );
 
   const handleAddComment = useCallback(() => {
+    if (isCreateMode) {
+      showToast('Save the template first to add comments', 'info');
+      return;
+    }
     startComment();
-  }, [startComment]);
+  }, [isCreateMode, startComment, showToast]);
 
   const handleSubmitComment = useCallback(
     (commentContent: string) => {
@@ -145,10 +163,15 @@ export function TemplateEditorPage() {
   } | null>(null);
 
   const handleReviewAddComment = useCallback(() => {
+    /* v8 ignore next 4 -- defensive guard; FloatingCommentButton is hidden in create mode */
+    if (isCreateMode) {
+      showToast('Save the template first to add comments', 'info');
+      return;
+    }
     if (reviewTextSelection.selectedText) {
       setReviewPendingAnchor({ anchorText: reviewTextSelection.selectedText });
     }
-  }, [reviewTextSelection.selectedText]);
+  }, [isCreateMode, reviewTextSelection.selectedText, showToast]);
 
   const handleReviewSubmitComment = useCallback(
     (commentContent: string) => {
@@ -615,11 +638,13 @@ export function TemplateEditorPage() {
                     }}
                     onSelectionChange={onSelectionChange}
                   />
-                  <FloatingCommentButton
-                    position={selectionInfo.buttonPosition}
-                    visible={selectionInfo.hasSelection && !isReadOnly}
-                    onClick={handleAddComment}
-                  />
+                  {!isCreateMode && (
+                    <FloatingCommentButton
+                      position={selectionInfo.buttonPosition}
+                      visible={selectionInfo.hasSelection && !isReadOnly}
+                      onClick={handleAddComment}
+                    />
+                  )}
                 </Box>
                 {id != null && (
                   <InlineCommentMargin
@@ -631,14 +656,14 @@ export function TemplateEditorPage() {
                     onResolve={handleMarginResolve}
                     onDelete={handleMarginDelete}
                     onReply={handleMarginReply}
-                  />
-                )}
-                {pendingAnchor != null && (
-                  <NewCommentCard
-                    anchorText={pendingAnchor.anchorText}
-                    onSubmit={handleSubmitComment}
-                    onCancel={cancelComment}
-                    top={selectionInfo.buttonPosition?.top ?? undefined}
+                    pendingAnchor={pendingAnchor}
+                    onSubmitComment={handleSubmitComment}
+                    onCancelComment={cancelComment}
+                    /* v8 ignore next 2 -- nullish coalescing fallback for missing user fields */
+                    authorName={user?.name ?? user?.email ?? ''}
+                    authorEmail={user?.email ?? ''}
+                    isCreating={isCreating}
+                    pendingCommentTop={selectionInfo.buttonPosition?.top ?? undefined}
                   />
                 )}
               </Box>
@@ -694,18 +719,20 @@ export function TemplateEditorPage() {
                       __html: content ? markdownToHtml(content) : '<p>No content yet</p>',
                     }}
                   />
-                  <FloatingCommentButton
-                    position={
-                      reviewTextSelection.selectionRect
-                        ? {
-                            top: reviewTextSelection.selectionRect.top,
-                            left: reviewTextSelection.selectionRect.left,
-                          }
-                        : null
-                    }
-                    visible={reviewTextSelection.hasSelection && !isReadOnly}
-                    onClick={handleReviewAddComment}
-                  />
+                  {!isCreateMode && (
+                    <FloatingCommentButton
+                      position={
+                        reviewTextSelection.selectionRect
+                          ? {
+                              top: reviewTextSelection.selectionRect.top,
+                              left: reviewTextSelection.selectionRect.left,
+                            }
+                          : null
+                      }
+                      visible={reviewTextSelection.hasSelection && !isReadOnly}
+                      onClick={handleReviewAddComment}
+                    />
+                  )}
                 </Box>
                 <InlineCommentMargin
                   threads={threads}
@@ -716,17 +743,17 @@ export function TemplateEditorPage() {
                   onResolve={handleMarginResolve}
                   onDelete={handleMarginDelete}
                   onReply={handleMarginReply}
+                  pendingAnchor={reviewPendingAnchor}
+                  onSubmitComment={handleReviewSubmitComment}
+                  onCancelComment={() => {
+                    setReviewPendingAnchor(null);
+                  }}
+                  /* v8 ignore next 2 -- nullish coalescing fallback for missing user fields */
+                  authorName={user?.name ?? user?.email ?? ''}
+                  authorEmail={user?.email ?? ''}
+                  isCreating={isCreating}
+                  pendingCommentTop={reviewTextSelection.selectionRect?.top ?? undefined}
                 />
-                {reviewPendingAnchor != null && (
-                  <NewCommentCard
-                    anchorText={reviewPendingAnchor.anchorText}
-                    onSubmit={handleReviewSubmitComment}
-                    onCancel={() => {
-                      setReviewPendingAnchor(null);
-                    }}
-                    top={reviewTextSelection.selectionRect?.top ?? undefined}
-                  />
-                )}
               </Box>
             )}
           </Box>

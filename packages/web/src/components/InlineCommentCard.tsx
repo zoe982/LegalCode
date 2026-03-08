@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import {
   Box,
+  Button,
   Typography,
   TextField,
   IconButton,
@@ -21,6 +22,7 @@ export interface InlineCommentCardProps {
   onResolve: (commentId: string) => void;
   onDelete: (commentId: string) => void;
   onReply: (parentId: string, content: string) => void;
+  onAnchorClick?: ((commentId: string) => void) | undefined;
   isActive?: boolean;
   style?: React.CSSProperties;
 }
@@ -93,6 +95,7 @@ export function InlineCommentCard({
   onResolve,
   onDelete,
   onReply,
+  onAnchorClick,
   isActive,
   style,
 }: InlineCommentCardProps) {
@@ -176,11 +179,40 @@ export function InlineCommentCard({
           isActive === true
             ? '0 4px 12px rgba(0,0,0,0.15), 0 2px 4px rgba(0,0,0,0.1)'
             : '0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.08)',
+        borderBottom: '1px solid var(--border-secondary, #F3F3F7)',
         width: '100%',
         boxSizing: 'border-box',
+        '&:hover .comment-actions': { opacity: 1 },
+        '& .comment-actions:focus-within': { opacity: 1 },
       }}
     >
-      {/* Header row: Avatar + author + timestamp + resolve + more menu */}
+      {/* Anchor text quote */}
+      {thread.comment.anchorText != null && (
+        <Box
+          data-testid="anchor-quote"
+          onClick={() => {
+            onAnchorClick?.(thread.comment.id);
+          }}
+          sx={{
+            fontStyle: 'italic',
+            borderLeft: '2px solid var(--border-primary, #E0E0E0)',
+            pl: 1,
+            mb: 1,
+            color: '#6B6D82',
+            fontSize: '0.8125rem',
+            fontFamily: '"DM Sans", sans-serif',
+            cursor: 'pointer',
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+          }}
+        >
+          {thread.comment.anchorText}
+        </Box>
+      )}
+
+      {/* Header row: Avatar + author + timestamp + more menu */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.5 }}>
         <Avatar
           sx={{
@@ -213,20 +245,11 @@ export function InlineCommentCard({
           {formatRelativeTime(thread.comment.createdAt)}
         </Typography>
         <IconButton
-          size="small"
-          aria-label="resolve"
-          onClick={() => {
-            onResolve(thread.comment.id);
-          }}
-          sx={{ color: '#6B6D82' }}
-        >
-          <CheckRoundedIcon sx={{ fontSize: 16 }} />
-        </IconButton>
-        <IconButton
+          className="comment-actions"
           size="small"
           aria-label="more options"
           onClick={handleMenuOpen}
-          sx={{ color: '#6B6D82' }}
+          sx={{ color: '#6B6D82', opacity: 0, transition: 'opacity 0.2s' }}
         >
           <MoreVertIcon sx={{ fontSize: 16 }} />
         </IconButton>
@@ -295,6 +318,26 @@ export function InlineCommentCard({
             <SendIcon sx={{ fontSize: 16 }} />
           </IconButton>
         )}
+      </Box>
+
+      {/* Resolve button */}
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
+        <Button
+          size="small"
+          aria-label="resolve"
+          startIcon={<CheckRoundedIcon />}
+          onClick={() => {
+            onResolve(thread.comment.id);
+          }}
+          sx={{
+            fontSize: '0.75rem',
+            color: '#6B6D82',
+            textTransform: 'none',
+            fontFamily: '"DM Sans", sans-serif',
+          }}
+        >
+          Resolve
+        </Button>
       </Box>
     </Box>
   );

@@ -230,6 +230,10 @@ vi.mock('../../src/components/InlineCommentMargin.js', () => ({
     onResolve,
     onDelete,
     onReply,
+    pendingAnchor,
+    onSubmitComment,
+    onCancelComment,
+    pendingCommentTop,
   }: {
     threads: { comment: { id: string; content: string } }[];
     contentRef: unknown;
@@ -239,10 +243,36 @@ vi.mock('../../src/components/InlineCommentMargin.js', () => ({
     onResolve: (id: string) => void;
     onDelete: (id: string) => void;
     onReply: (parentId: string, content: string) => void;
+    pendingAnchor?: { anchorText: string } | null;
+    onSubmitComment?: (content: string) => void;
+    onCancelComment?: () => void;
+    authorName?: string;
+    authorEmail?: string;
+    isCreating?: boolean;
+    pendingCommentTop?: number;
   }) => (
     <div data-testid="inline-comment-margin" role="complementary" aria-label="Comments">
       <span data-testid="margin-thread-count">{String(threads.length)}</span>
       {activeCommentId != null && <span data-testid="margin-active">{activeCommentId}</span>}
+      {pendingAnchor != null && (
+        <div data-testid="new-comment-card">
+          <span data-testid="ncc-anchor">{pendingAnchor.anchorText}</span>
+          {pendingCommentTop != null && (
+            <span data-testid="ncc-top">{String(pendingCommentTop)}</span>
+          )}
+          <button
+            data-testid="ncc-submit"
+            onClick={() => {
+              onSubmitComment?.('test comment');
+            }}
+          >
+            Submit
+          </button>
+          <button data-testid="ncc-cancel" onClick={onCancelComment}>
+            Cancel
+          </button>
+        </div>
+      )}
       <button
         data-testid="margin-resolve"
         onClick={() => {
@@ -293,6 +323,7 @@ const mockUseComments = vi.fn().mockReturnValue({
   deleteComment: vi.fn(),
   showResolved: false,
   toggleShowResolved: vi.fn(),
+  isCreating: false,
 });
 vi.mock('../../src/hooks/useComments.js', () => ({
   useComments: (...args: unknown[]) => mockUseComments(...args) as unknown,
@@ -2361,6 +2392,70 @@ describe('TemplateEditorPage', () => {
       await user.click(commentBtn);
 
       expect(mockStartComment).toHaveBeenCalled();
+    });
+  });
+
+  describe('create-mode comment blocking', () => {
+    it('shows toast when handleAddComment is called in create mode (source)', () => {
+      // Create mode: no id
+      mockUseParams.mockReturnValue({});
+      mockUseEditorComments.mockReturnValue({
+        selectionInfo: {
+          hasSelection: true,
+          text: 'selected',
+          buttonPosition: { top: 100, left: 200 },
+        },
+        pendingAnchor: null,
+        startComment: mockStartComment,
+        cancelComment: mockCancelComment,
+        onSelectionChange: vi.fn(),
+      });
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      // In create mode, FloatingCommentButton is hidden (!isCreateMode && ...)
+      // But handleAddComment is also wired to keyboard shortcut onAddComment
+      // Let's invoke it via the keyboard shortcuts mock
+      const shortcutArgs = mockUseKeyboardShortcuts.mock.calls[0]?.[0] as {
+        onAddComment: () => void;
+      };
+      act(() => {
+        shortcutArgs.onAddComment();
+      });
+
+      expect(mockShowToast).toHaveBeenCalledWith('Save the template first to add comments', 'info');
+      expect(mockStartComment).not.toHaveBeenCalled();
+    });
+
+    it('shows toast when handleReviewAddComment is called in create mode (review)', () => {
+      // Create mode: no id
+      mockUseParams.mockReturnValue({});
+      mockUseTextSelection.mockReturnValue({
+        selectedText: 'some text',
+        selectionRect: { top: 100, left: 200, width: 100, height: 20 } as DOMRect,
+        hasSelection: true,
+      });
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('review');
+      });
+
+      // FloatingCommentButton should not be visible in create mode
+      // But if it were (e.g., the guard was only on handleReviewAddComment), clicking it would toast
+      // Since FloatingCommentButton is hidden in create mode, verify it's not there
+      expect(screen.queryByTestId('floating-comment-button')).not.toBeInTheDocument();
+
+      // Verify toast would fire if callback were called directly via keyboard shortcut
+      const shortcutArgs = mockUseKeyboardShortcuts.mock.calls.at(-1)?.[0] as {
+        onAddComment: () => void;
+      };
+      act(() => {
+        shortcutArgs.onAddComment();
+      });
+
+      expect(mockShowToast).toHaveBeenCalledWith('Save the template first to add comments', 'info');
     });
   });
 
