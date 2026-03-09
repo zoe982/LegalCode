@@ -63,6 +63,7 @@ describe('app', () => {
       method: 'POST',
       headers: {
         'Content-Type': 'text/plain',
+        'Content-Length': '8',
         Origin: 'https://legalcode.ax1access.com',
       },
       body: 'not json',

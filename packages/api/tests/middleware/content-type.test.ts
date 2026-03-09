@@ -17,10 +17,11 @@ function createTestApp() {
 describe('requireJsonContentType', () => {
   it('allows POST with application/json', async () => {
     const app = createTestApp();
+    const jsonBody = JSON.stringify({ data: 'test' });
     const res = await app.request('/test', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ data: 'test' }),
+      headers: { 'Content-Type': 'application/json', 'Content-Length': String(jsonBody.length) },
+      body: jsonBody,
     });
     expect(res.status).toBe(200);
     const body: unknown = await res.json();
@@ -31,6 +32,7 @@ describe('requireJsonContentType', () => {
     const app = createTestApp();
     const res = await app.request('/test', {
       method: 'POST',
+      headers: { 'Content-Length': '9' },
       body: 'some body',
     });
     expect(res.status).toBe(415);
@@ -42,7 +44,7 @@ describe('requireJsonContentType', () => {
     const app = createTestApp();
     const res = await app.request('/test', {
       method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
+      headers: { 'Content-Type': 'text/plain', 'Content-Length': '9' },
       body: 'some body',
     });
     expect(res.status).toBe(415);
@@ -73,6 +75,7 @@ describe('requireJsonContentType', () => {
       headers: {
         Upgrade: 'websocket',
         Connection: 'Upgrade',
+        'Content-Length': '15',
       },
       body: 'upgrade-payload',
     });
@@ -82,10 +85,14 @@ describe('requireJsonContentType', () => {
 
   it('allows PATCH with application/json; charset=utf-8', async () => {
     const app = createTestApp();
+    const jsonBody = JSON.stringify({ data: 'test' });
     const res = await app.request('/test', {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json; charset=utf-8' },
-      body: JSON.stringify({ data: 'test' }),
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Content-Length': String(jsonBody.length),
+      },
+      body: jsonBody,
     });
     expect(res.status).toBe(200);
     const body: unknown = await res.json();
@@ -96,7 +103,7 @@ describe('requireJsonContentType', () => {
     const app = createTestApp();
     const res = await app.request('/test', {
       method: 'PUT',
-      headers: { 'Content-Type': 'multipart/form-data' },
+      headers: { 'Content-Type': 'multipart/form-data', 'Content-Length': '9' },
       body: 'some body',
     });
     expect(res.status).toBe(415);
@@ -110,10 +117,42 @@ describe('requireJsonContentType', () => {
     expect(res.status).toBe(200);
   });
 
+  it('allows PATCH with non-null empty body and no Content-Length (Cloudflare Workers edge case)', async () => {
+    const app = createTestApp();
+    // Simulate Cloudflare Workers: body is an empty ReadableStream, not null
+    const req = new Request('http://localhost/test', {
+      method: 'PATCH',
+      body: new ReadableStream({
+        start(controller) {
+          controller.close();
+        },
+      }),
+      // Explicitly set duplex for streaming body
+      // @ts-expect-error -- duplex is required by undici/Node but not in TS lib types
+      duplex: 'half',
+    });
+    // Remove Content-Length header to simulate the edge case
+    // (Request constructor with ReadableStream body won't set Content-Length)
+    const res = await app.request(req);
+    expect(res.status).toBe(200);
+  });
+
+  it('still rejects PATCH with Content-Length > 0 but no Content-Type', async () => {
+    const app = createTestApp();
+    const req = new Request('http://localhost/test', {
+      method: 'PATCH',
+      body: 'some body',
+      headers: { 'Content-Length': '9' },
+    });
+    const res = await app.request(req);
+    expect(res.status).toBe(415);
+  });
+
   it('still rejects PATCH with body but no Content-Type', async () => {
     const app = createTestApp();
     const res = await app.request('/test', {
       method: 'PATCH',
+      headers: { 'Content-Length': '9' },
       body: 'some body',
     });
     expect(res.status).toBe(415);

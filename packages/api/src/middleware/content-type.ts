@@ -11,7 +11,10 @@ export const requireJsonContentType = createMiddleware<AppEnv>(async (c, next): 
   }
 
   // Skip if there's no body (e.g., PATCH /resolve with empty body)
-  if (c.req.raw.body === null) {
+  // Cloudflare Workers may represent bodyless requests as empty ReadableStream instead of null,
+  // so also check Content-Length header as a fallback
+  const contentLength = c.req.header('Content-Length');
+  if (c.req.raw.body === null || !contentLength || contentLength === '0') {
     await next();
     return;
   }
