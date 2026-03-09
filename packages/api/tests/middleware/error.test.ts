@@ -328,6 +328,23 @@ describe('errorHandler', () => {
     consoleSpy.mockRestore();
   });
 
+  it('returns 500 even when logError rejects', async () => {
+    mockLogError.mockClear();
+    mockLogError.mockRejectedValueOnce(new Error('D1 unavailable'));
+    const app = createTestApp(true);
+    app.get('/fail', () => {
+      throw new Error('server crash');
+    });
+
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const res = await app.request('/fail');
+
+    expect(res.status).toBe(500);
+    const body: unknown = await res.json();
+    expect(body).toEqual({ error: 'Internal server error' });
+    consoleSpy.mockRestore();
+  });
+
   it('includes method, path, and status in logError metadata', async () => {
     mockLogError.mockClear();
     const app = createTestApp(true);

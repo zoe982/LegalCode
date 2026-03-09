@@ -252,6 +252,24 @@ describe('POST /categories', () => {
     );
   });
 
+  it('returns 500 even when logError rejects', async () => {
+    mockInsertReturning.mockRejectedValueOnce(new Error('DB error'));
+    mockLogError.mockRejectedValueOnce(new Error('D1 unavailable'));
+
+    const app = await importAndCreateApp();
+    const token = await adminToken();
+    const res = await app.request('/categories', {
+      method: 'POST',
+      headers: {
+        Cookie: `__Host-auth=${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ name: 'Valid' }),
+    });
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ error: 'Internal server error' });
+  });
+
   it('returns 500 when error is not an Error instance', async () => {
     mockInsertReturning.mockRejectedValueOnce('string error');
     mockLogError.mockClear();
@@ -396,6 +414,24 @@ describe('PUT /categories/:id', () => {
     );
   });
 
+  it('returns 500 even when logError rejects', async () => {
+    mockUpdateReturning.mockRejectedValueOnce(new Error('DB error'));
+    mockLogError.mockRejectedValueOnce(new Error('D1 unavailable'));
+
+    const app = await importAndCreateApp();
+    const token = await adminToken();
+    const res = await app.request('/categories/cat-1', {
+      method: 'PUT',
+      headers: {
+        Cookie: `__Host-auth=${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ name: 'Valid' }),
+    });
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ error: 'Internal server error' });
+  });
+
   it('returns 500 when error is not an Error instance', async () => {
     mockUpdateReturning.mockRejectedValueOnce('string error');
     mockLogError.mockClear();
@@ -487,6 +523,20 @@ describe('DELETE /categories/:id', () => {
         userId: 'admin-1',
       }),
     );
+  });
+
+  it('returns 500 even when logError rejects', async () => {
+    mockDeleteReturning.mockRejectedValueOnce(new Error('DB error'));
+    mockLogError.mockRejectedValueOnce(new Error('D1 unavailable'));
+
+    const app = await importAndCreateApp();
+    const token = await adminToken();
+    const res = await app.request('/categories/cat-1', {
+      method: 'DELETE',
+      headers: { Cookie: `__Host-auth=${token}` },
+    });
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ error: 'Internal server error' });
   });
 
   it('returns 500 when error is not an Error instance', async () => {

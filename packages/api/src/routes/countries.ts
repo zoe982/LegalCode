@@ -56,7 +56,7 @@ countryRoutes.post('/', requireRole('admin'), async (c) => {
       stack: err instanceof Error ? err.stack : null,
       url: '/api/countries',
       userId: c.get('user').id,
-    });
+    }).catch(console.error);
     return c.json({ error: 'Internal server error' }, 500);
   }
 });
@@ -111,7 +111,7 @@ countryRoutes.put('/:id', requireRole('admin'), async (c) => {
       stack: err instanceof Error ? err.stack : null,
       url,
       userId: c.get('user').id,
-    });
+    }).catch(console.error);
     return c.json({ error: 'Internal server error' }, 500);
   }
 });
@@ -144,7 +144,7 @@ countryRoutes.delete('/:id', requireRole('admin'), async (c) => {
       stack: err instanceof Error ? err.stack : null,
       url,
       userId: c.get('user').id,
-    });
+    }).catch(console.error);
     return c.json({ error: 'Internal server error' }, 500);
   }
 });

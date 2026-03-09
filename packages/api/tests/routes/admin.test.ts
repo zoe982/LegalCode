@@ -335,6 +335,24 @@ describe('POST /admin/users', () => {
     expect(mockDeactivateUser).toHaveBeenCalledWith(expect.anything(), 'rollback-id');
   });
 
+  it('returns 500 even when logError rejects', async () => {
+    mockCreateUser.mockRejectedValueOnce(new Error('DB error'));
+    mockLogError.mockRejectedValueOnce(new Error('D1 unavailable'));
+
+    const app = await importAndCreateApp();
+    const token = await adminToken();
+    const res = await app.request('/admin/users', {
+      method: 'POST',
+      headers: {
+        Cookie: `__Host-auth=${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email: 'fail@acasus.com', name: 'Fail', role: 'editor' }),
+    });
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ error: 'Internal server error' });
+  });
+
   it('logs error to error_log on 500', async () => {
     mockLogError.mockClear();
     mockCreateUser.mockRejectedValueOnce(new Error('Connection refused'));
@@ -422,6 +440,24 @@ describe('PATCH /admin/users/:id', () => {
         url: '/api/admin/users/:id',
       }),
     );
+  });
+
+  it('returns 500 even when logError rejects', async () => {
+    mockUpdateUserRole.mockRejectedValueOnce(new Error('DB error'));
+    mockLogError.mockRejectedValueOnce(new Error('D1 unavailable'));
+
+    const app = await importAndCreateApp();
+    const token = await adminToken();
+    const res = await app.request('/admin/users/user-123', {
+      method: 'PATCH',
+      headers: {
+        Cookie: `__Host-auth=${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ role: 'viewer' }),
+    });
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ error: 'Internal server error' });
   });
 
   it('returns 500 when error is not an Error instance on role update', async () => {
@@ -564,6 +600,20 @@ describe('DELETE /admin/users/:id', () => {
         url: '/api/admin/users/:id',
       }),
     );
+  });
+
+  it('returns 500 even when logError rejects', async () => {
+    mockDeactivateUser.mockRejectedValueOnce(new Error('DB error'));
+    mockLogError.mockRejectedValueOnce(new Error('D1 unavailable'));
+
+    const app = await importAndCreateApp();
+    const token = await adminToken();
+    const res = await app.request('/admin/users/user-456', {
+      method: 'DELETE',
+      headers: { Cookie: `__Host-auth=${token}` },
+    });
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ error: 'Internal server error' });
   });
 
   it('returns 500 when error is not an Error instance on delete', async () => {

@@ -70,7 +70,7 @@ adminRoutes.post('/users', async (c) => {
       stack: err instanceof Error ? err.stack : null,
       url: '/api/admin/users',
       userId: c.get('user').id,
-    });
+    }).catch(console.error);
     return c.json({ error: 'Internal server error' }, 500);
   }
 });
@@ -104,7 +104,7 @@ adminRoutes.patch('/users/:id', async (c) => {
       stack: err instanceof Error ? err.stack : null,
       url: '/api/admin/users/:id',
       userId: c.get('user').id,
-    });
+    }).catch(console.error);
     return c.json({ error: 'Internal server error' }, 500);
   }
 });
@@ -138,7 +138,7 @@ adminRoutes.delete('/users/:id', async (c) => {
       stack: err instanceof Error ? err.stack : null,
       url: '/api/admin/users/:id',
       userId: c.get('user').id,
-    });
+    }).catch(console.error);
     return c.json({ error: 'Internal server error' }, 500);
   }
 });

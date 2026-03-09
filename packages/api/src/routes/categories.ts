@@ -55,7 +55,7 @@ categoryRoutes.post('/', requireRole('admin'), async (c) => {
       stack: err instanceof Error ? err.stack : null,
       url: '/api/categories',
       userId: c.get('user').id,
-    });
+    }).catch(console.error);
     return c.json({ error: 'Internal server error' }, 500);
   }
 });
@@ -99,7 +99,7 @@ categoryRoutes.put('/:id', requireRole('admin'), async (c) => {
       stack: err instanceof Error ? err.stack : null,
       url: `/api/categories/${id}`,
       userId: c.get('user').id,
-    });
+    }).catch(console.error);
     return c.json({ error: 'Internal server error' }, 500);
   }
 });
@@ -131,7 +131,7 @@ categoryRoutes.delete('/:id', requireRole('admin'), async (c) => {
       stack: err instanceof Error ? err.stack : null,
       url: `/api/categories/${id}`,
       userId: c.get('user').id,
-    });
+    }).catch(console.error);
     return c.json({ error: 'Internal server error' }, 500);
   }
 });

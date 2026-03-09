@@ -53,7 +53,7 @@ export const errorHandler: ErrorHandler<AppEnv> = (err, c) => {
       stack: err.stack ?? null,
       metadata: JSON.stringify({ method: c.req.method, path: c.req.path, status }),
       url: c.req.path,
-    });
+    }).catch(console.error);
   }
 
   return c.json({ error: 'Internal server error' }, status);
