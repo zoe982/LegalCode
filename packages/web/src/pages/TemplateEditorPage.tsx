@@ -367,24 +367,38 @@ export function TemplateEditorPage() {
         : null;
 
   // Right slot content for DocumentHeader
-  const documentHeaderRightSlot = !isCreateMode ? (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-      {draftSaveStatus != null && <ConnectionStatus status={draftSaveStatus} />}
-      {collaboration.status !== 'disconnected' && (
-        <>
-          <ConnectionStatus status={collaboration.status as ConnectionStatusType} />
-          <PresenceAvatars users={collaboration.connectedUsers} />
-        </>
-      )}
-      <IconButton onClick={handleExport} aria-label="export">
-        <DownloadIcon />
-      </IconButton>
-    </Box>
-  ) : draftSaveStatus != null ? (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-      <ConnectionStatus status={draftSaveStatus} />
-    </Box>
-  ) : undefined;
+  const documentHeaderRightSlot = useMemo(() => {
+    if (!isCreateMode) {
+      return (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          {draftSaveStatus != null && <ConnectionStatus status={draftSaveStatus} />}
+          {collaboration.status !== 'disconnected' && (
+            <>
+              <ConnectionStatus status={collaboration.status as ConnectionStatusType} />
+              <PresenceAvatars users={collaboration.connectedUsers} />
+            </>
+          )}
+          <IconButton onClick={handleExport} aria-label="export">
+            <DownloadIcon />
+          </IconButton>
+        </Box>
+      );
+    }
+    if (draftSaveStatus != null) {
+      return (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <ConnectionStatus status={draftSaveStatus} />
+        </Box>
+      );
+    }
+    return undefined;
+  }, [
+    isCreateMode,
+    draftSaveStatus,
+    collaboration.status,
+    collaboration.connectedUsers,
+    handleExport,
+  ]);
 
   useEffect(() => {
     setConfig({
@@ -432,7 +446,6 @@ export function TemplateEditorPage() {
     draftSaveStatus,
     autosave.saveState,
     isViewer,
-    documentHeaderRightSlot,
   ]);
 
   useEffect(() => {
