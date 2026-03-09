@@ -1,13 +1,27 @@
 export async function extractApiError(response: Response, fallback: string): Promise<never> {
-  let body: { error?: string; details?: unknown } | undefined;
+  let rawText = '';
   try {
-    body = (await response.json()) as { error?: string; details?: unknown };
+    rawText = await response.text();
   } catch {
-    // Response body is not JSON — use fallback
+    // body unreadable
   }
-  if (body?.error) {
-    const detailSuffix = body.details ? ` (${JSON.stringify(body.details)})` : '';
-    throw new Error(`${body.error}${detailSuffix}`);
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(rawText);
+  } catch {
+    // not JSON
   }
-  throw new Error(fallback);
+
+  if (typeof parsed === 'object' && parsed !== null && 'error' in parsed) {
+    const record = parsed as Record<string, unknown>;
+    const error = typeof record.error === 'string' ? record.error : '';
+    if (error) {
+      const detailSuffix = record.details ? ` (${JSON.stringify(record.details)})` : '';
+      throw new Error(`${error}${detailSuffix}`);
+    }
+  }
+
+  const preview = rawText.length > 200 ? rawText.slice(0, 200) + '...' : rawText;
+  throw new Error(`${fallback} (HTTP ${String(response.status)}${preview ? `: ${preview}` : ''})`);
 }
