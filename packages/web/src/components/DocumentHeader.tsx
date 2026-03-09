@@ -15,7 +15,7 @@ import MoreHorizRounded from '@mui/icons-material/MoreHorizRounded';
 import ScheduleRounded from '@mui/icons-material/ScheduleRounded';
 import ExpandMoreRounded from '@mui/icons-material/ExpandMoreRounded';
 import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded';
-import { useNavigate } from 'react-router';
+import { useNavigate, Link } from 'react-router';
 import { useCategories } from '../hooks/useCategories.js';
 import { useCountries } from '../hooks/useCountries.js';
 import type { SelectChangeEvent } from '@mui/material/Select';
@@ -146,12 +146,6 @@ export function DocumentHeader({
   const handleMoreClose = useCallback(() => {
     setMoreAnchorEl(null);
   }, []);
-
-  const handleHistoryClick = useCallback(() => {
-    if (templateId) {
-      void navigate(`/templates/${templateId}/history`);
-    }
-  }, [navigate, templateId]);
 
   const handleCategoryChange = useCallback(
     (event: SelectChangeEvent) => {
@@ -570,8 +564,9 @@ export function DocumentHeader({
       {!isCreateMode && templateId != null && (
         <Tooltip title="Version history" enterDelay={400}>
           <IconButton
+            component={Link}
+            to={`/templates/${templateId}/history`}
             aria-label="Version history"
-            onClick={handleHistoryClick}
             sx={{ ...compactIconButtonStyle, mr: '8px' }}
           >
             <ScheduleRounded sx={{ fontSize: '20px' }} />

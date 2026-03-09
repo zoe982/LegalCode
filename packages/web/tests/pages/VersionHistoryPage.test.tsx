@@ -42,10 +42,13 @@ vi.mock('../../src/services/templates.js', () => ({
   },
 }));
 
+const mockSetConfig = vi.fn();
+const mockClearConfig = vi.fn();
+
 vi.mock('../../src/contexts/TopAppBarContext.js', () => ({
   useTopAppBarConfig: () => ({
-    setConfig: vi.fn(),
-    clearConfig: vi.fn(),
+    setConfig: mockSetConfig,
+    clearConfig: mockClearConfig,
   }),
 }));
 
@@ -207,6 +210,8 @@ describe('VersionHistoryPage', () => {
   beforeEach(() => {
     localStorage.clear();
     vi.clearAllMocks();
+    mockSetConfig.mockClear();
+    mockClearConfig.mockClear();
   });
 
   it('renders loading skeleton initially', () => {
@@ -243,18 +248,6 @@ describe('VersionHistoryPage', () => {
     expect(screen.getByText('v1')).toBeInTheDocument();
   });
 
-  it('back button navigates to /templates/:id', async () => {
-    const user = userEvent.setup();
-    setupLoadedMocks();
-
-    render(<VersionHistoryPage />);
-
-    const backButton = screen.getByRole('button', { name: /back to editor/i });
-    await user.click(backButton);
-
-    expect(mockNavigate).toHaveBeenCalledWith('/templates/t1');
-  });
-
   it('clicking a version loads its content in preview', async () => {
     const user = userEvent.setup();
     setupLoadedMocks();
@@ -273,12 +266,12 @@ describe('VersionHistoryPage', () => {
     });
   });
 
-  it('current version has "(current)" label', () => {
+  it('current version has "current" badge', () => {
     setupLoadedMocks();
 
     render(<VersionHistoryPage />);
 
-    expect(screen.getByText('(current)')).toBeInTheDocument();
+    expect(screen.getByText('current')).toBeInTheDocument();
   });
 
   it('restore button appears for non-current versions', async () => {
@@ -301,8 +294,8 @@ describe('VersionHistoryPage', () => {
 
     render(<VersionHistoryPage />);
 
-    // Current version (v3) is selected by default
-    expect(screen.queryByRole('button', { name: /restore/i })).not.toBeInTheDocument();
+    // Current version (v3) should not have a restore button
+    expect(screen.queryByRole('button', { name: /restore to version 3/i })).not.toBeInTheDocument();
   });
 
   it('restore button opens confirmation dialog', async () => {
@@ -357,15 +350,6 @@ describe('VersionHistoryPage', () => {
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('/templates/t1');
     });
-  });
-
-  it('page title shows template title', () => {
-    setupLoadedMocks();
-
-    render(<VersionHistoryPage />);
-
-    expect(screen.getByText('Version History')).toBeInTheDocument();
-    expect(screen.getByText('Service Agreement')).toBeInTheDocument();
   });
 
   it('diff toggle shows changes when enabled', async () => {
@@ -457,12 +441,13 @@ describe('VersionHistoryPage', () => {
     });
   });
 
-  it('displays version count in timeline header', () => {
+  it('displays version count badge in timeline header', () => {
     setupLoadedMocks();
 
     render(<VersionHistoryPage />);
 
-    expect(screen.getByText('(3 versions)')).toBeInTheDocument();
+    // Count is now a badge, not "(3 versions)"
+    expect(screen.getByText('3')).toBeInTheDocument();
   });
 
   it('shows "Versions" header in the timeline', () => {
@@ -593,5 +578,22 @@ describe('VersionHistoryPage', () => {
 
     // Should not show diff view for current version (comparing to itself)
     expect(screen.queryByTestId('diff-view')).not.toBeInTheDocument();
+  });
+
+  it('displays author for each version entry', () => {
+    setupLoadedMocks();
+    render(<VersionHistoryPage />);
+    // mockVersions have createdBy: 'u1' and 'u2'
+    const authorElements = screen.getAllByText(/^u[12]$/);
+    expect(authorElements.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('sets breadcrumb config with template name', () => {
+    setupLoadedMocks();
+    render(<VersionHistoryPage />);
+    expect(mockSetConfig).toHaveBeenCalledWith({
+      breadcrumbTemplateName: 'Service Agreement',
+      breadcrumbPageName: 'Version History',
+    });
   });
 });

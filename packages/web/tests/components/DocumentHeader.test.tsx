@@ -231,13 +231,11 @@ describe('DocumentHeader', () => {
   });
 
   // History button
-  it('history button navigates to /templates/:id/history', async () => {
-    const user = userEvent.setup();
+  it('history button links to /templates/:id/history', () => {
     renderHeader({ templateId: 't1' });
-    const historyButton = screen.getByRole('button', { name: 'Version history' });
-    expect(historyButton).toBeInTheDocument();
-    await user.click(historyButton);
-    expect(mockNavigate).toHaveBeenCalledWith('/templates/t1/history');
+    const historyLink = screen.getByRole('link', { name: 'Version history' });
+    expect(historyLink).toBeInTheDocument();
+    expect(historyLink).toHaveAttribute('href', '/templates/t1/history');
   });
 
   // Create mode
@@ -246,9 +244,9 @@ describe('DocumentHeader', () => {
     expect(screen.queryByTestId('status-chip')).not.toBeInTheDocument();
   });
 
-  it('create mode: no history button', () => {
+  it('create mode: no history link', () => {
     renderHeader({ isCreateMode: true });
-    expect(screen.queryByRole('button', { name: 'Version history' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Version history' })).not.toBeInTheDocument();
   });
 
   it('create mode: no more button', () => {
@@ -355,10 +353,10 @@ describe('DocumentHeader', () => {
     expect(screen.queryByText(/^by /)).not.toBeInTheDocument();
   });
 
-  // History button not rendered without templateId
-  it('history button not shown without templateId', () => {
+  // History link not rendered without templateId
+  it('history link not shown without templateId', () => {
     renderHeader({ templateId: undefined });
-    expect(screen.queryByRole('button', { name: 'Version history' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Version history' })).not.toBeInTheDocument();
   });
 
   // Renders without rightSlot

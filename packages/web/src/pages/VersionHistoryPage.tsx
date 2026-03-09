@@ -3,7 +3,6 @@ import { useParams, useNavigate } from 'react-router';
 import {
   Box,
   Typography,
-  IconButton,
   Skeleton,
   Switch,
   FormControlLabel,
@@ -12,9 +11,7 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Tooltip,
 } from '@mui/material';
-import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import { useTemplate, useTemplateVersions } from '../hooks/useTemplates.js';
 import { templateService } from '../services/templates.js';
 import { useTopAppBarConfig } from '../contexts/TopAppBarContext.js';
@@ -43,12 +40,13 @@ export function VersionHistoryPage() {
   // Set app bar config
   useEffect(() => {
     setConfig({
+      breadcrumbTemplateName: templateData?.template.title,
       breadcrumbPageName: 'Version History',
     });
     return () => {
       clearConfig();
     };
-  }, [setConfig, clearConfig]);
+  }, [setConfig, clearConfig, templateData?.template.title]);
 
   // Auto-select current version on load
   useEffect(() => {
@@ -73,10 +71,6 @@ export function VersionHistoryPage() {
       setLoadingContent(false);
     });
   }, [templateId, selectedVersion, templateData]);
-
-  const handleBack = useCallback(() => {
-    void navigate(`/templates/${templateId}`);
-  }, [navigate, templateId]);
 
   const handleVersionSelect = useCallback(
     (version: number) => {
@@ -176,88 +170,13 @@ export function VersionHistoryPage() {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      {/* Top bar */}
-      <Box
-        sx={{
-          height: 48,
-          display: 'flex',
-          alignItems: 'center',
-          px: 2,
-          borderBottom: '1px solid var(--border-primary)',
-          flexShrink: 0,
-        }}
-      >
-        <Tooltip title="Back to editor" enterDelay={400}>
-          <IconButton
-            onClick={handleBack}
-            aria-label="Back to editor"
-            size="small"
-            sx={{
-              width: 32,
-              height: 32,
-              color: 'var(--text-secondary)',
-              mr: 1,
-              '&:hover': {
-                backgroundColor: 'var(--surface-tertiary)',
-                color: 'var(--text-primary)',
-              },
-            }}
-          >
-            <ArrowBackRoundedIcon sx={{ fontSize: 20 }} />
-          </IconButton>
-        </Tooltip>
-
-        <Typography
-          component="span"
-          sx={{
-            fontFamily: '"DM Sans", sans-serif',
-            fontSize: '0.875rem',
-            fontWeight: 600,
-            color: 'var(--text-primary)',
-          }}
-        >
-          Version History
-        </Typography>
-
-        {templateData && (
-          <>
-            <Typography
-              component="span"
-              sx={{
-                fontFamily: '"DM Sans", sans-serif',
-                fontSize: '0.875rem',
-                color: 'var(--text-tertiary)',
-                mx: 1,
-              }}
-            >
-              —
-            </Typography>
-            <Typography
-              component="span"
-              sx={{
-                fontFamily: '"Source Serif 4", Georgia, "Times New Roman", serif',
-                fontSize: '1.125rem',
-                fontWeight: 600,
-                color: 'var(--text-primary)',
-                maxWidth: 400,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {templateData.template.title}
-            </Typography>
-          </>
-        )}
-      </Box>
-
       {/* Split layout */}
       <Box
         component="main"
         sx={{
           display: 'flex',
           flexDirection: 'row',
-          height: 'calc(100vh - 48px)',
+          height: '100%',
           backgroundColor: 'var(--surface-primary)',
         }}
       >
@@ -409,15 +328,22 @@ export function VersionHistoryPage() {
             >
               Versions
             </Typography>
-            <Typography
+            <Box
+              component="span"
               sx={{
                 fontFamily: '"DM Sans", sans-serif',
-                fontSize: '0.75rem',
+                fontSize: '0.6875rem',
+                fontWeight: 500,
                 color: 'var(--text-tertiary)',
+                backgroundColor: 'var(--surface-tertiary)',
+                borderRadius: '10px',
+                px: 1,
+                py: 0.25,
+                ml: 1,
               }}
             >
-              ({String(sorted.length)} versions)
-            </Typography>
+              {String(sorted.length)}
+            </Box>
           </Box>
 
           {/* Timeline list */}
@@ -433,7 +359,7 @@ export function VersionHistoryPage() {
                 left: '20px',
                 top: 8,
                 bottom: 8,
-                width: 1,
+                width: 2,
                 backgroundColor: 'var(--border-primary)',
               },
             }}
@@ -449,6 +375,7 @@ export function VersionHistoryPage() {
                   aria-selected={isSelected}
                   aria-label={`v${String(v.version)}${isCurrent ? ' (current)' : ''}`}
                   tabIndex={0}
+                  className="version-card"
                   onClick={() => {
                     handleVersionSelect(v.version);
                   }}
@@ -465,7 +392,11 @@ export function VersionHistoryPage() {
                     p: 1.5,
                     borderRadius: '8px',
                     cursor: 'pointer',
-                    backgroundColor: isSelected ? '#FFFFFF' : 'transparent',
+                    backgroundColor: isCurrent
+                      ? 'rgba(128, 39, 255, 0.04)'
+                      : isSelected
+                        ? '#FFFFFF'
+                        : 'transparent',
                     border: isSelected
                       ? '1px solid var(--border-primary)'
                       : '1px solid transparent',
@@ -504,7 +435,7 @@ export function VersionHistoryPage() {
                       left: -30,
                       top: '50%',
                       width: 8,
-                      height: 1,
+                      height: 2,
                       backgroundColor: 'var(--border-primary)',
                     }}
                   />
@@ -524,16 +455,21 @@ export function VersionHistoryPage() {
                     </Typography>
 
                     {isCurrent && (
-                      <Typography
+                      <Box
                         component="span"
                         sx={{
                           fontFamily: '"DM Sans", sans-serif',
-                          fontSize: '0.75rem',
+                          fontSize: '0.6875rem',
+                          fontWeight: 600,
                           color: '#8027FF',
+                          backgroundColor: 'rgba(128, 39, 255, 0.08)',
+                          borderRadius: '4px',
+                          px: 0.75,
+                          py: 0.125,
                         }}
                       >
-                        (current)
-                      </Typography>
+                        current
+                      </Box>
                     )}
 
                     <Typography
@@ -566,14 +502,28 @@ export function VersionHistoryPage() {
                     {v.changeSummary ?? 'Initial version'}
                   </Typography>
 
-                  {/* Restore button — only for selected non-current versions */}
-                  {isSelected && !isCurrent && (
+                  {v.createdBy && (
+                    <Typography
+                      sx={{
+                        fontFamily: '"DM Sans", sans-serif',
+                        fontSize: '0.75rem',
+                        color: 'var(--text-tertiary)',
+                        mt: 0.25,
+                      }}
+                    >
+                      {v.createdBy}
+                    </Typography>
+                  )}
+
+                  {/* Restore button — visible on hover for non-current versions */}
+                  {!isCurrent && (
                     <Button
                       onClick={(e) => {
                         e.stopPropagation();
                         handleRestoreClick();
                       }}
                       aria-label={`Restore to version ${String(v.version)}`}
+                      className="restore-button"
                       sx={{
                         mt: 1,
                         fontFamily: '"DM Sans", sans-serif',
@@ -583,6 +533,11 @@ export function VersionHistoryPage() {
                         textTransform: 'none',
                         height: 28,
                         px: 1,
+                        opacity: isSelected ? 1 : 0,
+                        transition: 'opacity 150ms ease',
+                        '.version-card:hover &': {
+                          opacity: 1,
+                        },
                         '&:hover': {
                           backgroundColor: 'rgba(128, 39, 255, 0.04)',
                         },
