@@ -188,7 +188,7 @@ describe('MarkdownEditor', () => {
     expect(screen.getByTestId('milkdown-editor')).toBeInTheDocument();
   });
 
-  it('does not register onChange listener when collaboration is provided', () => {
+  it('registers onChange listener even when collaboration is provided', () => {
     captured.editorCallback = null;
     const onChange = vi.fn();
 
@@ -207,8 +207,25 @@ describe('MarkdownEditor', () => {
     const fakeRoot = document.createElement('div');
     editorCb?.(fakeRoot);
 
-    // In collaboration mode, onChange should NOT be registered
-    expect(mockOn).not.toHaveBeenCalled();
+    // In collaboration mode, onChange should still be registered
+    expect(mockOn).toHaveBeenCalledTimes(1);
+
+    // Verify the listener fires correctly
+    const listenerSetupFn = (mockOn.mock.calls[0] as unknown[])[0] as (listener: {
+      markdownUpdated: (cb: (ctx: unknown, md: string) => void) => void;
+    }) => void;
+
+    const mockMarkdownUpdated = vi.fn();
+    listenerSetupFn({ markdownUpdated: mockMarkdownUpdated });
+
+    expect(mockMarkdownUpdated).toHaveBeenCalledTimes(1);
+    const registeredCb = (mockMarkdownUpdated.mock.calls[0] as unknown[])[0] as (
+      ctx: unknown,
+      md: string,
+    ) => void;
+
+    registeredCb(null, '# Collab update');
+    expect(onChange).toHaveBeenCalledWith('# Collab update');
   });
 
   it('renders wrapper with data-testid and menu CSS overrides', () => {
@@ -224,12 +241,12 @@ describe('MarkdownEditor', () => {
     expect(wrapper.className).not.toBe('');
   });
 
-  it('uses empty string as defaultValue in collaboration mode', async () => {
+  it('uses actual defaultValue in collaboration mode', async () => {
     captured.editorCallback = null;
 
     render(
       <MarkdownEditor
-        defaultValue="# Should be ignored"
+        defaultValue="# Collab content"
         collaboration={{
           ydoc: {} as YDoc,
           awareness: {} as Awareness,
@@ -242,9 +259,11 @@ describe('MarkdownEditor', () => {
     const fakeRoot = document.createElement('div');
     editorCb?.(fakeRoot);
 
-    // Verify Crepe was called with empty string, not the defaultValue
+    // Verify Crepe was called with the actual defaultValue, not empty string
     const { Crepe: CrepeMock } = await import('@milkdown/crepe');
-    expect(CrepeMock).toHaveBeenCalledWith(expect.objectContaining({ defaultValue: '' }));
+    expect(CrepeMock).toHaveBeenCalledWith(
+      expect.objectContaining({ defaultValue: '# Collab content' }),
+    );
   });
 
   it('calls onEditorReady with crepe instance when provided', () => {

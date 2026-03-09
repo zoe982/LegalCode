@@ -1,5 +1,5 @@
 /// <reference types="@testing-library/jest-dom/vitest" />
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/unbound-method */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/unbound-method, @typescript-eslint/no-non-null-assertion */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -1407,13 +1407,23 @@ describe('TemplateEditorPage', () => {
       expect(screen.getByTestId('review-content')).toBeInTheDocument();
     });
 
-    it('hides markdown editor in review mode', () => {
+    it('keeps markdown editor in DOM but hides it in review mode', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
       renderDocumentHeader();
       act(() => {
         (latestDocumentHeaderProps.onModeChange as (m: string) => void)('review');
       });
-      expect(screen.queryByTestId('markdown-editor')).not.toBeInTheDocument();
+      // Editor stays in DOM (no unmount) but its container is hidden
+      expect(screen.getByTestId('markdown-editor')).toBeInTheDocument();
+      const sourceContainer = screen.getByTestId('source-editor-container');
+      expect(sourceContainer).toHaveStyle({ display: 'none' });
+    });
+
+    it('both source and review panels are always in the DOM', () => {
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      // In source mode (default), both panels should be in DOM
+      expect(screen.getByTestId('markdown-editor')).toBeInTheDocument();
+      expect(screen.getByTestId('review-content')).toBeInTheDocument();
     });
 
     it('shows read-only content in review mode', () => {
@@ -1619,14 +1629,15 @@ describe('TemplateEditorPage', () => {
         (latestDocumentHeaderProps.onModeChange as (m: string) => void)('review');
       });
 
-      expect(screen.getByTestId('inline-comment-margin')).toBeInTheDocument();
+      // Both source and review panels are always in DOM; both have InlineCommentMargin
+      expect(screen.getAllByTestId('inline-comment-margin').length).toBeGreaterThanOrEqual(1);
     });
 
     it('renders InlineCommentMargin in source mode for existing templates', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
-      // In edit mode (id exists), InlineCommentMargin renders in source mode too
-      expect(screen.getByTestId('inline-comment-margin')).toBeInTheDocument();
+      // In edit mode (id exists), InlineCommentMargin renders in both panels
+      expect(screen.getAllByTestId('inline-comment-margin').length).toBeGreaterThanOrEqual(1);
     });
 
     it('does not render InlineCommentMargin in source mode for create mode (no id)', () => {
@@ -1687,7 +1698,9 @@ describe('TemplateEditorPage', () => {
         (latestDocumentHeaderProps.onModeChange as (m: string) => void)('review');
       });
 
-      await user.click(screen.getByTestId('margin-resolve'));
+      // Both panels render InlineCommentMargin; click the last one (review panel)
+      const resolveButtons = screen.getAllByTestId('margin-resolve');
+      await user.click(resolveButtons.at(-1)!);
       expect(mockResolveComment).toHaveBeenCalledWith({ templateId: 't1', commentId: 'c1' });
     });
 
@@ -1710,7 +1723,9 @@ describe('TemplateEditorPage', () => {
         (latestDocumentHeaderProps.onModeChange as (m: string) => void)('review');
       });
 
-      await user.click(screen.getByTestId('margin-delete'));
+      // Both panels render InlineCommentMargin; click the last one (review panel)
+      const deleteButtons = screen.getAllByTestId('margin-delete');
+      await user.click(deleteButtons.at(-1)!);
       expect(mockDeleteComment).toHaveBeenCalledWith({ templateId: 't1', commentId: 'c1' });
     });
 
@@ -1723,7 +1738,9 @@ describe('TemplateEditorPage', () => {
         (latestDocumentHeaderProps.onModeChange as (m: string) => void)('review');
       });
 
-      await user.click(screen.getByTestId('margin-reply'));
+      // Both panels render InlineCommentMargin; click the last one (review panel)
+      const replyButtons = screen.getAllByTestId('margin-reply');
+      await user.click(replyButtons.at(-1)!);
       expect(mockCreateComment).toHaveBeenCalledWith({
         templateId: 't1',
         content: 'test reply',
@@ -1889,7 +1906,9 @@ describe('TemplateEditorPage', () => {
         (latestDocumentHeaderProps.onModeChange as (m: string) => void)('review');
       });
 
-      expect(screen.getByTestId('margin-thread-count')).toHaveTextContent('1');
+      // Both panels render InlineCommentMargin; check at least one shows thread count
+      const threadCounts = screen.getAllByTestId('margin-thread-count');
+      expect(threadCounts.some((el) => el.textContent === '1')).toBe(true);
     });
   });
 
@@ -2125,8 +2144,8 @@ describe('TemplateEditorPage', () => {
       const commentBtn = screen.getByTestId('floating-comment-button');
       await user.click(commentBtn);
 
-      // InlineCommentMargin should be rendered in review mode
-      expect(screen.getByTestId('inline-comment-margin')).toBeInTheDocument();
+      // InlineCommentMargin should be rendered in review mode (both panels have it)
+      expect(screen.getAllByTestId('inline-comment-margin').length).toBeGreaterThanOrEqual(1);
     });
   });
 

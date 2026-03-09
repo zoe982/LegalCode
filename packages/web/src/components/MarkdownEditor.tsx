@@ -41,13 +41,13 @@ function MilkdownEditor({
     (root: HTMLElement) => {
       const crepe = new Crepe({
         root,
-        defaultValue: isCollaborative ? '' : (defaultValue ?? ''),
+        defaultValue: defaultValue ?? '',
         features: {
           [CrepeFeature.Toolbar]: false,
         },
       });
 
-      if (onChange && !isCollaborative) {
+      if (onChange) {
         crepe.on(
           (listener: { markdownUpdated: (cb: (ctx: unknown, md: string) => void) => void }) => {
             listener.markdownUpdated((_ctx: unknown, md: string) => {

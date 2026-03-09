@@ -545,132 +545,137 @@ export function TemplateEditorPage() {
             }}
           >
             {/* Editor content — title/category moved to DocumentHeader */}
-            {editorMode === 'source' ? (
+            {/* Source mode — always mounted, hidden when review */}
+            <Box
+              data-testid="source-editor-container"
+              sx={{
+                display: editorMode === 'source' ? 'block' : 'none',
+                maxWidth: '720px',
+                mx: 'auto',
+                position: 'relative',
+              }}
+            >
               <Box
+                ref={sourceContentRef}
+                data-testid="source-editor-surface"
                 sx={{
-                  maxWidth: '720px',
-                  mx: 'auto',
+                  backgroundColor: '#FFFFFF',
                   position: 'relative',
                 }}
               >
-                <Box
-                  ref={sourceContentRef}
-                  data-testid="source-editor-surface"
-                  sx={{
-                    backgroundColor: '#FFFFFF',
-                    position: 'relative',
+                <MarkdownEditor
+                  defaultValue={!isCreateMode ? templateData?.content : undefined}
+                  onChange={handleContentChange}
+                  readOnly={isReadOnly}
+                  collaboration={
+                    !isCreateMode && collaboration.ydoc && collaboration.awareness
+                      ? { ydoc: collaboration.ydoc, awareness: collaboration.awareness }
+                      : undefined
+                  }
+                  onEditorReady={(crepe) => {
+                    crepeRef.current = crepe;
                   }}
-                >
-                  <MarkdownEditor
-                    defaultValue={!isCreateMode ? templateData?.content : undefined}
-                    onChange={handleContentChange}
-                    readOnly={isReadOnly}
-                    collaboration={
-                      !isCreateMode && collaboration.ydoc && collaboration.awareness
-                        ? { ydoc: collaboration.ydoc, awareness: collaboration.awareness }
-                        : undefined
-                    }
-                    onEditorReady={(crepe) => {
-                      crepeRef.current = crepe;
-                    }}
-                    onSelectionChange={onSelectionChange}
-                  />
-                  {!isCreateMode && (
-                    <FloatingCommentButton
-                      position={selectionInfo.buttonPosition}
-                      visible={selectionInfo.hasSelection && !isReadOnly}
-                      onClick={handleAddComment}
-                    />
-                  )}
-                </Box>
-                {id != null && (
-                  <InlineCommentMargin
-                    threads={threads}
-                    contentRef={sourceContentRef}
-                    activeCommentId={activeCommentId}
-                    onCommentClick={handleCommentClick}
-                    templateId={id}
-                    onResolve={handleMarginResolve}
-                    onDelete={handleMarginDelete}
-                    onReply={handleMarginReply}
-                    pendingAnchor={pendingAnchor}
-                    onSubmitComment={handleSubmitComment}
-                    onCancelComment={cancelComment}
-                    /* v8 ignore next 2 -- nullish coalescing fallback for missing user fields */
-                    authorName={user?.name ?? user?.email ?? ''}
-                    authorEmail={user?.email ?? ''}
-                    isCreating={isCreating}
-                    pendingCommentTop={selectionInfo.buttonPosition?.top ?? undefined}
+                  onSelectionChange={onSelectionChange}
+                />
+                {!isCreateMode && (
+                  <FloatingCommentButton
+                    position={selectionInfo.buttonPosition}
+                    visible={selectionInfo.hasSelection && !isReadOnly}
+                    onClick={handleAddComment}
                   />
                 )}
               </Box>
-            ) : (
-              <Box
-                sx={{
-                  maxWidth: '720px',
-                  mx: 'auto',
-                  position: 'relative',
-                }}
-              >
-                <Box sx={{ position: 'relative' }}>
-                  <Box
-                    ref={reviewContentRef}
-                    data-testid="review-content"
-                    sx={{
-                      backgroundColor: '#FFFFFF',
+              {id != null && (
+                <InlineCommentMargin
+                  threads={threads}
+                  contentRef={sourceContentRef}
+                  activeCommentId={activeCommentId}
+                  onCommentClick={handleCommentClick}
+                  templateId={id}
+                  onResolve={handleMarginResolve}
+                  onDelete={handleMarginDelete}
+                  onReply={handleMarginReply}
+                  pendingAnchor={pendingAnchor}
+                  onSubmitComment={handleSubmitComment}
+                  onCancelComment={cancelComment}
+                  /* v8 ignore next 2 -- nullish coalescing fallback for missing user fields */
+                  authorName={user?.name ?? user?.email ?? ''}
+                  authorEmail={user?.email ?? ''}
+                  isCreating={isCreating}
+                  pendingCommentTop={selectionInfo.buttonPosition?.top ?? undefined}
+                />
+              )}
+            </Box>
+
+            {/* Review mode — always mounted, hidden when source */}
+            <Box
+              sx={{
+                display: editorMode === 'review' ? 'block' : 'none',
+                maxWidth: '720px',
+                mx: 'auto',
+                position: 'relative',
+              }}
+            >
+              <Box sx={{ position: 'relative' }}>
+                <Box
+                  ref={reviewContentRef}
+                  data-testid="review-content"
+                  sx={{
+                    backgroundColor: '#FFFFFF',
+                    fontFamily: '"Source Serif 4", Georgia, "Times New Roman", serif',
+                    lineHeight: 1.6,
+                    minHeight: 200,
+                    '& h1, & h2, & h3, & h4, & h5, & h6': {
                       fontFamily: '"Source Serif 4", Georgia, "Times New Roman", serif',
-                      lineHeight: 1.6,
-                      minHeight: 200,
-                      '& h1, & h2, & h3, & h4, & h5, & h6': {
-                        fontFamily: '"Source Serif 4", Georgia, "Times New Roman", serif',
-                        color: 'var(--text-primary)',
-                        fontWeight: 600,
-                      },
-                      '& .template-var': {
-                        backgroundColor: 'var(--accent-primary-subtle)',
-                        color: 'var(--accent-primary)',
-                        padding: '2px 4px',
-                        borderRadius: '4px',
-                      },
-                      '& .clause-ref': {
-                        backgroundColor: 'var(--accent-primary-subtle)',
-                        color: 'var(--accent-primary)',
-                        padding: '2px 4px',
-                        borderRadius: '4px',
-                        fontStyle: 'italic',
-                      },
-                      '& a': { color: 'var(--text-link)' },
-                      '& hr': {
-                        border: 'none',
-                        borderTop: '1px solid var(--border-primary)',
-                        margin: '24px 0',
-                      },
-                      '& table': { borderCollapse: 'collapse', width: '100%' },
-                      '& td, & th': {
-                        border: '1px solid var(--border-primary)',
-                        padding: '8px',
-                      },
-                    }}
-                    // nosemgrep: dangerous-innerhtml — markdownToHtml sanitizes input
-                    dangerouslySetInnerHTML={{
-                      __html: content ? markdownToHtml(content) : '<p>No content yet</p>',
-                    }}
+                      color: 'var(--text-primary)',
+                      fontWeight: 600,
+                    },
+                    '& .template-var': {
+                      backgroundColor: 'var(--accent-primary-subtle)',
+                      color: 'var(--accent-primary)',
+                      padding: '2px 4px',
+                      borderRadius: '4px',
+                    },
+                    '& .clause-ref': {
+                      backgroundColor: 'var(--accent-primary-subtle)',
+                      color: 'var(--accent-primary)',
+                      padding: '2px 4px',
+                      borderRadius: '4px',
+                      fontStyle: 'italic',
+                    },
+                    '& a': { color: 'var(--text-link)' },
+                    '& hr': {
+                      border: 'none',
+                      borderTop: '1px solid var(--border-primary)',
+                      margin: '24px 0',
+                    },
+                    '& table': { borderCollapse: 'collapse', width: '100%' },
+                    '& td, & th': {
+                      border: '1px solid var(--border-primary)',
+                      padding: '8px',
+                    },
+                  }}
+                  // nosemgrep: dangerous-innerhtml — markdownToHtml sanitizes input
+                  dangerouslySetInnerHTML={{
+                    __html: content ? markdownToHtml(content) : '<p>No content yet</p>',
+                  }}
+                />
+                {!isCreateMode && (
+                  <FloatingCommentButton
+                    position={
+                      reviewTextSelection.selectionRect
+                        ? {
+                            top: reviewTextSelection.selectionRect.top,
+                            left: reviewTextSelection.selectionRect.left,
+                          }
+                        : null
+                    }
+                    visible={reviewTextSelection.hasSelection && !isReadOnly}
+                    onClick={handleReviewAddComment}
                   />
-                  {!isCreateMode && (
-                    <FloatingCommentButton
-                      position={
-                        reviewTextSelection.selectionRect
-                          ? {
-                              top: reviewTextSelection.selectionRect.top,
-                              left: reviewTextSelection.selectionRect.left,
-                            }
-                          : null
-                      }
-                      visible={reviewTextSelection.hasSelection && !isReadOnly}
-                      onClick={handleReviewAddComment}
-                    />
-                  )}
-                </Box>
+                )}
+              </Box>
+              {id != null && (
                 <InlineCommentMargin
                   threads={threads}
                   contentRef={reviewContentRef}
@@ -691,8 +696,8 @@ export function TemplateEditorPage() {
                   isCreating={isCreating}
                   pendingCommentTop={reviewTextSelection.selectionRect?.top ?? undefined}
                 />
-              </Box>
-            )}
+              )}
+            </Box>
           </Box>
         </Box>
 
