@@ -42,6 +42,15 @@ vi.mock('../../src/hooks/useCountries.js', () => ({
   useCountries: () => mockUseCountries() as unknown,
 }));
 
+vi.mock('../../src/components/CreateTemplateDialog.js', () => ({
+  CreateTemplateDialog: ({ open, onClose }: { open: boolean; onClose: () => void }) =>
+    open ? (
+      <div data-testid="create-template-dialog">
+        <button onClick={onClose}>Close</button>
+      </div>
+    ) : null,
+}));
+
 const mockTemplates: Template[] = [
   {
     id: 't1',
@@ -302,7 +311,7 @@ describe('TemplateListPage', () => {
     expect(screen.getByRole('button', { name: 'Create template' })).toBeInTheDocument();
   });
 
-  it('empty state CTA navigates to /templates/new', async () => {
+  it('empty state CTA opens create dialog', async () => {
     const user = userEvent.setup();
     mockUseTemplates.mockReturnValue(
       createQueryResult({
@@ -312,7 +321,8 @@ describe('TemplateListPage', () => {
 
     render(<TemplateListPage />, { wrapper: Wrapper });
     await user.click(screen.getByRole('button', { name: 'Create template' }));
-    expect(mockNavigate).toHaveBeenCalledWith('/templates/new');
+    expect(screen.getByTestId('create-template-dialog')).toBeInTheDocument();
+    expect(mockNavigate).not.toHaveBeenCalled();
   });
 
   it('shows "Clear filters" button when filters active with no results', async () => {
@@ -456,7 +466,7 @@ describe('TemplateListPage', () => {
     expect(screen.getByRole('button', { name: /new template/i })).toBeInTheDocument();
   });
 
-  it('"New template" button navigates to /templates/new', async () => {
+  it('"New template" button opens create dialog', async () => {
     const user = userEvent.setup();
     mockUseTemplates.mockReturnValue(
       createQueryResult({
@@ -466,7 +476,24 @@ describe('TemplateListPage', () => {
 
     render(<TemplateListPage />, { wrapper: Wrapper });
     await user.click(screen.getByRole('button', { name: /new template/i }));
-    expect(mockNavigate).toHaveBeenCalledWith('/templates/new');
+    expect(screen.getByTestId('create-template-dialog')).toBeInTheDocument();
+    expect(mockNavigate).not.toHaveBeenCalledWith('/templates/new');
+  });
+
+  it('closes create dialog when onClose is called', async () => {
+    const user = userEvent.setup();
+    mockUseTemplates.mockReturnValue(
+      createQueryResult({
+        data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
+      }),
+    );
+
+    render(<TemplateListPage />, { wrapper: Wrapper });
+    await user.click(screen.getByRole('button', { name: /new template/i }));
+    expect(screen.getByTestId('create-template-dialog')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Close' }));
+    expect(screen.queryByTestId('create-template-dialog')).not.toBeInTheDocument();
   });
 
   it('does not render status filter chips (removed)', () => {

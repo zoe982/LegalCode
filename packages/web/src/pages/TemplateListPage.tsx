@@ -10,6 +10,7 @@ import { useTemplates, useDeleteTemplate } from '../hooks/useTemplates.js';
 import { useCategories } from '../hooks/useCategories.js';
 import { useCountries } from '../hooks/useCountries.js';
 import { TemplateCard } from '../components/TemplateCard.js';
+import { CreateTemplateDialog } from '../components/CreateTemplateDialog.js';
 import { DeleteTemplateDialog } from '../components/DeleteTemplateDialog.js';
 import { SkeletonCard } from '../components/SkeletonCard.js';
 
@@ -35,6 +36,7 @@ export function TemplateListPage() {
   const [countryFilter, setCountryFilter] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<SortBy>('updated');
   const [sortAnchorEl, setSortAnchorEl] = useState<HTMLElement | null>(null);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const deleteMutation = useDeleteTemplate();
@@ -152,7 +154,7 @@ export function TemplateListPage() {
             variant="contained"
             startIcon={<AddIcon />}
             onClick={() => {
-              void navigate('/templates/new');
+              setCreateDialogOpen(true);
             }}
             sx={{
               height: 40,
@@ -481,7 +483,7 @@ export function TemplateListPage() {
             <Button
               variant="contained"
               onClick={() => {
-                void navigate('/templates/new');
+                setCreateDialogOpen(true);
               }}
               sx={{
                 mt: 1,
@@ -521,6 +523,14 @@ export function TemplateListPage() {
           ))}
         </Box>
       )}
+
+      {/* Create template dialog */}
+      <CreateTemplateDialog
+        open={createDialogOpen}
+        onClose={() => {
+          setCreateDialogOpen(false);
+        }}
+      />
 
       {/* Delete confirmation dialog */}
       <DeleteTemplateDialog
