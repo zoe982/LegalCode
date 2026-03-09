@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useAutosave } from '../../src/hooks/useAutosave.js';
-import type { TemplateStatus } from '@legalcode/shared';
 
 vi.mock('../../src/services/templates.js', () => ({
   templateService: {
@@ -17,7 +16,6 @@ const mockAutosave = vi.mocked(templateService.autosaveDraft);
 function defaultProps() {
   return {
     templateId: 'tpl-1',
-    status: 'draft' as TemplateStatus,
     content: '# Hello',
     title: 'My Template',
     enabled: true,
@@ -57,25 +55,9 @@ describe('useAutosave', () => {
     expect(mockAutosave).not.toHaveBeenCalled();
   });
 
-  it('does not save when status is not draft', async () => {
-    const props = { ...defaultProps(), status: 'active' as TemplateStatus };
-    const { rerender } = renderHook((p: ReturnType<typeof defaultProps>) => useAutosave(p), {
-      initialProps: props,
-    });
-
-    rerender({ ...props, content: '# Changed' });
-
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(2000);
-    });
-
-    expect(mockAutosave).not.toHaveBeenCalled();
-  });
-
   it('does not save when templateId is undefined', async () => {
     const props = {
       templateId: undefined as string | undefined,
-      status: 'draft' as TemplateStatus,
       content: '# Hello',
       title: 'My Template',
       enabled: true,

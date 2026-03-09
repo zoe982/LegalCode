@@ -16,13 +16,14 @@ export const templates = sqliteTable('templates', {
   category: text('category').notNull(),
   description: text('description'),
   country: text('country'),
-  status: text('status', { enum: ['draft', 'active', 'archived'] }).notNull(),
   currentVersion: integer('current_version').notNull().default(1),
   createdBy: text('created_by')
     .notNull()
     .references(() => users.id),
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
+  deletedAt: text('deleted_at'),
+  deletedBy: text('deleted_by').references(() => users.id),
 });
 
 export const templateVersions = sqliteTable(

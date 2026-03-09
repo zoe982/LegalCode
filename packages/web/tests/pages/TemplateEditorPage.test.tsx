@@ -34,24 +34,15 @@ vi.mock('../../src/hooks/useAuth.js', () => ({
 
 const mockUseTemplate = vi.fn();
 const mockCreateMutateAsync = vi.fn();
-const mockUpdateMutateAsync = vi.fn();
-const mockPublishMutateAsync = vi.fn();
-const mockArchiveMutateAsync = vi.fn();
+const mockDeleteMutate = vi.fn();
 
 const mockUseCreateTemplate = vi.fn();
-const mockUseUpdateTemplate = vi.fn();
-const mockUsePublishTemplate = vi.fn();
-const mockUseArchiveTemplate = vi.fn();
-const mockUnarchiveMutateAsync = vi.fn();
-const mockUseUnarchiveTemplate = vi.fn();
+const mockUseDeleteTemplate = vi.fn();
 
 vi.mock('../../src/hooks/useTemplates.js', () => ({
   useTemplate: (...args: unknown[]) => mockUseTemplate(...args) as unknown,
   useCreateTemplate: () => mockUseCreateTemplate() as unknown,
-  useUpdateTemplate: () => mockUseUpdateTemplate() as unknown,
-  usePublishTemplate: () => mockUsePublishTemplate() as unknown,
-  useArchiveTemplate: () => mockUseArchiveTemplate() as unknown,
-  useUnarchiveTemplate: () => mockUseUnarchiveTemplate() as unknown,
+  useDeleteTemplate: () => mockUseDeleteTemplate() as unknown,
 }));
 
 vi.mock('../../src/hooks/useCategories.js', () => ({
@@ -418,7 +409,7 @@ vi.mock('../../src/components/DocumentHeader.js', () => ({
         <span data-testid="dh-title">{String(props.title)}</span>
         <span data-testid="dh-category">{String(props.category)}</span>
         <span data-testid="dh-country">{String(props.country)}</span>
-        <span data-testid="dh-status">{typeof props.status === 'string' ? props.status : ''}</span>
+        <span data-testid="dh-deleted">{props.readOnly ? 'true' : 'false'}</span>
         <span data-testid="dh-mode">{String(props.editorMode)}</span>
         {typeof props.onModeChange === 'function' && (
           <>
@@ -439,21 +430,6 @@ vi.mock('../../src/components/DocumentHeader.js', () => ({
               Review
             </button>
           </>
-        )}
-        {typeof props.onPublish === 'function' && (
-          <button data-testid="dh-publish" onClick={props.onPublish as () => void}>
-            Publish
-          </button>
-        )}
-        {typeof props.onArchive === 'function' && (
-          <button data-testid="dh-archive" onClick={props.onArchive as () => void}>
-            Archive
-          </button>
-        )}
-        {typeof props.onUnarchive === 'function' && (
-          <button data-testid="dh-unarchive" onClick={props.onUnarchive as () => void}>
-            Unarchive
-          </button>
         )}
         {props.rightSlot != null && (
           <div data-testid="dh-right-slot">{props.rightSlot as React.ReactNode}</div>
@@ -575,23 +551,24 @@ const draftTemplate: Template = {
   category: 'Employment',
   description: null,
   country: 'US',
-  status: 'draft',
   currentVersion: 1,
   createdBy: 'u1',
   createdAt: '2026-01-01T00:00:00Z',
   updatedAt: '2026-03-01T00:00:00Z',
+  deletedAt: null,
+  deletedBy: null,
 };
 
 const activeTemplate: Template = {
   ...draftTemplate,
   id: 't2',
-  status: 'active',
 };
 
 const archivedTemplate: Template = {
   ...draftTemplate,
   id: 't3',
-  status: 'archived',
+  deletedAt: '2026-03-01T00:00:00Z',
+  deletedBy: 'u1',
 };
 
 function Wrapper({ children }: { children: ReactNode }) {
@@ -609,10 +586,10 @@ function Wrapper({ children }: { children: ReactNode }) {
 
 function setupMutationMocks() {
   mockUseCreateTemplate.mockReturnValue(createMutationResult(mockCreateMutateAsync));
-  mockUseUpdateTemplate.mockReturnValue(createMutationResult(mockUpdateMutateAsync));
-  mockUsePublishTemplate.mockReturnValue(createMutationResult(mockPublishMutateAsync));
-  mockUseArchiveTemplate.mockReturnValue(createMutationResult(mockArchiveMutateAsync));
-  mockUseUnarchiveTemplate.mockReturnValue(createMutationResult(mockUnarchiveMutateAsync));
+  mockUseDeleteTemplate.mockReturnValue({
+    ...createMutationResult(vi.fn()),
+    mutate: mockDeleteMutate,
+  });
 }
 
 // Helper: render the documentHeader from the latest TopAppBar config to inspect/interact with it
@@ -718,15 +695,10 @@ describe('TemplateEditorPage', () => {
       expect(screen.getByTestId('review-content')).toBeInTheDocument();
     });
 
-    it('does not pass onPublish to DocumentHeader in create mode', () => {
+    it('does not render publish or archive elements in create mode', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
       const { queryByTestId } = renderDocumentHeader();
       expect(queryByTestId('dh-publish')).not.toBeInTheDocument();
-    });
-
-    it('does not pass onArchive to DocumentHeader in create mode', () => {
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-      const { queryByTestId } = renderDocumentHeader();
       expect(queryByTestId('dh-archive')).not.toBeInTheDocument();
     });
   });
@@ -753,7 +725,6 @@ describe('TemplateEditorPage', () => {
       expect(mockUseAutosave).toHaveBeenCalledWith(
         expect.objectContaining({
           templateId: 't1',
-          status: 'draft',
           enabled: true,
         }),
       );
@@ -863,22 +834,17 @@ describe('TemplateEditorPage', () => {
       expect(editor.getAttribute('data-has-selection-change')).toBe('true');
     });
 
-    it('passes onPublish to DocumentHeader for draft templates', () => {
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-      const { getByTestId } = renderDocumentHeader();
-      expect(getByTestId('dh-publish')).toBeInTheDocument();
-    });
-
-    it('does not pass onArchive to DocumentHeader for draft templates', () => {
+    it('does not render publish or archive elements for draft templates', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
       const { queryByTestId } = renderDocumentHeader();
+      expect(queryByTestId('dh-publish')).not.toBeInTheDocument();
       expect(queryByTestId('dh-archive')).not.toBeInTheDocument();
     });
 
-    it('passes template status to DocumentHeader', () => {
+    it('passes readOnly to DocumentHeader based on deletedAt', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
       const { getByTestId } = renderDocumentHeader();
-      expect(getByTestId('dh-status')).toHaveTextContent('draft');
+      expect(getByTestId('dh-deleted')).toHaveTextContent('false');
     });
 
     it('passes editorMode to DocumentHeader', () => {
@@ -926,22 +892,11 @@ describe('TemplateEditorPage', () => {
       );
     });
 
-    it('passes onArchive to DocumentHeader for active templates', () => {
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-      const { getByTestId } = renderDocumentHeader();
-      expect(getByTestId('dh-archive')).toBeInTheDocument();
-    });
-
-    it('does not pass onPublish to DocumentHeader for active templates', () => {
+    it('does not render publish or archive elements for active templates', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
       const { queryByTestId } = renderDocumentHeader();
+      expect(queryByTestId('dh-archive')).not.toBeInTheDocument();
       expect(queryByTestId('dh-publish')).not.toBeInTheDocument();
-    });
-
-    it('passes active status to DocumentHeader', () => {
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-      const { getByTestId } = renderDocumentHeader();
-      expect(getByTestId('dh-status')).toHaveTextContent('active');
     });
   });
 
@@ -955,28 +910,18 @@ describe('TemplateEditorPage', () => {
       );
     });
 
-    it('passes onUnarchive to DocumentHeader for archived templates', () => {
+    it('passes readOnly=true to DocumentHeader for deleted templates', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-      const { getByTestId } = renderDocumentHeader();
-      expect(getByTestId('dh-unarchive')).toBeInTheDocument();
+      renderDocumentHeader();
+      expect(screen.getByTestId('dh-read-only')).toBeInTheDocument();
     });
 
-    it('passes readOnly=true to DocumentHeader for archived templates', () => {
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-      const { getByTestId } = renderDocumentHeader();
-      expect(getByTestId('dh-read-only')).toBeInTheDocument();
-    });
-
-    it('does not pass onPublish to DocumentHeader for archived templates', () => {
+    it('does not render publish, archive, or unarchive elements for deleted templates', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
       const { queryByTestId } = renderDocumentHeader();
       expect(queryByTestId('dh-publish')).not.toBeInTheDocument();
-    });
-
-    it('does not pass onArchive to DocumentHeader for archived templates', () => {
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-      const { queryByTestId } = renderDocumentHeader();
       expect(queryByTestId('dh-archive')).not.toBeInTheDocument();
+      expect(queryByTestId('dh-unarchive')).not.toBeInTheDocument();
     });
   });
 
@@ -998,7 +943,7 @@ describe('TemplateEditorPage', () => {
       expect(getByTestId('dh-read-only')).toBeInTheDocument();
     });
 
-    it('does not pass action buttons to DocumentHeader in create mode', () => {
+    it('does not render action buttons in DocumentHeader in create mode for viewer', () => {
       mockUseParams.mockReturnValue({});
       mockUseTemplate.mockReturnValue(
         createTemplateQueryResult({
@@ -1071,7 +1016,7 @@ describe('TemplateEditorPage', () => {
     });
   });
 
-  describe('Draft mode actions', () => {
+  describe('Delete flow', () => {
     beforeEach(() => {
       mockUseParams.mockReturnValue({ id: 't1' });
       mockUseTemplate.mockReturnValue(
@@ -1081,155 +1026,118 @@ describe('TemplateEditorPage', () => {
       );
     });
 
-    it('opens publish confirmation dialog when onPublish is called via DocumentHeader', () => {
+    it('passes onDelete to DocumentHeader for non-readOnly, non-create mode', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
       renderDocumentHeader();
-      act(() => {
-        (latestDocumentHeaderProps.onPublish as () => void)();
-      });
-
-      expect(screen.getByText('Publish Template')).toBeInTheDocument();
-      expect(
-        screen.getByText(
-          'Publishing makes this template available for use across the organization. Continue?',
-        ),
-      ).toBeInTheDocument();
+      expect(latestDocumentHeaderProps.onDelete).toBeDefined();
     });
 
-    it('closes publish confirmation dialog on Cancel', async () => {
-      const user = userEvent.setup();
-
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-      renderDocumentHeader();
-      act(() => {
-        (latestDocumentHeaderProps.onPublish as () => void)();
-      });
-
-      expect(screen.getByText('Publish Template')).toBeInTheDocument();
-
-      await user.click(screen.getByRole('button', { name: /cancel/i }));
-      await waitFor(() => {
-        expect(screen.queryByText('Publish Template')).not.toBeInTheDocument();
-      });
-    });
-
-    it('calls publishMutation when Publish is confirmed in dialog', async () => {
-      const user = userEvent.setup();
-      mockPublishMutateAsync.mockResolvedValue(activeTemplate);
-
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-      renderDocumentHeader();
-      act(() => {
-        (latestDocumentHeaderProps.onPublish as () => void)();
-      });
-
-      const publishButtons = screen.getAllByRole('button', { name: /publish/i });
-      const confirmButton = publishButtons[publishButtons.length - 1];
-      if (!confirmButton) throw new Error('Expected publish confirm button');
-      await user.click(confirmButton);
-
-      expect(mockPublishMutateAsync).toHaveBeenCalledWith('t1');
-    });
-
-    it('shows error toast when publish fails', async () => {
-      const user = userEvent.setup();
-      mockPublishMutateAsync.mockRejectedValue(new Error('Failed'));
-
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-      renderDocumentHeader();
-      act(() => {
-        (latestDocumentHeaderProps.onPublish as () => void)();
-      });
-
-      const publishButtons = screen.getAllByRole('button', { name: /publish/i });
-      const confirmButton = publishButtons[publishButtons.length - 1];
-      if (!confirmButton) throw new Error('Expected publish confirm button');
-      await user.click(confirmButton);
-
-      await waitFor(() => {
-        expect(mockShowToast).toHaveBeenCalledWith(expect.stringMatching(/failed|error/i), 'error');
-      });
-    });
-  });
-
-  describe('Active mode actions', () => {
-    beforeEach(() => {
-      mockUseParams.mockReturnValue({ id: 't2' });
+    it('does not pass onDelete to DocumentHeader in create mode', () => {
+      mockUseParams.mockReturnValue({});
       mockUseTemplate.mockReturnValue(
         createTemplateQueryResult({
-          data: templateData(activeTemplate, '# Active content'),
+          data: undefined,
+          isLoading: false,
+          isPending: true,
+          isSuccess: false,
+          status: 'pending',
         }),
       );
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      renderDocumentHeader();
+      expect(latestDocumentHeaderProps.onDelete).toBeUndefined();
     });
 
-    it('opens archive confirmation dialog when onArchive is called via DocumentHeader', () => {
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
+    it('does not pass onDelete to DocumentHeader when readOnly (viewer)', () => {
+      mockUseAuth.mockReturnValue(viewerAuth);
 
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      renderDocumentHeader();
+      expect(latestDocumentHeaderProps.onDelete).toBeUndefined();
+    });
+
+    it('opens delete dialog when onDelete is called via DocumentHeader', () => {
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
       renderDocumentHeader();
       act(() => {
-        (latestDocumentHeaderProps.onArchive as () => void)();
+        (latestDocumentHeaderProps.onDelete as () => void)();
       });
 
-      expect(screen.getByText('Archive Template')).toBeInTheDocument();
-      expect(
-        screen.getByText(
-          /are you sure you want to archive this template\? you can unarchive it later/i,
-        ),
-      ).toBeInTheDocument();
+      expect(screen.getByRole('alertdialog')).toBeInTheDocument();
     });
 
-    it('calls archiveMutation on archive confirm', async () => {
+    it('calls deleteMutation.mutate when delete is confirmed', () => {
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onDelete as () => void)();
+      });
+
+      const deleteButton = screen.getByRole('button', { name: /delete/i });
+      act(() => {
+        deleteButton.click();
+      });
+
+      expect(mockDeleteMutate).toHaveBeenCalledWith('t1', expect.anything());
+    });
+
+    it('navigates to /templates on successful delete', () => {
+      mockDeleteMutate.mockImplementation((_id: string, opts: { onSuccess: () => void }) => {
+        opts.onSuccess();
+      });
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onDelete as () => void)();
+      });
+
+      const deleteButton = screen.getByRole('button', { name: /delete/i });
+      act(() => {
+        deleteButton.click();
+      });
+
+      expect(mockNavigate).toHaveBeenCalledWith('/templates');
+    });
+
+    it('closes delete dialog when cancel is clicked', async () => {
       const user = userEvent.setup();
-      mockArchiveMutateAsync.mockResolvedValue(archivedTemplate);
-
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-
       renderDocumentHeader();
       act(() => {
-        (latestDocumentHeaderProps.onArchive as () => void)();
+        (latestDocumentHeaderProps.onDelete as () => void)();
       });
 
-      const archiveButtons = screen.getAllByRole('button', { name: /archive/i });
-      const confirmButton = archiveButtons[archiveButtons.length - 1];
-      if (!confirmButton) throw new Error('Expected archive confirm button');
-      await user.click(confirmButton);
+      // Dialog should be open
+      expect(screen.getByRole('alertdialog')).toBeInTheDocument();
 
-      expect(mockArchiveMutateAsync).toHaveBeenCalledWith('t2');
-    });
-
-    it('closes archive dialog on Cancel', async () => {
-      const user = userEvent.setup();
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-
-      renderDocumentHeader();
-      act(() => {
-        (latestDocumentHeaderProps.onArchive as () => void)();
-      });
-      expect(screen.getByText('Archive Template')).toBeInTheDocument();
-
+      // Click Cancel to close the dialog
       await user.click(screen.getByRole('button', { name: /cancel/i }));
+
+      // Dialog should be closed
       await waitFor(() => {
-        expect(screen.queryByText('Archive Template')).not.toBeInTheDocument();
+        expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
       });
     });
 
-    it('shows error toast when archive fails', async () => {
+    it('closes delete dialog when Escape key is pressed', async () => {
       const user = userEvent.setup();
-      mockArchiveMutateAsync.mockRejectedValue(new Error('Failed'));
-
       render(<TemplateEditorPage />, { wrapper: Wrapper });
       renderDocumentHeader();
       act(() => {
-        (latestDocumentHeaderProps.onArchive as () => void)();
+        (latestDocumentHeaderProps.onDelete as () => void)();
       });
 
-      const archiveButtons = screen.getAllByRole('button', { name: /archive/i });
-      const confirmButton = archiveButtons[archiveButtons.length - 1];
-      if (!confirmButton) throw new Error('Expected archive confirm button');
-      await user.click(confirmButton);
+      // Dialog should be open
+      expect(screen.getByRole('alertdialog')).toBeInTheDocument();
 
+      // Press Escape to close via MUI Dialog onClose handler
+      await user.keyboard('{Escape}');
+
+      // Dialog should be closed — exercises the onClose callback at lines 702-704
       await waitFor(() => {
-        expect(mockShowToast).toHaveBeenCalledWith(expect.stringMatching(/failed|error/i), 'error');
+        expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
       });
     });
   });
@@ -1328,7 +1236,6 @@ describe('TemplateEditorPage', () => {
         expect.objectContaining({
           enabled: true,
           templateId: 't1',
-          status: 'draft',
         }),
       );
     });
@@ -1352,9 +1259,10 @@ describe('TemplateEditorPage', () => {
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
-      const { getByTestId: getDocTestId } = renderDocumentHeader();
+      const { getByTestId: getDocTestId, getAllByTestId: getAllDocTestId } = renderDocumentHeader();
       expect(getDocTestId('dh-right-slot')).toBeInTheDocument();
-      expect(getDocTestId('connection-status')).toHaveTextContent('connected');
+      const statusElements = getAllDocTestId('connection-status');
+      expect(statusElements.some((el) => el.textContent === 'connected')).toBe(true);
       expect(getDocTestId('presence-avatars')).toBeInTheDocument();
       expect(getDocTestId('avatar-u1')).toHaveTextContent('A');
     });
@@ -1459,8 +1367,12 @@ describe('TemplateEditorPage', () => {
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
-      const { getByTestId: getDocTestId } = renderDocumentHeader();
-      expect(getDocTestId('connection-status')).toHaveTextContent('connecting');
+      const { container } = renderDocumentHeader();
+      const statusEls = container.querySelectorAll('[data-testid="connection-status"]');
+      expect(statusEls.length).toBeGreaterThanOrEqual(1);
+      // At least one should show the connecting status from collaboration
+      const connectingEl = Array.from(statusEls).find((el) => el.textContent === 'connecting');
+      expect(connectingEl).toBeDefined();
     });
   });
 
@@ -1606,32 +1518,6 @@ describe('TemplateEditorPage', () => {
     });
   });
 
-  describe('Archive dialog — destructive styling', () => {
-    beforeEach(() => {
-      mockUseParams.mockReturnValue({ id: 't2' });
-      mockUseTemplate.mockReturnValue(
-        createTemplateQueryResult({
-          data: templateData(activeTemplate, '# Active'),
-        }),
-      );
-    });
-
-    it('archive confirm button uses destructive red styling', () => {
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-      renderDocumentHeader();
-      act(() => {
-        (latestDocumentHeaderProps.onArchive as () => void)();
-      });
-
-      expect(screen.getByText('Archive Template')).toBeInTheDocument();
-
-      const archiveButtons = screen.getAllByRole('button', { name: /archive/i });
-      const confirmButton = archiveButtons[archiveButtons.length - 1];
-      if (!confirmButton) throw new Error('Expected archive confirm button');
-      expect(confirmButton).toHaveStyle({ backgroundColor: '#D32F2F' });
-    });
-  });
-
   describe('Ctrl+S toast', () => {
     beforeEach(() => {
       mockUseParams.mockReturnValue({});
@@ -1681,33 +1567,6 @@ describe('TemplateEditorPage', () => {
     });
   });
 
-  describe('Publish confirmation dialog', () => {
-    beforeEach(() => {
-      mockUseParams.mockReturnValue({ id: 't1' });
-      mockUseTemplate.mockReturnValue(
-        createTemplateQueryResult({
-          data: templateData(draftTemplate, '# Draft content'),
-        }),
-      );
-    });
-
-    it('closes publish dialog when pressing Escape', async () => {
-      const user = userEvent.setup();
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-
-      renderDocumentHeader();
-      act(() => {
-        (latestDocumentHeaderProps.onPublish as () => void)();
-      });
-      expect(screen.getByText('Publish Template')).toBeInTheDocument();
-
-      await user.keyboard('{Escape}');
-      await waitFor(() => {
-        expect(screen.queryByText('Publish Template')).not.toBeInTheDocument();
-      });
-    });
-  });
-
   describe('Loading state — duplicate', () => {
     it('shows loading spinner for edit mode while loading', () => {
       mockUseParams.mockReturnValue({ id: 't1' });
@@ -1723,7 +1582,7 @@ describe('TemplateEditorPage', () => {
     });
   });
 
-  describe('Archived template', () => {
+  describe('Deleted template', () => {
     beforeEach(() => {
       mockUseParams.mockReturnValue({ id: 't3' });
       mockUseTemplate.mockReturnValue(
@@ -1733,7 +1592,7 @@ describe('TemplateEditorPage', () => {
       );
     });
 
-    it('sets documentHeader in TopAppBar config for archived templates', () => {
+    it('sets documentHeader in TopAppBar config for deleted templates', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
       expect(mockSetConfig).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -1949,199 +1808,6 @@ describe('TemplateEditorPage', () => {
       window.dispatchEvent(event);
 
       expect(preventDefaultSpy).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('Unarchive flow', () => {
-    beforeEach(() => {
-      mockUseParams.mockReturnValue({ id: 't3' });
-      mockUseTemplate.mockReturnValue(
-        createTemplateQueryResult({
-          data: templateData(archivedTemplate, '# Archived'),
-        }),
-      );
-    });
-
-    it('passes onUnarchive to DocumentHeader for archived templates', () => {
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-      const { getByTestId } = renderDocumentHeader();
-      expect(getByTestId('dh-unarchive')).toBeInTheDocument();
-    });
-
-    it('opens unarchive confirmation dialog when onUnarchive is called', () => {
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-
-      renderDocumentHeader();
-      act(() => {
-        (latestDocumentHeaderProps.onUnarchive as () => void)();
-      });
-
-      expect(screen.getByText('Unarchive Template')).toBeInTheDocument();
-      expect(
-        screen.getByText(/are you sure you want to unarchive this template/i),
-      ).toBeInTheDocument();
-    });
-
-    it('calls unarchiveMutation on unarchive confirm', async () => {
-      const user = userEvent.setup();
-      mockUnarchiveMutateAsync.mockResolvedValue({ ...archivedTemplate, status: 'draft' });
-
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-
-      renderDocumentHeader();
-      act(() => {
-        (latestDocumentHeaderProps.onUnarchive as () => void)();
-      });
-
-      const unarchiveButtons = screen.getAllByRole('button', { name: /unarchive/i });
-      const confirmButton = unarchiveButtons[unarchiveButtons.length - 1];
-      if (!confirmButton) throw new Error('Expected unarchive confirm button');
-      await user.click(confirmButton);
-
-      expect(mockUnarchiveMutateAsync).toHaveBeenCalledWith('t3');
-    });
-
-    it('shows error toast when unarchive fails', async () => {
-      const user = userEvent.setup();
-      mockUnarchiveMutateAsync.mockRejectedValue(new Error('Failed'));
-
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-
-      renderDocumentHeader();
-      act(() => {
-        (latestDocumentHeaderProps.onUnarchive as () => void)();
-      });
-
-      const unarchiveButtons = screen.getAllByRole('button', { name: /unarchive/i });
-      const confirmButton = unarchiveButtons[unarchiveButtons.length - 1];
-      if (!confirmButton) throw new Error('Expected unarchive confirm button');
-      await user.click(confirmButton);
-
-      await waitFor(() => {
-        expect(mockShowToast).toHaveBeenCalledWith(expect.stringMatching(/failed|error/i), 'error');
-      });
-    });
-
-    it('closes unarchive dialog on Cancel', async () => {
-      const user = userEvent.setup();
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-
-      renderDocumentHeader();
-      act(() => {
-        (latestDocumentHeaderProps.onUnarchive as () => void)();
-      });
-      expect(screen.getByText('Unarchive Template')).toBeInTheDocument();
-
-      await user.click(screen.getByRole('button', { name: /cancel/i }));
-      await waitFor(() => {
-        expect(screen.queryByText('Unarchive Template')).not.toBeInTheDocument();
-      });
-    });
-
-    it('closes unarchive dialog via onClose (backdrop/escape)', async () => {
-      const user = userEvent.setup();
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-
-      renderDocumentHeader();
-      act(() => {
-        (latestDocumentHeaderProps.onUnarchive as () => void)();
-      });
-      expect(screen.getByText('Unarchive Template')).toBeInTheDocument();
-
-      await user.keyboard('{Escape}');
-      await waitFor(() => {
-        expect(screen.queryByText('Unarchive Template')).not.toBeInTheDocument();
-      });
-    });
-  });
-
-  describe('Archive with undo toast', () => {
-    beforeEach(() => {
-      mockUseParams.mockReturnValue({ id: 't2' });
-      mockUseTemplate.mockReturnValue(
-        createTemplateQueryResult({
-          data: templateData(activeTemplate, '# Active'),
-        }),
-      );
-    });
-
-    it('shows toast with Undo button after archive confirmation', async () => {
-      const user = userEvent.setup();
-      mockArchiveMutateAsync.mockResolvedValue(archivedTemplate);
-
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-      renderDocumentHeader();
-      act(() => {
-        (latestDocumentHeaderProps.onArchive as () => void)();
-      });
-
-      const archiveButtons = screen.getAllByRole('button', { name: /archive/i });
-      const confirmButton = archiveButtons[archiveButtons.length - 1];
-      if (!confirmButton) throw new Error('Expected archive confirm button');
-      await user.click(confirmButton);
-
-      await waitFor(() => {
-        expect(mockShowToast).toHaveBeenCalledWith(
-          'Template archived',
-          'success',
-          expect.anything(),
-        );
-      });
-    });
-
-    it('archive undo toast action calls unarchive mutation', async () => {
-      const user = userEvent.setup();
-      mockArchiveMutateAsync.mockResolvedValue(archivedTemplate);
-      mockUnarchiveMutateAsync.mockResolvedValue({ ...archivedTemplate, status: 'draft' });
-
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-      renderDocumentHeader();
-      act(() => {
-        (latestDocumentHeaderProps.onArchive as () => void)();
-      });
-
-      const archiveButtons = screen.getAllByRole('button', { name: /archive/i });
-      const confirmButton = archiveButtons[archiveButtons.length - 1];
-      if (!confirmButton) throw new Error('Expected archive confirm button');
-      await user.click(confirmButton);
-
-      await waitFor(() => {
-        expect(mockShowToast).toHaveBeenCalled();
-      });
-
-      // Extract the Undo action (third argument)
-      const actionElement = mockShowToast.mock.calls.find(
-        (c: unknown[]) => c[0] === 'Template archived',
-      )?.[2] as { props: { onClick: () => void } } | undefined;
-      expect(actionElement).toBeDefined();
-
-      act(() => {
-        actionElement?.props.onClick();
-      });
-
-      expect(mockUnarchiveMutateAsync).toHaveBeenCalledWith('t2');
-    });
-
-    it('archive dialog closes after confirmation', async () => {
-      const user = userEvent.setup();
-      mockArchiveMutateAsync.mockResolvedValue(archivedTemplate);
-
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-      renderDocumentHeader();
-      act(() => {
-        (latestDocumentHeaderProps.onArchive as () => void)();
-      });
-
-      expect(screen.getByText('Archive Template')).toBeInTheDocument();
-
-      const archiveButtons = screen.getAllByRole('button', { name: /archive/i });
-      const confirmButton = archiveButtons[archiveButtons.length - 1];
-      if (!confirmButton) throw new Error('Expected archive confirm button');
-      await user.click(confirmButton);
-
-      await waitFor(() => {
-        expect(screen.queryByText('Archive Template')).not.toBeInTheDocument();
-      });
     });
   });
 
@@ -2521,95 +2187,6 @@ describe('TemplateEditorPage', () => {
         exportBtn?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
       });
       expect(templateService.download).toHaveBeenCalledWith('t2');
-    });
-  });
-
-  describe('Active mode — archive flow via DocumentHeader', () => {
-    beforeEach(() => {
-      mockUseParams.mockReturnValue({ id: 't2' });
-      mockUseTemplate.mockReturnValue(
-        createTemplateQueryResult({
-          data: templateData(activeTemplate, '# Active'),
-        }),
-      );
-    });
-
-    it('opens archive dialog and confirms archive', async () => {
-      const user = userEvent.setup();
-      mockArchiveMutateAsync.mockResolvedValue({});
-
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-      renderDocumentHeader();
-      act(() => {
-        (latestDocumentHeaderProps.onArchive as () => void)();
-      });
-
-      expect(screen.getByText('Archive Template')).toBeInTheDocument();
-      expect(screen.getByText(/are you sure you want to archive/i)).toBeInTheDocument();
-
-      const archiveButtons = screen.getAllByRole('button', { name: /archive/i });
-      const confirmBtn = archiveButtons[archiveButtons.length - 1];
-      if (!confirmBtn) throw new Error('Expected archive confirm button');
-      await user.click(confirmBtn);
-
-      expect(mockArchiveMutateAsync).toHaveBeenCalledWith('t2');
-    });
-
-    it('closes archive dialog via onClose (backdrop/escape)', async () => {
-      const user = userEvent.setup();
-
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-      renderDocumentHeader();
-      act(() => {
-        (latestDocumentHeaderProps.onArchive as () => void)();
-      });
-
-      expect(screen.getByText('Archive Template')).toBeInTheDocument();
-
-      await user.keyboard('{Escape}');
-
-      await waitFor(() => {
-        expect(screen.queryByText('Archive Template')).not.toBeInTheDocument();
-      });
-    });
-  });
-
-  describe('Active mode — publish flow via DocumentHeader', () => {
-    beforeEach(() => {
-      mockUseParams.mockReturnValue({ id: 't1' });
-      mockUseTemplate.mockReturnValue(
-        createTemplateQueryResult({
-          data: templateData(draftTemplate, '# Draft'),
-        }),
-      );
-    });
-
-    it('opens publish confirmation dialog when onPublish is called', () => {
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-      renderDocumentHeader();
-      act(() => {
-        (latestDocumentHeaderProps.onPublish as () => void)();
-      });
-
-      expect(screen.getByText('Publish Template')).toBeInTheDocument();
-    });
-
-    it('calls publishMutation when Publish is confirmed via dialog', async () => {
-      const user = userEvent.setup();
-      mockPublishMutateAsync.mockResolvedValue({});
-
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-      renderDocumentHeader();
-      act(() => {
-        (latestDocumentHeaderProps.onPublish as () => void)();
-      });
-
-      const publishButtons = screen.getAllByRole('button', { name: /publish/i });
-      const confirmButton = publishButtons[publishButtons.length - 1];
-      if (!confirmButton) throw new Error('Expected publish confirm button');
-      await user.click(confirmButton);
-
-      expect(mockPublishMutateAsync).toHaveBeenCalledWith('t1');
     });
   });
 

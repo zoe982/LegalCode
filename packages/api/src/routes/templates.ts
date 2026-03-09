@@ -7,19 +7,20 @@ import {
   listTemplates,
   getTemplate,
   updateTemplate,
-  publishTemplate,
-  archiveTemplate,
-  unarchiveTemplate,
   getTemplateVersions,
   getTemplateVersion,
   downloadTemplate,
-  saveDraftContent,
+  saveContent,
+  deleteTemplate,
+  restoreTemplate,
+  hardDeleteTemplate,
+  listDeletedTemplates,
 } from '../services/template.js';
 import {
   createTemplateSchema,
   updateTemplateSchema,
   templateQuerySchema,
-  autosaveDraftSchema,
+  autosaveSchema,
 } from '@legalcode/shared';
 import { commentRoutes } from './comments.js';
 import { logAudit } from '../services/audit-log.js';
@@ -36,6 +37,13 @@ templateRoutes.get('/', async (c) => {
   const query = templateQuerySchema.parse(c.req.query());
   const result = await listTemplates(db, query);
   return c.json(result);
+});
+
+// GET /trash must be registered BEFORE GET /:id to avoid /:id matching "trash"
+templateRoutes.get('/trash', requireRole('admin'), async (c) => {
+  const db = getDb(c.env.DB);
+  const result = await listDeletedTemplates(db);
+  return c.json({ data: result });
 });
 
 templateRoutes.get('/:id', async (c) => {
@@ -120,7 +128,7 @@ templateRoutes.patch('/:id', requireRole('admin', 'editor'), async (c) => {
   const result = await updateTemplate(db, id, parsed.data, user.id);
   if ('error' in result) {
     if (result.error === 'not_found') return c.json({ error: 'Template not found' }, 404);
-    return c.json({ error: 'Cannot update archived template' }, 409);
+    return c.json({ error: 'Cannot update deleted template' }, 409);
   }
   c.executionCtx.waitUntil(
     logAudit(db, {
@@ -134,63 +142,19 @@ templateRoutes.patch('/:id', requireRole('admin', 'editor'), async (c) => {
   return c.json(result);
 });
 
-templateRoutes.post('/:id/publish', requireRole('admin', 'editor'), async (c) => {
-  const db = getDb(c.env.DB);
-  const id = c.req.param('id');
-  const user = c.get('user');
-  const result = await publishTemplate(db, id, user.id);
-  if ('error' in result) {
-    if (result.error === 'not_found') return c.json({ error: 'Template not found' }, 404);
-    if (result.error === 'already_active')
-      return c.json({ error: 'Template is already active' }, 409);
-    return c.json({ error: 'Cannot publish archived template' }, 409);
-  }
-  c.executionCtx.waitUntil(
-    logAudit(db, {
-      action: 'template.publish',
-      resourceType: 'template',
-      resourceId: id,
-      userId: user.id,
-      userEmail: user.email,
-    }),
-  );
-  return c.json(result);
-});
-
-templateRoutes.post('/:id/archive', requireRole('admin', 'editor'), async (c) => {
-  const db = getDb(c.env.DB);
-  const id = c.req.param('id');
-  const user = c.get('user');
-  const result = await archiveTemplate(db, id, user.id);
-  if ('error' in result) {
-    if (result.error === 'not_found') return c.json({ error: 'Template not found' }, 404);
-    return c.json({ error: 'Template is already archived' }, 409);
-  }
-  c.executionCtx.waitUntil(
-    logAudit(db, {
-      action: 'template.archive',
-      resourceType: 'template',
-      resourceId: id,
-      userId: user.id,
-      userEmail: user.email,
-    }),
-  );
-  return c.json(result);
-});
-
 templateRoutes.patch('/:id/autosave', requireRole('admin', 'editor'), async (c) => {
   const body: unknown = await c.req.json();
-  const parsed = autosaveDraftSchema.safeParse(body);
+  const parsed = autosaveSchema.safeParse(body);
   if (!parsed.success) {
     return c.json({ error: 'Invalid input', details: parsed.error.flatten() }, 400);
   }
   const db = getDb(c.env.DB);
   const id = c.req.param('id');
   const user = c.get('user');
-  const result = await saveDraftContent(db, id, parsed.data.content, parsed.data.title);
+  const result = await saveContent(db, id, parsed.data.content, parsed.data.title);
   if ('error' in result) {
     if (result.error === 'not_found') return c.json({ error: 'Template not found' }, 404);
-    return c.json({ error: 'Template is not a draft' }, 409);
+    return c.json({ error: 'Template is deleted' }, 409);
   }
   c.executionCtx.waitUntil(
     logAudit(db, {
@@ -204,25 +168,68 @@ templateRoutes.patch('/:id/autosave', requireRole('admin', 'editor'), async (c) 
   return c.json({ updatedAt: result.updatedAt });
 });
 
-templateRoutes.post('/:id/unarchive', requireRole('admin', 'editor'), async (c) => {
+// ── Delete routes ─────────────────────────────────────────────────────
+
+templateRoutes.delete('/:id', requireRole('admin', 'editor'), async (c) => {
   const db = getDb(c.env.DB);
   const id = c.req.param('id');
   const user = c.get('user');
-  const result = await unarchiveTemplate(db, id, user.id);
+  const result = await deleteTemplate(db, id, user.id);
   if ('error' in result) {
     if (result.error === 'not_found') return c.json({ error: 'Template not found' }, 404);
-    return c.json({ error: 'Template is not archived' }, 409);
+    return c.json({ error: 'Template is already deleted' }, 409);
   }
   c.executionCtx.waitUntil(
     logAudit(db, {
-      action: 'template.unarchive',
+      action: 'template.delete',
       resourceType: 'template',
       resourceId: id,
       userId: user.id,
       userEmail: user.email,
     }),
   );
-  return c.json(result);
+  return c.json({ success: true });
+});
+
+templateRoutes.post('/:id/restore', requireRole('admin'), async (c) => {
+  const db = getDb(c.env.DB);
+  const id = c.req.param('id');
+  const user = c.get('user');
+  const result = await restoreTemplate(db, id);
+  if ('error' in result) {
+    if (result.error === 'not_found') return c.json({ error: 'Template not found' }, 404);
+    return c.json({ error: 'Template is not deleted' }, 409);
+  }
+  c.executionCtx.waitUntil(
+    logAudit(db, {
+      action: 'template.restore',
+      resourceType: 'template',
+      resourceId: id,
+      userId: user.id,
+      userEmail: user.email,
+    }),
+  );
+  return c.json({ success: true });
+});
+
+templateRoutes.delete('/:id/permanent', requireRole('admin'), async (c) => {
+  const db = getDb(c.env.DB);
+  const id = c.req.param('id');
+  const user = c.get('user');
+  const result = await hardDeleteTemplate(db, id);
+  if ('error' in result) {
+    return c.json({ error: 'Template not found' }, 404);
+  }
+  c.executionCtx.waitUntil(
+    logAudit(db, {
+      action: 'template.hard_delete',
+      resourceType: 'template',
+      resourceId: id,
+      userId: user.id,
+      userEmail: user.email,
+    }),
+  );
+  return c.json({ success: true });
 });
 
 // ── Comment sub-routes ────────────────────────────────────────────────

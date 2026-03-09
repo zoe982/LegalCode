@@ -56,12 +56,21 @@ const mockListAllUsers = vi.fn().mockResolvedValue([]);
 const mockCreateUser = vi.fn();
 const mockUpdateUserRole = vi.fn().mockResolvedValue(undefined);
 const mockDeactivateUser = vi.fn().mockResolvedValue(undefined);
+const mockFindUserById = vi.fn().mockResolvedValue({
+  id: 'user-456',
+  email: 'delete-me@acasus.com',
+  name: 'Delete Me',
+  role: 'editor',
+  createdAt: '2026-01-01',
+  updatedAt: '2026-01-01',
+});
 
 vi.mock('../../src/services/user.js', () => ({
   listAllUsers: (...args: unknown[]) => mockListAllUsers(...args) as unknown,
   createUser: (...args: unknown[]) => mockCreateUser(...args) as unknown,
   updateUserRole: (...args: unknown[]) => mockUpdateUserRole(...args) as unknown,
   deactivateUser: (...args: unknown[]) => mockDeactivateUser(...args) as unknown,
+  findUserById: (...args: unknown[]) => mockFindUserById(...args) as unknown,
 }));
 
 const mockGetAllowedEmails = vi.fn().mockResolvedValue(['alice@acasus.com', 'bob@acasus.com']);
@@ -152,6 +161,11 @@ describe('GET /admin/users', () => {
 });
 
 describe('POST /admin/users', () => {
+  beforeEach(() => {
+    mockAddAllowedEmail.mockClear();
+    mockCreateUser.mockReset();
+  });
+
   it('returns 201 and creates user for admin', async () => {
     mockCreateUser.mockResolvedValueOnce({
       id: 'new-id',
@@ -175,6 +189,93 @@ describe('POST /admin/users', () => {
     expect(res.status).toBe(201);
     const body: { user: { email: string } } = await res.json();
     expect(body.user.email).toBe('new@acasus.com');
+    expect(mockAddAllowedEmail).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      'new@acasus.com',
+    );
+  });
+
+  it('also adds email to allowed list on user creation', async () => {
+    mockCreateUser.mockResolvedValueOnce({
+      id: 'another-id',
+      email: 'added@acasus.com',
+      name: 'Added User',
+      role: 'editor',
+      createdAt: '2026-01-01',
+      updatedAt: '2026-01-01',
+    });
+
+    const app = await importAndCreateApp();
+    const token = await adminToken();
+    await app.request('/admin/users', {
+      method: 'POST',
+      headers: {
+        Cookie: `__Host-auth=${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email: 'added@acasus.com', name: 'Added User', role: 'editor' }),
+    });
+    expect(mockAddAllowedEmail).toHaveBeenCalledTimes(1);
+    expect(mockAddAllowedEmail).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      'added@acasus.com',
+    );
+  });
+
+  it('returns 409 when email already exists', async () => {
+    mockCreateUser.mockRejectedValueOnce(new Error('UNIQUE constraint failed: users.email'));
+
+    const app = await importAndCreateApp();
+    const token = await adminToken();
+    const res = await app.request('/admin/users', {
+      method: 'POST',
+      headers: {
+        Cookie: `__Host-auth=${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email: 'exists@acasus.com', name: 'Exists', role: 'editor' }),
+    });
+    expect(res.status).toBe(409);
+    const body: { error: string } = await res.json();
+    expect(body.error).toBe('A user with this email already exists');
+  });
+
+  it('returns 500 for non-unique-constraint DB errors', async () => {
+    mockCreateUser.mockRejectedValueOnce(new Error('Connection refused'));
+
+    const app = await importAndCreateApp();
+    const token = await adminToken();
+    const res = await app.request('/admin/users', {
+      method: 'POST',
+      headers: {
+        Cookie: `__Host-auth=${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email: 'fail@acasus.com', name: 'Fail User', role: 'editor' }),
+    });
+    expect(res.status).toBe(500);
+    const body: { error: string } = await res.json();
+    expect(body.error).toBe('Internal server error');
+  });
+
+  it('returns 500 when error is not an Error instance', async () => {
+    mockCreateUser.mockRejectedValueOnce('string error');
+
+    const app = await importAndCreateApp();
+    const token = await adminToken();
+    const res = await app.request('/admin/users', {
+      method: 'POST',
+      headers: {
+        Cookie: `__Host-auth=${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email: 'fail2@acasus.com', name: 'Fail User 2', role: 'editor' }),
+    });
+    expect(res.status).toBe(500);
+    const body: { error: string } = await res.json();
+    expect(body.error).toBe('Internal server error');
   });
 
   it('returns 400 for invalid input', async () => {
@@ -235,6 +336,20 @@ describe('PATCH /admin/users/:id', () => {
 });
 
 describe('DELETE /admin/users/:id', () => {
+  beforeEach(() => {
+    mockFindUserById.mockReset();
+    mockFindUserById.mockResolvedValue({
+      id: 'user-456',
+      email: 'delete-me@acasus.com',
+      name: 'Delete Me',
+      role: 'editor',
+      createdAt: '2026-01-01',
+      updatedAt: '2026-01-01',
+    });
+    mockRemoveAllowedEmail.mockClear();
+    mockDeactivateUser.mockClear();
+  });
+
   it('returns 200 and deactivates user for admin', async () => {
     const app = await importAndCreateApp();
     const token = await adminToken();
@@ -245,6 +360,43 @@ describe('DELETE /admin/users/:id', () => {
     expect(res.status).toBe(200);
     const body: { ok: boolean } = await res.json();
     expect(body.ok).toBe(true);
+    expect(mockRemoveAllowedEmail).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      'delete-me@acasus.com',
+    );
+  });
+
+  it('returns 404 when user not found', async () => {
+    mockFindUserById.mockResolvedValueOnce(undefined);
+
+    const app = await importAndCreateApp();
+    const token = await adminToken();
+    const res = await app.request('/admin/users/nonexistent', {
+      method: 'DELETE',
+      headers: { Cookie: `__Host-auth=${token}` },
+    });
+    expect(res.status).toBe(404);
+    const body: { error: string } = await res.json();
+    expect(body.error).toBe('User not found');
+    expect(mockDeactivateUser).not.toHaveBeenCalled();
+    expect(mockRemoveAllowedEmail).not.toHaveBeenCalled();
+  });
+
+  it('also removes email from allowed list on user deletion', async () => {
+    const app = await importAndCreateApp();
+    const token = await adminToken();
+    await app.request('/admin/users/user-456', {
+      method: 'DELETE',
+      headers: { Cookie: `__Host-auth=${token}` },
+    });
+    expect(mockDeactivateUser).toHaveBeenCalledWith(expect.anything(), 'user-456');
+    expect(mockRemoveAllowedEmail).toHaveBeenCalledTimes(1);
+    expect(mockRemoveAllowedEmail).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      'delete-me@acasus.com',
+    );
   });
 
   it('returns 403 for non-admin', async () => {

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { templateService } from '../../src/services/templates.js';
-import type { Template, TemplateVersion, TemplateStatus } from '@legalcode/shared';
+import type { Template, TemplateVersion } from '@legalcode/shared';
 
 describe('templateService', () => {
   beforeEach(() => {
@@ -26,7 +26,7 @@ describe('templateService', () => {
       expect(result).toEqual(mockResponse);
     });
 
-    it('includes query params for search, category, country, status, tag, page, limit', async () => {
+    it('includes query params for search, category, country, tag, page, limit', async () => {
       const mockResponse = { data: [], total: 0, page: 2, limit: 10 };
       vi.mocked(fetch).mockResolvedValue(
         new Response(JSON.stringify(mockResponse), { status: 200 }),
@@ -36,7 +36,6 @@ describe('templateService', () => {
         search: 'nda',
         category: 'contracts',
         country: 'US',
-        status: 'active' as TemplateStatus,
         tag: 'legal',
         page: 2,
         limit: 10,
@@ -46,7 +45,6 @@ describe('templateService', () => {
       expect(calledUrl).toContain('search=nda');
       expect(calledUrl).toContain('category=contracts');
       expect(calledUrl).toContain('country=US');
-      expect(calledUrl).toContain('status=active');
       expect(calledUrl).toContain('tag=legal');
       expect(calledUrl).toContain('page=2');
       expect(calledUrl).toContain('limit=10');
@@ -76,11 +74,12 @@ describe('templateService', () => {
         category: 'contracts',
         description: null,
         country: null,
-        status: 'draft',
         currentVersion: 1,
         createdBy: 'user-1',
         createdAt: '2026-01-01T00:00:00Z',
         updatedAt: '2026-01-01T00:00:00Z',
+        deletedAt: null,
+        deletedBy: null,
       };
       vi.mocked(fetch).mockResolvedValue(
         new Response(JSON.stringify(mockTemplate), { status: 200 }),
@@ -119,11 +118,12 @@ describe('templateService', () => {
         category: 'contracts',
         description: null,
         country: null,
-        status: 'draft',
         currentVersion: 1,
         createdBy: 'user-1',
         createdAt: '2026-01-01T00:00:00Z',
         updatedAt: '2026-01-01T00:00:00Z',
+        deletedAt: null,
+        deletedBy: null,
       };
       vi.mocked(fetch).mockResolvedValue(
         new Response(JSON.stringify(mockTemplate), { status: 201 }),
@@ -207,11 +207,12 @@ describe('templateService', () => {
         category: 'contracts',
         description: null,
         country: null,
-        status: 'draft',
         currentVersion: 2,
         createdBy: 'user-1',
         createdAt: '2026-01-01T00:00:00Z',
         updatedAt: '2026-01-02T00:00:00Z',
+        deletedAt: null,
+        deletedBy: null,
       };
       vi.mocked(fetch).mockResolvedValue(
         new Response(JSON.stringify(mockTemplate), { status: 200 }),
@@ -247,53 +248,31 @@ describe('templateService', () => {
     });
   });
 
-  describe('publish', () => {
-    it('calls POST /templates/:id/publish with credentials', async () => {
-      const mockTemplate: Template = {
-        id: 'tpl-1',
-        title: 'NDA',
-        slug: 'nda',
-        category: 'contracts',
-        description: null,
-        country: null,
-        status: 'active',
-        currentVersion: 1,
-        createdBy: 'user-1',
-        createdAt: '2026-01-01T00:00:00Z',
-        updatedAt: '2026-01-01T00:00:00Z',
-      };
-      vi.mocked(fetch).mockResolvedValue(
-        new Response(JSON.stringify(mockTemplate), { status: 200 }),
-      );
-
-      const result = await templateService.publish('tpl-1');
-
-      expect(fetch).toHaveBeenCalledWith('/api/templates/tpl-1/publish', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
+  describe('delete', () => {
+    it('calls DELETE /templates/:id with credentials', async () => {
+      vi.mocked(fetch).mockResolvedValue(new Response(null, { status: 204 }));
+      await templateService.delete('tpl-1');
+      expect(fetch).toHaveBeenCalledWith('/api/templates/tpl-1', {
+        method: 'DELETE',
         credentials: 'include',
       });
-      expect(result).toEqual(mockTemplate);
     });
 
     it('throws on non-ok response', async () => {
       vi.mocked(fetch).mockResolvedValue(new Response('Forbidden', { status: 403 }));
-
-      await expect(templateService.publish('tpl-1')).rejects.toThrow('Failed to publish template');
+      await expect(templateService.delete('tpl-1')).rejects.toThrow('Failed to delete template');
     });
 
     it('includes API error message in thrown error', async () => {
       vi.mocked(fetch).mockResolvedValue(
-        new Response(JSON.stringify({ error: 'Cannot publish draft' }), { status: 400 }),
+        new Response(JSON.stringify({ error: 'Cannot delete' }), { status: 400 }),
       );
-
-      await expect(templateService.publish('tpl-1')).rejects.toThrow('Cannot publish draft');
+      await expect(templateService.delete('tpl-1')).rejects.toThrow('Cannot delete');
     });
   });
 
-  describe('archive', () => {
-    it('calls POST /templates/:id/archive with credentials', async () => {
+  describe('restore', () => {
+    it('calls POST /templates/:id/restore with credentials', async () => {
       const mockTemplate: Template = {
         id: 'tpl-1',
         title: 'NDA',
@@ -301,19 +280,20 @@ describe('templateService', () => {
         category: 'contracts',
         description: null,
         country: null,
-        status: 'archived',
         currentVersion: 1,
         createdBy: 'user-1',
         createdAt: '2026-01-01T00:00:00Z',
         updatedAt: '2026-01-01T00:00:00Z',
+        deletedAt: null,
+        deletedBy: null,
       };
       vi.mocked(fetch).mockResolvedValue(
         new Response(JSON.stringify(mockTemplate), { status: 200 }),
       );
 
-      const result = await templateService.archive('tpl-1');
+      const result = await templateService.restore('tpl-1');
 
-      expect(fetch).toHaveBeenCalledWith('/api/templates/tpl-1/archive', {
+      expect(fetch).toHaveBeenCalledWith('/api/templates/tpl-1/restore', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
@@ -323,64 +303,76 @@ describe('templateService', () => {
     });
 
     it('throws on non-ok response', async () => {
-      vi.mocked(fetch).mockResolvedValue(new Response('Forbidden', { status: 403 }));
+      vi.mocked(fetch).mockResolvedValue(new Response('Not Found', { status: 404 }));
 
-      await expect(templateService.archive('tpl-1')).rejects.toThrow('Failed to archive template');
+      await expect(templateService.restore('tpl-1')).rejects.toThrow('Failed to restore template');
     });
 
     it('includes API error message in thrown error', async () => {
       vi.mocked(fetch).mockResolvedValue(
-        new Response(JSON.stringify({ error: 'Already archived' }), { status: 400 }),
+        new Response(JSON.stringify({ error: 'Not in trash' }), { status: 400 }),
       );
 
-      await expect(templateService.archive('tpl-1')).rejects.toThrow('Already archived');
+      await expect(templateService.restore('tpl-1')).rejects.toThrow('Not in trash');
     });
   });
 
-  describe('unarchive', () => {
-    it('calls POST /templates/:id/unarchive with credentials', async () => {
-      const mockTemplate: Template = {
-        id: 'tpl-1',
-        title: 'NDA',
-        slug: 'nda',
-        category: 'contracts',
-        description: null,
-        country: null,
-        status: 'draft',
-        currentVersion: 1,
-        createdBy: 'user-1',
-        createdAt: '2026-01-01T00:00:00Z',
-        updatedAt: '2026-01-01T00:00:00Z',
-      };
-      vi.mocked(fetch).mockResolvedValue(
-        new Response(JSON.stringify(mockTemplate), { status: 200 }),
-      );
+  describe('hardDelete', () => {
+    it('calls DELETE /templates/:id/permanent with credentials', async () => {
+      vi.mocked(fetch).mockResolvedValue(new Response(null, { status: 204 }));
 
-      const result = await templateService.unarchive('tpl-1');
+      await templateService.hardDelete('tpl-1');
 
-      expect(fetch).toHaveBeenCalledWith('/api/templates/tpl-1/unarchive', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
+      expect(fetch).toHaveBeenCalledWith('/api/templates/tpl-1/permanent', {
+        method: 'DELETE',
         credentials: 'include',
       });
-      expect(result).toEqual(mockTemplate);
     });
 
     it('throws on non-ok response', async () => {
       vi.mocked(fetch).mockResolvedValue(new Response('Forbidden', { status: 403 }));
 
-      await expect(templateService.unarchive('tpl-1')).rejects.toThrow(
-        'Failed to unarchive template',
+      await expect(templateService.hardDelete('tpl-1')).rejects.toThrow(
+        'Failed to permanently delete template',
       );
     });
 
     it('includes API error message in thrown error', async () => {
       vi.mocked(fetch).mockResolvedValue(
-        new Response(JSON.stringify({ error: 'Not archived' }), { status: 400 }),
+        new Response(JSON.stringify({ error: 'Admin only' }), { status: 403 }),
       );
 
-      await expect(templateService.unarchive('tpl-1')).rejects.toThrow('Not archived');
+      await expect(templateService.hardDelete('tpl-1')).rejects.toThrow('Admin only');
+    });
+  });
+
+  describe('listTrash', () => {
+    it('calls GET /templates/trash with credentials', async () => {
+      const mockResponse = { data: [] };
+      vi.mocked(fetch).mockResolvedValue(
+        new Response(JSON.stringify(mockResponse), { status: 200 }),
+      );
+
+      const result = await templateService.listTrash();
+
+      expect(fetch).toHaveBeenCalledWith('/api/templates/trash', {
+        credentials: 'include',
+      });
+      expect(result).toEqual(mockResponse);
+    });
+
+    it('throws on non-ok response', async () => {
+      vi.mocked(fetch).mockResolvedValue(new Response('Server Error', { status: 500 }));
+
+      await expect(templateService.listTrash()).rejects.toThrow('Failed to fetch trash');
+    });
+
+    it('includes API error message in thrown error', async () => {
+      vi.mocked(fetch).mockResolvedValue(
+        new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 }),
+      );
+
+      await expect(templateService.listTrash()).rejects.toThrow('Unauthorized');
     });
   });
 

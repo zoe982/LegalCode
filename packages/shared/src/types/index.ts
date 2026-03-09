@@ -1,13 +1,11 @@
 export type Role = 'admin' | 'editor' | 'viewer';
 
-export type TemplateStatus = 'draft' | 'active' | 'archived';
-
 export type AuditAction =
   | 'create'
   | 'update'
-  | 'publish'
-  | 'archive'
-  | 'unarchive'
+  | 'delete'
+  | 'restore'
+  | 'hard_delete'
   | 'export'
   | 'login'
   | 'client_error';
@@ -28,11 +26,12 @@ export interface Template {
   category: string;
   description: string | null;
   country: string | null;
-  status: TemplateStatus;
   currentVersion: number;
   createdBy: string;
   createdAt: string;
   updatedAt: string;
+  deletedAt: string | null;
+  deletedBy: string | null;
 }
 
 export interface TemplateVersion {

@@ -88,7 +88,7 @@ describe('logAudit', () => {
   it('sets metadata to null when not provided', async () => {
     await logAudit(db, {
       userId: 'user-1',
-      action: 'archive',
+      action: 'delete',
       entityType: 'template',
       entityId: 'tmpl-1',
     });

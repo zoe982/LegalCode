@@ -60,6 +60,12 @@ vi.mock('../../src/hooks/useAuth.js', () => ({
   }),
 }));
 
+vi.mock('../../src/hooks/useTemplates.js', () => ({
+  useTrashTemplates: () => ({ data: { data: [] }, isLoading: false }),
+  useRestoreTemplate: () => ({ mutate: vi.fn(), isPending: false }),
+  useHardDeleteTemplate: () => ({ mutate: vi.fn(), isPending: false }),
+}));
+
 const mockSetConfig = vi.fn();
 const mockClearConfig = vi.fn();
 
@@ -110,6 +116,11 @@ describe('AdminPage', () => {
     expect(screen.getByRole('heading', { level: 2, name: /countries/i })).toBeInTheDocument();
   });
 
+  it('renders Trash section heading as h2', () => {
+    renderAdminPage();
+    expect(screen.getByRole('heading', { level: 2, name: /trash/i })).toBeInTheDocument();
+  });
+
   it('renders Error Log section heading as h2', () => {
     renderAdminPage();
     expect(screen.getByRole('heading', { level: 2, name: /error log/i })).toBeInTheDocument();
@@ -130,7 +141,7 @@ describe('AdminPage', () => {
   it('renders dividers between sections', () => {
     renderAdminPage();
     const dividers = document.querySelectorAll('hr.MuiDivider-root');
-    expect(dividers.length).toBeGreaterThanOrEqual(3);
+    expect(dividers.length).toBeGreaterThanOrEqual(4);
   });
 
   it('sets breadcrumb page name on mount', () => {

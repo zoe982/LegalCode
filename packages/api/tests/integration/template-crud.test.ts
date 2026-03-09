@@ -6,11 +6,14 @@ import {
   listTemplates,
   getTemplate,
   updateTemplate,
-  publishTemplate,
-  archiveTemplate,
   getTemplateVersions,
   getTemplateVersion,
   downloadTemplate,
+  deleteTemplate,
+  restoreTemplate,
+  hardDeleteTemplate,
+  listDeletedTemplates,
+  saveContent,
 } from '../../src/services/template.js';
 import { createTestDb, clearAllData } from './helpers.js';
 
@@ -40,7 +43,7 @@ describe('template CRUD integration (real SQLite)', () => {
   // ── 1. Full CRUD Lifecycle ──────────────────────────────────────────
 
   describe('full CRUD lifecycle', () => {
-    it('creates a template with status draft and version 1', async () => {
+    it('creates a template with currentVersion 1 and null deletedAt', async () => {
       const result = expectSuccess(
         await createTemplate(
           db,
@@ -53,13 +56,14 @@ describe('template CRUD integration (real SQLite)', () => {
         ),
       );
 
-      expect(result.template.status).toBe('draft');
       expect(result.template.currentVersion).toBe(1);
       expect(result.template.title).toBe('Employment Contract');
       expect(result.template.category).toBe('contracts');
       expect(result.template.createdBy).toBe(USER_ID);
       expect(result.template.id).toBeDefined();
       expect(result.template.slug).toMatch(/^employment-contract-[\da-f]{6}$/);
+      expect(result.template.deletedAt).toBeNull();
+      expect(result.template.deletedBy).toBeNull();
     });
 
     it('retrieves template with content and tags via getTemplate', async () => {
@@ -116,12 +120,25 @@ describe('template CRUD integration (real SQLite)', () => {
       expect(v2?.content).toBe('# V2 content');
     });
 
-    it('lists templates in results', async () => {
-      await createTemplate(
-        db,
-        { title: 'Listed Template', category: 'contracts', content: '# Content' },
-        USER_ID,
+    it('lists templates in results (excludes deleted)', async () => {
+      expectSuccess(
+        await createTemplate(
+          db,
+          { title: 'Listed Template', category: 'contracts', content: '# Content' },
+          USER_ID,
+        ),
       );
+
+      const { template: t2 } = expectSuccess(
+        await createTemplate(
+          db,
+          { title: 'Deleted Template', category: 'contracts', content: '# Deleted' },
+          USER_ID,
+        ),
+      );
+
+      // Soft-delete t2
+      await deleteTemplate(db, t2.id, USER_ID);
 
       const result = await listTemplates(db, {});
 
@@ -130,78 +147,86 @@ describe('template CRUD integration (real SQLite)', () => {
       expect(result.data[0]?.title).toBe('Listed Template');
     });
 
-    it('publishes a draft template to active status', async () => {
+    it('soft-deletes and restores a template', async () => {
       const { template } = expectSuccess(
         await createTemplate(
           db,
-          { title: 'To Publish', category: 'contracts', content: '# Content' },
+          { title: 'To Delete', category: 'contracts', content: '# Content' },
           USER_ID,
         ),
       );
 
-      const result = await publishTemplate(db, template.id, USER_ID);
+      // Soft delete
+      const deleteResult = await deleteTemplate(db, template.id, USER_ID);
+      expect(deleteResult).toEqual({ success: true });
 
-      expect('template' in result).toBe(true);
-      if ('template' in result) {
-        expect(result.template.status).toBe('active');
-      }
-
-      // Verify in DB
+      // getTemplate should return null for deleted
       const fetched = await getTemplate(db, template.id);
-      expect(fetched?.template.status).toBe('active');
+      expect(fetched).toBeNull();
+
+      // Restore
+      const restoreResult = await restoreTemplate(db, template.id);
+      expect(restoreResult).toEqual({ success: true });
+
+      // getTemplate should work again
+      const restored = await getTemplate(db, template.id);
+      expect(restored).not.toBeNull();
+      expect(restored?.template.title).toBe('To Delete');
+      expect(restored?.template.deletedAt).toBeNull();
+      expect(restored?.template.deletedBy).toBeNull();
     });
 
-    it('archives a template', async () => {
+    it('hard-deletes a template permanently', async () => {
       const { template } = expectSuccess(
         await createTemplate(
           db,
-          { title: 'To Archive', category: 'contracts', content: '# Content' },
+          { title: 'To Hard Delete', category: 'contracts', content: '# Content', tags: ['test'] },
           USER_ID,
         ),
       );
 
-      const result = await archiveTemplate(db, template.id, USER_ID);
+      const result = await hardDeleteTemplate(db, template.id);
+      expect(result).toEqual({ success: true });
 
-      expect('template' in result).toBe(true);
-      if ('template' in result) {
-        expect(result.template.status).toBe('archived');
-      }
-
-      // Verify in DB
+      // Template should be completely gone
       const fetched = await getTemplate(db, template.id);
-      expect(fetched?.template.status).toBe('archived');
+      expect(fetched).toBeNull();
+
+      // Versions should also be gone
+      const versions = await getTemplateVersions(db, template.id);
+      expect(versions).toHaveLength(0);
     });
 
-    it('rejects update on archived template', async () => {
+    it('rejects update on deleted template', async () => {
       const { template } = expectSuccess(
         await createTemplate(
           db,
-          { title: 'Archived Doc', category: 'contracts', content: '# Content' },
+          { title: 'Deleted Doc', category: 'contracts', content: '# Content' },
           USER_ID,
         ),
       );
 
-      await archiveTemplate(db, template.id, USER_ID);
+      await deleteTemplate(db, template.id, USER_ID);
 
       const result = await updateTemplate(db, template.id, { title: 'New Title' }, USER_ID);
 
-      expect(result).toEqual({ error: 'archived' });
+      expect(result).toEqual({ error: 'deleted' });
     });
 
-    it('rejects publish on archived template', async () => {
+    it('rejects autosave on deleted template', async () => {
       const { template } = expectSuccess(
         await createTemplate(
           db,
-          { title: 'Archived Doc', category: 'contracts', content: '# Content' },
+          { title: 'Deleted Doc', category: 'contracts', content: '# Content' },
           USER_ID,
         ),
       );
 
-      await archiveTemplate(db, template.id, USER_ID);
+      await deleteTemplate(db, template.id, USER_ID);
 
-      const result = await publishTemplate(db, template.id, USER_ID);
+      const result = await saveContent(db, template.id, '# New content', undefined);
 
-      expect(result).toEqual({ error: 'archived' });
+      expect(result).toEqual({ error: 'deleted' });
     });
 
     it('downloads template with correct filename and content', async () => {
@@ -221,43 +246,39 @@ describe('template CRUD integration (real SQLite)', () => {
     });
   });
 
-  // ── 2. State Transition Tests ───────────────────────────────────────
+  // ── 2. Delete / Restore Tests ───────────────────────────────────────
 
-  describe('state transitions', () => {
-    it('allows draft -> active (publish)', async () => {
+  describe('delete and restore', () => {
+    it('rejects double soft-delete', async () => {
       const { template } = expectSuccess(
         await createTemplate(
           db,
-          { title: 'Draft', category: 'contracts', content: '# D' },
+          { title: 'Double Delete', category: 'contracts', content: '# D' },
           USER_ID,
         ),
       );
 
-      const result = await publishTemplate(db, template.id, USER_ID);
-      expect('template' in result).toBe(true);
-      if ('template' in result) {
-        expect(result.template.status).toBe('active');
-      }
+      await deleteTemplate(db, template.id, USER_ID);
+
+      const result = await deleteTemplate(db, template.id, USER_ID);
+      expect(result).toEqual({ error: 'already_deleted' });
     });
 
-    it('allows draft -> archived (archive/discard)', async () => {
+    it('rejects restore on non-deleted template', async () => {
       const { template } = expectSuccess(
         await createTemplate(
           db,
-          { title: 'Draft', category: 'contracts', content: '# D' },
+          { title: 'Not Deleted', category: 'contracts', content: '# D' },
           USER_ID,
         ),
       );
 
-      const result = await archiveTemplate(db, template.id, USER_ID);
-      expect('template' in result).toBe(true);
-      if ('template' in result) {
-        expect(result.template.status).toBe('archived');
-      }
+      const result = await restoreTemplate(db, template.id);
+      expect(result).toEqual({ error: 'not_deleted' });
     });
 
-    it('allows active -> archived (archive)', async () => {
-      const { template } = expectSuccess(
+    it('listDeletedTemplates returns only deleted templates', async () => {
+      expectSuccess(
         await createTemplate(
           db,
           { title: 'Active', category: 'contracts', content: '# A' },
@@ -265,73 +286,53 @@ describe('template CRUD integration (real SQLite)', () => {
         ),
       );
 
-      await publishTemplate(db, template.id, USER_ID);
-
-      const result = await archiveTemplate(db, template.id, USER_ID);
-      expect('template' in result).toBe(true);
-      if ('template' in result) {
-        expect(result.template.status).toBe('archived');
-      }
-    });
-
-    it('rejects archived -> active (publish)', async () => {
-      const { template } = expectSuccess(
+      const { template: t2 } = expectSuccess(
         await createTemplate(
           db,
-          { title: 'Archived', category: 'contracts', content: '# A' },
+          { title: 'Deleted', category: 'contracts', content: '# D' },
           USER_ID,
         ),
       );
 
-      await archiveTemplate(db, template.id, USER_ID);
+      await deleteTemplate(db, t2.id, USER_ID);
 
-      const result = await publishTemplate(db, template.id, USER_ID);
-      expect(result).toEqual({ error: 'archived' });
+      const deletedList = await listDeletedTemplates(db);
+      expect(deletedList).toHaveLength(1);
+      expect(deletedList[0]?.id).toBe(t2.id);
     });
 
-    it('rejects publish on already active template', async () => {
+    it('hard delete removes all related data', async () => {
       const { template } = expectSuccess(
         await createTemplate(
           db,
-          { title: 'Active', category: 'contracts', content: '# A' },
+          {
+            title: 'Full Remove',
+            category: 'contracts',
+            content: '# Body',
+            tags: ['tag1', 'tag2'],
+          },
           USER_ID,
         ),
       );
 
-      await publishTemplate(db, template.id, USER_ID);
+      // Add a version
+      await updateTemplate(db, template.id, { content: '# V2' }, USER_ID);
 
-      const result = await publishTemplate(db, template.id, USER_ID);
-      expect(result).toEqual({ error: 'already_active' });
-    });
+      await hardDeleteTemplate(db, template.id);
 
-    it('rejects archive on already archived template', async () => {
-      const { template } = expectSuccess(
-        await createTemplate(
-          db,
-          { title: 'Archived', category: 'contracts', content: '# A' },
-          USER_ID,
-        ),
-      );
+      // Check all related tables
+      const templateRow = sqlite.prepare('SELECT * FROM templates WHERE id = ?').get(template.id);
+      expect(templateRow).toBeUndefined();
 
-      await archiveTemplate(db, template.id, USER_ID);
+      const versionRows = sqlite
+        .prepare('SELECT * FROM template_versions WHERE template_id = ?')
+        .all(template.id);
+      expect(versionRows).toHaveLength(0);
 
-      const result = await archiveTemplate(db, template.id, USER_ID);
-      expect(result).toEqual({ error: 'already_archived' });
-    });
-
-    it('rejects update on archived template', async () => {
-      const { template } = expectSuccess(
-        await createTemplate(
-          db,
-          { title: 'Archived', category: 'contracts', content: '# A' },
-          USER_ID,
-        ),
-      );
-
-      await archiveTemplate(db, template.id, USER_ID);
-
-      const result = await updateTemplate(db, template.id, { content: '# New' }, USER_ID);
-      expect(result).toEqual({ error: 'archived' });
+      const tagRows = sqlite
+        .prepare('SELECT * FROM template_tags WHERE template_id = ?')
+        .all(template.id);
+      expect(tagRows).toHaveLength(0);
     });
   });
 
@@ -360,7 +361,7 @@ describe('template CRUD integration (real SQLite)', () => {
       expect(fetched?.tags).toEqual(expect.arrayContaining(['employment', 'compliance']));
     });
 
-    it('updates template tags — old tags removed, new tags added', async () => {
+    it('updates template tags - old tags removed, new tags added', async () => {
       const { template } = expectSuccess(
         await createTemplate(
           db,
@@ -411,7 +412,6 @@ describe('template CRUD integration (real SQLite)', () => {
         USER_ID,
       );
 
-      // Count the tag rows — should only be 1 'shared-tag' row in tags table
       const tagCount = sqlite
         .prepare("SELECT COUNT(*) as count FROM tags WHERE name = 'shared-tag'")
         .get() as { count: number };
@@ -443,7 +443,6 @@ describe('template CRUD integration (real SQLite)', () => {
 
   describe('pagination', () => {
     it('paginates results correctly', async () => {
-      // Create 7 templates
       for (let i = 1; i <= 7; i++) {
         await createTemplate(
           db,
@@ -456,19 +455,16 @@ describe('template CRUD integration (real SQLite)', () => {
         );
       }
 
-      // Page 1 with limit 3
       const page1 = await listTemplates(db, { page: 1, limit: 3 });
       expect(page1.data).toHaveLength(3);
       expect(page1.total).toBe(7);
       expect(page1.page).toBe(1);
       expect(page1.limit).toBe(3);
 
-      // Page 2 with limit 3
       const page2 = await listTemplates(db, { page: 2, limit: 3 });
       expect(page2.data).toHaveLength(3);
       expect(page2.total).toBe(7);
 
-      // Page 3 with limit 3 (only 1 remaining)
       const page3 = await listTemplates(db, { page: 3, limit: 3 });
       expect(page3.data).toHaveLength(1);
       expect(page3.total).toBe(7);
@@ -543,17 +539,6 @@ describe('template CRUD integration (real SQLite)', () => {
       expect(result.data[0]?.title).toBe('Privacy Policy');
     });
 
-    it('filters by status', async () => {
-      await seedFilterTemplates();
-
-      // All templates start as draft
-      const drafts = await listTemplates(db, { status: 'draft' });
-      expect(drafts.total).toBe(3);
-
-      const actives = await listTemplates(db, { status: 'active' });
-      expect(actives.total).toBe(0);
-    });
-
     it('filters by country', async () => {
       await seedFilterTemplates();
 
@@ -579,6 +564,21 @@ describe('template CRUD integration (real SQLite)', () => {
       const result2 = await listTemplates(db, { category: 'contracts', search: 'employment' });
       expect(result2.total).toBe(1);
       expect(result2.data[0]?.title).toBe('Employment Agreement');
+    });
+
+    it('excludes deleted templates from search results', async () => {
+      await seedFilterTemplates();
+
+      // Delete one
+      const allTemplates = await listTemplates(db, {});
+      const templateToDelete = allTemplates.data.find((t) => t.title === 'Employment Agreement');
+      if (templateToDelete) {
+        await deleteTemplate(db, templateToDelete.id, USER_ID);
+      }
+
+      const result = await listTemplates(db, { search: 'agreement' });
+      expect(result.total).toBe(1);
+      expect(result.data[0]?.title).toBe('Service Level Agreement');
     });
   });
 
@@ -610,7 +610,6 @@ describe('template CRUD integration (real SQLite)', () => {
 
       const versions = await getTemplateVersions(db, template.id);
       expect(versions).toHaveLength(3);
-      // Ordered by version DESC
       expect(versions[0]?.version).toBe(3);
       expect(versions[1]?.version).toBe(2);
       expect(versions[2]?.version).toBe(1);
@@ -721,7 +720,7 @@ describe('template CRUD integration (real SQLite)', () => {
       expect(entries[1]?.user_id).toBe(ADMIN_ID);
     });
 
-    it('logs publish action', async () => {
+    it('logs delete action', async () => {
       const { template } = expectSuccess(
         await createTemplate(
           db,
@@ -730,28 +729,11 @@ describe('template CRUD integration (real SQLite)', () => {
         ),
       );
 
-      await publishTemplate(db, template.id, ADMIN_ID);
+      await deleteTemplate(db, template.id, USER_ID);
 
       const entries = getAuditEntries(template.id);
       expect(entries).toHaveLength(2);
-      expect(entries[1]?.action).toBe('publish');
-      expect(entries[1]?.user_id).toBe(ADMIN_ID);
-    });
-
-    it('logs archive action', async () => {
-      const { template } = expectSuccess(
-        await createTemplate(
-          db,
-          { title: 'Audited', category: 'contracts', content: '# Audit' },
-          USER_ID,
-        ),
-      );
-
-      await archiveTemplate(db, template.id, USER_ID);
-
-      const entries = getAuditEntries(template.id);
-      expect(entries).toHaveLength(2);
-      expect(entries[1]?.action).toBe('archive');
+      expect(entries[1]?.action).toBe('delete');
     });
 
     it('captures full lifecycle audit trail', async () => {
@@ -764,13 +746,12 @@ describe('template CRUD integration (real SQLite)', () => {
       );
 
       await updateTemplate(db, template.id, { content: '# Updated' }, USER_ID);
-      await publishTemplate(db, template.id, ADMIN_ID);
-      await archiveTemplate(db, template.id, ADMIN_ID);
+      await deleteTemplate(db, template.id, ADMIN_ID);
 
       const entries = getAuditEntries(template.id);
-      expect(entries).toHaveLength(4);
+      expect(entries).toHaveLength(3);
       const actions = entries.map((e) => e.action);
-      expect(actions).toEqual(['create', 'update', 'publish', 'archive']);
+      expect(actions).toEqual(['create', 'update', 'delete']);
     });
   });
 
@@ -787,13 +768,18 @@ describe('template CRUD integration (real SQLite)', () => {
       expect(result).toEqual({ error: 'not_found' });
     });
 
-    it('returns not_found for publish on nonexistent template', async () => {
-      const result = await publishTemplate(db, 'nope', USER_ID);
+    it('returns not_found for delete on nonexistent template', async () => {
+      const result = await deleteTemplate(db, 'nope', USER_ID);
       expect(result).toEqual({ error: 'not_found' });
     });
 
-    it('returns not_found for archive on nonexistent template', async () => {
-      const result = await archiveTemplate(db, 'nope', USER_ID);
+    it('returns not_found for restore on nonexistent template', async () => {
+      const result = await restoreTemplate(db, 'nope');
+      expect(result).toEqual({ error: 'not_found' });
+    });
+
+    it('returns not_found for hard delete on nonexistent template', async () => {
+      const result = await hardDeleteTemplate(db, 'nope');
       expect(result).toEqual({ error: 'not_found' });
     });
 

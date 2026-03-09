@@ -2,7 +2,13 @@ import { Hono } from 'hono';
 import type { AppEnv } from '../types/env.js';
 import { authMiddleware, requireRole } from '../middleware/auth.js';
 import { getDb } from '../db/index.js';
-import { listAllUsers, createUser, updateUserRole, deactivateUser } from '../services/user.js';
+import {
+  listAllUsers,
+  createUser,
+  updateUserRole,
+  deactivateUser,
+  findUserById,
+} from '../services/user.js';
 import { listErrors, resolveError } from '../services/error-log.js';
 import {
   createUserSchema,
@@ -30,8 +36,17 @@ adminRoutes.post('/users', async (c) => {
     return c.json({ error: 'Invalid input', details: result.error.flatten() }, 400);
   }
   const db = getDb(c.env.DB);
-  const user = await createUser(db, result.data);
-  return c.json({ user }, 201);
+  try {
+    const user = await createUser(db, result.data);
+    await addAllowedEmail(c.env.AUTH_KV, c.env.ALLOWED_EMAILS, result.data.email);
+    return c.json({ user }, 201);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : '';
+    if (message.includes('UNIQUE constraint failed')) {
+      return c.json({ error: 'A user with this email already exists' }, 409);
+    }
+    return c.json({ error: 'Internal server error' }, 500);
+  }
 });
 
 adminRoutes.patch('/users/:id', async (c) => {
@@ -49,7 +64,12 @@ adminRoutes.patch('/users/:id', async (c) => {
 adminRoutes.delete('/users/:id', async (c) => {
   const id = c.req.param('id');
   const db = getDb(c.env.DB);
+  const user = await findUserById(db, id);
+  if (!user) {
+    return c.json({ error: 'User not found' }, 404);
+  }
   await deactivateUser(db, id);
+  await removeAllowedEmail(c.env.AUTH_KV, c.env.ALLOWED_EMAILS, user.email);
   return c.json({ ok: true });
 });
 

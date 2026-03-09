@@ -1,27 +1,11 @@
-import { useState, useCallback, useEffect, useRef, createElement, useMemo } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router';
-import {
-  Box,
-  Typography,
-  Button,
-  IconButton,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Skeleton,
-} from '@mui/material';
+import { Box, IconButton, Skeleton } from '@mui/material';
 import DownloadIcon from '@mui/icons-material/Download';
 import type { Crepe } from '@milkdown/crepe';
 import { MarkdownEditor } from '../components/MarkdownEditor.js';
 import { useAuth } from '../hooks/useAuth.js';
-import {
-  useTemplate,
-  useCreateTemplate,
-  usePublishTemplate,
-  useArchiveTemplate,
-  useUnarchiveTemplate,
-} from '../hooks/useTemplates.js';
+import { useTemplate, useCreateTemplate, useDeleteTemplate } from '../hooks/useTemplates.js';
 import { templateService } from '../services/templates.js';
 import { useCategories } from '../hooks/useCategories.js';
 import { useCollaboration } from '../hooks/useCollaboration.js';
@@ -45,6 +29,7 @@ import { CommentAnchorProvider } from '../contexts/CommentAnchorContext.js';
 import { useTextSelection } from '../hooks/useTextSelection.js';
 import { useCommentHighlights } from '../hooks/useCommentHighlights.js';
 import { DocumentHeader } from '../components/DocumentHeader.js';
+import { DeleteTemplateDialog } from '../components/DeleteTemplateDialog.js';
 import { InlineCommentMargin } from '../components/InlineCommentMargin.js';
 
 export function TemplateEditorPage() {
@@ -62,9 +47,7 @@ export function TemplateEditorPage() {
   const categories = categoriesQuery.data?.categories ?? [];
 
   const createMutation = useCreateTemplate();
-  const publishMutation = usePublishTemplate();
-  const archiveMutation = useArchiveTemplate();
-  const unarchiveMutation = useUnarchiveTemplate();
+  const deleteMutation = useDeleteTemplate();
 
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState('');
@@ -72,17 +55,9 @@ export function TemplateEditorPage() {
   const [content, setContent] = useState('');
   const [formInitialized, setFormInitialized] = useState(false);
 
-  // Archive confirmation dialog state
-  const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
-
-  // Unarchive confirmation dialog state
-  const [unarchiveDialogOpen, setUnarchiveDialogOpen] = useState(false);
-
   const [editorMode, setEditorMode] = useState<'source' | 'review'>('source');
   const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false);
-
-  // Publish confirmation dialog state
-  const [publishDialogOpen, setPublishDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   const isDirtyRef = useRef(false);
   const [autoCreateState, setAutoCreateState] = useState<'idle' | 'saving'>('idle');
@@ -145,6 +120,7 @@ export function TemplateEditorPage() {
 
   const handleSubmitComment = useCallback(
     (commentContent: string) => {
+      /* v8 ignore next -- defensive guard; id always exists when comments are available */
       if (!id || !pendingAnchor) return;
       createComment({
         templateId: id,
@@ -176,6 +152,7 @@ export function TemplateEditorPage() {
 
   const handleReviewSubmitComment = useCallback(
     (commentContent: string) => {
+      /* v8 ignore next -- defensive guard; id always exists when comments are available */
       if (!id || !reviewPendingAnchor) return;
       createComment({
         templateId: id,
@@ -201,15 +178,14 @@ export function TemplateEditorPage() {
     }, [queryClient, id]),
   });
 
-  const status = templateData?.template.status;
-  const isReadOnly = isViewer || status === 'archived';
+  const isDeleted = templateData?.template.deletedAt != null;
+  const isReadOnly = isViewer || isDeleted;
 
   const autosave = useAutosave({
     templateId: id,
-    status,
     content,
     title,
-    enabled: !isCreateMode && !isViewer && status === 'draft',
+    enabled: !isCreateMode && !isViewer && !isDeleted,
   });
 
   // Toast notification when autosave completes (saving -> saved transition)
@@ -223,9 +199,11 @@ export function TemplateEditorPage() {
 
   // Shared auto-create logic for debounced auto-create and Ctrl+S
   const performAutoCreate = useCallback(() => {
+    /* v8 ignore next -- defensive guard; hasAutoCreatedRef already-created branch guarded by useEffect above */
     if (hasAutoCreatedRef.current || title.trim() === '') return;
     hasAutoCreatedRef.current = true;
     setAutoCreateState('saving');
+    /* v8 ignore next -- defensive guard; categories always have entries by the time auto-create runs */
     const resolvedCategory = category !== '' ? category : (categories[0]?.name ?? 'General');
     const resolvedCountry = country !== '' ? country : undefined;
     const resolvedContent = content !== '' ? content : ' ';
@@ -299,14 +277,14 @@ export function TemplateEditorPage() {
           hasAutoCreatedRef.current = false; // Reset to allow retry
         }
         performAutoCreate();
-      } else if (!isCreateMode && status === 'draft') {
+      } else if (!isCreateMode && !isDeleted) {
         autosave.saveNow();
       }
       // Only show "all set" toast if not in create mode (create mode shows its own toasts)
       if (!isCreateMode) {
         showToast("Your work is saved automatically — you're all set", 'success');
       }
-    }, [isCreateMode, title, status, autosave, showToast, performAutoCreate]),
+    }, [isCreateMode, title, isDeleted, autosave, showToast, performAutoCreate]),
     onAddComment: handleAddComment,
   });
 
@@ -317,17 +295,20 @@ export function TemplateEditorPage() {
     }
   }, [id]);
 
-  const handlePublishClick = useCallback(() => {
-    setPublishDialogOpen(true);
+  const handleDeleteClick = useCallback(() => {
+    setDeleteDialogOpen(true);
   }, []);
 
-  const handleArchiveClick = useCallback(() => {
-    setArchiveDialogOpen(true);
-  }, []);
-
-  const handleUnarchiveClick = useCallback(() => {
-    setUnarchiveDialogOpen(true);
-  }, []);
+  const handleDeleteConfirm = useCallback(() => {
+    /* v8 ignore next -- defensive guard; id always exists when delete button is visible */
+    if (!id) return;
+    deleteMutation.mutate(id, {
+      onSuccess: () => {
+        setDeleteDialogOpen(false);
+        void navigate('/templates');
+      },
+    });
+  }, [id, deleteMutation, navigate]);
 
   // Sync TopAppBar config for editor view — v4: use DocumentHeader
   const { setConfig, clearConfig } = useTopAppBarConfig();
@@ -336,7 +317,7 @@ export function TemplateEditorPage() {
   const draftSaveStatus: ConnectionStatusType | null =
     isCreateMode && autoCreateState === 'saving'
       ? 'saving'
-      : !isCreateMode && status === 'draft' && !isViewer
+      : !isCreateMode && !isDeleted && !isViewer
         ? autosave.saveState === 'saving'
           ? 'saving'
           : autosave.saveState === 'saved'
@@ -350,7 +331,7 @@ export function TemplateEditorPage() {
   const documentHeaderRightSlot = !isCreateMode ? (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
       {draftSaveStatus != null && <ConnectionStatus status={draftSaveStatus} />}
-      {collaboration.status !== 'disconnected' && status !== 'draft' && (
+      {collaboration.status !== 'disconnected' && (
         <>
           <ConnectionStatus status={collaboration.status as ConnectionStatusType} />
           <PresenceAvatars users={collaboration.connectedUsers} />
@@ -376,7 +357,6 @@ export function TemplateEditorPage() {
           onCategoryChange={setCategory}
           country={country}
           onCountryChange={setCountry}
-          status={templateData?.template.status}
           editorMode={editorMode}
           onModeChange={setEditorMode}
           templateId={id}
@@ -386,10 +366,8 @@ export function TemplateEditorPage() {
           updatedAt={templateData?.template.updatedAt}
           createdBy={templateData?.template.createdBy}
           currentVersion={templateData?.template.currentVersion}
-          onPublish={!isReadOnly && status === 'draft' ? handlePublishClick : undefined}
-          onArchive={!isReadOnly && status === 'active' ? handleArchiveClick : undefined}
-          onUnarchive={status === 'archived' ? handleUnarchiveClick : undefined}
           rightSlot={documentHeaderRightSlot}
+          onDelete={!isCreateMode && !isReadOnly ? handleDeleteClick : undefined}
         />
       ),
     });
@@ -405,15 +383,13 @@ export function TemplateEditorPage() {
     editorMode,
     id,
     isReadOnly,
-    status,
+    isDeleted,
     collaboration.status,
     collaboration.connectedUsers,
     setConfig,
     clearConfig,
     handleExport,
-    handlePublishClick,
-    handleArchiveClick,
-    handleUnarchiveClick,
+    handleDeleteClick,
     draftSaveStatus,
     autosave.saveState,
     isViewer,
@@ -456,62 +432,9 @@ export function TemplateEditorPage() {
     [id],
   );
 
-  const handlePublishConfirm = useCallback(() => {
-    /* v8 ignore next -- guard for TypeScript; id is always defined in edit mode */
-    if (!id) return;
-    void publishMutation.mutateAsync(id).catch(() => {
-      showToast('Failed to publish template', 'error');
-    });
-    setPublishDialogOpen(false);
-  }, [publishMutation, id, showToast]);
-
-  const handleArchiveConfirm = useCallback(() => {
-    /* v8 ignore next -- guard for TypeScript; id is always defined in edit mode */
-    if (!id) return;
-    void archiveMutation
-      .mutateAsync(id)
-      .then(() => {
-        showToast(
-          'Template archived',
-          'success',
-          createElement(
-            Button,
-            {
-              size: 'small' as const,
-              onClick: () => {
-                void unarchiveMutation.mutateAsync(id);
-              },
-              sx: {
-                color: '#8027FF',
-                fontFamily: '"DM Sans", sans-serif',
-                fontSize: '0.8125rem',
-                fontWeight: 600,
-                textTransform: 'none',
-                minWidth: 0,
-                padding: '2px 8px',
-              },
-            },
-            'Undo',
-          ),
-        );
-      })
-      .catch(() => {
-        showToast('Failed to archive template', 'error');
-      });
-    setArchiveDialogOpen(false);
-  }, [archiveMutation, unarchiveMutation, id, showToast]);
-
-  const handleUnarchiveConfirm = useCallback(() => {
-    /* v8 ignore next -- guard for TypeScript; id is always defined in edit mode */
-    if (!id) return;
-    void unarchiveMutation.mutateAsync(id).catch(() => {
-      showToast('Failed to unarchive template', 'error');
-    });
-    setUnarchiveDialogOpen(false);
-  }, [unarchiveMutation, id, showToast]);
-
   const handleMarginResolve = useCallback(
     (commentId: string) => {
+      /* v8 ignore next -- defensive guard; id always exists when margin actions are visible */
       if (!id) return;
       resolveComment({ templateId: id, commentId });
     },
@@ -520,6 +443,7 @@ export function TemplateEditorPage() {
 
   const handleMarginDelete = useCallback(
     (commentId: string) => {
+      /* v8 ignore next -- defensive guard; id always exists when margin actions are visible */
       if (!id) return;
       deleteComment({ templateId: id, commentId });
     },
@@ -528,6 +452,7 @@ export function TemplateEditorPage() {
 
   const handleMarginReply = useCallback(
     (parentId: string, replyContent: string) => {
+      /* v8 ignore next -- defensive guard; id always exists when margin actions are visible */
       if (!id) return;
       createComment({ templateId: id, content: replyContent, parentId });
     },
@@ -771,139 +696,23 @@ export function TemplateEditorPage() {
           </Box>
         </Box>
 
-        {/* Publish confirmation dialog */}
-        <Dialog
-          open={publishDialogOpen}
-          onClose={() => {
-            setPublishDialogOpen(false);
-          }}
-          slotProps={{
-            paper: {
-              sx: {
-                maxWidth: 480,
-                backgroundColor: '#F7F0E6',
-                borderRadius: '16px',
-              },
-            },
-            backdrop: {
-              sx: { backdropFilter: 'blur(4px)' },
-            },
-          }}
-        >
-          <DialogTitle
-            sx={{
-              fontFamily: '"Source Serif 4", Georgia, "Times New Roman", serif',
-              fontWeight: 600,
-              color: '#451F61',
-            }}
-          >
-            Publish Template
-          </DialogTitle>
-          <DialogContent>
-            <Typography>
-              Publishing makes this template available for use across the organization. Continue?
-            </Typography>
-          </DialogContent>
-          <DialogActions>
-            <Button
-              onClick={() => {
-                setPublishDialogOpen(false);
-              }}
-              sx={{ color: '#451F61' }}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="contained"
-              onClick={handlePublishConfirm}
-              sx={{
-                backgroundColor: '#8027FF',
-                color: '#fff',
-                '&:hover': { backgroundColor: '#6B1FD6' },
-              }}
-            >
-              Publish
-            </Button>
-          </DialogActions>
-        </Dialog>
-
-        {/* Archive confirmation dialog */}
-        <Dialog
-          open={archiveDialogOpen}
-          onClose={() => {
-            setArchiveDialogOpen(false);
-          }}
-        >
-          <DialogTitle>Archive Template</DialogTitle>
-          <DialogContent>
-            <Typography>
-              Are you sure you want to archive this template? You can unarchive it later from the
-              Info panel.
-            </Typography>
-          </DialogContent>
-          <DialogActions>
-            <Button
-              onClick={() => {
-                setArchiveDialogOpen(false);
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="contained"
-              onClick={handleArchiveConfirm}
-              sx={{
-                backgroundColor: '#D32F2F',
-                color: '#fff',
-                '&:hover': { backgroundColor: '#B71C1C' },
-              }}
-            >
-              Archive
-            </Button>
-          </DialogActions>
-        </Dialog>
-
-        {/* Unarchive confirmation dialog */}
-        <Dialog
-          open={unarchiveDialogOpen}
-          onClose={() => {
-            setUnarchiveDialogOpen(false);
-          }}
-        >
-          <DialogTitle>Unarchive Template</DialogTitle>
-          <DialogContent>
-            <Typography>
-              Are you sure you want to unarchive this template? It will return to draft status.
-            </Typography>
-          </DialogContent>
-          <DialogActions>
-            <Button
-              onClick={() => {
-                setUnarchiveDialogOpen(false);
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="contained"
-              onClick={handleUnarchiveConfirm}
-              sx={{
-                backgroundColor: '#8027FF',
-                color: '#fff',
-                '&:hover': { backgroundColor: '#6B1FD6' },
-              }}
-            >
-              Unarchive
-            </Button>
-          </DialogActions>
-        </Dialog>
-
         {/* Keyboard shortcut help dialog */}
         <KeyboardShortcutHelp
           open={shortcutHelpOpen}
           onClose={() => {
             setShortcutHelpOpen(false);
           }}
+        />
+
+        {/* Delete confirmation dialog */}
+        <DeleteTemplateDialog
+          open={deleteDialogOpen}
+          onClose={() => {
+            setDeleteDialogOpen(false);
+          }}
+          onConfirm={handleDeleteConfirm}
+          templateTitle={title}
+          isDeleting={deleteMutation.isPending}
         />
       </Box>
     </CommentAnchorProvider>

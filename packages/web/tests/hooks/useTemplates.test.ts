@@ -4,17 +4,27 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createElement, type ReactNode } from 'react';
 import type { Template, TemplateVersion } from '@legalcode/shared';
 
-const { listFn, getFn, createFn, updateFn, publishFn, archiveFn, unarchiveFn, getVersionsFn } =
-  vi.hoisted(() => ({
-    listFn: vi.fn(),
-    getFn: vi.fn(),
-    createFn: vi.fn(),
-    updateFn: vi.fn(),
-    publishFn: vi.fn(),
-    archiveFn: vi.fn(),
-    unarchiveFn: vi.fn(),
-    getVersionsFn: vi.fn(),
-  }));
+const {
+  listFn,
+  getFn,
+  createFn,
+  updateFn,
+  deleteFn,
+  restoreFn,
+  hardDeleteFn,
+  listTrashFn,
+  getVersionsFn,
+} = vi.hoisted(() => ({
+  listFn: vi.fn(),
+  getFn: vi.fn(),
+  createFn: vi.fn(),
+  updateFn: vi.fn(),
+  deleteFn: vi.fn(),
+  restoreFn: vi.fn(),
+  hardDeleteFn: vi.fn(),
+  listTrashFn: vi.fn(),
+  getVersionsFn: vi.fn(),
+}));
 
 vi.mock('../../src/services/templates.js', () => ({
   templateService: {
@@ -22,12 +32,14 @@ vi.mock('../../src/services/templates.js', () => ({
     get: getFn,
     create: createFn,
     update: updateFn,
-    publish: publishFn,
-    archive: archiveFn,
-    unarchive: unarchiveFn,
+    delete: deleteFn,
+    restore: restoreFn,
+    hardDelete: hardDeleteFn,
+    listTrash: listTrashFn,
     getVersions: getVersionsFn,
     getVersion: vi.fn(),
     download: vi.fn(),
+    autosaveDraft: vi.fn(),
   },
 }));
 
@@ -42,9 +54,10 @@ const {
   useTemplateVersions,
   useCreateTemplate,
   useUpdateTemplate,
-  usePublishTemplate,
-  useArchiveTemplate,
-  useUnarchiveTemplate,
+  useDeleteTemplate,
+  useRestoreTemplate,
+  useHardDeleteTemplate,
+  useTrashTemplates,
 } = await import('../../src/hooks/useTemplates.js');
 
 const mockTemplate: Template = {
@@ -54,11 +67,12 @@ const mockTemplate: Template = {
   category: 'contracts',
   description: null,
   country: null,
-  status: 'draft',
   currentVersion: 1,
   createdBy: 'user-1',
   createdAt: '2026-01-01T00:00:00Z',
   updatedAt: '2026-01-01T00:00:00Z',
+  deletedAt: null,
+  deletedBy: null,
 };
 
 const mockVersion: TemplateVersion = {
@@ -279,19 +293,16 @@ describe('useUpdateTemplate', () => {
   });
 });
 
-describe('usePublishTemplate', () => {
+describe('useDeleteTemplate', () => {
   afterEach(() => {
     vi.clearAllMocks();
   });
 
-  it('publishes a template', async () => {
-    publishFn.mockResolvedValue({
-      ...mockTemplate,
-      status: 'active',
-    });
+  it('deletes a template', async () => {
+    deleteFn.mockResolvedValue(undefined);
 
     const wrapper = createWrapper();
-    const { result } = renderHook(() => usePublishTemplate(), { wrapper });
+    const { result } = renderHook(() => useDeleteTemplate(), { wrapper });
 
     act(() => {
       result.current.mutate('tpl-1');
@@ -301,23 +312,22 @@ describe('usePublishTemplate', () => {
       expect(result.current.isSuccess).toBe(true);
     });
 
-    expect(publishFn).toHaveBeenCalledWith('tpl-1');
+    expect(deleteFn).toHaveBeenCalledWith('tpl-1');
   });
 });
 
-describe('useArchiveTemplate', () => {
+describe('useRestoreTemplate', () => {
   afterEach(() => {
     vi.clearAllMocks();
   });
 
-  it('archives a template', async () => {
-    archiveFn.mockResolvedValue({
+  it('restores a template', async () => {
+    restoreFn.mockResolvedValue({
       ...mockTemplate,
-      status: 'archived',
     });
 
     const wrapper = createWrapper();
-    const { result } = renderHook(() => useArchiveTemplate(), { wrapper });
+    const { result } = renderHook(() => useRestoreTemplate(), { wrapper });
 
     act(() => {
       result.current.mutate('tpl-1');
@@ -327,23 +337,20 @@ describe('useArchiveTemplate', () => {
       expect(result.current.isSuccess).toBe(true);
     });
 
-    expect(archiveFn).toHaveBeenCalledWith('tpl-1');
+    expect(restoreFn).toHaveBeenCalledWith('tpl-1');
   });
 });
 
-describe('useUnarchiveTemplate', () => {
+describe('useHardDeleteTemplate', () => {
   afterEach(() => {
     vi.clearAllMocks();
   });
 
-  it('unarchives a template', async () => {
-    unarchiveFn.mockResolvedValue({
-      ...mockTemplate,
-      status: 'draft',
-    });
+  it('permanently deletes a template', async () => {
+    hardDeleteFn.mockResolvedValue(undefined);
 
     const wrapper = createWrapper();
-    const { result } = renderHook(() => useUnarchiveTemplate(), { wrapper });
+    const { result } = renderHook(() => useHardDeleteTemplate(), { wrapper });
 
     act(() => {
       result.current.mutate('tpl-1');
@@ -353,6 +360,29 @@ describe('useUnarchiveTemplate', () => {
       expect(result.current.isSuccess).toBe(true);
     });
 
-    expect(unarchiveFn).toHaveBeenCalledWith('tpl-1');
+    expect(hardDeleteFn).toHaveBeenCalledWith('tpl-1');
+  });
+});
+
+describe('useTrashTemplates', () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('fetches trash templates', async () => {
+    listTrashFn.mockResolvedValue({
+      data: [{ ...mockTemplate, deletedAt: '2026-03-01T00:00:00Z', deletedBy: 'user-1' }],
+    });
+
+    const { result } = renderHook(() => useTrashTemplates(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
+
+    expect(listTrashFn).toHaveBeenCalled();
+    expect(result.current.data?.data).toHaveLength(1);
   });
 });

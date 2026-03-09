@@ -18,6 +18,7 @@ export function useCreateUser() {
     mutationLabel: 'create-user',
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
+      void queryClient.invalidateQueries({ queryKey: ['admin', 'allowed-emails'] });
     },
   });
 }
@@ -42,6 +43,7 @@ export function useRemoveUser() {
     mutationLabel: 'remove-user',
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
+      void queryClient.invalidateQueries({ queryKey: ['admin', 'allowed-emails'] });
     },
   });
 }

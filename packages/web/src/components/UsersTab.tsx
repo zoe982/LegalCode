@@ -18,9 +18,6 @@ import Avatar from '@mui/material/Avatar';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import Divider from '@mui/material/Divider';
-import List from '@mui/material/List';
-import ListItem from '@mui/material/ListItem';
-import ListItemText from '@mui/material/ListItemText';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
@@ -28,15 +25,7 @@ import DialogContentText from '@mui/material/DialogContentText';
 import DialogActions from '@mui/material/DialogActions';
 import DeleteIcon from '@mui/icons-material/Delete';
 import type { Role, User } from '@legalcode/shared';
-import {
-  useUsers,
-  useCreateUser,
-  useUpdateUserRole,
-  useRemoveUser,
-  useAllowedEmails,
-  useAddAllowedEmail,
-  useRemoveAllowedEmail,
-} from '../hooks/useUsers.js';
+import { useUsers, useCreateUser, useUpdateUserRole, useRemoveUser } from '../hooks/useUsers.js';
 import { useAuth } from '../hooks/useAuth.js';
 
 function getInitials(name: string): string {
@@ -87,10 +76,6 @@ export function UsersTab() {
   const createUser = useCreateUser();
   const updateUserRole = useUpdateUserRole();
   const removeUser = useRemoveUser();
-  const { data: allowedEmailsData } = useAllowedEmails();
-  const addAllowedEmail = useAddAllowedEmail();
-  const removeAllowedEmail = useRemoveAllowedEmail();
-
   // Add user form state
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
@@ -98,15 +83,10 @@ export function UsersTab() {
   const [formSuccess, setFormSuccess] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  // Add allowed email state
-  const [allowedEmailInput, setAllowedEmailInput] = useState('');
-
   // Confirmation dialogs
   const [removeUserTarget, setRemoveUserTarget] = useState<User | null>(null);
-  const [removeEmailTarget, setRemoveEmailTarget] = useState<string | null>(null);
 
   const users = usersData?.users ?? [];
-  const allowedEmails = allowedEmailsData?.emails ?? [];
 
   const isSelf = useCallback((userId: string) => currentUser?.id === userId, [currentUser]);
 
@@ -142,24 +122,6 @@ export function UsersTab() {
     removeUser.mutate(removeUserTarget.id, {
       onSuccess: () => {
         setRemoveUserTarget(null);
-      },
-    });
-  };
-
-  const handleAddAllowedEmail = () => {
-    addAllowedEmail.mutate(allowedEmailInput, {
-      onSuccess: () => {
-        setAllowedEmailInput('');
-      },
-    });
-  };
-
-  const handleConfirmRemoveEmail = () => {
-    /* v8 ignore next */
-    if (!removeEmailTarget) return;
-    removeAllowedEmail.mutate(removeEmailTarget, {
-      onSuccess: () => {
-        setRemoveEmailTarget(null);
       },
     });
   };
@@ -564,130 +526,6 @@ export function UsersTab() {
         )}
       </Box>
 
-      <Divider sx={{ my: '32px', borderColor: '#E4E5ED' }} />
-
-      {/* Allowed Emails Section */}
-      <Box>
-        <Typography
-          sx={{
-            fontFamily: '"DM Sans", sans-serif',
-            fontSize: '0.875rem',
-            fontWeight: 600,
-            lineHeight: '1.25rem',
-            color: '#12111A',
-            mb: '16px',
-          }}
-        >
-          Allowed Emails
-        </Typography>
-        <Typography
-          sx={{
-            fontFamily: '"DM Sans", sans-serif',
-            fontSize: '0.75rem',
-            fontWeight: 400,
-            lineHeight: '1rem',
-            color: '#6B6D82',
-            mb: '12px',
-          }}
-        >
-          Email addresses that are allowed to sign in to LegalCode.
-        </Typography>
-        <Box sx={{ display: 'flex', gap: '8px', mb: '16px' }}>
-          <TextField
-            label="Add email"
-            size="small"
-            value={allowedEmailInput}
-            onChange={(e) => {
-              setAllowedEmailInput(e.target.value);
-            }}
-            sx={{ flex: 1 }}
-          />
-          <Button
-            variant="outlined"
-            disabled={!allowedEmailInput.trim() || addAllowedEmail.isPending}
-            onClick={handleAddAllowedEmail}
-            sx={{
-              flexShrink: 0,
-              borderColor: '#E4E5ED',
-              color: '#12111A',
-              textTransform: 'none',
-              fontFamily: '"DM Sans", sans-serif',
-              fontSize: '0.8125rem',
-              fontWeight: 600,
-            }}
-          >
-            Add
-          </Button>
-        </Box>
-
-        {allowedEmails.length === 0 && (
-          <Box sx={{ textAlign: 'center', py: '16px' }}>
-            <Typography
-              sx={{
-                fontFamily: '"DM Sans", sans-serif',
-                fontSize: '0.75rem',
-                fontWeight: 400,
-                lineHeight: '1rem',
-                color: '#6B6D82',
-              }}
-            >
-              No allowed emails configured.
-            </Typography>
-          </Box>
-        )}
-
-        {allowedEmails.length > 0 && (
-          <List disablePadding>
-            {allowedEmails.map((emailAddr) => (
-              <ListItem
-                key={emailAddr}
-                sx={{
-                  py: '12px',
-                  px: '16px',
-                  '&:hover': { backgroundColor: '#F3F3F7' },
-                }}
-                secondaryAction={
-                  <Tooltip title={`Remove ${emailAddr}`}>
-                    <IconButton
-                      edge="end"
-                      aria-label={`Remove ${emailAddr} from allowed list`}
-                      onClick={() => {
-                        setRemoveEmailTarget(emailAddr);
-                      }}
-                      sx={{
-                        color: '#9B9DB0',
-                        '&:hover': {
-                          color: '#DC2626',
-                          backgroundColor: '#FEE2E2',
-                          borderRadius: '6px',
-                        },
-                      }}
-                    >
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                }
-              >
-                <ListItemText
-                  primary={emailAddr}
-                  slotProps={{
-                    primary: {
-                      sx: {
-                        fontFamily: '"DM Sans", sans-serif',
-                        fontSize: '0.875rem',
-                        fontWeight: 400,
-                        lineHeight: '1.5rem',
-                        color: '#37354A',
-                      },
-                    },
-                  }}
-                />
-              </ListItem>
-            ))}
-          </List>
-        )}
-      </Box>
-
       {/* Remove User Confirmation Dialog */}
       <Dialog
         open={removeUserTarget != null}
@@ -746,71 +584,6 @@ export function UsersTab() {
             }}
           >
             {removeUser.isPending ? (
-              <CircularProgress size={16} sx={{ color: '#FFFFFF' }} />
-            ) : (
-              'Remove'
-            )}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Remove Allowed Email Confirmation Dialog */}
-      <Dialog
-        open={removeEmailTarget != null}
-        onClose={() => {
-          setRemoveEmailTarget(null);
-        }}
-      >
-        <DialogTitle
-          sx={{
-            fontFamily: '"Source Serif 4", serif',
-            fontSize: '1.5rem',
-            fontWeight: 600,
-            lineHeight: '2rem',
-            color: '#12111A',
-          }}
-        >
-          Remove Allowed Email
-        </DialogTitle>
-        <DialogContent>
-          <DialogContentText
-            sx={{
-              fontFamily: '"DM Sans", sans-serif',
-              fontSize: '0.875rem',
-              fontWeight: 400,
-              lineHeight: '1.5rem',
-              color: '#37354A',
-            }}
-          >
-            Remove {removeEmailTarget} from the allowed list? They will not be able to log in.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions sx={{ p: '24px' }}>
-          <Button
-            onClick={() => {
-              setRemoveEmailTarget(null);
-            }}
-            sx={{
-              color: '#6B6D82',
-              textTransform: 'none',
-            }}
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleConfirmRemoveEmail}
-            variant="contained"
-            disabled={removeAllowedEmail.isPending}
-            sx={{
-              backgroundColor: '#DC2626',
-              color: '#FFFFFF',
-              textTransform: 'none',
-              '&:hover': {
-                backgroundColor: '#B91C1C',
-              },
-            }}
-          >
-            {removeAllowedEmail.isPending ? (
               <CircularProgress size={16} sx={{ color: '#FFFFFF' }} />
             ) : (
               'Remove'

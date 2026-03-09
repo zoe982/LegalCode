@@ -1,9 +1,16 @@
-import { eq, and, like, sql, desc, inArray } from 'drizzle-orm';
+import { eq, and, like, sql, desc, inArray, isNull, isNotNull, lt } from 'drizzle-orm';
 import type { BatchItem } from 'drizzle-orm/batch';
 import { updateTemplateSchema, templateQuerySchema } from '@legalcode/shared';
 import type { CreateTemplateInput, UpdateTemplateInput, TemplateQuery } from '@legalcode/shared';
 import type { AppDb } from '../db/index.js';
-import { templates, templateVersions, tags, templateTags, auditLog } from '../db/schema.js';
+import {
+  templates,
+  templateVersions,
+  tags,
+  templateTags,
+  auditLog,
+  comments,
+} from '../db/schema.js';
 
 // ── Helpers ───────────────────────────────────────────────────────────
 
@@ -46,7 +53,7 @@ async function resolveTags(db: AppDb, tagNames: string[]): Promise<TagResolution
   return results;
 }
 
-// ── Task 4: createTemplate ────────────────────────────────────────────
+// ── createTemplate ────────────────────────────────────────────────────
 
 export async function createTemplate(
   db: AppDb,
@@ -66,11 +73,12 @@ export async function createTemplate(
     category: input.category,
     description: input.description ?? null,
     country: input.country ?? null,
-    status: 'draft' as const,
     currentVersion: 1,
     createdBy: userId,
     createdAt: now,
     updatedAt: now,
+    deletedAt: null,
+    deletedBy: null,
   };
 
   const versionRow = {
@@ -123,7 +131,7 @@ export async function createTemplate(
   };
 }
 
-// ── Task 5: listTemplates ─────────────────────────────────────────────
+// ── listTemplates ─────────────────────────────────────────────────────
 
 interface ListResult {
   data: (typeof templates.$inferSelect)[];
@@ -137,12 +145,12 @@ export async function listTemplates(db: AppDb, query: Partial<TemplateQuery>): P
 
   const conditions = [];
 
+  // Always filter out deleted templates
+  conditions.push(isNull(templates.deletedAt));
+
   if (parsed.search) {
     const escaped = parsed.search.replace(/%/g, '\\%').replace(/_/g, '\\_');
     conditions.push(like(templates.title, `%${escaped}%`));
-  }
-  if (parsed.status) {
-    conditions.push(eq(templates.status, parsed.status));
   }
   if (parsed.category) {
     conditions.push(eq(templates.category, parsed.category));
@@ -188,7 +196,7 @@ export async function listTemplates(db: AppDb, query: Partial<TemplateQuery>): P
   };
 }
 
-// ── Task 6: getTemplate ───────────────────────────────────────────────
+// ── getTemplate ───────────────────────────────────────────────────────
 
 interface GetTemplateResult {
   template: typeof templates.$inferSelect;
@@ -206,6 +214,11 @@ export async function getTemplate(
   });
 
   if (!template) {
+    return null;
+  }
+
+  // Return null for soft-deleted templates
+  if (template.deletedAt !== null) {
     return null;
   }
 
@@ -232,11 +245,11 @@ export async function getTemplate(
   };
 }
 
-// ── Task 7: updateTemplate ────────────────────────────────────────────
+// ── updateTemplate ────────────────────────────────────────────────────
 
 type UpdateResult =
   | { error: 'not_found' }
-  | { error: 'archived' }
+  | { error: 'deleted' }
   | { template: typeof templates.$inferSelect; tags: string[] };
 
 export async function updateTemplate(
@@ -255,8 +268,8 @@ export async function updateTemplate(
     return { error: 'not_found' };
   }
 
-  if (existing.status === 'archived') {
-    return { error: 'archived' };
+  if (existing.deletedAt !== null) {
+    return { error: 'deleted' };
   }
 
   const now = nowISO();
@@ -359,186 +372,16 @@ export async function updateTemplate(
   };
 }
 
-// ── Task 8: publishTemplate ───────────────────────────────────────────
+// ── saveContent (autosave) ────────────────────────────────────────────
 
-type PublishResult =
-  | { error: 'not_found' }
-  | { error: 'already_active' }
-  | { error: 'archived' }
-  | { template: typeof templates.$inferSelect };
+type SaveContentResult = { error: 'not_found' } | { error: 'deleted' } | { updatedAt: string };
 
-export async function publishTemplate(
-  db: AppDb,
-  templateId: string,
-  userId: string,
-): Promise<PublishResult> {
-  const existing = await db.query.templates.findFirst({
-    where: eq(templates.id, templateId),
-  });
-
-  if (!existing) {
-    return { error: 'not_found' };
-  }
-
-  if (existing.status === 'active') {
-    return { error: 'already_active' };
-  }
-
-  if (existing.status === 'archived') {
-    return { error: 'archived' };
-  }
-
-  const now = nowISO();
-
-  const auditRow = {
-    id: crypto.randomUUID(),
-    userId,
-    action: 'publish',
-    entityType: 'template',
-    entityId: templateId,
-    metadata: JSON.stringify({ previousStatus: existing.status }),
-    createdAt: now,
-  };
-
-  const ops: BatchItem<'sqlite'>[] = [
-    db
-      .update(templates)
-      .set({ status: 'active', updatedAt: now })
-      .where(eq(templates.id, templateId)),
-    db.insert(auditLog).values(auditRow),
-  ];
-
-  await db.batch(ops as unknown as [BatchItem<'sqlite'>, ...BatchItem<'sqlite'>[]]);
-
-  return {
-    template: {
-      ...existing,
-      status: 'active',
-      updatedAt: now,
-    },
-  };
-}
-
-// ── Task 8: archiveTemplate ──────────────────────────────────────────
-
-type ArchiveResult =
-  | { error: 'not_found' }
-  | { error: 'already_archived' }
-  | { template: typeof templates.$inferSelect };
-
-export async function archiveTemplate(
-  db: AppDb,
-  templateId: string,
-  userId: string,
-): Promise<ArchiveResult> {
-  const existing = await db.query.templates.findFirst({
-    where: eq(templates.id, templateId),
-  });
-
-  if (!existing) {
-    return { error: 'not_found' };
-  }
-
-  if (existing.status === 'archived') {
-    return { error: 'already_archived' };
-  }
-
-  const now = nowISO();
-
-  const auditRow = {
-    id: crypto.randomUUID(),
-    userId,
-    action: 'archive',
-    entityType: 'template',
-    entityId: templateId,
-    metadata: JSON.stringify({ previousStatus: existing.status }),
-    createdAt: now,
-  };
-
-  const ops: BatchItem<'sqlite'>[] = [
-    db
-      .update(templates)
-      .set({ status: 'archived', updatedAt: now })
-      .where(eq(templates.id, templateId)),
-    db.insert(auditLog).values(auditRow),
-  ];
-
-  await db.batch(ops as unknown as [BatchItem<'sqlite'>, ...BatchItem<'sqlite'>[]]);
-
-  return {
-    template: {
-      ...existing,
-      status: 'archived',
-      updatedAt: now,
-    },
-  };
-}
-
-// ── WS5: unarchiveTemplate ────────────────────────────────────────────
-
-type UnarchiveResult =
-  | { error: 'not_found' }
-  | { error: 'not_archived' }
-  | { template: typeof templates.$inferSelect };
-
-export async function unarchiveTemplate(
-  db: AppDb,
-  templateId: string,
-  userId: string,
-): Promise<UnarchiveResult> {
-  const existing = await db.query.templates.findFirst({
-    where: eq(templates.id, templateId),
-  });
-
-  if (!existing) {
-    return { error: 'not_found' };
-  }
-
-  if (existing.status !== 'archived') {
-    return { error: 'not_archived' };
-  }
-
-  const now = nowISO();
-
-  const auditRow = {
-    id: crypto.randomUUID(),
-    userId,
-    action: 'unarchive',
-    entityType: 'template',
-    entityId: templateId,
-    metadata: JSON.stringify({ previousStatus: existing.status }),
-    createdAt: now,
-  };
-
-  const ops: BatchItem<'sqlite'>[] = [
-    db
-      .update(templates)
-      .set({ status: 'draft', updatedAt: now })
-      .where(eq(templates.id, templateId)),
-    db.insert(auditLog).values(auditRow),
-  ];
-
-  await db.batch(ops as unknown as [BatchItem<'sqlite'>, ...BatchItem<'sqlite'>[]]);
-
-  return {
-    template: {
-      ...existing,
-      status: 'draft',
-      updatedAt: now,
-    },
-  };
-}
-
-// ── saveDraftContent (autosave) ───────────────────────────────────────
-
-type SaveDraftResult = { error: 'not_found' } | { error: 'not_draft' } | { updatedAt: string };
-
-export async function saveDraftContent(
+export async function saveContent(
   db: AppDb,
   templateId: string,
   content: string,
   title: string | undefined,
-): Promise<SaveDraftResult> {
+): Promise<SaveContentResult> {
   const existing = await db.query.templates.findFirst({
     where: eq(templates.id, templateId),
   });
@@ -547,8 +390,8 @@ export async function saveDraftContent(
     return { error: 'not_found' };
   }
 
-  if (existing.status !== 'draft') {
-    return { error: 'not_draft' };
+  if (existing.deletedAt !== null) {
+    return { error: 'deleted' };
   }
 
   const now = nowISO();
@@ -576,7 +419,141 @@ export async function saveDraftContent(
   return { updatedAt: now };
 }
 
-// ── Task 9: getTemplateVersions ───────────────────────────────────────
+// Backwards-compatible alias
+export const saveDraftContent = saveContent;
+
+// ── deleteTemplate (soft delete) ──────────────────────────────────────
+
+type DeleteResult = { error: 'not_found' } | { error: 'already_deleted' } | { success: true };
+
+export async function deleteTemplate(
+  db: AppDb,
+  templateId: string,
+  userId: string,
+): Promise<DeleteResult> {
+  const existing = await db.query.templates.findFirst({
+    where: eq(templates.id, templateId),
+  });
+
+  if (!existing) {
+    return { error: 'not_found' };
+  }
+
+  if (existing.deletedAt !== null) {
+    return { error: 'already_deleted' };
+  }
+
+  const now = nowISO();
+
+  const auditRow = {
+    id: crypto.randomUUID(),
+    userId,
+    action: 'delete',
+    entityType: 'template',
+    entityId: templateId,
+    metadata: JSON.stringify({ title: existing.title }),
+    createdAt: now,
+  };
+
+  const ops: BatchItem<'sqlite'>[] = [
+    db
+      .update(templates)
+      .set({ deletedAt: now, deletedBy: userId, updatedAt: now })
+      .where(eq(templates.id, templateId)),
+    db.insert(auditLog).values(auditRow),
+  ];
+
+  await db.batch(ops as unknown as [BatchItem<'sqlite'>, ...BatchItem<'sqlite'>[]]);
+
+  return { success: true };
+}
+
+// ── restoreTemplate ───────────────────────────────────────────────────
+
+type RestoreResult = { error: 'not_found' } | { error: 'not_deleted' } | { success: true };
+
+export async function restoreTemplate(db: AppDb, templateId: string): Promise<RestoreResult> {
+  const existing = await db.query.templates.findFirst({
+    where: eq(templates.id, templateId),
+  });
+
+  if (!existing) {
+    return { error: 'not_found' };
+  }
+
+  if (existing.deletedAt === null) {
+    return { error: 'not_deleted' };
+  }
+
+  const now = nowISO();
+
+  await db
+    .update(templates)
+    .set({ deletedAt: null, deletedBy: null, updatedAt: now })
+    .where(eq(templates.id, templateId));
+
+  return { success: true };
+}
+
+// ── hardDeleteTemplate ────────────────────────────────────────────────
+
+type HardDeleteResult = { error: 'not_found' } | { success: true };
+
+export async function hardDeleteTemplate(db: AppDb, templateId: string): Promise<HardDeleteResult> {
+  const existing = await db.query.templates.findFirst({
+    where: eq(templates.id, templateId),
+  });
+
+  if (!existing) {
+    return { error: 'not_found' };
+  }
+
+  const ops: BatchItem<'sqlite'>[] = [
+    db.delete(comments).where(eq(comments.templateId, templateId)),
+    db.delete(templateTags).where(eq(templateTags.templateId, templateId)),
+    db.delete(templateVersions).where(eq(templateVersions.templateId, templateId)),
+    db.delete(templates).where(eq(templates.id, templateId)),
+  ];
+
+  await db.batch(ops as unknown as [BatchItem<'sqlite'>, ...BatchItem<'sqlite'>[]]);
+
+  return { success: true };
+}
+
+// ── listDeletedTemplates ──────────────────────────────────────────────
+
+export async function listDeletedTemplates(db: AppDb): Promise<(typeof templates.$inferSelect)[]> {
+  return db
+    .select()
+    .from(templates)
+    .where(isNotNull(templates.deletedAt))
+    .orderBy(desc(templates.deletedAt))
+    .all();
+}
+
+// ── purgeExpiredTemplates ─────────────────────────────────────────────
+
+export async function purgeExpiredTemplates(db: AppDb): Promise<number> {
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+  const expired = await db
+    .select({ id: templates.id })
+    .from(templates)
+    .where(and(isNotNull(templates.deletedAt), lt(templates.deletedAt, thirtyDaysAgo)))
+    .all();
+
+  let purged = 0;
+  for (const row of expired) {
+    const result = await hardDeleteTemplate(db, row.id);
+    if ('success' in result) {
+      purged++;
+    }
+  }
+
+  return purged;
+}
+
+// ── getTemplateVersions ───────────────────────────────────────────────
 
 export async function getTemplateVersions(
   db: AppDb,
@@ -588,7 +565,7 @@ export async function getTemplateVersions(
   });
 }
 
-// ── Task 9: getTemplateVersion ────────────────────────────────────────
+// ── getTemplateVersion ────────────────────────────────────────────────
 
 export async function getTemplateVersion(
   db: AppDb,
@@ -602,7 +579,7 @@ export async function getTemplateVersion(
   return result ?? null;
 }
 
-// ── Task 9: downloadTemplate ──────────────────────────────────────────
+// ── downloadTemplate ──────────────────────────────────────────────────
 
 interface DownloadResult {
   filename: string;

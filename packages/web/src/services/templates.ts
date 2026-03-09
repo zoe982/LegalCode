@@ -3,7 +3,6 @@ import type {
   TemplateVersion,
   CreateTemplateInput,
   UpdateTemplateInput,
-  TemplateStatus,
 } from '@legalcode/shared';
 import { extractApiError } from './apiUtils.js';
 
@@ -11,7 +10,6 @@ export interface TemplateListParams {
   search?: string;
   category?: string;
   country?: string;
-  status?: TemplateStatus;
   tag?: string;
   sort?: string;
   page?: number;
@@ -49,7 +47,6 @@ export const templateService = {
     if (params.search) searchParams.set('search', params.search);
     if (params.category) searchParams.set('category', params.category);
     if (params.country) searchParams.set('country', params.country);
-    if (params.status) searchParams.set('status', params.status);
     if (params.tag) searchParams.set('tag', params.tag);
     if (params.sort) searchParams.set('sort', params.sort);
     if (params.page != null) searchParams.set('page', String(params.page));
@@ -100,43 +97,47 @@ export const templateService = {
     return (await response.json()) as Template;
   },
 
-  async publish(id: string): Promise<Template> {
-    const response = await fetch(`/api/templates/${id}/publish`, {
+  async delete(id: string): Promise<void> {
+    const response = await fetch(`/api/templates/${id}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+    if (!response.ok) {
+      return extractApiError(response, 'Failed to delete template');
+    }
+  },
+
+  async restore(id: string): Promise<Template> {
+    const response = await fetch(`/api/templates/${id}/restore`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({}),
       credentials: 'include',
     });
     if (!response.ok) {
-      return extractApiError(response, 'Failed to publish template');
+      return extractApiError(response, 'Failed to restore template');
     }
     return (await response.json()) as Template;
   },
 
-  async archive(id: string): Promise<Template> {
-    const response = await fetch(`/api/templates/${id}/archive`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({}),
+  async hardDelete(id: string): Promise<void> {
+    const response = await fetch(`/api/templates/${id}/permanent`, {
+      method: 'DELETE',
       credentials: 'include',
     });
     if (!response.ok) {
-      return extractApiError(response, 'Failed to archive template');
+      return extractApiError(response, 'Failed to permanently delete template');
     }
-    return (await response.json()) as Template;
   },
 
-  async unarchive(id: string): Promise<Template> {
-    const response = await fetch(`/api/templates/${id}/unarchive`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({}),
+  async listTrash(): Promise<{ data: Template[] }> {
+    const response = await fetch('/api/templates/trash', {
       credentials: 'include',
     });
     if (!response.ok) {
-      return extractApiError(response, 'Failed to unarchive template');
+      return extractApiError(response, 'Failed to fetch trash');
     }
-    return (await response.json()) as Template;
+    return (await response.json()) as { data: Template[] };
   },
 
   async getVersions(id: string): Promise<TemplateVersion[]> {

@@ -12,6 +12,8 @@ import { errorRoutes } from './routes/errors.js';
 import { categoryRoutes } from './routes/categories.js';
 import { countryRoutes } from './routes/countries.js';
 import { requireJsonContentType } from './middleware/content-type.js';
+import { getDb } from './db/index.js';
+import { purgeExpiredTemplates } from './services/template.js';
 
 const app = new Hono<AppEnv>();
 
@@ -58,4 +60,13 @@ app.all('*', async (c) => {
 
 export { TemplateSession } from './durable-objects/template-session.js';
 
-export default app;
+// Export the Hono app for testing
+export { app };
+
+export default {
+  fetch: app.fetch,
+  scheduled: (_event: ScheduledEvent, env: { DB: D1Database }, ctx: ExecutionContext): void => {
+    const db = getDb(env.DB);
+    ctx.waitUntil(purgeExpiredTemplates(db));
+  },
+};

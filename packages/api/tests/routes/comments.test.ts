@@ -26,12 +26,15 @@ vi.mock('../../src/services/template.js', () => ({
   listTemplates: vi.fn(),
   getTemplate: vi.fn(),
   updateTemplate: vi.fn(),
-  publishTemplate: vi.fn(),
-  archiveTemplate: vi.fn(),
-  unarchiveTemplate: vi.fn(),
   getTemplateVersions: vi.fn(),
   getTemplateVersion: vi.fn(),
   downloadTemplate: vi.fn(),
+  saveContent: vi.fn(),
+  saveDraftContent: vi.fn(),
+  deleteTemplate: vi.fn(),
+  restoreTemplate: vi.fn(),
+  hardDeleteTemplate: vi.fn(),
+  listDeletedTemplates: vi.fn(),
 }));
 
 const JWT_SECRET = 'test-secret-that-is-long-enough-for-hmac-testing';

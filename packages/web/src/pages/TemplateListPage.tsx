@@ -6,14 +6,13 @@ import AddIcon from '@mui/icons-material/Add';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
 import SearchOffIcon from '@mui/icons-material/SearchOff';
-import type { TemplateStatus } from '@legalcode/shared';
-import { useTemplates } from '../hooks/useTemplates.js';
+import { useTemplates, useDeleteTemplate } from '../hooks/useTemplates.js';
 import { useCategories } from '../hooks/useCategories.js';
 import { useCountries } from '../hooks/useCountries.js';
 import { TemplateCard } from '../components/TemplateCard.js';
+import { DeleteTemplateDialog } from '../components/DeleteTemplateDialog.js';
 import { SkeletonCard } from '../components/SkeletonCard.js';
 
-type StatusFilter = TemplateStatus | 'all';
 type SortBy = 'updated' | 'name' | 'oldest';
 
 interface SortOption {
@@ -27,24 +26,18 @@ const SORT_OPTIONS: SortOption[] = [
   { label: 'Oldest first', value: 'oldest' },
 ];
 
-const STATUS_OPTIONS: { label: string; value: StatusFilter }[] = [
-  { label: 'All', value: 'all' },
-  { label: 'Draft', value: 'draft' },
-  { label: 'Active', value: 'active' },
-  { label: 'Archived', value: 'archived' },
-];
-
 export function TemplateListPage() {
   const navigate = useNavigate();
 
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
   const [countryFilter, setCountryFilter] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<SortBy>('updated');
   const [sortAnchorEl, setSortAnchorEl] = useState<HTMLElement | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const deleteMutation = useDeleteTemplate();
 
   const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -60,7 +53,6 @@ export function TemplateListPage() {
 
   const filters = {
     ...(debouncedSearch !== '' ? { search: debouncedSearch } : {}),
-    ...(statusFilter !== 'all' ? { status: statusFilter } : {}),
     ...(categoryFilter !== null ? { category: categoryFilter } : {}),
     ...(countryFilter !== null ? { country: countryFilter } : {}),
     sort: sortBy,
@@ -79,10 +71,7 @@ export function TemplateListPage() {
   const currentSortLabel = SORT_OPTIONS.find((o) => o.value === sortBy)?.label ?? 'Recently edited';
 
   const hasActiveFilters =
-    debouncedSearch !== '' ||
-    statusFilter !== 'all' ||
-    categoryFilter !== null ||
-    countryFilter !== null;
+    debouncedSearch !== '' || categoryFilter !== null || countryFilter !== null;
 
   if (isLoading) {
     return (
@@ -188,39 +177,6 @@ export function TemplateListPage() {
         {/* Filter row: chips left, sort right */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-            {STATUS_OPTIONS.map((option) => {
-              const isActive = statusFilter === option.value;
-              return (
-                <Box
-                  key={option.value}
-                  component="button"
-                  type="button"
-                  role="button"
-                  onClick={() => {
-                    setStatusFilter(option.value);
-                  }}
-                  sx={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    borderRadius: '9999px',
-                    padding: '5px 14px',
-                    fontFamily: '"DM Sans", sans-serif',
-                    fontSize: '0.8125rem',
-                    fontWeight: 500,
-                    cursor: 'pointer',
-                    transition: 'all 150ms ease',
-                    border: isActive ? 'none' : '1px solid #E4E5ED',
-                    backgroundColor: isActive ? '#8027FF' : '#F9F9FB',
-                    color: isActive ? '#FFFFFF' : '#6B6D82',
-                    '&:hover': {
-                      backgroundColor: isActive ? '#6B1FDB' : '#F3F3F7',
-                    },
-                  }}
-                >
-                  {option.label}
-                </Box>
-              );
-            })}
             <Box
               data-testid="category-divider"
               sx={{
@@ -469,7 +425,6 @@ export function TemplateListPage() {
               onClick={() => {
                 setSearchInput('');
                 setDebouncedSearch('');
-                setStatusFilter('all');
                 setCategoryFilter(null);
                 setCountryFilter(null);
               }}
@@ -558,10 +513,33 @@ export function TemplateListPage() {
               onClick={() => {
                 void navigate(`/templates/${template.id}`);
               }}
+              onDelete={(templateId) => {
+                const t = templates.find((tpl) => tpl.id === templateId);
+                setDeleteTarget({ id: templateId, title: t?.title ?? 'this template' });
+              }}
             />
           ))}
         </Box>
       )}
+
+      {/* Delete confirmation dialog */}
+      <DeleteTemplateDialog
+        open={deleteTarget !== null}
+        onClose={() => {
+          setDeleteTarget(null);
+        }}
+        onConfirm={() => {
+          if (deleteTarget) {
+            deleteMutation.mutate(deleteTarget.id, {
+              onSuccess: () => {
+                setDeleteTarget(null);
+              },
+            });
+          }
+        }}
+        templateTitle={deleteTarget?.title ?? ''}
+        isDeleting={deleteMutation.isPending}
+      />
     </Box>
   );
 }

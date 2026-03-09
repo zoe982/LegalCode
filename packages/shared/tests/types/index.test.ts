@@ -1,11 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import type {
-  AuditAction,
-  Role,
-  TemplateStatus,
-  User,
-  AuditLogEntry,
-} from '../../src/types/index.js';
+import type { AuditAction, Role, User, Template, AuditLogEntry } from '../../src/types/index.js';
 
 describe('shared types', () => {
   it('AuditAction includes client_error', () => {
@@ -13,9 +7,19 @@ describe('shared types', () => {
     expect(action).toBe('client_error');
   });
 
-  it('AuditAction includes unarchive', () => {
-    const action: AuditAction = 'unarchive';
-    expect(action).toBe('unarchive');
+  it('AuditAction includes delete', () => {
+    const action: AuditAction = 'delete';
+    expect(action).toBe('delete');
+  });
+
+  it('AuditAction includes restore', () => {
+    const action: AuditAction = 'restore';
+    expect(action).toBe('restore');
+  });
+
+  it('AuditAction includes hard_delete', () => {
+    const action: AuditAction = 'hard_delete';
+    expect(action).toBe('hard_delete');
   });
 
   it('Role type includes all roles', () => {
@@ -23,9 +27,42 @@ describe('shared types', () => {
     expect(roles).toHaveLength(3);
   });
 
-  it('TemplateStatus type includes all statuses', () => {
-    const statuses: TemplateStatus[] = ['draft', 'active', 'archived'];
-    expect(statuses).toHaveLength(3);
+  it('Template interface has deletedAt and deletedBy fields', () => {
+    const template: Template = {
+      id: '1',
+      title: 'Test',
+      slug: 'test-abc123',
+      category: 'contracts',
+      description: null,
+      country: null,
+      currentVersion: 1,
+      createdBy: 'user-1',
+      createdAt: '2026-01-01',
+      updatedAt: '2026-01-01',
+      deletedAt: null,
+      deletedBy: null,
+    };
+    expect(template.deletedAt).toBeNull();
+    expect(template.deletedBy).toBeNull();
+  });
+
+  it('Template interface supports non-null deletedAt and deletedBy', () => {
+    const template: Template = {
+      id: '1',
+      title: 'Deleted',
+      slug: 'deleted-abc123',
+      category: 'contracts',
+      description: null,
+      country: null,
+      currentVersion: 1,
+      createdBy: 'user-1',
+      createdAt: '2026-01-01',
+      updatedAt: '2026-01-01',
+      deletedAt: '2026-02-01T00:00:00.000Z',
+      deletedBy: 'user-2',
+    };
+    expect(template.deletedAt).toBe('2026-02-01T00:00:00.000Z');
+    expect(template.deletedBy).toBe('user-2');
   });
 
   it('User interface has required fields', () => {

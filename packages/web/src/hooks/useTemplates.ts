@@ -56,41 +56,46 @@ export function useUpdateTemplate() {
   });
 }
 
-export function usePublishTemplate() {
+export function useDeleteTemplate() {
   const queryClient = useQueryClient();
 
   return useTrackedMutation({
-    mutationFn: (id: string) => templateService.publish(id),
-    mutationLabel: 'publish-template',
-    onSuccess: (_data, id) => {
-      void queryClient.invalidateQueries({ queryKey: ['templates', id] });
+    mutationFn: (id: string) => templateService.delete(id),
+    mutationLabel: 'delete-template',
+    onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['templates'] });
     },
   });
 }
 
-export function useArchiveTemplate() {
+export function useRestoreTemplate() {
   const queryClient = useQueryClient();
 
   return useTrackedMutation({
-    mutationFn: (id: string) => templateService.archive(id),
-    mutationLabel: 'archive-template',
-    onSuccess: (_data, id) => {
-      void queryClient.invalidateQueries({ queryKey: ['templates', id] });
+    mutationFn: (id: string) => templateService.restore(id),
+    mutationLabel: 'restore-template',
+    onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['templates'] });
+      void queryClient.invalidateQueries({ queryKey: ['trash'] });
     },
   });
 }
 
-export function useUnarchiveTemplate() {
+export function useHardDeleteTemplate() {
   const queryClient = useQueryClient();
 
   return useTrackedMutation({
-    mutationFn: (id: string) => templateService.unarchive(id),
-    mutationLabel: 'unarchive-template',
-    onSuccess: (_data, id) => {
-      void queryClient.invalidateQueries({ queryKey: ['templates', id] });
-      void queryClient.invalidateQueries({ queryKey: ['templates'] });
+    mutationFn: (id: string) => templateService.hardDelete(id),
+    mutationLabel: 'hard-delete-template',
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['trash'] });
     },
+  });
+}
+
+export function useTrashTemplates() {
+  return useQuery({
+    queryKey: ['trash'],
+    queryFn: () => templateService.listTrash(),
   });
 }

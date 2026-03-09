@@ -15,26 +15,29 @@ const mockCreateTemplate = vi.fn();
 const mockListTemplates = vi.fn();
 const mockGetTemplate = vi.fn();
 const mockUpdateTemplate = vi.fn();
-const mockPublishTemplate = vi.fn();
-const mockArchiveTemplate = vi.fn();
-const mockUnarchiveTemplate = vi.fn();
 const mockGetTemplateVersions = vi.fn();
 const mockGetTemplateVersion = vi.fn();
 const mockDownloadTemplate = vi.fn();
-const mockSaveDraftContent = vi.fn();
+const mockSaveContent = vi.fn();
+const mockDeleteTemplate = vi.fn();
+const mockRestoreTemplate = vi.fn();
+const mockHardDeleteTemplate = vi.fn();
+const mockListDeletedTemplates = vi.fn();
 
 vi.mock('../../src/services/template.js', () => ({
   createTemplate: (...args: unknown[]) => mockCreateTemplate(...args) as unknown,
   listTemplates: (...args: unknown[]) => mockListTemplates(...args) as unknown,
   getTemplate: (...args: unknown[]) => mockGetTemplate(...args) as unknown,
   updateTemplate: (...args: unknown[]) => mockUpdateTemplate(...args) as unknown,
-  publishTemplate: (...args: unknown[]) => mockPublishTemplate(...args) as unknown,
-  archiveTemplate: (...args: unknown[]) => mockArchiveTemplate(...args) as unknown,
-  unarchiveTemplate: (...args: unknown[]) => mockUnarchiveTemplate(...args) as unknown,
   getTemplateVersions: (...args: unknown[]) => mockGetTemplateVersions(...args) as unknown,
   getTemplateVersion: (...args: unknown[]) => mockGetTemplateVersion(...args) as unknown,
   downloadTemplate: (...args: unknown[]) => mockDownloadTemplate(...args) as unknown,
-  saveDraftContent: (...args: unknown[]) => mockSaveDraftContent(...args) as unknown,
+  saveContent: (...args: unknown[]) => mockSaveContent(...args) as unknown,
+  saveDraftContent: (...args: unknown[]) => mockSaveContent(...args) as unknown,
+  deleteTemplate: (...args: unknown[]) => mockDeleteTemplate(...args) as unknown,
+  restoreTemplate: (...args: unknown[]) => mockRestoreTemplate(...args) as unknown,
+  hardDeleteTemplate: (...args: unknown[]) => mockHardDeleteTemplate(...args) as unknown,
+  listDeletedTemplates: (...args: unknown[]) => mockListDeletedTemplates(...args) as unknown,
 }));
 
 const JWT_SECRET = 'test-secret-that-is-long-enough-for-hmac-testing';
@@ -90,7 +93,7 @@ describe('GET /templates', () => {
 
   it('returns 200 with template list for authenticated user', async () => {
     mockListTemplates.mockResolvedValueOnce({
-      data: [{ id: 't-1', title: 'NDA', slug: 'nda-abc123', status: 'draft' }],
+      data: [{ id: 't-1', title: 'NDA', slug: 'nda-abc123' }],
       total: 1,
       page: 1,
       limit: 20,
@@ -117,7 +120,7 @@ describe('GET /templates', () => {
 
     const app = await importAndCreateApp();
     const token = await viewerToken();
-    await app.request('/templates?search=nda&status=draft&page=1&limit=10', {
+    await app.request('/templates?search=nda&page=1&limit=10', {
       headers: { Cookie: `__Host-auth=${token}` },
     });
     expect(mockListTemplates).toHaveBeenCalledOnce();
@@ -146,7 +149,7 @@ describe('GET /templates/:id', () => {
 
   it('returns 200 with template data', async () => {
     mockGetTemplate.mockResolvedValueOnce({
-      template: { id: 't-1', title: 'NDA', slug: 'nda-abc123', status: 'draft' },
+      template: { id: 't-1', title: 'NDA', slug: 'nda-abc123' },
       content: '# NDA',
       changeSummary: null,
       tags: ['contract'],
@@ -310,7 +313,13 @@ describe('POST /templates', () => {
 
   it('returns 201 on success for admin', async () => {
     mockCreateTemplate.mockResolvedValueOnce({
-      template: { id: 't-new', title: 'NDA', slug: 'nda-abc123', status: 'draft' },
+      template: {
+        id: 't-new',
+        title: 'NDA',
+        slug: 'nda-abc123',
+        deletedAt: null,
+        deletedBy: null,
+      },
       tags: ['contract'],
     });
 
@@ -367,11 +376,12 @@ describe('POST /templates', () => {
         category: 'Employment',
         description: null,
         country: null,
-        status: 'draft',
         currentVersion: 1,
         createdBy: 'editor-1',
         createdAt: '2026-03-06T00:00:00Z',
         updatedAt: '2026-03-06T00:00:00Z',
+        deletedAt: null,
+        deletedBy: null,
       },
       tags: ['employment'],
     });
@@ -440,7 +450,13 @@ describe('POST /templates', () => {
 
   it('returns 201 on success for editor', async () => {
     mockCreateTemplate.mockResolvedValueOnce({
-      template: { id: 't-new', title: 'NDA', slug: 'nda-abc123', status: 'draft' },
+      template: {
+        id: 't-new',
+        title: 'NDA',
+        slug: 'nda-abc123',
+        deletedAt: null,
+        deletedBy: null,
+      },
       tags: [],
     });
 
@@ -515,8 +531,8 @@ describe('PATCH /templates/:id', () => {
     expect(res.status).toBe(404);
   });
 
-  it('returns 409 when template is archived', async () => {
-    mockUpdateTemplate.mockResolvedValueOnce({ error: 'archived' });
+  it('returns 409 when template is deleted', async () => {
+    mockUpdateTemplate.mockResolvedValueOnce({ error: 'deleted' });
 
     const app = await importAndCreateApp();
     const token = await adminToken();
@@ -529,11 +545,13 @@ describe('PATCH /templates/:id', () => {
       body: JSON.stringify({ title: 'Updated' }),
     });
     expect(res.status).toBe(409);
+    const body: { error: string } = await res.json();
+    expect(body.error).toBe('Cannot update deleted template');
   });
 
   it('returns 200 on success', async () => {
     mockUpdateTemplate.mockResolvedValueOnce({
-      template: { id: 't-1', title: 'Updated', slug: 'nda-abc123', status: 'draft' },
+      template: { id: 't-1', title: 'Updated', slug: 'nda-abc123' },
       tags: ['contract'],
     });
 
@@ -563,11 +581,12 @@ describe('PATCH /templates/:id', () => {
         category: 'NDA',
         description: null,
         country: null,
-        status: 'draft',
         currentVersion: 1,
         createdBy: 'editor-1',
         createdAt: '2026-03-06T00:00:00Z',
         updatedAt: '2026-03-06T00:00:00Z',
+        deletedAt: null,
+        deletedBy: null,
       },
       tags: ['nda'],
     });
@@ -587,206 +606,6 @@ describe('PATCH /templates/:id', () => {
     expect(body.tags).toBeDefined();
     const parsed = templateSchema.safeParse(body.template);
     expect(parsed.success).toBe(true);
-  });
-});
-
-// ── POST /templates/:id/publish ───────────────────────────────────────
-
-describe('POST /templates/:id/publish', () => {
-  it('returns 401 without auth cookie', async () => {
-    const app = await importAndCreateApp();
-    const res = await app.request('/templates/t-1/publish', { method: 'POST' });
-    expect(res.status).toBe(401);
-  });
-
-  it('returns 403 for viewer role', async () => {
-    const app = await importAndCreateApp();
-    const token = await viewerToken();
-    const res = await app.request('/templates/t-1/publish', {
-      method: 'POST',
-      headers: { Cookie: `__Host-auth=${token}` },
-    });
-    expect(res.status).toBe(403);
-  });
-
-  it('returns 404 when template not found', async () => {
-    mockPublishTemplate.mockResolvedValueOnce({ error: 'not_found' });
-
-    const app = await importAndCreateApp();
-    const token = await adminToken();
-    const res = await app.request('/templates/t-1/publish', {
-      method: 'POST',
-      headers: { Cookie: `__Host-auth=${token}` },
-    });
-    expect(res.status).toBe(404);
-  });
-
-  it('returns 409 when already active', async () => {
-    mockPublishTemplate.mockResolvedValueOnce({ error: 'already_active' });
-
-    const app = await importAndCreateApp();
-    const token = await adminToken();
-    const res = await app.request('/templates/t-1/publish', {
-      method: 'POST',
-      headers: { Cookie: `__Host-auth=${token}` },
-    });
-    expect(res.status).toBe(409);
-    const body: { error: string } = await res.json();
-    expect(body.error).toBe('Template is already active');
-  });
-
-  it('returns 409 when archived', async () => {
-    mockPublishTemplate.mockResolvedValueOnce({ error: 'archived' });
-
-    const app = await importAndCreateApp();
-    const token = await adminToken();
-    const res = await app.request('/templates/t-1/publish', {
-      method: 'POST',
-      headers: { Cookie: `__Host-auth=${token}` },
-    });
-    expect(res.status).toBe(409);
-    const body: { error: string } = await res.json();
-    expect(body.error).toBe('Cannot publish archived template');
-  });
-
-  it('returns 200 on success', async () => {
-    mockPublishTemplate.mockResolvedValueOnce({
-      template: { id: 't-1', title: 'NDA', status: 'active' },
-    });
-
-    const app = await importAndCreateApp();
-    const token = await adminToken();
-    const res = await app.request('/templates/t-1/publish', {
-      method: 'POST',
-      headers: { Cookie: `__Host-auth=${token}` },
-    });
-    expect(res.status).toBe(200);
-    const body: { template: { status: string } } = await res.json();
-    expect(body.template.status).toBe('active');
-  });
-});
-
-// ── POST /templates/:id/archive ───────────────────────────────────────
-
-describe('POST /templates/:id/archive', () => {
-  it('returns 401 without auth cookie', async () => {
-    const app = await importAndCreateApp();
-    const res = await app.request('/templates/t-1/archive', { method: 'POST' });
-    expect(res.status).toBe(401);
-  });
-
-  it('returns 403 for viewer role', async () => {
-    const app = await importAndCreateApp();
-    const token = await viewerToken();
-    const res = await app.request('/templates/t-1/archive', {
-      method: 'POST',
-      headers: { Cookie: `__Host-auth=${token}` },
-    });
-    expect(res.status).toBe(403);
-  });
-
-  it('returns 404 when template not found', async () => {
-    mockArchiveTemplate.mockResolvedValueOnce({ error: 'not_found' });
-
-    const app = await importAndCreateApp();
-    const token = await adminToken();
-    const res = await app.request('/templates/t-1/archive', {
-      method: 'POST',
-      headers: { Cookie: `__Host-auth=${token}` },
-    });
-    expect(res.status).toBe(404);
-  });
-
-  it('returns 409 when already archived', async () => {
-    mockArchiveTemplate.mockResolvedValueOnce({ error: 'already_archived' });
-
-    const app = await importAndCreateApp();
-    const token = await adminToken();
-    const res = await app.request('/templates/t-1/archive', {
-      method: 'POST',
-      headers: { Cookie: `__Host-auth=${token}` },
-    });
-    expect(res.status).toBe(409);
-    const body: { error: string } = await res.json();
-    expect(body.error).toBe('Template is already archived');
-  });
-
-  it('returns 200 on success', async () => {
-    mockArchiveTemplate.mockResolvedValueOnce({
-      template: { id: 't-1', title: 'NDA', status: 'archived' },
-    });
-
-    const app = await importAndCreateApp();
-    const token = await adminToken();
-    const res = await app.request('/templates/t-1/archive', {
-      method: 'POST',
-      headers: { Cookie: `__Host-auth=${token}` },
-    });
-    expect(res.status).toBe(200);
-    const body: { template: { status: string } } = await res.json();
-    expect(body.template.status).toBe('archived');
-  });
-});
-
-// ── POST /templates/:id/unarchive ─────────────────────────────────────
-
-describe('POST /templates/:id/unarchive', () => {
-  it('returns 401 without auth cookie', async () => {
-    const app = await importAndCreateApp();
-    const res = await app.request('/templates/t-1/unarchive', { method: 'POST' });
-    expect(res.status).toBe(401);
-  });
-
-  it('returns 403 for viewer role', async () => {
-    const app = await importAndCreateApp();
-    const token = await viewerToken();
-    const res = await app.request('/templates/t-1/unarchive', {
-      method: 'POST',
-      headers: { Cookie: `__Host-auth=${token}` },
-    });
-    expect(res.status).toBe(403);
-  });
-
-  it('returns 404 when template not found', async () => {
-    mockUnarchiveTemplate.mockResolvedValueOnce({ error: 'not_found' });
-
-    const app = await importAndCreateApp();
-    const token = await adminToken();
-    const res = await app.request('/templates/t-1/unarchive', {
-      method: 'POST',
-      headers: { Cookie: `__Host-auth=${token}` },
-    });
-    expect(res.status).toBe(404);
-  });
-
-  it('returns 409 when template is not archived', async () => {
-    mockUnarchiveTemplate.mockResolvedValueOnce({ error: 'not_archived' });
-
-    const app = await importAndCreateApp();
-    const token = await adminToken();
-    const res = await app.request('/templates/t-1/unarchive', {
-      method: 'POST',
-      headers: { Cookie: `__Host-auth=${token}` },
-    });
-    expect(res.status).toBe(409);
-    const body: { error: string } = await res.json();
-    expect(body.error).toBe('Template is not archived');
-  });
-
-  it('returns 200 on success', async () => {
-    mockUnarchiveTemplate.mockResolvedValueOnce({
-      template: { id: 't-1', title: 'NDA', status: 'draft' },
-    });
-
-    const app = await importAndCreateApp();
-    const token = await adminToken();
-    const res = await app.request('/templates/t-1/unarchive', {
-      method: 'POST',
-      headers: { Cookie: `__Host-auth=${token}` },
-    });
-    expect(res.status).toBe(200);
-    const body: { template: { status: string } } = await res.json();
-    expect(body.template.status).toBe('draft');
   });
 });
 
@@ -818,7 +637,7 @@ describe('PATCH /templates/:id/autosave', () => {
   });
 
   it('returns 200 for admin with valid body', async () => {
-    mockSaveDraftContent.mockResolvedValueOnce({
+    mockSaveContent.mockResolvedValueOnce({
       updatedAt: '2026-03-08T00:00:00.000Z',
     });
 
@@ -838,7 +657,7 @@ describe('PATCH /templates/:id/autosave', () => {
   });
 
   it('returns 200 for editor with valid body', async () => {
-    mockSaveDraftContent.mockResolvedValueOnce({
+    mockSaveContent.mockResolvedValueOnce({
       updatedAt: '2026-03-08T00:00:00.000Z',
     });
 
@@ -856,7 +675,7 @@ describe('PATCH /templates/:id/autosave', () => {
   });
 
   it('returns 404 when template not found', async () => {
-    mockSaveDraftContent.mockResolvedValueOnce({ error: 'not_found' });
+    mockSaveContent.mockResolvedValueOnce({ error: 'not_found' });
 
     const app = await importAndCreateApp();
     const token = await adminToken();
@@ -873,8 +692,8 @@ describe('PATCH /templates/:id/autosave', () => {
     expect(body.error).toBe('Template not found');
   });
 
-  it('returns 409 when template is not draft', async () => {
-    mockSaveDraftContent.mockResolvedValueOnce({ error: 'not_draft' });
+  it('returns 409 when template is deleted', async () => {
+    mockSaveContent.mockResolvedValueOnce({ error: 'deleted' });
 
     const app = await importAndCreateApp();
     const token = await adminToken();
@@ -888,7 +707,7 @@ describe('PATCH /templates/:id/autosave', () => {
     });
     expect(res.status).toBe(409);
     const body: { error: string } = await res.json();
-    expect(body.error).toBe('Template is not a draft');
+    expect(body.error).toBe('Template is deleted');
   });
 
   it('returns 400 for invalid body (empty content)', async () => {
@@ -907,10 +726,10 @@ describe('PATCH /templates/:id/autosave', () => {
     expect(body.error).toBe('Invalid input');
   });
 
-  it('validates response matches autosaveDraftResponseSchema', async () => {
-    const { autosaveDraftResponseSchema } = await import('@legalcode/shared');
+  it('validates response matches autosaveResponseSchema', async () => {
+    const { autosaveResponseSchema } = await import('@legalcode/shared');
 
-    mockSaveDraftContent.mockResolvedValueOnce({
+    mockSaveContent.mockResolvedValueOnce({
       updatedAt: '2026-03-08T12:00:00.000Z',
     });
 
@@ -926,7 +745,267 @@ describe('PATCH /templates/:id/autosave', () => {
     });
     expect(res.status).toBe(200);
     const body: unknown = await res.json();
-    const parsed = autosaveDraftResponseSchema.safeParse(body);
+    const parsed = autosaveResponseSchema.safeParse(body);
     expect(parsed.success).toBe(true);
+  });
+});
+
+// ── DELETE /templates/:id (soft delete) ───────────────────────────────
+
+describe('DELETE /templates/:id', () => {
+  it('returns 401 without auth cookie', async () => {
+    const app = await importAndCreateApp();
+    const res = await app.request('/templates/t-1', { method: 'DELETE' });
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 403 for viewer role', async () => {
+    const app = await importAndCreateApp();
+    const token = await viewerToken();
+    const res = await app.request('/templates/t-1', {
+      method: 'DELETE',
+      headers: { Cookie: `__Host-auth=${token}` },
+    });
+    expect(res.status).toBe(403);
+  });
+
+  it('returns 404 when template not found', async () => {
+    mockDeleteTemplate.mockResolvedValueOnce({ error: 'not_found' });
+
+    const app = await importAndCreateApp();
+    const token = await adminToken();
+    const res = await app.request('/templates/t-1', {
+      method: 'DELETE',
+      headers: { Cookie: `__Host-auth=${token}` },
+    });
+    expect(res.status).toBe(404);
+    const body: { error: string } = await res.json();
+    expect(body.error).toBe('Template not found');
+  });
+
+  it('returns 409 when already deleted', async () => {
+    mockDeleteTemplate.mockResolvedValueOnce({ error: 'already_deleted' });
+
+    const app = await importAndCreateApp();
+    const token = await adminToken();
+    const res = await app.request('/templates/t-1', {
+      method: 'DELETE',
+      headers: { Cookie: `__Host-auth=${token}` },
+    });
+    expect(res.status).toBe(409);
+    const body: { error: string } = await res.json();
+    expect(body.error).toBe('Template is already deleted');
+  });
+
+  it('returns 200 on success for admin', async () => {
+    mockDeleteTemplate.mockResolvedValueOnce({ success: true });
+
+    const app = await importAndCreateApp();
+    const token = await adminToken();
+    const res = await app.request('/templates/t-1', {
+      method: 'DELETE',
+      headers: { Cookie: `__Host-auth=${token}` },
+    });
+    expect(res.status).toBe(200);
+    const body: { success: boolean } = await res.json();
+    expect(body.success).toBe(true);
+  });
+
+  it('returns 200 on success for editor', async () => {
+    mockDeleteTemplate.mockResolvedValueOnce({ success: true });
+
+    const app = await importAndCreateApp();
+    const token = await editorToken();
+    const res = await app.request('/templates/t-1', {
+      method: 'DELETE',
+      headers: { Cookie: `__Host-auth=${token}` },
+    });
+    expect(res.status).toBe(200);
+  });
+});
+
+// ── POST /templates/:id/restore ───────────────────────────────────────
+
+describe('POST /templates/:id/restore', () => {
+  it('returns 401 without auth cookie', async () => {
+    const app = await importAndCreateApp();
+    const res = await app.request('/templates/t-1/restore', { method: 'POST' });
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 403 for editor role', async () => {
+    const app = await importAndCreateApp();
+    const token = await editorToken();
+    const res = await app.request('/templates/t-1/restore', {
+      method: 'POST',
+      headers: { Cookie: `__Host-auth=${token}` },
+    });
+    expect(res.status).toBe(403);
+  });
+
+  it('returns 403 for viewer role', async () => {
+    const app = await importAndCreateApp();
+    const token = await viewerToken();
+    const res = await app.request('/templates/t-1/restore', {
+      method: 'POST',
+      headers: { Cookie: `__Host-auth=${token}` },
+    });
+    expect(res.status).toBe(403);
+  });
+
+  it('returns 404 when template not found', async () => {
+    mockRestoreTemplate.mockResolvedValueOnce({ error: 'not_found' });
+
+    const app = await importAndCreateApp();
+    const token = await adminToken();
+    const res = await app.request('/templates/t-1/restore', {
+      method: 'POST',
+      headers: { Cookie: `__Host-auth=${token}` },
+    });
+    expect(res.status).toBe(404);
+    const body: { error: string } = await res.json();
+    expect(body.error).toBe('Template not found');
+  });
+
+  it('returns 409 when template is not deleted', async () => {
+    mockRestoreTemplate.mockResolvedValueOnce({ error: 'not_deleted' });
+
+    const app = await importAndCreateApp();
+    const token = await adminToken();
+    const res = await app.request('/templates/t-1/restore', {
+      method: 'POST',
+      headers: { Cookie: `__Host-auth=${token}` },
+    });
+    expect(res.status).toBe(409);
+    const body: { error: string } = await res.json();
+    expect(body.error).toBe('Template is not deleted');
+  });
+
+  it('returns 200 on success', async () => {
+    mockRestoreTemplate.mockResolvedValueOnce({ success: true });
+
+    const app = await importAndCreateApp();
+    const token = await adminToken();
+    const res = await app.request('/templates/t-1/restore', {
+      method: 'POST',
+      headers: { Cookie: `__Host-auth=${token}` },
+    });
+    expect(res.status).toBe(200);
+    const body: { success: boolean } = await res.json();
+    expect(body.success).toBe(true);
+  });
+});
+
+// ── DELETE /templates/:id/permanent ───────────────────────────────────
+
+describe('DELETE /templates/:id/permanent', () => {
+  it('returns 401 without auth cookie', async () => {
+    const app = await importAndCreateApp();
+    const res = await app.request('/templates/t-1/permanent', { method: 'DELETE' });
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 403 for editor role', async () => {
+    const app = await importAndCreateApp();
+    const token = await editorToken();
+    const res = await app.request('/templates/t-1/permanent', {
+      method: 'DELETE',
+      headers: { Cookie: `__Host-auth=${token}` },
+    });
+    expect(res.status).toBe(403);
+  });
+
+  it('returns 403 for viewer role', async () => {
+    const app = await importAndCreateApp();
+    const token = await viewerToken();
+    const res = await app.request('/templates/t-1/permanent', {
+      method: 'DELETE',
+      headers: { Cookie: `__Host-auth=${token}` },
+    });
+    expect(res.status).toBe(403);
+  });
+
+  it('returns 404 when template not found', async () => {
+    mockHardDeleteTemplate.mockResolvedValueOnce({ error: 'not_found' });
+
+    const app = await importAndCreateApp();
+    const token = await adminToken();
+    const res = await app.request('/templates/t-1/permanent', {
+      method: 'DELETE',
+      headers: { Cookie: `__Host-auth=${token}` },
+    });
+    expect(res.status).toBe(404);
+    const body: { error: string } = await res.json();
+    expect(body.error).toBe('Template not found');
+  });
+
+  it('returns 200 on success', async () => {
+    mockHardDeleteTemplate.mockResolvedValueOnce({ success: true });
+
+    const app = await importAndCreateApp();
+    const token = await adminToken();
+    const res = await app.request('/templates/t-1/permanent', {
+      method: 'DELETE',
+      headers: { Cookie: `__Host-auth=${token}` },
+    });
+    expect(res.status).toBe(200);
+    const body: { success: boolean } = await res.json();
+    expect(body.success).toBe(true);
+  });
+});
+
+// ── GET /templates/trash ──────────────────────────────────────────────
+
+describe('GET /templates/trash', () => {
+  it('returns 401 without auth cookie', async () => {
+    const app = await importAndCreateApp();
+    const res = await app.request('/templates/trash');
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 403 for editor role', async () => {
+    const app = await importAndCreateApp();
+    const token = await editorToken();
+    const res = await app.request('/templates/trash', {
+      headers: { Cookie: `__Host-auth=${token}` },
+    });
+    expect(res.status).toBe(403);
+  });
+
+  it('returns 403 for viewer role', async () => {
+    const app = await importAndCreateApp();
+    const token = await viewerToken();
+    const res = await app.request('/templates/trash', {
+      headers: { Cookie: `__Host-auth=${token}` },
+    });
+    expect(res.status).toBe(403);
+  });
+
+  it('returns 200 with deleted templates for admin', async () => {
+    mockListDeletedTemplates.mockResolvedValueOnce([
+      { id: 't-1', title: 'Deleted NDA', deletedAt: '2026-02-01T00:00:00.000Z' },
+    ]);
+
+    const app = await importAndCreateApp();
+    const token = await adminToken();
+    const res = await app.request('/templates/trash', {
+      headers: { Cookie: `__Host-auth=${token}` },
+    });
+    expect(res.status).toBe(200);
+    const body: { data: unknown[] } = await res.json();
+    expect(body.data).toHaveLength(1);
+  });
+
+  it('returns empty list when no deleted templates', async () => {
+    mockListDeletedTemplates.mockResolvedValueOnce([]);
+
+    const app = await importAndCreateApp();
+    const token = await adminToken();
+    const res = await app.request('/templates/trash', {
+      headers: { Cookie: `__Host-auth=${token}` },
+    });
+    expect(res.status).toBe(200);
+    const body: { data: unknown[] } = await res.json();
+    expect(body.data).toHaveLength(0);
   });
 });

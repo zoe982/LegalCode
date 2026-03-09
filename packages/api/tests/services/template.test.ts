@@ -5,13 +5,16 @@ import {
   listTemplates,
   getTemplate,
   updateTemplate,
-  publishTemplate,
-  archiveTemplate,
-  unarchiveTemplate,
   getTemplateVersions,
   getTemplateVersion,
   downloadTemplate,
+  saveContent,
   saveDraftContent,
+  deleteTemplate,
+  restoreTemplate,
+  hardDeleteTemplate,
+  listDeletedTemplates,
+  purgeExpiredTemplates,
 } from '../../src/services/template.js';
 import { getDb, type AppDb } from '../../src/db/index.js';
 
@@ -24,6 +27,25 @@ function createMockD1(): D1Database {
   } as unknown as D1Database;
 }
 
+// Helper to create a mock template row (no status, with deletedAt/deletedBy)
+function mockTemplateRow(overrides: Partial<Record<string, unknown>> = {}) {
+  return {
+    id: 't1',
+    title: 'Test',
+    slug: 'test-abc123',
+    category: 'contracts',
+    description: null,
+    country: null,
+    currentVersion: 1,
+    createdBy: 'user-1',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    deletedAt: null,
+    deletedBy: null,
+    ...overrides,
+  };
+}
+
 describe('template service', () => {
   let db: AppDb;
 
@@ -32,7 +54,7 @@ describe('template service', () => {
     db = getDb(createMockD1());
   });
 
-  // ── Task 4: createTemplate ──────────────────────────────────────────
+  // ── createTemplate ──────────────────────────────────────────────────
 
   describe('createTemplate', () => {
     it('returns db_error when db.batch throws', async () => {
@@ -102,7 +124,7 @@ describe('template service', () => {
       expect('template' in result && result.template.slug).toMatch(/^hello-world-[\da-f]{6}$/);
     });
 
-    it('creates template with status draft and currentVersion 1', async () => {
+    it('creates template with currentVersion 1 and null deletedAt', async () => {
       const batchSpy = vi.spyOn(db, 'batch').mockResolvedValue([] as never);
 
       const result = await createTemplate(
@@ -113,8 +135,9 @@ describe('template service', () => {
 
       expect('template' in result).toBe(true);
       if ('template' in result) {
-        expect(result.template.status).toBe('draft');
         expect(result.template.currentVersion).toBe(1);
+        expect(result.template.deletedAt).toBeNull();
+        expect(result.template.deletedBy).toBeNull();
       }
       expect(batchSpy).toHaveBeenCalledTimes(1);
     });
@@ -129,14 +152,12 @@ describe('template service', () => {
       );
 
       const batchOps = batchSpy.mock.calls[0]?.[0] as readonly unknown[];
-      // batch should include at least template insert, version insert, audit log
       expect(batchOps.length).toBeGreaterThanOrEqual(3);
     });
 
     it('creates tags when provided', async () => {
       const batchSpy = vi.spyOn(db, 'batch').mockResolvedValue([] as never);
 
-      // Mock select for tag lookup (tags don't exist yet — return empty array)
       vi.spyOn(db, 'select').mockReturnValue({
         from: vi.fn().mockReturnValue({
           where: vi.fn().mockResolvedValue([]),
@@ -155,7 +176,6 @@ describe('template service', () => {
       );
 
       expect('tags' in result && result.tags).toEqual(['employment', 'compliance']);
-      // batch should have extra ops for tag creation + templateTags linking
       const batchOps = batchSpy.mock.calls[0]?.[0] as readonly unknown[];
       expect(batchOps.length).toBeGreaterThanOrEqual(3);
     });
@@ -249,7 +269,7 @@ describe('template service', () => {
     });
   });
 
-  // ── Task 5: listTemplates ──────────────────────────────────────────
+  // ── listTemplates ──────────────────────────────────────────────────
 
   describe('listTemplates', () => {
     function setupListMock(db: AppDb, rows: unknown[], countResult: number) {
@@ -267,7 +287,7 @@ describe('template service', () => {
             }),
           } as never;
         }
-        // For tag subquery: select({ templateId }) → from → innerJoin → where
+        // For tag subquery: select({ templateId }) -> from -> innerJoin -> where
         if (selectArg && 'templateId' in selectArg) {
           const subWhere = vi.fn().mockReturnValue({});
           const subInnerJoin = vi.fn().mockReturnValue({ where: subWhere });
@@ -284,21 +304,7 @@ describe('template service', () => {
     });
 
     it('returns paginated results with defaults', async () => {
-      const mockTemplates = [
-        {
-          id: 't1',
-          title: 'Template 1',
-          slug: 'template-1-abc123',
-          category: 'contracts',
-          description: null,
-          country: null,
-          status: 'draft' as const,
-          currentVersion: 1,
-          createdBy: 'user-1',
-          createdAt: '2026-01-01T00:00:00.000Z',
-          updatedAt: '2026-01-01T00:00:00.000Z',
-        },
-      ];
+      const mockTemplates = [mockTemplateRow()];
 
       setupListMock(db, mockTemplates, 1);
 
@@ -314,13 +320,6 @@ describe('template service', () => {
 
       await listTemplates(db, { search: 'employment' });
       expect(allSpy).toHaveBeenCalled();
-    });
-
-    it('applies status filter', async () => {
-      setupListMock(db, [], 0);
-
-      const result = await listTemplates(db, { status: 'active' });
-      expect(result.data).toEqual([]);
     });
 
     it('applies category filter', async () => {
@@ -354,12 +353,32 @@ describe('template service', () => {
       expect(result.total).toBe(0);
     });
 
+    it('defaults total to 0 when count query returns empty array', async () => {
+      const allSpy = vi.fn().mockResolvedValue([]);
+      const limitSpy = vi.fn().mockReturnValue({ all: allSpy });
+      const offsetSpy = vi.fn().mockReturnValue({ limit: limitSpy });
+      const whereSpy = vi.fn().mockReturnValue({ offset: offsetSpy });
+      const fromSpy = vi.fn().mockReturnValue({ where: whereSpy });
+      vi.spyOn(db, 'select').mockImplementation((...args: unknown[]) => {
+        const selectArg = args[0] as Record<string, unknown> | undefined;
+        if (selectArg && 'count' in selectArg) {
+          return {
+            from: vi.fn().mockReturnValue({
+              where: vi.fn().mockResolvedValue([]),
+            }),
+          } as never;
+        }
+        return { from: fromSpy } as never;
+      });
+
+      const result = await listTemplates(db, {});
+      expect(result.total).toBe(0);
+    });
+
     it('escapes LIKE metacharacters in search terms', async () => {
       const { allSpy } = setupListMock(db, [], 0);
 
       await listTemplates(db, { search: '100%_done' });
-
-      // Verify the query was executed (the important thing is no SQL injection via % or _)
       expect(allSpy).toHaveBeenCalled();
     });
 
@@ -372,7 +391,7 @@ describe('template service', () => {
     });
   });
 
-  // ── Task 6: getTemplate ──────────────────────────────────────────
+  // ── getTemplate ──────────────────────────────────────────────────
 
   describe('getTemplate', () => {
     it('returns null if template not found', async () => {
@@ -382,20 +401,17 @@ describe('template service', () => {
       expect(result).toBeNull();
     });
 
+    it('returns null if template is soft-deleted', async () => {
+      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue(
+        mockTemplateRow({ deletedAt: '2026-02-01T00:00:00.000Z', deletedBy: 'user-1' }) as never,
+      );
+
+      const result = await getTemplate(db, 't1');
+      expect(result).toBeNull();
+    });
+
     it('returns template with content and tags', async () => {
-      const mockTemplate = {
-        id: 't1',
-        title: 'My Template',
-        slug: 'my-template-abc123',
-        category: 'contracts',
-        description: null,
-        country: 'US',
-        status: 'active' as const,
-        currentVersion: 2,
-        createdBy: 'user-1',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
-      };
+      const template = mockTemplateRow({ currentVersion: 2, country: 'US' });
 
       const mockVersion = {
         id: 'v2',
@@ -407,7 +423,7 @@ describe('template service', () => {
         createdAt: '2026-01-02T00:00:00.000Z',
       };
 
-      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue(mockTemplate);
+      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue(template as never);
       vi.spyOn(db.query.templateVersions, 'findFirst').mockResolvedValue(mockVersion);
 
       const whereSpy = vi.fn().mockResolvedValue([{ name: 'employment' }, { name: 'compliance' }]);
@@ -418,26 +434,32 @@ describe('template service', () => {
       const result = await getTemplate(db, 't1');
 
       expect(result).not.toBeNull();
-      expect(result?.template).toEqual(mockTemplate);
+      expect(result?.template).toEqual(template);
       expect(result?.content).toBe('# Content v2');
       expect(result?.changeSummary).toBe('Updated content');
       expect(result?.tags).toEqual(['employment', 'compliance']);
     });
 
+    it('returns empty content when version is not found', async () => {
+      const template = mockTemplateRow();
+
+      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue(template as never);
+      vi.spyOn(db.query.templateVersions, 'findFirst').mockResolvedValue(undefined);
+
+      const whereSpy = vi.fn().mockResolvedValue([]);
+      const innerJoinSpy = vi.fn().mockReturnValue({ where: whereSpy });
+      const fromSpy = vi.fn().mockReturnValue({ innerJoin: innerJoinSpy });
+      vi.spyOn(db, 'select').mockReturnValue({ from: fromSpy } as never);
+
+      const result = await getTemplate(db, 't1');
+
+      expect(result).not.toBeNull();
+      expect(result?.content).toBe('');
+      expect(result?.changeSummary).toBeNull();
+    });
+
     it('returns empty tags array when no tags exist', async () => {
-      const mockTemplate = {
-        id: 't1',
-        title: 'My Template',
-        slug: 'my-template-abc123',
-        category: 'contracts',
-        description: null,
-        country: null,
-        status: 'draft' as const,
-        currentVersion: 1,
-        createdBy: 'user-1',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
-      };
+      const template = mockTemplateRow();
 
       const mockVersion = {
         id: 'v1',
@@ -449,7 +471,7 @@ describe('template service', () => {
         createdAt: '2026-01-01T00:00:00.000Z',
       };
 
-      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue(mockTemplate);
+      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue(template as never);
       vi.spyOn(db.query.templateVersions, 'findFirst').mockResolvedValue(mockVersion);
 
       const whereSpy = vi.fn().mockResolvedValue([]);
@@ -463,7 +485,7 @@ describe('template service', () => {
     });
   });
 
-  // ── Task 7: updateTemplate ──────────────────────────────────────────
+  // ── updateTemplate ──────────────────────────────────────────────────
 
   describe('updateTemplate', () => {
     it('validates input with updateTemplateSchema', async () => {
@@ -478,44 +500,21 @@ describe('template service', () => {
       expect(result).toEqual({ error: 'not_found' });
     });
 
-    it('returns archived error if template is archived', async () => {
-      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue({
-        id: 't1',
-        title: 'Old',
-        slug: 'old-abc123',
-        category: 'contracts',
-        description: null,
-        country: null,
-        status: 'archived',
-        currentVersion: 1,
-        createdBy: 'user-1',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
-      });
+    it('returns deleted error if template is soft-deleted', async () => {
+      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue(
+        mockTemplateRow({ deletedAt: '2026-02-01T00:00:00.000Z', deletedBy: 'user-1' }) as never,
+      );
 
       const result = await updateTemplate(db, 't1', { title: 'Updated' }, 'user-1');
 
-      expect(result).toEqual({ error: 'archived' });
+      expect(result).toEqual({ error: 'deleted' });
     });
 
     it('increments version and creates new version row with content', async () => {
-      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue({
-        id: 't1',
-        title: 'Original',
-        slug: 'original-abc123',
-        category: 'contracts',
-        description: null,
-        country: null,
-        status: 'draft',
-        currentVersion: 1,
-        createdBy: 'user-1',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
-      });
+      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue(mockTemplateRow() as never);
 
       const batchSpy = vi.spyOn(db, 'batch').mockResolvedValue([] as never);
 
-      // Mock select for fetching existing tags (no tags provided in update)
       const tagWhereSpy = vi.fn().mockResolvedValue([]);
       const tagInnerJoinSpy = vi.fn().mockReturnValue({ where: tagWhereSpy });
       const tagFromSpy = vi.fn().mockReturnValue({ innerJoin: tagInnerJoinSpy });
@@ -536,19 +535,7 @@ describe('template service', () => {
     });
 
     it('copies content from current version when content not provided', async () => {
-      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue({
-        id: 't1',
-        title: 'Original',
-        slug: 'original-abc123',
-        category: 'contracts',
-        description: null,
-        country: null,
-        status: 'draft',
-        currentVersion: 1,
-        createdBy: 'user-1',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
-      });
+      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue(mockTemplateRow() as never);
 
       vi.spyOn(db.query.templateVersions, 'findFirst').mockResolvedValue({
         id: 'v1',
@@ -562,7 +549,6 @@ describe('template service', () => {
 
       vi.spyOn(db, 'batch').mockResolvedValue([] as never);
 
-      // Mock select for fetching existing tags (no tags provided in update)
       const tagWhereSpy = vi.fn().mockResolvedValue([]);
       const tagInnerJoinSpy = vi.fn().mockReturnValue({ where: tagWhereSpy });
       const tagFromSpy = vi.fn().mockReturnValue({ innerJoin: tagInnerJoinSpy });
@@ -578,19 +564,7 @@ describe('template service', () => {
     });
 
     it('returns existing tags when tags not provided in update', async () => {
-      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue({
-        id: 't1',
-        title: 'Tagged',
-        slug: 'tagged-abc123',
-        category: 'contracts',
-        description: null,
-        country: null,
-        status: 'draft',
-        currentVersion: 1,
-        createdBy: 'user-1',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
-      });
+      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue(mockTemplateRow() as never);
 
       vi.spyOn(db.query.templateVersions, 'findFirst').mockResolvedValue({
         id: 'v1',
@@ -618,23 +592,10 @@ describe('template service', () => {
     });
 
     it('updates title, category, and country when provided', async () => {
-      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue({
-        id: 't1',
-        title: 'Old Title',
-        slug: 'old-title-abc123',
-        category: 'contracts',
-        description: null,
-        country: null,
-        status: 'active',
-        currentVersion: 1,
-        createdBy: 'user-1',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
-      });
+      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue(mockTemplateRow() as never);
 
       vi.spyOn(db, 'batch').mockResolvedValue([] as never);
 
-      // Mock select for fetching existing tags (no tags provided in update)
       const tagWhereSpy = vi.fn().mockResolvedValue([]);
       const tagInnerJoinSpy = vi.fn().mockReturnValue({ where: tagWhereSpy });
       const tagFromSpy = vi.fn().mockReturnValue({ innerJoin: tagInnerJoinSpy });
@@ -655,20 +616,69 @@ describe('template service', () => {
       }
     });
 
+    it('falls back to empty content when current version not found during update without content', async () => {
+      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue(mockTemplateRow() as never);
+
+      // Return undefined for version lookup — triggers the ?? '' fallback
+      vi.spyOn(db.query.templateVersions, 'findFirst').mockResolvedValue(undefined);
+
+      vi.spyOn(db, 'batch').mockResolvedValue([] as never);
+
+      const tagWhereSpy = vi.fn().mockResolvedValue([]);
+      const tagInnerJoinSpy = vi.fn().mockReturnValue({ where: tagWhereSpy });
+      const tagFromSpy = vi.fn().mockReturnValue({ innerJoin: tagInnerJoinSpy });
+      vi.spyOn(db, 'select').mockReturnValue({ from: tagFromSpy } as never);
+
+      const result = await updateTemplate(db, 't1', { title: 'Updated Title' }, 'user-1');
+
+      expect(result).toHaveProperty('template');
+      if ('template' in result) {
+        expect(result.template.currentVersion).toBe(2);
+      }
+    });
+
+    it('keeps existing description when description is not provided', async () => {
+      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue(
+        mockTemplateRow({ description: 'Old description' }) as never,
+      );
+
+      vi.spyOn(db, 'batch').mockResolvedValue([] as never);
+
+      const tagWhereSpy = vi.fn().mockResolvedValue([]);
+      const tagInnerJoinSpy = vi.fn().mockReturnValue({ where: tagWhereSpy });
+      const tagFromSpy = vi.fn().mockReturnValue({ innerJoin: tagInnerJoinSpy });
+      vi.spyOn(db, 'select').mockReturnValue({ from: tagFromSpy } as never);
+
+      const result = await updateTemplate(db, 't1', { content: '# Body' }, 'user-1');
+
+      expect(result).toHaveProperty('template');
+      if ('template' in result) {
+        expect(result.template.description).toBe('Old description');
+      }
+    });
+
+    it('sets country to null when explicitly provided as null', async () => {
+      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue(
+        mockTemplateRow({ country: 'US' }) as never,
+      );
+
+      vi.spyOn(db, 'batch').mockResolvedValue([] as never);
+
+      const tagWhereSpy = vi.fn().mockResolvedValue([]);
+      const tagInnerJoinSpy = vi.fn().mockReturnValue({ where: tagWhereSpy });
+      const tagFromSpy = vi.fn().mockReturnValue({ innerJoin: tagInnerJoinSpy });
+      vi.spyOn(db, 'select').mockReturnValue({ from: tagFromSpy } as never);
+
+      const result = await updateTemplate(db, 't1', { content: '# Body', country: null }, 'user-1');
+
+      expect(result).toHaveProperty('template');
+      if ('template' in result) {
+        expect(result.template.country).toBeNull();
+      }
+    });
+
     it('syncs tags when provided', async () => {
-      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue({
-        id: 't1',
-        title: 'Tagged',
-        slug: 'tagged-abc123',
-        category: 'contracts',
-        description: null,
-        country: null,
-        status: 'draft',
-        currentVersion: 1,
-        createdBy: 'user-1',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
-      });
+      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue(mockTemplateRow() as never);
 
       vi.spyOn(db, 'batch').mockResolvedValue([] as never);
       vi.spyOn(db, 'select').mockReturnValue({
@@ -688,286 +698,241 @@ describe('template service', () => {
     });
   });
 
-  // ── Task 8: publishTemplate and archiveTemplate ──────────────────────
+  // ── saveContent ────────────────────────────────────────────────────
 
-  describe('publishTemplate', () => {
-    it('returns not_found if template does not exist', async () => {
+  describe('saveContent', () => {
+    it('returns not_found when template does not exist', async () => {
       vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue(undefined);
 
-      const result = await publishTemplate(db, 'nonexistent', 'user-1');
+      const result = await saveContent(db, 'nonexistent', '# Content', undefined);
       expect(result).toEqual({ error: 'not_found' });
     });
 
-    it('returns already_active if template is already active', async () => {
-      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue({
-        id: 't1',
-        title: 'Active',
-        slug: 'active-abc123',
-        category: 'contracts',
-        description: null,
-        country: null,
-        status: 'active',
-        currentVersion: 1,
-        createdBy: 'user-1',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
-      });
+    it('returns deleted when template is soft-deleted', async () => {
+      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue(
+        mockTemplateRow({ deletedAt: '2026-02-01T00:00:00.000Z' }) as never,
+      );
 
-      const result = await publishTemplate(db, 't1', 'user-1');
-      expect(result).toEqual({ error: 'already_active' });
+      const result = await saveContent(db, 't1', '# Content', undefined);
+      expect(result).toEqual({ error: 'deleted' });
     });
 
-    it('returns archived error if template is archived', async () => {
-      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue({
-        id: 't1',
-        title: 'Archived',
-        slug: 'archived-abc123',
-        category: 'contracts',
-        description: null,
-        country: null,
-        status: 'archived',
-        currentVersion: 1,
-        createdBy: 'user-1',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
-      });
-
-      const result = await publishTemplate(db, 't1', 'user-1');
-      expect(result).toEqual({ error: 'archived' });
-    });
-
-    it('publishes draft template successfully', async () => {
-      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue({
-        id: 't1',
-        title: 'Draft',
-        slug: 'draft-abc123',
-        category: 'contracts',
-        description: null,
-        country: null,
-        status: 'draft',
-        currentVersion: 1,
-        createdBy: 'user-1',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
-      });
+    it('updates content in place without version bump', async () => {
+      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue(
+        mockTemplateRow({ currentVersion: 2 }) as never,
+      );
 
       const batchSpy = vi.spyOn(db, 'batch').mockResolvedValue([] as never);
 
-      const result = await publishTemplate(db, 't1', 'user-1');
+      const result = await saveContent(db, 't1', '# Updated', undefined);
 
-      expect(result).toHaveProperty('template');
-      if ('template' in result) {
-        expect(result.template.status).toBe('active');
-      }
+      expect(result).toHaveProperty('updatedAt');
       expect(batchSpy).toHaveBeenCalledTimes(1);
+      const batchOps = batchSpy.mock.calls[0]?.[0] as readonly unknown[];
+      expect(batchOps.length).toBe(2);
+    });
+
+    it('updates title when provided', async () => {
+      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue(mockTemplateRow() as never);
+
+      const batchSpy = vi.spyOn(db, 'batch').mockResolvedValue([] as never);
+
+      const result = await saveContent(db, 't1', '# Content', 'New Title');
+
+      expect(result).toHaveProperty('updatedAt');
+      expect(batchSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not change title when not provided', async () => {
+      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue(mockTemplateRow() as never);
+
+      const batchSpy = vi.spyOn(db, 'batch').mockResolvedValue([] as never);
+
+      const result = await saveContent(db, 't1', '# Content', undefined);
+
+      expect(result).toHaveProperty('updatedAt');
+      expect(batchSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('saveDraftContent is an alias for saveContent', () => {
+      expect(saveDraftContent).toBe(saveContent);
     });
   });
 
-  describe('archiveTemplate', () => {
-    it('returns not_found if template does not exist', async () => {
+  // ── deleteTemplate ─────────────────────────────────────────────────
+
+  describe('deleteTemplate', () => {
+    it('returns not_found when template does not exist', async () => {
       vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue(undefined);
 
-      const result = await archiveTemplate(db, 'nonexistent', 'user-1');
+      const result = await deleteTemplate(db, 'nonexistent', 'user-1');
       expect(result).toEqual({ error: 'not_found' });
     });
 
-    it('returns already_archived if template is already archived', async () => {
-      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue({
-        id: 't1',
-        title: 'Archived',
-        slug: 'archived-abc123',
-        category: 'contracts',
-        description: null,
-        country: null,
-        status: 'archived',
-        currentVersion: 1,
-        createdBy: 'user-1',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
-      });
+    it('returns already_deleted when template is already soft-deleted', async () => {
+      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue(
+        mockTemplateRow({ deletedAt: '2026-02-01T00:00:00.000Z', deletedBy: 'user-1' }) as never,
+      );
 
-      const result = await archiveTemplate(db, 't1', 'user-1');
-      expect(result).toEqual({ error: 'already_archived' });
+      const result = await deleteTemplate(db, 't1', 'user-1');
+      expect(result).toEqual({ error: 'already_deleted' });
     });
 
-    it('archives draft template successfully', async () => {
-      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue({
-        id: 't1',
-        title: 'Draft',
-        slug: 'draft-abc123',
-        category: 'contracts',
-        description: null,
-        country: null,
-        status: 'draft',
-        currentVersion: 1,
-        createdBy: 'user-1',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
-      });
+    it('soft-deletes a template successfully', async () => {
+      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue(mockTemplateRow() as never);
 
       const batchSpy = vi.spyOn(db, 'batch').mockResolvedValue([] as never);
 
-      const result = await archiveTemplate(db, 't1', 'user-1');
+      const result = await deleteTemplate(db, 't1', 'user-1');
 
-      expect(result).toHaveProperty('template');
-      if ('template' in result) {
-        expect(result.template.status).toBe('archived');
-      }
+      expect(result).toEqual({ success: true });
       expect(batchSpy).toHaveBeenCalledTimes(1);
+      // Should have 2 ops: update template + audit log
+      const batchOps = batchSpy.mock.calls[0]?.[0] as readonly unknown[];
+      expect(batchOps.length).toBe(2);
+    });
+  });
+
+  // ── restoreTemplate ────────────────────────────────────────────────
+
+  describe('restoreTemplate', () => {
+    it('returns not_found when template does not exist', async () => {
+      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue(undefined);
+
+      const result = await restoreTemplate(db, 'nonexistent');
+      expect(result).toEqual({ error: 'not_found' });
     });
 
-    it('archives active template successfully', async () => {
-      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue({
-        id: 't1',
-        title: 'Active',
-        slug: 'active-abc123',
-        category: 'contracts',
-        description: null,
-        country: null,
-        status: 'active',
-        currentVersion: 2,
-        createdBy: 'user-1',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
-      });
+    it('returns not_deleted when template is not deleted', async () => {
+      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue(mockTemplateRow() as never);
 
+      const result = await restoreTemplate(db, 't1');
+      expect(result).toEqual({ error: 'not_deleted' });
+    });
+
+    it('restores a soft-deleted template successfully', async () => {
+      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue(
+        mockTemplateRow({ deletedAt: '2026-02-01T00:00:00.000Z', deletedBy: 'user-1' }) as never,
+      );
+
+      // Mock the update call (not batch, single update)
+      vi.spyOn(db, 'update').mockReturnValue({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue(undefined),
+        }),
+      } as never);
+
+      const result = await restoreTemplate(db, 't1');
+
+      expect(result).toEqual({ success: true });
+    });
+  });
+
+  // ── hardDeleteTemplate ─────────────────────────────────────────────
+
+  describe('hardDeleteTemplate', () => {
+    it('returns not_found when template does not exist', async () => {
+      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue(undefined);
+
+      const result = await hardDeleteTemplate(db, 'nonexistent');
+      expect(result).toEqual({ error: 'not_found' });
+    });
+
+    it('permanently deletes template and related data', async () => {
+      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue(mockTemplateRow() as never);
+
+      const batchSpy = vi.spyOn(db, 'batch').mockResolvedValue([] as never);
+
+      const result = await hardDeleteTemplate(db, 't1');
+
+      expect(result).toEqual({ success: true });
+      expect(batchSpy).toHaveBeenCalledTimes(1);
+      // Should delete comments, templateTags, templateVersions, templates
+      const batchOps = batchSpy.mock.calls[0]?.[0] as readonly unknown[];
+      expect(batchOps.length).toBe(4);
+    });
+  });
+
+  // ── listDeletedTemplates ───────────────────────────────────────────
+
+  describe('listDeletedTemplates', () => {
+    it('returns deleted templates', async () => {
+      const deletedTemplates = [
+        mockTemplateRow({ deletedAt: '2026-02-01T00:00:00.000Z', deletedBy: 'user-1' }),
+      ];
+
+      const allSpy = vi.fn().mockResolvedValue(deletedTemplates);
+      const orderBySpy = vi.fn().mockReturnValue({ all: allSpy });
+      const whereSpy = vi.fn().mockReturnValue({ orderBy: orderBySpy });
+      const fromSpy = vi.fn().mockReturnValue({ where: whereSpy });
+      vi.spyOn(db, 'select').mockReturnValue({ from: fromSpy } as never);
+
+      const result = await listDeletedTemplates(db);
+
+      expect(result).toEqual(deletedTemplates);
+    });
+
+    it('returns empty array when no deleted templates exist', async () => {
+      const allSpy = vi.fn().mockResolvedValue([]);
+      const orderBySpy = vi.fn().mockReturnValue({ all: allSpy });
+      const whereSpy = vi.fn().mockReturnValue({ orderBy: orderBySpy });
+      const fromSpy = vi.fn().mockReturnValue({ where: whereSpy });
+      vi.spyOn(db, 'select').mockReturnValue({ from: fromSpy } as never);
+
+      const result = await listDeletedTemplates(db);
+
+      expect(result).toEqual([]);
+    });
+  });
+
+  // ── purgeExpiredTemplates ──────────────────────────────────────────
+
+  describe('purgeExpiredTemplates', () => {
+    it('returns 0 when no expired templates', async () => {
+      const allSpy = vi.fn().mockResolvedValue([]);
+      const whereSpy = vi.fn().mockReturnValue({ all: allSpy });
+      const fromSpy = vi.fn().mockReturnValue({ where: whereSpy });
+      vi.spyOn(db, 'select').mockReturnValue({ from: fromSpy } as never);
+
+      const result = await purgeExpiredTemplates(db);
+
+      expect(result).toBe(0);
+    });
+
+    it('does not count templates that fail hard delete', async () => {
+      const allSpy = vi.fn().mockResolvedValue([{ id: 'missing-1' }]);
+      const whereSpy = vi.fn().mockReturnValue({ all: allSpy });
+      const fromSpy = vi.fn().mockReturnValue({ where: whereSpy });
+      vi.spyOn(db, 'select').mockReturnValue({ from: fromSpy } as never);
+
+      // Mock hardDeleteTemplate to return not_found
+      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue(undefined);
+
+      const result = await purgeExpiredTemplates(db);
+
+      expect(result).toBe(0);
+    });
+
+    it('purges templates deleted more than 30 days ago', async () => {
+      const expiredId = 'expired-1';
+      const allSpy = vi.fn().mockResolvedValue([{ id: expiredId }]);
+      const whereSpy = vi.fn().mockReturnValue({ all: allSpy });
+      const fromSpy = vi.fn().mockReturnValue({ where: whereSpy });
+      vi.spyOn(db, 'select').mockReturnValue({ from: fromSpy } as never);
+
+      // Mock for hardDeleteTemplate's findFirst
+      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue(
+        mockTemplateRow({ id: expiredId }) as never,
+      );
       vi.spyOn(db, 'batch').mockResolvedValue([] as never);
 
-      const result = await archiveTemplate(db, 't1', 'user-1');
+      const result = await purgeExpiredTemplates(db);
 
-      expect(result).toHaveProperty('template');
-      if ('template' in result) {
-        expect(result.template.status).toBe('archived');
-      }
-    });
-
-    it('includes previousStatus in audit metadata', async () => {
-      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue({
-        id: 't1',
-        title: 'Active',
-        slug: 'active-abc123',
-        category: 'contracts',
-        description: null,
-        country: null,
-        status: 'active',
-        currentVersion: 1,
-        createdBy: 'user-1',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
-      });
-
-      const batchSpy = vi.spyOn(db, 'batch').mockResolvedValue([] as never);
-
-      await archiveTemplate(db, 't1', 'user-1');
-
-      // The batch should include an audit log insert with previousStatus metadata
-      const batchOps = batchSpy.mock.calls[0]?.[0] as readonly unknown[];
-      expect(batchOps).toBeDefined();
-      expect(batchOps.length).toBeGreaterThanOrEqual(2);
+      expect(result).toBe(1);
     });
   });
 
-  // ── WS5: unarchiveTemplate ───────────────────────────────────────────
-
-  describe('unarchiveTemplate', () => {
-    it('returns not_found for missing template', async () => {
-      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue(undefined);
-
-      const result = await unarchiveTemplate(db, 'nonexistent', 'user-1');
-      expect(result).toEqual({ error: 'not_found' });
-    });
-
-    it('returns not_archived for draft templates', async () => {
-      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue({
-        id: 't1',
-        title: 'Draft',
-        slug: 'draft-abc123',
-        category: 'contracts',
-        description: null,
-        country: null,
-        status: 'draft',
-        currentVersion: 1,
-        createdBy: 'user-1',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
-      });
-
-      const result = await unarchiveTemplate(db, 't1', 'user-1');
-      expect(result).toEqual({ error: 'not_archived' });
-    });
-
-    it('returns not_archived for active templates', async () => {
-      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue({
-        id: 't1',
-        title: 'Active',
-        slug: 'active-abc123',
-        category: 'contracts',
-        description: null,
-        country: null,
-        status: 'active',
-        currentVersion: 1,
-        createdBy: 'user-1',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
-      });
-
-      const result = await unarchiveTemplate(db, 't1', 'user-1');
-      expect(result).toEqual({ error: 'not_archived' });
-    });
-
-    it('successfully unarchives an archived template', async () => {
-      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue({
-        id: 't1',
-        title: 'Archived Template',
-        slug: 'archived-abc123',
-        category: 'contracts',
-        description: null,
-        country: null,
-        status: 'archived',
-        currentVersion: 3,
-        createdBy: 'user-1',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
-      });
-
-      const batchSpy = vi.spyOn(db, 'batch').mockResolvedValue([] as never);
-
-      const result = await unarchiveTemplate(db, 't1', 'user-1');
-
-      expect(result).toHaveProperty('template');
-      if ('template' in result) {
-        expect(result.template.status).toBe('draft');
-      }
-      expect(batchSpy).toHaveBeenCalledTimes(1);
-    });
-
-    it('creates audit log with unarchive action', async () => {
-      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue({
-        id: 't1',
-        title: 'Archived',
-        slug: 'archived-abc123',
-        category: 'contracts',
-        description: null,
-        country: null,
-        status: 'archived',
-        currentVersion: 1,
-        createdBy: 'user-1',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
-      });
-
-      const batchSpy = vi.spyOn(db, 'batch').mockResolvedValue([] as never);
-
-      await unarchiveTemplate(db, 't1', 'admin-1');
-
-      // The batch should include template update + audit log insert
-      const batchOps = batchSpy.mock.calls[0]?.[0] as readonly unknown[];
-      expect(batchOps).toBeDefined();
-      expect(batchOps.length).toBeGreaterThanOrEqual(2);
-    });
-  });
-
-  // ── Task 9: getTemplateVersions, getTemplateVersion, downloadTemplate ──
+  // ── getTemplateVersions, getTemplateVersion, downloadTemplate ──────
 
   describe('getTemplateVersions', () => {
     it('returns all versions ordered by version DESC', async () => {
@@ -1043,19 +1008,14 @@ describe('template service', () => {
 
   describe('downloadTemplate', () => {
     it('returns filename and content for existing template', async () => {
-      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue({
-        id: 't1',
-        title: 'Employment Contract',
-        slug: 'employment-contract-abc123',
-        category: 'contracts',
-        description: null,
-        country: 'US',
-        status: 'active',
-        currentVersion: 2,
-        createdBy: 'user-1',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-02T00:00:00.000Z',
-      });
+      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue(
+        mockTemplateRow({
+          title: 'Employment Contract',
+          slug: 'employment-contract-abc123',
+          country: 'US',
+          currentVersion: 2,
+        }) as never,
+      );
 
       vi.spyOn(db.query.templateVersions, 'findFirst').mockResolvedValue({
         id: 'v2',
@@ -1082,145 +1042,12 @@ describe('template service', () => {
     });
 
     it('returns null when current version not found', async () => {
-      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue({
-        id: 't1',
-        title: 'Test',
-        slug: 'test-abc123',
-        category: 'contracts',
-        description: null,
-        country: null,
-        status: 'draft',
-        currentVersion: 1,
-        createdBy: 'user-1',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
-      });
+      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue(mockTemplateRow() as never);
 
       vi.spyOn(db.query.templateVersions, 'findFirst').mockResolvedValue(undefined);
 
       const result = await downloadTemplate(db, 't1');
       expect(result).toBeNull();
-    });
-  });
-
-  // ── saveDraftContent ────────────────────────────────────────────────
-
-  describe('saveDraftContent', () => {
-    it('returns not_found when template does not exist', async () => {
-      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue(undefined);
-
-      const result = await saveDraftContent(db, 'nonexistent', '# Content', undefined);
-      expect(result).toEqual({ error: 'not_found' });
-    });
-
-    it('returns not_draft when template is active', async () => {
-      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue({
-        id: 't1',
-        title: 'Active',
-        slug: 'active-abc123',
-        category: 'contracts',
-        description: null,
-        country: null,
-        status: 'active',
-        currentVersion: 1,
-        createdBy: 'user-1',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
-      });
-
-      const result = await saveDraftContent(db, 't1', '# Content', undefined);
-      expect(result).toEqual({ error: 'not_draft' });
-    });
-
-    it('returns not_draft when template is archived', async () => {
-      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue({
-        id: 't1',
-        title: 'Archived',
-        slug: 'archived-abc123',
-        category: 'contracts',
-        description: null,
-        country: null,
-        status: 'archived',
-        currentVersion: 1,
-        createdBy: 'user-1',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
-      });
-
-      const result = await saveDraftContent(db, 't1', '# Content', undefined);
-      expect(result).toEqual({ error: 'not_draft' });
-    });
-
-    it('updates content in place without version bump', async () => {
-      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue({
-        id: 't1',
-        title: 'Draft',
-        slug: 'draft-abc123',
-        category: 'contracts',
-        description: null,
-        country: null,
-        status: 'draft',
-        currentVersion: 2,
-        createdBy: 'user-1',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
-      });
-
-      const batchSpy = vi.spyOn(db, 'batch').mockResolvedValue([] as never);
-
-      const result = await saveDraftContent(db, 't1', '# Updated', undefined);
-
-      expect(result).toHaveProperty('updatedAt');
-      expect(batchSpy).toHaveBeenCalledTimes(1);
-      // Should have exactly 2 ops: update version content + update template updated_at
-      const batchOps = batchSpy.mock.calls[0]?.[0] as readonly unknown[];
-      expect(batchOps.length).toBe(2);
-    });
-
-    it('updates title when provided', async () => {
-      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue({
-        id: 't1',
-        title: 'Old Title',
-        slug: 'old-title-abc123',
-        category: 'contracts',
-        description: null,
-        country: null,
-        status: 'draft',
-        currentVersion: 1,
-        createdBy: 'user-1',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
-      });
-
-      const batchSpy = vi.spyOn(db, 'batch').mockResolvedValue([] as never);
-
-      const result = await saveDraftContent(db, 't1', '# Content', 'New Title');
-
-      expect(result).toHaveProperty('updatedAt');
-      expect(batchSpy).toHaveBeenCalledTimes(1);
-    });
-
-    it('does not change title when not provided', async () => {
-      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue({
-        id: 't1',
-        title: 'Keep This Title',
-        slug: 'keep-abc123',
-        category: 'contracts',
-        description: null,
-        country: null,
-        status: 'draft',
-        currentVersion: 1,
-        createdBy: 'user-1',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
-      });
-
-      const batchSpy = vi.spyOn(db, 'batch').mockResolvedValue([] as never);
-
-      const result = await saveDraftContent(db, 't1', '# Content', undefined);
-
-      expect(result).toHaveProperty('updatedAt');
-      expect(batchSpy).toHaveBeenCalledTimes(1);
     });
   });
 });

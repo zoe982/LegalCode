@@ -37,9 +37,9 @@
         "matcher": "Bash",
         "hooks": [
           {
-            "type": "prompt",
-            "prompt": "Check if the Bash command contains 'scripts/deploy.sh' or 'wrangler deploy'. If yes, add systemMessage: 'DEPLOY GUARD: Before deploying, ensure you have run: (1) pnpm contract:check, (2) dispatched Security Reviewer if security-critical files changed, (3) dispatched Testing Engineer for coverage audit, (4) dispatched QA Engineer for quality audit.' If the command does not involve deployment, return 'approve' silently.",
-            "timeout": 10
+            "type": "command",
+            "command": "bash scripts/deploy-guard.sh",
+            "timeout": 5
           }
         ]
       },

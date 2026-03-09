@@ -15,6 +15,8 @@ import type { CountryListResponse } from '../../src/services/countries.js';
 import type { UseQueryResult } from '@tanstack/react-query';
 
 const mockUseTemplates = vi.fn();
+const mockDeleteMutate = vi.fn();
+const mockUseDeleteTemplate = vi.fn();
 const mockUseCategories = vi.fn();
 const mockUseCountries = vi.fn();
 const mockNavigate = vi.fn();
@@ -29,6 +31,7 @@ vi.mock('react-router', async () => {
 
 vi.mock('../../src/hooks/useTemplates.js', () => ({
   useTemplates: (...args: unknown[]) => mockUseTemplates(...args) as unknown,
+  useDeleteTemplate: () => mockUseDeleteTemplate() as unknown,
 }));
 
 vi.mock('../../src/hooks/useCategories.js', () => ({
@@ -47,11 +50,12 @@ const mockTemplates: Template[] = [
     category: 'Employment',
     description: null,
     country: 'US',
-    status: 'active',
     currentVersion: 2,
     createdBy: 'u1',
     createdAt: '2026-01-01T00:00:00Z',
     updatedAt: '2026-03-01T00:00:00Z',
+    deletedAt: null,
+    deletedBy: null,
   },
   {
     id: 't2',
@@ -60,11 +64,12 @@ const mockTemplates: Template[] = [
     category: 'NDA',
     description: null,
     country: null,
-    status: 'active',
     currentVersion: 1,
     createdBy: 'u1',
     createdAt: '2026-02-01T00:00:00Z',
     updatedAt: '2026-02-01T00:00:00Z',
+    deletedAt: null,
+    deletedBy: null,
   },
   {
     id: 't3',
@@ -73,11 +78,12 @@ const mockTemplates: Template[] = [
     category: 'Employment',
     description: null,
     country: 'UK',
-    status: 'draft',
     currentVersion: 1,
     createdBy: 'u1',
     createdAt: '2026-03-01T00:00:00Z',
     updatedAt: '2026-03-01T00:00:00Z',
+    deletedAt: null,
+    deletedBy: null,
   },
 ];
 
@@ -213,6 +219,10 @@ function Wrapper({ children }: { children: ReactNode }) {
 describe('TemplateListPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUseDeleteTemplate.mockReturnValue({
+      mutate: mockDeleteMutate,
+      isPending: false,
+    });
     mockUseCategories.mockReturnValue(
       createCategoryQueryResult({
         data: { categories: mockCategories },
@@ -305,23 +315,6 @@ describe('TemplateListPage', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/templates/new');
   });
 
-  it('shows "No templates match your filters" when status filter active with no results', async () => {
-    const user = userEvent.setup();
-
-    mockUseTemplates.mockReturnValue(
-      createQueryResult({
-        data: { data: [], total: 0, page: 1, limit: 20 },
-      }),
-    );
-
-    render(<TemplateListPage />, { wrapper: Wrapper });
-    await user.click(screen.getByRole('button', { name: 'Draft' }));
-
-    await waitFor(() => {
-      expect(screen.getByText('No templates match your filters')).toBeInTheDocument();
-    });
-  });
-
   it('shows "Clear filters" button when filters active with no results', async () => {
     const user = userEvent.setup();
 
@@ -332,7 +325,7 @@ describe('TemplateListPage', () => {
     );
 
     render(<TemplateListPage />, { wrapper: Wrapper });
-    await user.click(screen.getByRole('button', { name: 'Draft' }));
+    await user.click(screen.getByRole('button', { name: 'Employment' }));
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Clear filters' })).toBeInTheDocument();
@@ -349,7 +342,7 @@ describe('TemplateListPage', () => {
     );
 
     render(<TemplateListPage />, { wrapper: Wrapper });
-    await user.click(screen.getByRole('button', { name: 'Draft' }));
+    await user.click(screen.getByRole('button', { name: 'Employment' }));
 
     await waitFor(async () => {
       const clearBtn = screen.getByRole('button', { name: 'Clear filters' });
@@ -393,7 +386,7 @@ describe('TemplateListPage', () => {
     expect(screen.queryByTestId('template-row-t1')).not.toBeInTheDocument();
   });
 
-  it('each card shows title and status', () => {
+  it('each card shows title', () => {
     mockUseTemplates.mockReturnValue(
       createQueryResult({
         data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
@@ -410,12 +403,6 @@ describe('TemplateListPage', () => {
 
     const card3 = screen.getByTestId('template-card-t3');
     expect(within(card3).getByText('Offer Letter')).toBeInTheDocument();
-
-    // StatusChip renders "Published" for active status
-    const publishedChips = screen.getAllByText('Published');
-    expect(publishedChips.length).toBeGreaterThanOrEqual(1);
-    const draftChips = screen.getAllByText('Draft');
-    expect(draftChips.length).toBeGreaterThanOrEqual(1);
   });
 
   it('cards show version info', () => {
@@ -482,7 +469,7 @@ describe('TemplateListPage', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/templates/new');
   });
 
-  it('renders status filter chips', () => {
+  it('does not render status filter chips (removed)', () => {
     mockUseTemplates.mockReturnValue(
       createQueryResult({
         data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
@@ -490,12 +477,13 @@ describe('TemplateListPage', () => {
     );
 
     render(<TemplateListPage />, { wrapper: Wrapper });
-    // There are two "All" buttons (status + category), so use getAllByRole
+    // Category "All" button should be present
     const allButtons = screen.getAllByRole('button', { name: 'All' });
     expect(allButtons.length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByRole('button', { name: 'Draft' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Active' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Archived' })).toBeInTheDocument();
+    // Status filter chips should no longer exist
+    expect(screen.queryByRole('button', { name: 'Draft' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Active' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Archived' })).not.toBeInTheDocument();
   });
 
   it('navigates to template detail when card is clicked', async () => {
@@ -541,25 +529,6 @@ describe('TemplateListPage', () => {
     });
 
     vi.useRealTimers();
-  });
-
-  it('filters by status when status chip is clicked', async () => {
-    const user = userEvent.setup();
-    mockUseTemplates.mockReturnValue(
-      createQueryResult({
-        data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
-      }),
-    );
-
-    render(<TemplateListPage />, { wrapper: Wrapper });
-    await user.click(screen.getByRole('button', { name: 'Draft' }));
-
-    await waitFor(() => {
-      const lastCall = mockUseTemplates.mock.calls[mockUseTemplates.mock.calls.length - 1] as [
-        Record<string, unknown>,
-      ];
-      expect(lastCall[0]).toEqual(expect.objectContaining({ status: 'draft' }));
-    });
   });
 
   describe('relative timestamps', () => {
@@ -826,7 +795,7 @@ describe('TemplateListPage', () => {
     expect(screen.getByRole('button', { name: 'Compliance' })).toBeInTheDocument();
   });
 
-  it('visual divider separates status and category chips', () => {
+  it('visual divider separates category chips', () => {
     mockUseTemplates.mockReturnValue(
       createQueryResult({
         data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
@@ -972,5 +941,222 @@ describe('TemplateListPage', () => {
 
     const divider = screen.getByTestId('country-divider');
     expect(divider).toBeInTheDocument();
+  });
+
+  describe('Delete template flow', () => {
+    beforeEach(() => {
+      mockUseTemplates.mockReturnValue(
+        createQueryResult({
+          data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
+        }),
+      );
+    });
+
+    it('opens delete dialog when Delete is clicked from card menu', async () => {
+      const user = userEvent.setup();
+      render(<TemplateListPage />, { wrapper: Wrapper });
+
+      // Open the card's action menu
+      const card1 = screen.getByTestId('template-card-t1');
+      const menuButton = within(card1).getByRole('button', { name: /template actions/i });
+      await user.click(menuButton);
+
+      // Click "Delete" in the context menu
+      const deleteMenuItem = await screen.findByRole('menuitem', { name: /delete/i });
+      await user.click(deleteMenuItem);
+
+      // Delete confirmation dialog should appear
+      expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+      expect(screen.getByText('Delete Employment Agreement?')).toBeInTheDocument();
+    });
+
+    it('closes delete dialog when cancel is clicked', async () => {
+      const user = userEvent.setup();
+      render(<TemplateListPage />, { wrapper: Wrapper });
+
+      // Open the card's action menu and trigger delete
+      const card1 = screen.getByTestId('template-card-t1');
+      const menuButton = within(card1).getByRole('button', { name: /template actions/i });
+      await user.click(menuButton);
+
+      const deleteMenuItem = await screen.findByRole('menuitem', { name: /delete/i });
+      await user.click(deleteMenuItem);
+
+      expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+
+      // Click Cancel to close
+      await user.click(screen.getByRole('button', { name: /cancel/i }));
+
+      await waitFor(() => {
+        expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+      });
+    });
+
+    it('calls deleteMutation.mutate when delete is confirmed', async () => {
+      const user = userEvent.setup();
+      render(<TemplateListPage />, { wrapper: Wrapper });
+
+      // Open the card's action menu and trigger delete
+      const card1 = screen.getByTestId('template-card-t1');
+      const menuButton = within(card1).getByRole('button', { name: /template actions/i });
+      await user.click(menuButton);
+
+      const deleteMenuItem = await screen.findByRole('menuitem', { name: /delete/i });
+      await user.click(deleteMenuItem);
+
+      // Confirm deletion
+      const confirmButton = screen.getByRole('button', { name: /^delete$/i });
+      await user.click(confirmButton);
+
+      expect(mockDeleteMutate).toHaveBeenCalledWith('t1', expect.anything());
+    });
+
+    it('closes delete dialog on successful deletion', async () => {
+      mockDeleteMutate.mockImplementation((_id: string, opts: { onSuccess: () => void }) => {
+        opts.onSuccess();
+      });
+
+      const user = userEvent.setup();
+      render(<TemplateListPage />, { wrapper: Wrapper });
+
+      // Open the card's action menu and trigger delete
+      const card1 = screen.getByTestId('template-card-t1');
+      const menuButton = within(card1).getByRole('button', { name: /template actions/i });
+      await user.click(menuButton);
+
+      const deleteMenuItem = await screen.findByRole('menuitem', { name: /delete/i });
+      await user.click(deleteMenuItem);
+
+      // Confirm deletion
+      const confirmButton = screen.getByRole('button', { name: /^delete$/i });
+      await user.click(confirmButton);
+
+      await waitFor(() => {
+        expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+      });
+    });
+
+    it('uses template title as fallback when template not found in list', async () => {
+      // Use a modified templates array where the template to delete is t2
+      const user = userEvent.setup();
+      render(<TemplateListPage />, { wrapper: Wrapper });
+
+      const card2 = screen.getByTestId('template-card-t2');
+      const menuButton = within(card2).getByRole('button', { name: /template actions/i });
+      await user.click(menuButton);
+
+      const deleteMenuItem = await screen.findByRole('menuitem', { name: /delete/i });
+      await user.click(deleteMenuItem);
+
+      // The dialog should show the title of t2
+      expect(screen.getByText('Delete Mutual NDA?')).toBeInTheDocument();
+    });
+
+    it('closes delete dialog via Escape key (exercises onClose callback)', async () => {
+      const user = userEvent.setup();
+      render(<TemplateListPage />, { wrapper: Wrapper });
+
+      // Open the card's action menu and trigger delete
+      const card1 = screen.getByTestId('template-card-t1');
+      const menuButton = within(card1).getByRole('button', { name: /template actions/i });
+      await user.click(menuButton);
+
+      const deleteMenuItem = await screen.findByRole('menuitem', { name: /delete/i });
+      await user.click(deleteMenuItem);
+
+      expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+
+      // Press Escape to close via MUI Dialog onClose handler
+      await user.keyboard('{Escape}');
+
+      await waitFor(() => {
+        expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+      });
+    });
+
+    it('does not call mutate when deleteTarget is null (onConfirm guard)', async () => {
+      const user = userEvent.setup();
+      render(<TemplateListPage />, { wrapper: Wrapper });
+
+      // Open the card's action menu and trigger delete
+      const card1 = screen.getByTestId('template-card-t1');
+      const menuButton = within(card1).getByRole('button', { name: /template actions/i });
+      await user.click(menuButton);
+
+      const deleteMenuItem = await screen.findByRole('menuitem', { name: /delete/i });
+      await user.click(deleteMenuItem);
+
+      // Confirm deletion — this should call mutate with 't1'
+      const confirmButton = screen.getByRole('button', { name: /^delete$/i });
+      await user.click(confirmButton);
+
+      // Verify mutate was called exactly once with the correct ID
+      expect(mockDeleteMutate).toHaveBeenCalledTimes(1);
+      expect(mockDeleteMutate).toHaveBeenCalledWith(
+        't1',
+        expect.objectContaining({
+          onSuccess: expect.any(Function) as unknown,
+        }),
+      );
+    });
+
+    it('resets deleteTarget to null on successful deletion via onSuccess', async () => {
+      // Mock mutate to invoke the onSuccess callback
+      mockDeleteMutate.mockImplementation((_id: string, opts: { onSuccess: () => void }) => {
+        opts.onSuccess();
+      });
+
+      const user = userEvent.setup();
+      render(<TemplateListPage />, { wrapper: Wrapper });
+
+      // Open the card's action menu and trigger delete
+      const card1 = screen.getByTestId('template-card-t1');
+      const menuButton = within(card1).getByRole('button', { name: /template actions/i });
+      await user.click(menuButton);
+
+      const deleteMenuItem = await screen.findByRole('menuitem', { name: /delete/i });
+      await user.click(deleteMenuItem);
+
+      expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+
+      // Confirm deletion — onSuccess fires synchronously, closing the dialog
+      const confirmButton = screen.getByRole('button', { name: /^delete$/i });
+      await user.click(confirmButton);
+
+      // Dialog should be closed because onSuccess set deleteTarget to null
+      await waitFor(() => {
+        expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+      });
+
+      // Verify the template title is cleared (dialog shows empty title when re-opened)
+      expect(mockDeleteMutate).toHaveBeenCalledWith('t1', expect.anything());
+    });
+
+    it('shows isDeleting state when delete mutation is pending', async () => {
+      mockUseDeleteTemplate.mockReturnValue({
+        mutate: mockDeleteMutate,
+        isPending: true,
+      });
+
+      const user = userEvent.setup();
+      render(<TemplateListPage />, { wrapper: Wrapper });
+
+      // Open the card's action menu and trigger delete
+      const card1 = screen.getByTestId('template-card-t1');
+      const menuButton = within(card1).getByRole('button', { name: /template actions/i });
+      await user.click(menuButton);
+
+      const deleteMenuItem = await screen.findByRole('menuitem', { name: /delete/i });
+      await user.click(deleteMenuItem);
+
+      // The delete button should be disabled when isPending is true.
+      // When isPending, the button text is replaced by a spinner, so we
+      // locate it via the alertdialog's buttons (Cancel + confirm).
+      const dialog = screen.getByRole('alertdialog');
+      const dialogButtons = within(dialog).getAllByRole('button');
+      const confirmButton = dialogButtons.find((btn) => btn.textContent !== 'Cancel');
+      expect(confirmButton).toBeDefined();
+      expect(confirmButton).toBeDisabled();
+    });
   });
 });

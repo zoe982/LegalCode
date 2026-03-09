@@ -1,10 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import type { TemplateStatus } from '@legalcode/shared';
 import { templateService } from '../services/templates.js';
 
 interface UseAutosaveOptions {
   templateId: string | undefined;
-  status: TemplateStatus | undefined;
   content: string;
   title: string;
   enabled: boolean;
@@ -20,7 +18,6 @@ interface UseAutosaveReturn {
 
 export function useAutosave({
   templateId,
-  status,
   content,
   title,
   enabled,
@@ -82,7 +79,7 @@ export function useAutosave({
 
   // Debounce effect: trigger save 2s after content/title changes
   useEffect(() => {
-    if (!enabled || status !== 'draft' || !templateId) {
+    if (!enabled || !templateId) {
       return;
     }
 
@@ -101,7 +98,7 @@ export function useAutosave({
         timerRef.current = null;
       }
     };
-  }, [content, title, enabled, status, templateId, performSave]);
+  }, [content, title, enabled, templateId, performSave]);
 
   // Cleanup retry timer on unmount
   useEffect(() => {

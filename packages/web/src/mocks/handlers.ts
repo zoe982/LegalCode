@@ -32,11 +32,12 @@ const mockTemplates: Template[] = [
     category: 'Employment',
     description: 'Standard employment agreement for full-time hires in the United States',
     country: 'US',
-    status: 'active',
     currentVersion: 2,
     createdBy: 'u1',
     createdAt: '2026-01-01T00:00:00Z',
     updatedAt: '2026-03-01T00:00:00Z',
+    deletedAt: null,
+    deletedBy: null,
   },
   {
     id: 't2',
@@ -45,11 +46,12 @@ const mockTemplates: Template[] = [
     category: 'NDA',
     description: null,
     country: null,
-    status: 'active',
     currentVersion: 1,
     createdBy: 'u1',
     createdAt: '2026-02-01T00:00:00Z',
     updatedAt: '2026-02-01T00:00:00Z',
+    deletedAt: null,
+    deletedBy: null,
   },
   {
     id: 't3',
@@ -58,11 +60,12 @@ const mockTemplates: Template[] = [
     category: 'Employment',
     description: null,
     country: 'UK',
-    status: 'draft',
     currentVersion: 1,
     createdBy: 'u1',
     createdAt: '2026-03-01T00:00:00Z',
     updatedAt: '2026-03-01T00:00:00Z',
+    deletedAt: null,
+    deletedBy: null,
   },
 ];
 
@@ -224,11 +227,12 @@ export const handlers = [
       category: parsed.data.category,
       description: parsed.data.description ?? null,
       country: parsed.data.country ?? null,
-      status: 'draft',
       currentVersion: 1,
       createdBy: 'u1',
       createdAt: '2026-03-06T00:00:00Z',
       updatedAt: '2026-03-06T00:00:00Z',
+      deletedAt: null,
+      deletedBy: null,
     };
     return HttpResponse.json({ template: created, tags: parsed.data.tags ?? [] }, { status: 201 });
   }),
@@ -260,7 +264,6 @@ export const handlers = [
     }
     return HttpResponse.json({
       ...template,
-      status: 'active',
       updatedAt: '2026-03-06T00:00:00Z',
     });
   }),
@@ -272,7 +275,8 @@ export const handlers = [
     }
     return HttpResponse.json({
       ...template,
-      status: 'archived',
+      deletedAt: '2026-03-06T00:00:00Z',
+      deletedBy: 'u1',
       updatedAt: '2026-03-06T00:00:00Z',
     });
   }),

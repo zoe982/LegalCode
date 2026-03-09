@@ -2,10 +2,10 @@ import { useState, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import {
   Box,
+  Divider,
   IconButton,
   Select,
   MenuItem,
-  Button,
   Popover,
   Typography,
   Tooltip,
@@ -14,11 +14,10 @@ import ArrowBackRounded from '@mui/icons-material/ArrowBackRounded';
 import MoreHorizRounded from '@mui/icons-material/MoreHorizRounded';
 import ScheduleRounded from '@mui/icons-material/ScheduleRounded';
 import ExpandMoreRounded from '@mui/icons-material/ExpandMoreRounded';
+import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded';
 import { useNavigate } from 'react-router';
-import { StatusChip } from './StatusChip.js';
 import { useCategories } from '../hooks/useCategories.js';
 import { useCountries } from '../hooks/useCountries.js';
-import type { TemplateStatus } from '@legalcode/shared';
 import type { SelectChangeEvent } from '@mui/material/Select';
 
 export interface DocumentHeaderProps {
@@ -28,12 +27,8 @@ export interface DocumentHeaderProps {
   onCategoryChange: (category: string) => void;
   country: string;
   onCountryChange: (country: string) => void;
-  status?: TemplateStatus | undefined;
   editorMode: 'source' | 'review';
   onModeChange: (mode: 'source' | 'review') => void;
-  onPublish?: (() => void) | undefined;
-  onArchive?: (() => void) | undefined;
-  onUnarchive?: (() => void) | undefined;
   templateId?: string | undefined;
   isCreateMode: boolean;
   readOnly: boolean;
@@ -42,6 +37,7 @@ export interface DocumentHeaderProps {
   createdBy?: string | undefined;
   currentVersion?: number | undefined;
   rightSlot?: ReactNode | undefined;
+  onDelete?: (() => void) | undefined;
 }
 
 const compactIconButtonStyle = {
@@ -120,12 +116,8 @@ export function DocumentHeader({
   onCategoryChange,
   country,
   onCountryChange,
-  status,
   editorMode,
   onModeChange,
-  onPublish,
-  onArchive,
-  onUnarchive,
   templateId,
   isCreateMode,
   readOnly,
@@ -134,6 +126,7 @@ export function DocumentHeader({
   createdBy,
   currentVersion,
   rightSlot,
+  onDelete,
 }: DocumentHeaderProps) {
   const navigate = useNavigate();
   const categoriesQuery = useCategories();
@@ -333,13 +326,6 @@ export function DocumentHeader({
         ))}
       </Select>
 
-      {/* Status chip */}
-      {!isCreateMode && status != null && (
-        <Box sx={{ mr: '12px' }}>
-          <StatusChip status={status} />
-        </Box>
-      )}
-
       {/* Mode toggle */}
       {!isCreateMode && (
         <Box
@@ -525,6 +511,50 @@ export function DocumentHeader({
               </Typography>
             </Box>
           )}
+
+          {onDelete != null && !readOnly && (
+            <>
+              <Divider sx={{ mt: 2, mb: 1.5, borderColor: 'var(--border-primary)' }} />
+              <Box
+                role="button"
+                tabIndex={0}
+                onClick={() => {
+                  handleMoreClose();
+                  onDelete();
+                }}
+                onKeyDown={(e: React.KeyboardEvent) => {
+                  if (e.key === 'Enter') {
+                    handleMoreClose();
+                    onDelete();
+                  }
+                }}
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
+                  padding: '8px 12px',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  color: '#DC2626',
+                  '&:hover': {
+                    backgroundColor: '#FEE2E2',
+                  },
+                }}
+              >
+                <DeleteOutlineRounded sx={{ fontSize: 18 }} />
+                <Typography
+                  sx={{
+                    fontFamily: '"DM Sans", sans-serif',
+                    fontSize: '0.875rem',
+                    fontWeight: 500,
+                    color: '#DC2626',
+                  }}
+                >
+                  Delete template
+                </Typography>
+              </Box>
+            </>
+          )}
         </Box>
       </Popover>
 
@@ -534,87 +564,6 @@ export function DocumentHeader({
       {/* Right slot (connection status, presence avatars, export) */}
       {rightSlot != null && (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mr: 1 }}>{rightSlot}</Box>
-      )}
-
-      {/* Action buttons */}
-      {!readOnly && !isCreateMode && status === 'draft' && onPublish != null && (
-        <Button
-          aria-label="Publish template"
-          onClick={onPublish}
-          variant="contained"
-          size="small"
-          sx={{
-            height: '28px',
-            padding: '0 12px',
-            borderRadius: '6px',
-            backgroundColor: 'var(--accent-primary)',
-            color: 'var(--text-on-purple)',
-            fontFamily: '"DM Sans", sans-serif',
-            fontSize: '0.8125rem',
-            fontWeight: 600,
-            textTransform: 'none',
-            mr: '8px',
-            '&:hover': {
-              backgroundColor: 'var(--accent-primary-hover)',
-            },
-          }}
-        >
-          Publish
-        </Button>
-      )}
-
-      {!readOnly && !isCreateMode && status === 'active' && onArchive != null && (
-        <Button
-          aria-label="Archive template"
-          onClick={onArchive}
-          variant="outlined"
-          size="small"
-          sx={{
-            height: '28px',
-            padding: '0 12px',
-            borderRadius: '6px',
-            border: '1px solid var(--border-primary)',
-            color: 'var(--text-secondary)',
-            fontFamily: '"DM Sans", sans-serif',
-            fontSize: '0.8125rem',
-            fontWeight: 600,
-            textTransform: 'none',
-            mr: '8px',
-            '&:hover': {
-              backgroundColor: 'var(--surface-tertiary)',
-              borderColor: 'var(--border-hover)',
-            },
-          }}
-        >
-          Archive
-        </Button>
-      )}
-
-      {!readOnly && !isCreateMode && status === 'archived' && onUnarchive != null && (
-        <Button
-          aria-label="Unarchive template"
-          onClick={onUnarchive}
-          variant="outlined"
-          size="small"
-          sx={{
-            height: '28px',
-            padding: '0 12px',
-            borderRadius: '6px',
-            border: '1px solid var(--border-primary)',
-            color: 'var(--text-secondary)',
-            fontFamily: '"DM Sans", sans-serif',
-            fontSize: '0.8125rem',
-            fontWeight: 600,
-            textTransform: 'none',
-            mr: '8px',
-            '&:hover': {
-              backgroundColor: 'var(--surface-tertiary)',
-              borderColor: 'var(--border-hover)',
-            },
-          }}
-        >
-          Unarchive
-        </Button>
       )}
 
       {/* History button — not in create mode */}

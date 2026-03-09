@@ -30,10 +30,6 @@ vi.mock('../../src/hooks/useCountries.js', () => ({
   useCountries: () => mockCountriesData() as unknown,
 }));
 
-vi.mock('../../src/components/StatusChip.js', () => ({
-  StatusChip: ({ status }: { status: string }) => <span data-testid="status-chip">{status}</span>,
-}));
-
 const { DocumentHeader } = await import('../../src/components/DocumentHeader.js');
 
 function Wrapper({ children }: { children: ReactNode }) {
@@ -80,12 +76,8 @@ interface RenderProps {
   onCategoryChange?: (category: string) => void;
   country?: string;
   onCountryChange?: (country: string) => void;
-  status?: 'draft' | 'active' | 'archived' | undefined;
   editorMode?: 'source' | 'review';
   onModeChange?: (mode: 'source' | 'review') => void;
-  onPublish?: (() => void) | undefined;
-  onArchive?: (() => void) | undefined;
-  onUnarchive?: (() => void) | undefined;
   templateId?: string | undefined;
   isCreateMode?: boolean;
   readOnly?: boolean;
@@ -94,6 +86,7 @@ interface RenderProps {
   createdBy?: string | undefined;
   currentVersion?: number | undefined;
   rightSlot?: ReactNode;
+  onDelete?: (() => void) | undefined;
 }
 
 function renderHeader(props: RenderProps = {}) {
@@ -104,7 +97,6 @@ function renderHeader(props: RenderProps = {}) {
     onCategoryChange: vi.fn(),
     country: 'US',
     onCountryChange: vi.fn(),
-    status: 'draft' as const,
     editorMode: 'source' as const,
     onModeChange: vi.fn(),
     templateId: 't1',
@@ -184,20 +176,10 @@ describe('DocumentHeader', () => {
     expect(screen.getByText('Country')).toBeInTheDocument();
   });
 
-  // Status chip
-  it('renders StatusChip for draft status', () => {
-    renderHeader({ status: 'draft' });
-    expect(screen.getByTestId('status-chip')).toHaveTextContent('draft');
-  });
-
-  it('renders StatusChip for active status', () => {
-    renderHeader({ status: 'active' });
-    expect(screen.getByTestId('status-chip')).toHaveTextContent('active');
-  });
-
-  it('renders StatusChip for archived status', () => {
-    renderHeader({ status: 'archived' });
-    expect(screen.getByTestId('status-chip')).toHaveTextContent('archived');
+  // Status chip removed — no longer part of DocumentHeader
+  it('does not render a status chip', () => {
+    renderHeader();
+    expect(screen.queryByTestId('status-chip')).not.toBeInTheDocument();
   });
 
   // Mode toggle
@@ -221,46 +203,12 @@ describe('DocumentHeader', () => {
     expect(screen.getByRole('radio', { name: 'Review' })).toHaveAttribute('aria-checked', 'false');
   });
 
-  // Publish button (draft)
-  it('shows Publish button for draft status', () => {
-    renderHeader({ status: 'draft', onPublish: vi.fn() });
-    expect(screen.getByRole('button', { name: 'Publish template' })).toBeInTheDocument();
-  });
-
-  it('calls onPublish when Publish is clicked', async () => {
-    const user = userEvent.setup();
-    const onPublish = vi.fn();
-    renderHeader({ status: 'draft', onPublish });
-    await user.click(screen.getByRole('button', { name: 'Publish template' }));
-    expect(onPublish).toHaveBeenCalled();
-  });
-
-  // Archive button (active)
-  it('shows Archive button for active status', () => {
-    renderHeader({ status: 'active', onArchive: vi.fn() });
-    expect(screen.getByRole('button', { name: 'Archive template' })).toBeInTheDocument();
-  });
-
-  it('calls onArchive when Archive is clicked', async () => {
-    const user = userEvent.setup();
-    const onArchive = vi.fn();
-    renderHeader({ status: 'active', onArchive });
-    await user.click(screen.getByRole('button', { name: 'Archive template' }));
-    expect(onArchive).toHaveBeenCalled();
-  });
-
-  // Unarchive button (archived)
-  it('shows Unarchive button for archived status', () => {
-    renderHeader({ status: 'archived', onUnarchive: vi.fn() });
-    expect(screen.getByRole('button', { name: 'Unarchive template' })).toBeInTheDocument();
-  });
-
-  it('calls onUnarchive when Unarchive is clicked', async () => {
-    const user = userEvent.setup();
-    const onUnarchive = vi.fn();
-    renderHeader({ status: 'archived', onUnarchive });
-    await user.click(screen.getByRole('button', { name: 'Unarchive template' }));
-    expect(onUnarchive).toHaveBeenCalled();
+  // No publish/archive/unarchive buttons (removed in soft-delete refactor)
+  it('does not render Publish, Archive, or Unarchive buttons', () => {
+    renderHeader();
+    expect(screen.queryByRole('button', { name: 'Publish template' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Archive template' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Unarchive template' })).not.toBeInTheDocument();
   });
 
   // More button / MetadataPopover
@@ -294,7 +242,7 @@ describe('DocumentHeader', () => {
 
   // Create mode
   it('create mode: no status chip', () => {
-    renderHeader({ isCreateMode: true, status: undefined });
+    renderHeader({ isCreateMode: true });
     expect(screen.queryByTestId('status-chip')).not.toBeInTheDocument();
   });
 
@@ -327,7 +275,7 @@ describe('DocumentHeader', () => {
   });
 
   it('viewer role: no action buttons', () => {
-    renderHeader({ readOnly: true, status: 'draft' });
+    renderHeader({ readOnly: true });
     expect(screen.queryByRole('button', { name: 'Publish template' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Archive template' })).not.toBeInTheDocument();
   });
@@ -340,20 +288,29 @@ describe('DocumentHeader', () => {
     expect(screen.getByTestId('right-slot-content')).toBeInTheDocument();
   });
 
-  // No publish/archive when callbacks not provided
-  it('does not show Publish button when onPublish not provided', () => {
-    renderHeader({ status: 'draft', onPublish: undefined });
-    expect(screen.queryByRole('button', { name: 'Publish template' })).not.toBeInTheDocument();
+  // Delete button in popover
+  it('shows Delete template button in popover when onDelete provided', async () => {
+    const user = userEvent.setup();
+    const onDelete = vi.fn();
+    renderHeader({ onDelete });
+    await user.click(screen.getByRole('button', { name: 'Template details' }));
+    expect(screen.getByText('Delete template')).toBeInTheDocument();
   });
 
-  it('does not show Archive button when onArchive not provided', () => {
-    renderHeader({ status: 'active', onArchive: undefined });
-    expect(screen.queryByRole('button', { name: 'Archive template' })).not.toBeInTheDocument();
+  it('calls onDelete when Delete template is clicked', async () => {
+    const user = userEvent.setup();
+    const onDelete = vi.fn();
+    renderHeader({ onDelete });
+    await user.click(screen.getByRole('button', { name: 'Template details' }));
+    await user.click(screen.getByText('Delete template'));
+    expect(onDelete).toHaveBeenCalled();
   });
 
-  it('does not show Unarchive button when onUnarchive not provided', () => {
-    renderHeader({ status: 'archived', onUnarchive: undefined });
-    expect(screen.queryByRole('button', { name: 'Unarchive template' })).not.toBeInTheDocument();
+  it('does not show Delete template when onDelete not provided', async () => {
+    const user = userEvent.setup();
+    renderHeader({ onDelete: undefined });
+    await user.click(screen.getByRole('button', { name: 'Template details' }));
+    expect(screen.queryByText('Delete template')).not.toBeInTheDocument();
   });
 
   // Mode toggle: click Source (covers onModeChange('source') branch)
@@ -498,13 +455,73 @@ describe('DocumentHeader', () => {
   it('title input has transparent bottom border with hover and focus styles', () => {
     renderHeader({ title: 'My Template' });
     const titleInput = screen.getByRole('textbox', { name: 'Template title' });
-    // MUI sx prop applies styles via className; verify the element is rendered
-    // and has the expected base style attribute set by MUI's sx system
     expect(titleInput).toBeInTheDocument();
-    // The borderBottom, transition, hover, and focus styles are applied via MUI sx.
-    // We verify the element exists and is styled (MUI injects class-based styles).
-    // A more thorough check would require computed style testing which is not
-    // available in jsdom, but the sx prop presence is validated by the component rendering.
     expect(titleInput).toHaveStyle({ border: 'none' });
+  });
+
+  // Delete option in popover
+  it('shows Delete template option in popover when onDelete is provided', async () => {
+    const user = userEvent.setup();
+    const onDelete = vi.fn();
+    renderHeader({ onDelete });
+    await user.click(screen.getByRole('button', { name: 'Template details' }));
+    expect(screen.getByText('Delete template')).toBeInTheDocument();
+  });
+
+  it('calls onDelete when Delete template is clicked', async () => {
+    const user = userEvent.setup();
+    const onDelete = vi.fn();
+    renderHeader({ onDelete });
+    await user.click(screen.getByRole('button', { name: 'Template details' }));
+    await user.click(screen.getByText('Delete template'));
+    expect(onDelete).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not show Delete template option when onDelete is not provided', async () => {
+    const user = userEvent.setup();
+    renderHeader();
+    await user.click(screen.getByRole('button', { name: 'Template details' }));
+    expect(screen.queryByText('Delete template')).not.toBeInTheDocument();
+  });
+
+  it('does not show Delete template option when readOnly', async () => {
+    const user = userEvent.setup();
+    const onDelete = vi.fn();
+    renderHeader({ readOnly: true, onDelete });
+    await user.click(screen.getByRole('button', { name: 'Template details' }));
+    expect(screen.queryByText('Delete template')).not.toBeInTheDocument();
+  });
+
+  // Delete template via keyboard (Enter key on delete button in popover)
+  it('calls onDelete when Enter is pressed on Delete template button', async () => {
+    const user = userEvent.setup();
+    const onDelete = vi.fn();
+    renderHeader({ onDelete });
+    await user.click(screen.getByRole('button', { name: 'Template details' }));
+    const deleteButton = screen.getByRole('button', { name: 'Delete template' });
+    fireEvent.keyDown(deleteButton, { key: 'Enter' });
+    expect(onDelete).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not call onDelete when non-Enter key is pressed on Delete template button', async () => {
+    const user = userEvent.setup();
+    const onDelete = vi.fn();
+    renderHeader({ onDelete });
+    await user.click(screen.getByRole('button', { name: 'Template details' }));
+    const deleteButton = screen.getByRole('button', { name: 'Delete template' });
+    fireEvent.keyDown(deleteButton, { key: 'Space' });
+    expect(onDelete).not.toHaveBeenCalled();
+  });
+
+  // Country select: code not matching any country falls back to raw code value
+  it('country select shows raw code when no matching country found', () => {
+    mockCountriesData.mockReturnValue({
+      data: { countries: [] },
+      isLoading: false,
+      isError: false,
+      isSuccess: true,
+    });
+    renderHeader({ country: 'ZZ' });
+    expect(screen.getByText('ZZ')).toBeInTheDocument();
   });
 });

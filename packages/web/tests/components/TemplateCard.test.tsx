@@ -1,6 +1,7 @@
 /// <reference types="@testing-library/jest-dom/vitest" />
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import type { Template } from '@legalcode/shared';
 import { TemplateCard } from '../../src/components/TemplateCard.js';
 
@@ -11,8 +12,9 @@ const mockTemplate: Template = {
   category: 'Employment',
   description: null,
   country: 'US',
-  status: 'active',
   currentVersion: 2,
+  deletedAt: null,
+  deletedBy: null,
   createdBy: 'u1',
   createdAt: '2026-01-01T00:00:00Z',
   updatedAt: '2026-03-01T00:00:00Z',
@@ -35,7 +37,6 @@ describe('TemplateCard', () => {
     render(<TemplateCard template={mockTemplate} onClick={onClick} />);
     const title = screen.getByText('Employment Agreement');
     expect(title).toBeInTheDocument();
-    // MUI sx applies font-family via CSS classes; verify classes are applied
     expect(title.className.split(' ').length).toBeGreaterThan(0);
   });
 
@@ -46,27 +47,15 @@ describe('TemplateCard', () => {
     expect(category).toHaveStyle({ textTransform: 'uppercase' });
   });
 
-  it('renders status badge', () => {
+  it('does not render a status badge', () => {
     render(<TemplateCard template={mockTemplate} onClick={onClick} />);
-    // active status renders as "Published"
-    expect(screen.getByText('Published')).toBeInTheDocument();
-  });
-
-  it('renders draft status badge', () => {
-    const draftTemplate = { ...mockTemplate, status: 'draft' as const };
-    render(<TemplateCard template={draftTemplate} onClick={onClick} />);
-    expect(screen.getByText('Draft')).toBeInTheDocument();
-  });
-
-  it('renders archived status badge', () => {
-    const archivedTemplate = { ...mockTemplate, status: 'archived' as const };
-    render(<TemplateCard template={archivedTemplate} onClick={onClick} />);
-    expect(screen.getByText('Archived')).toBeInTheDocument();
+    expect(screen.queryByText('Published')).not.toBeInTheDocument();
+    expect(screen.queryByText('Draft')).not.toBeInTheDocument();
+    expect(screen.queryByText('Archived')).not.toBeInTheDocument();
   });
 
   it('renders relative time in metadata', () => {
     render(<TemplateCard template={mockTemplate} onClick={onClick} />);
-    // updatedAt is 2026-03-01, current is 2026-03-06 => 5d ago
     expect(screen.getByText('5d ago')).toBeInTheDocument();
   });
 
@@ -78,7 +67,6 @@ describe('TemplateCard', () => {
   it('renders separator dots between metadata items', () => {
     render(<TemplateCard template={mockTemplate} onClick={onClick} />);
     const card = screen.getByTestId('template-card-t1');
-    // There should be at least one separator dot
     const dots = card.querySelectorAll('[data-testid="separator-dot"]');
     expect(dots.length).toBeGreaterThanOrEqual(1);
   });
@@ -163,7 +151,6 @@ describe('TemplateCard', () => {
   it('renders card with MUI sx styles applied', () => {
     render(<TemplateCard template={mockTemplate} onClick={onClick} />);
     const card = screen.getByTestId('template-card-t1');
-    // MUI sx applies styles via CSS-in-JS classes; verify classes are present
     expect(card.className.split(' ').length).toBeGreaterThan(1);
     expect(card).toBeInTheDocument();
   });
@@ -171,8 +158,65 @@ describe('TemplateCard', () => {
   it('title element exists and has overflow hidden', () => {
     render(<TemplateCard template={mockTemplate} onClick={onClick} />);
     const title = screen.getByText('Employment Agreement');
-    // MUI sx props generate CSS classes; verify the element exists and has classes applied
     expect(title).toBeInTheDocument();
     expect(title.className.split(' ').length).toBeGreaterThan(0);
+  });
+
+  // Three-dot menu tests
+  it('renders three-dot menu button when onDelete is provided', () => {
+    const onDelete = vi.fn();
+    render(<TemplateCard template={mockTemplate} onClick={onClick} onDelete={onDelete} />);
+    expect(screen.getByRole('button', { name: 'Template actions' })).toBeInTheDocument();
+  });
+
+  it('does not render three-dot menu when onDelete is not provided', () => {
+    render(<TemplateCard template={mockTemplate} onClick={onClick} />);
+    expect(screen.queryByRole('button', { name: 'Template actions' })).not.toBeInTheDocument();
+  });
+
+  it('opens menu with Delete option on three-dot click', async () => {
+    vi.useRealTimers();
+    const user = userEvent.setup();
+    const onDelete = vi.fn();
+    render(<TemplateCard template={mockTemplate} onClick={onClick} onDelete={onDelete} />);
+    await user.click(screen.getByRole('button', { name: 'Template actions' }));
+    expect(screen.getByRole('menuitem', { name: /delete/i })).toBeInTheDocument();
+  });
+
+  it('calls onDelete with template id when Delete is clicked', async () => {
+    vi.useRealTimers();
+    const user = userEvent.setup();
+    const onDelete = vi.fn();
+    render(<TemplateCard template={mockTemplate} onClick={onClick} onDelete={onDelete} />);
+    await user.click(screen.getByRole('button', { name: 'Template actions' }));
+    await user.click(screen.getByRole('menuitem', { name: /delete/i }));
+    expect(onDelete).toHaveBeenCalledWith('t1');
+  });
+
+  it('does not trigger card onClick when three-dot menu is clicked', async () => {
+    vi.useRealTimers();
+    const user = userEvent.setup();
+    const onDelete = vi.fn();
+    render(<TemplateCard template={mockTemplate} onClick={onClick} onDelete={onDelete} />);
+    await user.click(screen.getByRole('button', { name: 'Template actions' }));
+    expect(onClick).not.toHaveBeenCalled();
+  });
+
+  it('three-dot menu button has correct aria attributes', () => {
+    const onDelete = vi.fn();
+    render(<TemplateCard template={mockTemplate} onClick={onClick} onDelete={onDelete} />);
+    const menuBtn = screen.getByRole('button', { name: 'Template actions' });
+    expect(menuBtn).toHaveAttribute('aria-haspopup', 'true');
+    expect(menuBtn).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  // Covers line 41: keydown on menu button should NOT trigger card onClick
+  it('does not call onClick when Enter is pressed on the Template actions button', () => {
+    const onDelete = vi.fn();
+    render(<TemplateCard template={mockTemplate} onClick={onClick} onDelete={onDelete} />);
+    const menuBtn = screen.getByRole('button', { name: 'Template actions' });
+    menuBtn.focus();
+    menuBtn.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    expect(onClick).not.toHaveBeenCalled();
   });
 });

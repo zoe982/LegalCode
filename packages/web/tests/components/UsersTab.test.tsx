@@ -16,12 +16,6 @@ let mockUpdateRolePending = false;
 const mockRemoveUser = vi.fn();
 let mockRemoveUserPending = false;
 
-const mockUseAllowedEmails = vi.fn();
-const mockAddAllowedEmail = vi.fn();
-let mockAddEmailPending = false;
-const mockRemoveAllowedEmail = vi.fn();
-let mockRemoveEmailPending = false;
-
 vi.mock('../../src/hooks/useUsers.js', () => ({
   useUsers: (...args: unknown[]) => mockUseUsers(...args) as unknown,
   useCreateUser: () => ({
@@ -35,15 +29,6 @@ vi.mock('../../src/hooks/useUsers.js', () => ({
   useRemoveUser: () => ({
     mutate: mockRemoveUser,
     isPending: mockRemoveUserPending,
-  }),
-  useAllowedEmails: (...args: unknown[]) => mockUseAllowedEmails(...args) as unknown,
-  useAddAllowedEmail: () => ({
-    mutate: mockAddAllowedEmail,
-    isPending: mockAddEmailPending,
-  }),
-  useRemoveAllowedEmail: () => ({
-    mutate: mockRemoveAllowedEmail,
-    isPending: mockRemoveEmailPending,
   }),
 }));
 
@@ -109,11 +94,6 @@ function setupPopulated() {
     isLoading: false,
     error: null,
   });
-  mockUseAllowedEmails.mockReturnValue({
-    data: { emails: ['allowed1@acasus.com', 'allowed2@acasus.com'] },
-    isLoading: false,
-    error: null,
-  });
 }
 
 describe('UsersTab', () => {
@@ -122,8 +102,6 @@ describe('UsersTab', () => {
     mockCreateUserPending = false;
     mockUpdateRolePending = false;
     mockRemoveUserPending = false;
-    mockAddEmailPending = false;
-    mockRemoveEmailPending = false;
 
     mockUseAuth.mockReturnValue({
       user: currentUser,
@@ -132,11 +110,6 @@ describe('UsersTab', () => {
     });
     mockUseUsers.mockReturnValue({
       data: { users: [] },
-      isLoading: false,
-      error: null,
-    });
-    mockUseAllowedEmails.mockReturnValue({
-      data: { emails: [] },
       isLoading: false,
       error: null,
     });
@@ -362,9 +335,7 @@ describe('UsersTab', () => {
       await user.hover(tooltipWrapper);
     }
     await waitFor(() => {
-      expect(screen.getByRole('tooltip')).toHaveTextContent(
-        'You cannot modify your own account',
-      );
+      expect(screen.getByRole('tooltip')).toHaveTextContent('You cannot modify your own account');
     });
   });
 
@@ -391,8 +362,8 @@ describe('UsersTab', () => {
     setupPopulated();
     renderTab();
     const nativeSelect = screen.getByLabelText('Change role for Editor User');
-    const selectContainer = nativeSelect.closest('.MuiSelect-root')
-      ?? nativeSelect.closest('.MuiInputBase-root');
+    const selectContainer =
+      nativeSelect.closest('.MuiSelect-root') ?? nativeSelect.closest('.MuiInputBase-root');
     const trigger = selectContainer?.querySelector('[role="combobox"]');
     expect(trigger).toBeInstanceOf(HTMLElement);
     await user.click(trigger as HTMLElement);
@@ -447,76 +418,6 @@ describe('UsersTab', () => {
   });
 
   // =====================
-  // Allowed Emails section
-  // =====================
-
-  it('renders allowed emails section', () => {
-    setupPopulated();
-    renderTab();
-    expect(screen.getByText('Allowed Emails')).toBeInTheDocument();
-  });
-
-  it('lists allowed emails', () => {
-    setupPopulated();
-    renderTab();
-    expect(screen.getByText('allowed1@acasus.com')).toBeInTheDocument();
-    expect(screen.getByText('allowed2@acasus.com')).toBeInTheDocument();
-  });
-
-  it('shows empty state for allowed emails when none exist', () => {
-    mockUseUsers.mockReturnValue({
-      data: { users: allUsers },
-      isLoading: false,
-      error: null,
-    });
-    mockUseAllowedEmails.mockReturnValue({
-      data: { emails: [] },
-      isLoading: false,
-      error: null,
-    });
-    renderTab();
-    expect(screen.getByText('No allowed emails configured.')).toBeInTheDocument();
-  });
-
-  it('adds an allowed email', async () => {
-    const user = userEvent.setup();
-    setupPopulated();
-    renderTab();
-    const emailInput = screen.getByLabelText(/add email/i);
-    await user.type(emailInput, 'new@acasus.com');
-    await user.click(screen.getByRole('button', { name: /^add$/i }));
-    expect(mockAddAllowedEmail).toHaveBeenCalledWith('new@acasus.com', expect.anything());
-  });
-
-  it('disables Add email button when email input is empty', () => {
-    setupPopulated();
-    renderTab();
-    const addButton = screen.getByRole('button', { name: /^add$/i });
-    expect(addButton).toBeDisabled();
-  });
-
-  it('opens confirmation dialog when removing allowed email', async () => {
-    const user = userEvent.setup();
-    setupPopulated();
-    renderTab();
-    await user.click(screen.getByLabelText('Remove allowed1@acasus.com from allowed list'));
-    expect(screen.getByRole('dialog')).toBeInTheDocument();
-    expect(
-      screen.getByText(/Remove allowed1@acasus.com from the allowed list/),
-    ).toBeInTheDocument();
-  });
-
-  it('calls removeAllowedEmail on confirm', async () => {
-    const user = userEvent.setup();
-    setupPopulated();
-    renderTab();
-    await user.click(screen.getByLabelText('Remove allowed1@acasus.com from allowed list'));
-    const dialog = screen.getByRole('dialog');
-    await user.click(within(dialog).getByRole('button', { name: /remove/i }));
-    expect(mockRemoveAllowedEmail).toHaveBeenCalledWith('allowed1@acasus.com', expect.anything());
-  });
-
-  // =====================
   // Accessibility
   // =====================
 
@@ -549,19 +450,6 @@ describe('UsersTab', () => {
   // onSuccess callbacks
   // =====================
 
-  it('clears allowed email input after successful add', async () => {
-    const user = userEvent.setup();
-    mockAddAllowedEmail.mockImplementation((_email: string, opts: { onSuccess?: () => void }) => {
-      opts.onSuccess?.();
-    });
-    setupPopulated();
-    renderTab();
-    const emailInput = screen.getByLabelText(/add email/i);
-    await user.type(emailInput, 'new@acasus.com');
-    await user.click(screen.getByRole('button', { name: /^add$/i }));
-    expect(emailInput).toHaveValue('');
-  });
-
   it('closes dialog after successful user removal', async () => {
     const user = userEvent.setup();
     mockRemoveUser.mockImplementation((_id: string, opts: { onSuccess?: () => void }) => {
@@ -573,35 +461,6 @@ describe('UsersTab', () => {
     expect(screen.getByRole('dialog')).toBeInTheDocument();
     const dialog = screen.getByRole('dialog');
     await user.click(within(dialog).getByRole('button', { name: /remove/i }));
-    await waitFor(() => {
-      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    });
-  });
-
-  it('closes dialog after successful email removal', async () => {
-    const user = userEvent.setup();
-    mockRemoveAllowedEmail.mockImplementation((_email: string, opts: { onSuccess?: () => void }) => {
-      opts.onSuccess?.();
-    });
-    setupPopulated();
-    renderTab();
-    await user.click(screen.getByLabelText('Remove allowed1@acasus.com from allowed list'));
-    expect(screen.getByRole('dialog')).toBeInTheDocument();
-    const dialog = screen.getByRole('dialog');
-    await user.click(within(dialog).getByRole('button', { name: /remove/i }));
-    await waitFor(() => {
-      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    });
-  });
-
-  it('closes email removal dialog on cancel', async () => {
-    const user = userEvent.setup();
-    setupPopulated();
-    renderTab();
-    await user.click(screen.getByLabelText('Remove allowed1@acasus.com from allowed list'));
-    expect(screen.getByRole('dialog')).toBeInTheDocument();
-    const dialog = screen.getByRole('dialog');
-    await user.click(within(dialog).getByRole('button', { name: /cancel/i }));
     await waitFor(() => {
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     });
@@ -625,19 +484,6 @@ describe('UsersTab', () => {
     expect(removeBtn?.querySelector('.MuiCircularProgress-root')).toBeInTheDocument();
   });
 
-  it('shows loading in remove email button when pending', async () => {
-    const user = userEvent.setup();
-    mockRemoveEmailPending = true;
-    setupPopulated();
-    renderTab();
-    await user.click(screen.getByLabelText('Remove allowed1@acasus.com from allowed list'));
-    const dialog = screen.getByRole('dialog');
-    const buttons = within(dialog).getAllByRole('button');
-    const removeBtn = buttons[buttons.length - 1];
-    expect(removeBtn).toBeDisabled();
-    expect(removeBtn?.querySelector('.MuiCircularProgress-root')).toBeInTheDocument();
-  });
-
   // =====================
   // Add user error and success feedback
   // =====================
@@ -654,29 +500,19 @@ describe('UsersTab', () => {
     });
   });
 
-  it('closes remove email dialog via escape key', async () => {
-    const user = userEvent.setup();
-    setupPopulated();
-    renderTab();
-    await user.click(screen.getByLabelText('Remove allowed1@acasus.com from allowed list'));
-    expect(screen.getByRole('dialog')).toBeInTheDocument();
-    await user.keyboard('{Escape}');
-    await waitFor(() => {
-      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    });
-  });
-
   it('allows changing role in add user form', async () => {
     const user = userEvent.setup();
     renderTab();
     const roleSelect = screen.getByLabelText('Select role for new user');
-    const selectContainer = roleSelect.closest('.MuiSelect-root')
-      ?? roleSelect.closest('.MuiInputBase-root');
+    const selectContainer =
+      roleSelect.closest('.MuiSelect-root') ?? roleSelect.closest('.MuiInputBase-root');
     const trigger = selectContainer?.querySelector('[role="combobox"]');
     expect(trigger).toBeInstanceOf(HTMLElement);
     await user.click(trigger as HTMLElement);
     const listbox = await screen.findByRole('listbox');
-    const editorOption = within(listbox).getAllByRole('option').find((opt) => opt.textContent === 'Editor');
+    const editorOption = within(listbox)
+      .getAllByRole('option')
+      .find((opt) => opt.textContent === 'Editor');
     expect(editorOption).toBeTruthy();
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- asserted above
     await user.click(editorOption!);
@@ -695,9 +531,11 @@ describe('UsersTab', () => {
 
   it('shows error message on add user failure', async () => {
     const user = userEvent.setup();
-    mockCreateUser.mockImplementation((_data: unknown, opts: { onError?: (err: Error) => void }) => {
-      opts.onError?.(new Error('Email already exists'));
-    });
+    mockCreateUser.mockImplementation(
+      (_data: unknown, opts: { onError?: (err: Error) => void }) => {
+        opts.onError?.(new Error('Email already exists'));
+      },
+    );
     renderTab();
     const form = screen.getByLabelText('Add new user form');
     await user.type(within(form).getByLabelText(/email/i), 'dup@acasus.com');

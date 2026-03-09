@@ -1,14 +1,34 @@
-import { Box, Typography } from '@mui/material';
+import { useState, useCallback } from 'react';
+import { Box, Typography, IconButton, Menu, MenuItem } from '@mui/material';
+import MoreVertRounded from '@mui/icons-material/MoreVertRounded';
+import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded';
 import type { Template } from '@legalcode/shared';
-import { StatusChip } from './StatusChip.js';
 import { relativeTime } from '../utils/relativeTime.js';
 
 export interface TemplateCardProps {
   template: Template;
   onClick: () => void;
+  onDelete?: ((templateId: string) => void) | undefined;
 }
 
-export function TemplateCard({ template, onClick }: TemplateCardProps) {
+export function TemplateCard({ template, onClick, onDelete }: TemplateCardProps) {
+  const [menuAnchorEl, setMenuAnchorEl] = useState<HTMLElement | null>(null);
+  const menuOpen = Boolean(menuAnchorEl);
+
+  const handleMenuOpen = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    setMenuAnchorEl(event.currentTarget);
+  }, []);
+
+  const handleMenuClose = useCallback(() => {
+    setMenuAnchorEl(null);
+  }, []);
+
+  const handleDelete = useCallback(() => {
+    handleMenuClose();
+    onDelete?.(template.id);
+  }, [handleMenuClose, onDelete, template.id]);
+
   return (
     <Box
       data-testid={`template-card-${template.id}`}
@@ -16,6 +36,9 @@ export function TemplateCard({ template, onClick }: TemplateCardProps) {
       role="button"
       onClick={onClick}
       onKeyDown={(e: React.KeyboardEvent) => {
+        // Don't trigger card navigation when focus is on the menu button
+        const target = e.target as HTMLElement;
+        if (target.closest('[aria-label="Template actions"]')) return;
         if (e.key === 'Enter') {
           onClick();
         }
@@ -45,7 +68,7 @@ export function TemplateCard({ template, onClick }: TemplateCardProps) {
         },
       }}
     >
-      {/* Top row: category + status */}
+      {/* Top row: category + menu */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Typography
           sx={{
@@ -60,8 +83,56 @@ export function TemplateCard({ template, onClick }: TemplateCardProps) {
         >
           {template.category}
         </Typography>
-        <StatusChip status={template.status} />
+        {onDelete != null && (
+          <IconButton
+            aria-label="Template actions"
+            aria-haspopup="true"
+            aria-expanded={menuOpen}
+            onClick={handleMenuOpen}
+            size="small"
+            sx={{
+              width: 28,
+              height: 28,
+              color: '#9B9DB0',
+              '&:hover': { color: '#6B6D82', backgroundColor: '#F3F3F7' },
+            }}
+          >
+            <MoreVertRounded sx={{ fontSize: 18 }} />
+          </IconButton>
+        )}
       </Box>
+      {onDelete != null && (
+        <Menu
+          anchorEl={menuAnchorEl}
+          open={menuOpen}
+          onClose={handleMenuClose}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+          transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+          slotProps={{
+            paper: {
+              sx: {
+                borderRadius: '10px',
+                border: '1px solid #E4E5ED',
+                boxShadow: '0 4px 6px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.04)',
+              },
+            },
+          }}
+        >
+          <MenuItem
+            onClick={handleDelete}
+            sx={{
+              color: '#DC2626',
+              fontFamily: '"DM Sans", sans-serif',
+              fontSize: '0.875rem',
+              gap: 1,
+              '&:hover': { backgroundColor: '#FEE2E2' },
+            }}
+          >
+            <DeleteOutlineRounded sx={{ fontSize: 18 }} />
+            Delete
+          </MenuItem>
+        </Menu>
+      )}
 
       {/* Title */}
       <Typography

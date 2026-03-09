@@ -25,6 +25,9 @@
     "bindings": [{ "name": "TEMPLATE_SESSION", "class_name": "TemplateSession" }],
   },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["TemplateSession"] }],
+  "triggers": {
+    "crons": ["0 3 * * *"]
+  },
   "workers_dev": true,
   "routes": [{ "pattern": "legalcode.ax1access.com", "custom_domain": true }],
   "vars": {
