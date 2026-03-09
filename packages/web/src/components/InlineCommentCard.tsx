@@ -1,7 +1,6 @@
 import { useState, useCallback } from 'react';
 import {
   Box,
-  Button,
   Typography,
   TextField,
   IconButton,
@@ -55,9 +54,10 @@ function CommentRow({
         <Typography
           sx={{
             fontSize: '0.8125rem',
-            fontWeight: 600,
+            fontWeight: isReply === true ? 500 : 600,
             color: '#12111A',
             fontFamily: '"DM Sans", sans-serif',
+            letterSpacing: '-0.01em',
           }}
         >
           {comment.authorName}
@@ -67,10 +67,9 @@ function CommentRow({
             fontSize: '0.75rem',
             color: '#9B9DB0',
             fontFamily: '"DM Sans", sans-serif',
-            marginLeft: 'auto',
           }}
         >
-          {formatRelativeTime(comment.createdAt)}
+          {`\u00B7 ${formatRelativeTime(comment.createdAt)}`}
         </Typography>
       </Box>
       <Box sx={{ display: 'flex', alignItems: 'flex-start', pl: 4 }}>
@@ -103,6 +102,9 @@ export function InlineCommentCard({
   const [replyFocused, setReplyFocused] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
+  const [isHovered, setIsHovered] = useState(false);
+
+  const showReplyInput = isActive === true || isHovered || replyFocused || replyText !== '';
 
   const handleSendReply = useCallback(() => {
     if (replyText.trim() === '') return;
@@ -137,11 +139,11 @@ export function InlineCommentCard({
         aria-label={`Comment by ${thread.comment.authorName}`}
         style={style}
         sx={{
-          p: 1.5,
-          borderRadius: '8px',
-          backgroundColor: '#FFFFFF',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.08)',
-          opacity: 0.7,
+          p: '10px 16px',
+          borderRadius: '10px',
+          backgroundColor: '#F9F9FB',
+          border: '1px solid #F3F3F7',
+          boxShadow: 'none',
           cursor: 'pointer',
           width: '100%',
           boxSizing: 'border-box',
@@ -153,7 +155,9 @@ export function InlineCommentCard({
         <Typography
           sx={{ fontSize: '0.75rem', color: '#6B6D82', fontFamily: '"DM Sans", sans-serif' }}
         >
-          <CheckRoundedIcon sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />
+          <CheckRoundedIcon
+            sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5, color: '#2e7d32' }}
+          />
           {thread.comment.authorName} resolved
         </Typography>
         <Collapse in={expanded}>
@@ -171,19 +175,32 @@ export function InlineCommentCard({
       aria-label={`Comment by ${thread.comment.authorName}`}
       style={style}
       {...(isActive === true ? { 'data-active': 'true' } : {})}
+      onMouseEnter={() => {
+        setIsHovered(true);
+      }}
+      onMouseLeave={() => {
+        setIsHovered(false);
+      }}
       sx={{
-        p: 1.5,
-        borderRadius: '8px',
-        backgroundColor: isActive === true ? 'rgba(128, 39, 255, 0.04)' : '#FFFFFF',
+        p: '14px 16px',
+        borderRadius: '10px',
+        backgroundColor: isActive === true ? 'rgba(128, 39, 255, 0.03)' : '#FFFFFF',
+        border: isActive === true ? '1px solid #8027FF' : '1px solid #E4E5ED',
         boxShadow:
           isActive === true
-            ? '0 4px 12px rgba(0,0,0,0.15), 0 2px 4px rgba(0,0,0,0.1)'
-            : '0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.08)',
-        borderBottom: '1px solid var(--border-secondary, #F3F3F7)',
+            ? '0 0 0 1px rgba(128,39,255,0.12), 0 4px 12px rgba(128,39,255,0.08)'
+            : '0 1px 2px rgba(0,0,0,0.04)',
+        transition: 'box-shadow 200ms ease, border-color 200ms ease, background-color 200ms ease',
         width: '100%',
         boxSizing: 'border-box',
         '&:hover .comment-actions': { opacity: 1 },
         '& .comment-actions:focus-within': { opacity: 1 },
+        ...(isActive !== true && {
+          '&:hover': {
+            borderColor: '#D1D2DE',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+          },
+        }),
       }}
     >
       {/* Anchor text quote */}
@@ -195,9 +212,13 @@ export function InlineCommentCard({
           }}
           sx={{
             fontStyle: 'italic',
-            borderLeft: '2px solid var(--border-primary, #E0E0E0)',
+            borderLeft: '2px solid #FBBF24',
+            backgroundColor: 'rgba(251, 191, 36, 0.06)',
             pl: 1,
-            mb: 1,
+            py: 0.5,
+            pr: 1,
+            borderRadius: '0 4px 4px 0',
+            mb: 1.5,
             color: '#6B6D82',
             fontSize: '0.8125rem',
             fontFamily: '"DM Sans", sans-serif',
@@ -212,7 +233,7 @@ export function InlineCommentCard({
         </Box>
       )}
 
-      {/* Header row: Avatar + author + timestamp + more menu */}
+      {/* Header row: Avatar + author + timestamp + resolve + more menu */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.5 }}>
         <Avatar
           sx={{
@@ -230,6 +251,7 @@ export function InlineCommentCard({
             fontWeight: 600,
             color: '#12111A',
             fontFamily: '"DM Sans", sans-serif',
+            letterSpacing: '-0.01em',
           }}
         >
           {thread.comment.authorName}
@@ -242,8 +264,24 @@ export function InlineCommentCard({
             flex: 1,
           }}
         >
-          {formatRelativeTime(thread.comment.createdAt)}
+          {`\u00B7 ${formatRelativeTime(thread.comment.createdAt)}`}
         </Typography>
+        <IconButton
+          className="comment-actions"
+          size="small"
+          aria-label="resolve"
+          onClick={() => {
+            onResolve(thread.comment.id);
+          }}
+          sx={{
+            color: '#6B6D82',
+            opacity: 0,
+            transition: 'opacity 0.2s',
+            '&:hover': { color: '#2e7d32' },
+          }}
+        >
+          <CheckRoundedIcon sx={{ fontSize: 16 }} />
+        </IconButton>
         <IconButton
           className="comment-actions"
           size="small"
@@ -274,7 +312,7 @@ export function InlineCommentCard({
 
       {/* Replies */}
       {thread.replies.length > 0 && (
-        <Box sx={{ pl: 4, mt: 0.5 }}>
+        <Box sx={{ pl: 4, mt: 1.5, pt: 1, borderTop: '1px solid #F3F3F7' }}>
           {thread.replies.map((reply, rIdx) => (
             <CommentRow
               key={reply.id}
@@ -288,56 +326,55 @@ export function InlineCommentCard({
 
       {/* Reply input */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 1, ml: 2 }}>
-        <TextField
-          size="small"
-          placeholder="Reply..."
-          value={replyText}
-          onChange={(e) => {
-            setReplyText(e.target.value);
-          }}
-          onFocus={() => {
-            setReplyFocused(true);
-          }}
-          onBlur={() => {
-            setTimeout(() => {
-              setReplyFocused(false);
-            }, 200);
-          }}
-          sx={{
-            flex: 1,
-            '& .MuiInputBase-input': { fontSize: '0.75rem', py: 0.5, px: 1 },
-          }}
-        />
-        {(replyFocused || replyText !== '') && (
-          <IconButton
-            size="small"
-            aria-label="send"
-            onClick={handleSendReply}
-            sx={{ color: '#8027FF' }}
+        {showReplyInput ? (
+          <>
+            <TextField
+              size="small"
+              variant="standard"
+              placeholder="Reply..."
+              value={replyText}
+              onChange={(e) => {
+                setReplyText(e.target.value);
+              }}
+              onFocus={() => {
+                setReplyFocused(true);
+              }}
+              onBlur={() => {
+                setTimeout(() => {
+                  setReplyFocused(false);
+                }, 200);
+              }}
+              sx={{
+                flex: 1,
+                '& .MuiInputBase-input': { fontSize: '0.75rem', py: 0.5, px: 1 },
+                '& .MuiInput-underline:after': { borderBottomColor: '#8027FF' },
+              }}
+            />
+            {(replyFocused || replyText !== '') && (
+              <IconButton
+                size="small"
+                aria-label="send"
+                onClick={handleSendReply}
+                sx={{ color: '#8027FF' }}
+              >
+                <SendIcon sx={{ fontSize: 16 }} />
+              </IconButton>
+            )}
+          </>
+        ) : (
+          <Typography
+            sx={{
+              fontSize: '0.75rem',
+              color: '#9B9DB0',
+              fontFamily: '"DM Sans", sans-serif',
+              cursor: 'pointer',
+              py: 0.5,
+              px: 1,
+            }}
           >
-            <SendIcon sx={{ fontSize: 16 }} />
-          </IconButton>
+            Reply...
+          </Typography>
         )}
-      </Box>
-
-      {/* Resolve button */}
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
-        <Button
-          size="small"
-          aria-label="resolve"
-          startIcon={<CheckRoundedIcon />}
-          onClick={() => {
-            onResolve(thread.comment.id);
-          }}
-          sx={{
-            fontSize: '0.75rem',
-            color: '#6B6D82',
-            textTransform: 'none',
-            fontFamily: '"DM Sans", sans-serif',
-          }}
-        >
-          Resolve
-        </Button>
       </Box>
     </Box>
   );

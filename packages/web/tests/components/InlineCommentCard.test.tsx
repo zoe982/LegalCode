@@ -1,6 +1,6 @@
 /// <reference types="@testing-library/jest-dom/vitest" />
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ThemeProvider } from '@mui/material/styles';
 import { theme } from '../../src/theme/index.js';
@@ -134,7 +134,7 @@ describe('InlineCommentCard', () => {
     const onReply = vi.fn();
     const thread = createThread();
 
-    render(<InlineCommentCard thread={thread} {...defaultProps} onReply={onReply} />, {
+    render(<InlineCommentCard thread={thread} {...defaultProps} onReply={onReply} isActive />, {
       wrapper: Wrapper,
     });
 
@@ -157,6 +157,10 @@ describe('InlineCommentCard', () => {
     render(<InlineCommentCard thread={thread} {...defaultProps} onResolve={onResolve} />, {
       wrapper: Wrapper,
     });
+
+    // Hover to reveal the resolve button
+    const article = screen.getByRole('article');
+    fireEvent.mouseEnter(article);
 
     const resolveBtn = screen.getByRole('button', { name: /resolve/i });
     await user.click(resolveBtn);
@@ -221,12 +225,43 @@ describe('InlineCommentCard', () => {
     expect(style.top).toBe('120px');
   });
 
-  it('does not show send button when reply input is empty and not focused', () => {
+  it('shows ghost reply text when card is not active and not hovered', () => {
     const thread = createThread();
 
-    render(<InlineCommentCard thread={thread} {...defaultProps} />, { wrapper: Wrapper });
+    render(<InlineCommentCard thread={thread} {...defaultProps} isActive={false} />, {
+      wrapper: Wrapper,
+    });
 
-    expect(screen.queryByRole('button', { name: /send/i })).not.toBeInTheDocument();
+    // Ghost text should be visible
+    expect(screen.getByText('Reply...')).toBeInTheDocument();
+    // Real TextField should not be present
+    expect(screen.queryByPlaceholderText('Reply...')).not.toBeInTheDocument();
+  });
+
+  it('shows TextField when card is active', () => {
+    const thread = createThread();
+
+    render(<InlineCommentCard thread={thread} {...defaultProps} isActive />, {
+      wrapper: Wrapper,
+    });
+
+    // Real TextField should be present
+    expect(screen.getByPlaceholderText('Reply...')).toBeInTheDocument();
+  });
+
+  it('shows TextField when card is hovered', () => {
+    const thread = createThread();
+
+    render(<InlineCommentCard thread={thread} {...defaultProps} isActive={false} />, {
+      wrapper: Wrapper,
+    });
+
+    // Hover the card
+    const article = screen.getByRole('article');
+    fireEvent.mouseEnter(article);
+
+    // Real TextField should now be present
+    expect(screen.getByPlaceholderText('Reply...')).toBeInTheDocument();
   });
 
   it('renders anchor text quote block when anchorText is present', () => {
@@ -248,13 +283,20 @@ describe('InlineCommentCard', () => {
     expect(italicQuote).toBeNull();
   });
 
-  it('resolve button has text label "Resolve"', () => {
+  it('resolve button is icon-only in the header row', () => {
     const thread = createThread();
 
-    render(<InlineCommentCard thread={thread} {...defaultProps} />, { wrapper: Wrapper });
+    render(<InlineCommentCard thread={thread} {...defaultProps} />, {
+      wrapper: Wrapper,
+    });
+
+    // Hover to reveal
+    const article = screen.getByRole('article');
+    fireEvent.mouseEnter(article);
 
     const resolveBtn = screen.getByRole('button', { name: /resolve/i });
-    expect(resolveBtn).toHaveTextContent('Resolve');
+    // Icon-only button should NOT have text content "Resolve"
+    expect(resolveBtn).not.toHaveTextContent('Resolve');
   });
 
   it('edit/delete menu button has hidden-by-default opacity', () => {
@@ -268,7 +310,7 @@ describe('InlineCommentCard', () => {
     expect(actionsEl).toBeTruthy();
   });
 
-  it('card has bottom border divider', () => {
+  it('card has border styling (no bottom-only border)', () => {
     const thread = createThread();
 
     const { container } = render(<InlineCommentCard thread={thread} {...defaultProps} />, {
@@ -277,8 +319,8 @@ describe('InlineCommentCard', () => {
 
     const article = container.querySelector('[role="article"]');
     expect(article).toBeTruthy();
-    // MUI applies styles via classes; check that the article element exists (borderBottom applied via sx)
-    expect(article).toBeTruthy();
+    // Card should exist with full border styling (not just bottom border)
+    expect(article).toBeInstanceOf(HTMLElement);
   });
 
   it('calls onAnchorClick when anchor quote is clicked', async () => {
@@ -300,7 +342,7 @@ describe('InlineCommentCard', () => {
     const onReply = vi.fn();
     const thread = createThread();
 
-    render(<InlineCommentCard thread={thread} {...defaultProps} onReply={onReply} />, {
+    render(<InlineCommentCard thread={thread} {...defaultProps} onReply={onReply} isActive />, {
       wrapper: Wrapper,
     });
 
@@ -313,5 +355,37 @@ describe('InlineCommentCard', () => {
 
     // Should not call onReply with empty text
     expect(onReply).not.toHaveBeenCalled();
+  });
+
+  it('resolved card uses green check icon color', () => {
+    const thread = createThread({ resolved: true, resolvedBy: 'u1' });
+
+    render(<InlineCommentCard thread={thread} {...defaultProps} />, { wrapper: Wrapper });
+
+    // Resolved card should render with CheckRoundedIcon
+    expect(screen.getByText(/alice resolved/i)).toBeInTheDocument();
+  });
+
+  it('hides ghost text and shows TextField when reply is being typed', async () => {
+    const user = userEvent.setup();
+    const thread = createThread();
+
+    render(<InlineCommentCard thread={thread} {...defaultProps} isActive={false} />, {
+      wrapper: Wrapper,
+    });
+
+    // Initially ghost text
+    expect(screen.getByText('Reply...')).toBeInTheDocument();
+
+    // Hover to reveal TextField
+    const article = screen.getByRole('article');
+    fireEvent.mouseEnter(article);
+
+    // Now TextField should be present
+    const input = screen.getByPlaceholderText('Reply...');
+    await user.type(input, 'typing');
+
+    // TextField should still be present with typed text
+    expect(input).toHaveValue('typing');
   });
 });

@@ -5,12 +5,13 @@ export interface CommentPosition {
   top: number;
 }
 
-const CARD_MIN_HEIGHT = 80;
-const CARD_GAP = 8;
+const CARD_MIN_HEIGHT = 200;
+const CARD_GAP = 12;
 
 export function useCommentPositions(
   containerRef: React.RefObject<HTMLElement | null>,
   commentIds: string[],
+  cardHeights: Map<string, number>,
 ): CommentPosition[] {
   const [positions, setPositions] = useState<CommentPosition[]>([]);
 
@@ -18,6 +19,13 @@ export function useCommentPositions(
   const commentIdsKey = commentIds.join(',');
   const stableCommentIds = useRef(commentIds);
   stableCommentIds.current = commentIds;
+
+  // Stabilize cardHeights similarly
+  const cardHeightsKey = Array.from(cardHeights.entries())
+    .map(([k, v]) => `${k}:${String(v)}`)
+    .join(',');
+  const stableCardHeights = useRef(cardHeights);
+  stableCardHeights.current = cardHeights;
 
   const calculate = useCallback(() => {
     const container = containerRef.current;
@@ -48,11 +56,13 @@ export function useCommentPositions(
     rawPositions.sort((a, b) => a.top - b.top);
 
     // Collision resolution: ensure minimum gap between cards
+    const heights = stableCardHeights.current;
     const resolved: CommentPosition[] = [];
     for (const pos of rawPositions) {
       const prev = resolved.length > 0 ? resolved[resolved.length - 1] : undefined;
       if (prev != null) {
-        const minTop = prev.top + CARD_MIN_HEIGHT + CARD_GAP;
+        const prevHeight = heights.get(prev.commentId) ?? CARD_MIN_HEIGHT;
+        const minTop = prev.top + prevHeight + CARD_GAP;
         resolved.push({
           commentId: pos.commentId,
           top: Math.max(pos.top, minTop),
@@ -63,7 +73,7 @@ export function useCommentPositions(
     }
 
     setPositions(resolved);
-  }, [containerRef, commentIdsKey]);
+  }, [containerRef, commentIdsKey, cardHeightsKey]);
 
   useEffect(() => {
     calculate();

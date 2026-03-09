@@ -51,9 +51,10 @@ export function NewCommentCard({
       style={top != null ? { position: 'absolute', top } : undefined}
       sx={{
         p: 1.5,
-        borderRadius: '8px',
+        borderRadius: '10px',
         backgroundColor: '#FFFFFF',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.08)',
+        border: '1px solid #E4E5ED',
+        boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
         width: '100%',
         boxSizing: 'border-box',
         fontFamily: '"DM Sans", sans-serif',
@@ -63,8 +64,12 @@ export function NewCommentCard({
       <Box
         sx={{
           fontStyle: 'italic',
-          borderLeft: '2px solid var(--border-primary, #E0E0E0)',
+          borderLeft: '2px solid #FBBF24',
+          backgroundColor: 'rgba(251, 191, 36, 0.06)',
           pl: 1,
+          py: 0.5,
+          pr: 1,
+          borderRadius: '0 4px 4px 0',
           mb: 1,
           color: '#6B6D82',
           display: '-webkit-box',

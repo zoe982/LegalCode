@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useLayoutEffect, useCallback } from 'react';
 import { Box, Button } from '@mui/material';
 import type { CommentThread } from '../types/comments.js';
 import { useCommentPositions } from '../hooks/useCommentPositions.js';
@@ -40,6 +40,8 @@ export function InlineCommentMargin({
   pendingCommentTop,
 }: InlineCommentMarginProps) {
   const [showResolved, setShowResolved] = useState(false);
+  const [cardHeights, setCardHeights] = useState<Map<string, number>>(new Map());
+  const cardRefs = useRef<Map<string, HTMLElement>>(new Map());
 
   const resolvedCount = useMemo(() => threads.filter((t) => t.comment.resolved).length, [threads]);
 
@@ -50,7 +52,27 @@ export function InlineCommentMargin({
 
   const commentIds = useMemo(() => visibleThreads.map((t) => t.comment.id), [visibleThreads]);
 
-  const positions = useCommentPositions(contentRef, commentIds);
+  const positions = useCommentPositions(contentRef, commentIds, cardHeights);
+
+  // Measure card heights after render
+  useLayoutEffect(() => {
+    const newHeights = new Map<string, number>();
+    for (const thread of visibleThreads) {
+      const el = cardRefs.current.get(thread.comment.id);
+      if (el != null) {
+        newHeights.set(thread.comment.id, el.offsetHeight);
+      }
+    }
+    setCardHeights(newHeights);
+  }, [visibleThreads]);
+
+  const setCardRef = useCallback((commentId: string, el: HTMLElement | null) => {
+    if (el != null) {
+      cardRefs.current.set(commentId, el);
+    } else {
+      cardRefs.current.delete(commentId);
+    }
+  }, []);
 
   const handleToggleResolved = () => {
     setShowResolved((prev) => !prev);
@@ -79,10 +101,19 @@ export function InlineCommentMargin({
           return (
             <Box
               key={commentId}
+              ref={(el: HTMLElement | null) => {
+                setCardRef(commentId, el);
+              }}
               onClick={() => {
                 onCommentClick?.(commentId);
               }}
-              sx={{ position: 'absolute', top, left: 0, right: 0 }}
+              sx={{
+                position: 'absolute',
+                top,
+                left: 0,
+                right: 0,
+                transition: 'top 250ms cubic-bezier(0.4, 0, 0.2, 1)',
+              }}
             >
               <InlineCommentCard
                 thread={thread}
