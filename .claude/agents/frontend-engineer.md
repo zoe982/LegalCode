@@ -53,4 +53,12 @@ Code standards:
 - 95% coverage minimum per file (lines, functions, branches, statements)
 - ESLint strict-type-checked, zero warnings
 
+## Banned Patterns (hooks will block these)
+
+- `as unknown as` — use typed narrowing or Zod parsing
+- `as any` — use proper type narrowing or Zod validation
+- `@ts-ignore` / `@ts-expect-error` — fix the type error instead of suppressing it
+- `Record<string, unknown>` — use a typed interface or proper generic
+- New exports without test coverage — write tests first (function-level TDD hook enforces this)
+
 Commit your work when done with a descriptive message.

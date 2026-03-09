@@ -61,4 +61,12 @@ Code standards:
 - Use `c.res = c.json(...)` pattern for Hono middleware (not return) for strict TS
 - Auth cookies use `__Host-` prefix
 
+## Banned Patterns (hooks will block these)
+
+- `as unknown as` — use `batchOps()` helper from `src/utils/db.ts` or typed narrowing
+- `as any` — use proper type narrowing or Zod validation
+- `@ts-ignore` / `@ts-expect-error` — fix the type error instead of suppressing it
+- `Record<string, unknown>` — use a typed interface or Drizzle's `$inferInsert`
+- New exports without test coverage — write tests first (function-level TDD hook enforces this)
+
 Commit your work when done with a descriptive message.

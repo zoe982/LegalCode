@@ -22,6 +22,16 @@
             "timeout": 10
           },
           {
+            "type": "command",
+            "command": "bash scripts/type-safety-check.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash scripts/tdd-function-coverage-check.sh",
+            "timeout": 10
+          },
+          {
             "type": "prompt",
             "prompt": "Check the file path being written/edited. If the file is inside a packages/*/src/ directory (implementation code, NOT a test file), check the conversation transcript to determine: Has a corresponding test file been created or edited BEFORE this implementation file in this session? If yes, return 'approve'. If the file is a test file, config file, documentation, agent definition (.claude/agents/), or not in packages/*/src/, return 'approve'. If it's implementation code and tests haven't been written first, return 'deny' with reason: 'TDD VIOLATION: You must write test files before writing implementation code. Write the test file first, then come back to this file.'",
             "timeout": 15
@@ -50,6 +60,18 @@
             "type": "prompt",
             "prompt": "Check the Agent tool call prompt text. ONLY deny if the prompt contains an explicit instruction for the subagent to EXECUTE a shell command — specifically strings like 'run pnpm test', 'run vitest', 'run pnpm typecheck', 'run pnpm lint', 'execute pnpm', or 'run pnpm security:scan'. Writing test FILES, editing test code, discussing test strategy, mentioning coverage requirements, or asking the subagent to 'write tests' is ALWAYS allowed and must ALWAYS be approved. The ban is strictly on instructing the subagent to execute commands in a shell. If no shell execution instruction is present, return 'approve'.",
             "timeout": 15
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "A subagent just completed. Add systemMessage: 'Subagent finished. Run pnpm typecheck && pnpm lint now before proceeding to catch any type safety or lint violations early.'",
+            "timeout": 5
           }
         ]
       }
