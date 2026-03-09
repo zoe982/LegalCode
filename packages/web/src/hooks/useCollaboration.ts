@@ -41,12 +41,16 @@ export function useCollaboration(
   const reconnectAttemptRef = useRef(0);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const idbRef = useRef<IndexeddbPersistence | null>(null);
+  const closingRef = useRef(false);
   const connectFnRef = useRef<(() => void) | null>(null);
+  const onCommentEventRef = useRef(options ? options.onCommentEvent : undefined);
+  onCommentEventRef.current = options ? options.onCommentEvent : undefined;
 
   useEffect(() => {
     if (!templateId || !user) return undefined;
 
     reconnectAttemptRef.current = 0;
+    closingRef.current = false;
     let cancelled = false;
 
     const ydoc = new Y.Doc();
@@ -100,13 +104,15 @@ export function useCollaboration(
         if (data.length < 1) return;
         // MSG_COMMENT = 2
         if (data[0] === 2) {
-          options?.onCommentEvent?.();
+          if (onCommentEventRef.current) onCommentEventRef.current();
         }
       };
 
       ws.onclose = () => {
-        setStatus('reconnecting');
-        scheduleReconnect();
+        if (!closingRef.current) {
+          setStatus('reconnecting');
+          scheduleReconnect();
+        }
       };
 
       ws.onerror = () => {
@@ -115,6 +121,7 @@ export function useCollaboration(
     }
 
     function scheduleReconnect() {
+      /* v8 ignore next -- defensive guard; cleanup sets cancelled before close triggers this */
       if (cancelled) return;
       const attempt = reconnectAttemptRef.current;
       if (attempt >= RECONNECT_DELAYS.length) {
@@ -128,6 +135,7 @@ export function useCollaboration(
         });
         return;
       }
+      /* v8 ignore next -- fallback unreachable; attempt is always a valid index */
       const delay = RECONNECT_DELAYS[attempt] ?? 16000;
       reconnectAttemptRef.current = attempt + 1;
       reconnectTimerRef.current = setTimeout(() => {
@@ -143,6 +151,7 @@ export function useCollaboration(
         clearTimeout(reconnectTimerRef.current);
       }
       cancelled = true;
+      closingRef.current = true;
       connectFnRef.current = null;
       wsRef.current?.close();
       void idbRef.current?.destroy();
