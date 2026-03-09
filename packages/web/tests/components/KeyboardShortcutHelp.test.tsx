@@ -75,6 +75,20 @@ describe('KeyboardShortcutHelp', () => {
     expect(plusSeparators.length).toBeGreaterThan(0);
   });
 
+  it('lists undo shortcut (Cmd+Z)', () => {
+    renderWithTheme(<KeyboardShortcutHelp open={true} onClose={vi.fn()} />);
+    expect(screen.getByText('Undo')).toBeInTheDocument();
+    const kbds = document.querySelectorAll('kbd');
+    const kbdTexts = Array.from(kbds).map((el) => el.textContent);
+    expect(kbdTexts).toContain('Cmd');
+    expect(kbdTexts).toContain('Z');
+  });
+
+  it('lists redo shortcut (Cmd+Shift+Z)', () => {
+    renderWithTheme(<KeyboardShortcutHelp open={true} onClose={vi.fn()} />);
+    expect(screen.getByText('Redo')).toBeInTheDocument();
+  });
+
   it('has transition duration configured on the Dialog', () => {
     renderWithTheme(<KeyboardShortcutHelp open={true} onClose={vi.fn()} />);
     const dialog = screen.getByRole('dialog');

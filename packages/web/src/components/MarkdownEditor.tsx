@@ -5,6 +5,7 @@ import { $prose } from '@milkdown/kit/utils';
 import { Box } from '@mui/material';
 import type { Doc as YDoc } from 'yjs';
 import type { Awareness } from 'y-protocols/awareness';
+import { yUndoPlugin } from 'y-prosemirror';
 
 import { createCommentPlugin } from '../editor/commentPlugin.js';
 import type { CommentPluginOptions } from '../editor/commentPlugin.js';
@@ -63,6 +64,10 @@ function MilkdownEditor({
 
       if (onSelectionChange) {
         crepe.editor.use($prose(() => createCommentPlugin({ onSelectionChange })));
+      }
+
+      if (isCollaborative) {
+        crepe.editor.use($prose(() => yUndoPlugin()));
       }
 
       crepeRef.current = crepe;

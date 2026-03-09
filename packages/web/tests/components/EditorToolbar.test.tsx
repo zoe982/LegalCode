@@ -243,4 +243,66 @@ describe('EditorToolbar', () => {
     renderToolbar();
     expect(screen.queryByText('All changes saved')).not.toBeInTheDocument();
   });
+
+  describe('Undo/Redo buttons', () => {
+    it('renders Undo and Redo buttons in source mode', () => {
+      renderToolbar({ mode: 'source' });
+      expect(screen.getByRole('button', { name: 'Undo' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Redo' })).toBeInTheDocument();
+    });
+
+    it('hides Undo and Redo buttons in review mode', () => {
+      renderToolbar({ mode: 'review' });
+      expect(screen.queryByRole('button', { name: 'Undo' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Redo' })).not.toBeInTheDocument();
+    });
+
+    it('hides Undo and Redo buttons when readOnly', () => {
+      renderToolbar({ mode: 'source', readOnly: true });
+      expect(screen.queryByRole('button', { name: 'Undo' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Redo' })).not.toBeInTheDocument();
+    });
+
+    it('disables Undo button when canUndo is false', () => {
+      renderToolbar({ mode: 'source', canUndo: false });
+      expect(screen.getByRole('button', { name: 'Undo' })).toBeDisabled();
+    });
+
+    it('disables Redo button when canRedo is false', () => {
+      renderToolbar({ mode: 'source', canRedo: false });
+      expect(screen.getByRole('button', { name: 'Redo' })).toBeDisabled();
+    });
+
+    it('enables Undo button when canUndo is true', () => {
+      renderToolbar({ mode: 'source', canUndo: true });
+      expect(screen.getByRole('button', { name: 'Undo' })).not.toBeDisabled();
+    });
+
+    it('enables Redo button when canRedo is true', () => {
+      renderToolbar({ mode: 'source', canRedo: true });
+      expect(screen.getByRole('button', { name: 'Redo' })).not.toBeDisabled();
+    });
+
+    it('calls onUndo when Undo button is clicked', async () => {
+      const user = userEvent.setup();
+      const onUndo = vi.fn();
+      renderToolbar({ mode: 'source', onUndo });
+      await user.click(screen.getByRole('button', { name: 'Undo' }));
+      expect(onUndo).toHaveBeenCalledTimes(1);
+    });
+
+    it('calls onRedo when Redo button is clicked', async () => {
+      const user = userEvent.setup();
+      const onRedo = vi.fn();
+      renderToolbar({ mode: 'source', onRedo });
+      await user.click(screen.getByRole('button', { name: 'Redo' }));
+      expect(onRedo).toHaveBeenCalledTimes(1);
+    });
+
+    it('renders a divider between undo/redo and formatting buttons', () => {
+      renderToolbar({ mode: 'source' });
+      const divider = screen.getByRole('separator');
+      expect(divider).toBeInTheDocument();
+    });
+  });
 });

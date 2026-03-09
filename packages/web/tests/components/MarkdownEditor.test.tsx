@@ -33,6 +33,11 @@ vi.mock('@milkdown/kit/utils', () => ({
   $prose: (factory: () => unknown) => factory(),
 }));
 
+const mockYUndoPlugin = vi.fn().mockReturnValue({ key: 'mock-y-undo-plugin' });
+vi.mock('y-prosemirror', () => ({
+  yUndoPlugin: (...args: unknown[]) => mockYUndoPlugin(...args) as unknown,
+}));
+
 const mockCreateCommentPlugin = vi.fn().mockReturnValue({ key: 'mock-comment-plugin' });
 vi.mock('../../src/editor/commentPlugin.js', () => ({
   createCommentPlugin: (...args: unknown[]) => mockCreateCommentPlugin(...args) as unknown,
@@ -324,5 +329,43 @@ describe('MarkdownEditor', () => {
 
     expect(mockCreateCommentPlugin).not.toHaveBeenCalled();
     expect(mockEditorUse).not.toHaveBeenCalled();
+  });
+
+  it('installs yUndoPlugin via editor.use when collaboration is provided', () => {
+    captured.editorCallback = null;
+    mockEditorUse.mockClear();
+    mockYUndoPlugin.mockClear();
+
+    render(
+      <MarkdownEditor
+        collaboration={{
+          ydoc: {} as YDoc,
+          awareness: {} as Awareness,
+        }}
+      />,
+    );
+
+    const editorCb = captured.editorCallback as ((root: HTMLElement) => unknown) | null;
+    expect(editorCb).not.toBeNull();
+    const fakeRoot = document.createElement('div');
+    editorCb?.(fakeRoot);
+
+    expect(mockYUndoPlugin).toHaveBeenCalled();
+    expect(mockEditorUse).toHaveBeenCalled();
+  });
+
+  it('does not install yUndoPlugin when collaboration is not provided', () => {
+    captured.editorCallback = null;
+    mockEditorUse.mockClear();
+    mockYUndoPlugin.mockClear();
+
+    render(<MarkdownEditor />);
+
+    const editorCb = captured.editorCallback as ((root: HTMLElement) => unknown) | null;
+    expect(editorCb).not.toBeNull();
+    const fakeRoot = document.createElement('div');
+    editorCb?.(fakeRoot);
+
+    expect(mockYUndoPlugin).not.toHaveBeenCalled();
   });
 });

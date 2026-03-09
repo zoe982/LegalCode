@@ -1,11 +1,16 @@
-import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo, createElement } from 'react';
 import { useParams, useNavigate } from 'react-router';
-import { Box, IconButton, Skeleton } from '@mui/material';
+import { Box, Button, IconButton, Skeleton } from '@mui/material';
 import DownloadIcon from '@mui/icons-material/Download';
 import type { Crepe } from '@milkdown/crepe';
 import { MarkdownEditor } from '../components/MarkdownEditor.js';
 import { useAuth } from '../hooks/useAuth.js';
-import { useTemplate, useCreateTemplate, useDeleteTemplate } from '../hooks/useTemplates.js';
+import {
+  useTemplate,
+  useCreateTemplate,
+  useDeleteTemplate,
+  useRestoreTemplate,
+} from '../hooks/useTemplates.js';
 import { templateService } from '../services/templates.js';
 import { useCategories } from '../hooks/useCategories.js';
 import { useCollaboration } from '../hooks/useCollaboration.js';
@@ -15,6 +20,7 @@ import type { ConnectionStatusType } from '../components/ConnectionStatus.js';
 import { useAutosave } from '../hooks/useAutosave.js';
 import type { AutosaveState } from '../hooks/useAutosave.js';
 import { EditorToolbar } from '../components/EditorToolbar.js';
+import { useEditorHistory } from '../hooks/useEditorHistory.js';
 import { KeyboardShortcutHelp } from '../components/KeyboardShortcutHelp.js';
 import { markdownToHtml } from '../utils/markdownToHtml.js';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts.js';
@@ -48,6 +54,7 @@ export function TemplateEditorPage() {
 
   const createMutation = useCreateTemplate();
   const deleteMutation = useDeleteTemplate();
+  const restoreMutation = useRestoreTemplate();
 
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState('');
@@ -181,6 +188,13 @@ export function TemplateEditorPage() {
   const isDeleted = templateData?.template.deletedAt != null;
   const isReadOnly = isViewer || isDeleted;
 
+  const isCollaborativeActive =
+    !isCreateMode && collaboration.ydoc != null && collaboration.awareness != null;
+  const { canUndo, canRedo, handleUndo, handleRedo } = useEditorHistory({
+    crepeRef,
+    isCollaborative: isCollaborativeActive,
+  });
+
   const autosave = useAutosave({
     templateId: id,
     content,
@@ -306,9 +320,34 @@ export function TemplateEditorPage() {
       onSuccess: () => {
         setDeleteDialogOpen(false);
         void navigate('/templates');
+
+        const undoButton = createElement(
+          Button,
+          {
+            size: 'small' as const,
+            onClick: () => {
+              restoreMutation.mutate(id, {
+                onSuccess: () => {
+                  showToast('Template restored', 'success');
+                },
+              });
+            },
+            sx: {
+              color: '#8027FF',
+              fontFamily: '"DM Sans", sans-serif',
+              fontSize: '0.8125rem',
+              fontWeight: 600,
+              textTransform: 'none',
+              minWidth: 0,
+              padding: '2px 8px',
+            },
+          },
+          'Undo',
+        );
+        showToast('Template moved to trash', 'success', undoButton);
       },
     });
-  }, [id, deleteMutation, navigate]);
+  }, [id, deleteMutation, navigate, restoreMutation, showToast]);
 
   // Sync TopAppBar config for editor view — v4: use DocumentHeader
   const { setConfig, clearConfig } = useTopAppBarConfig();
@@ -445,9 +484,49 @@ export function TemplateEditorPage() {
     (commentId: string) => {
       /* v8 ignore next -- defensive guard; id always exists when margin actions are visible */
       if (!id) return;
-      deleteComment({ templateId: id, commentId });
+
+      // Find the comment data for potential undo
+      const thread = threads.find((t) => t.comment.id === commentId);
+      const commentData = thread?.comment ?? thread?.replies.find((r) => r.id === commentId);
+
+      deleteComment(
+        { templateId: id, commentId },
+        {
+          onSuccess: () => {
+            /* v8 ignore next -- defensive guard; commentData always exists when delete is triggered from visible comment */
+            if (!commentData) return;
+            const undoButton = createElement(
+              Button,
+              {
+                size: 'small' as const,
+                onClick: () => {
+                  createComment({
+                    templateId: id,
+                    content: commentData.content,
+                    ...(commentData.anchorFrom != null && { anchorFrom: commentData.anchorFrom }),
+                    ...(commentData.anchorTo != null && { anchorTo: commentData.anchorTo }),
+                    ...(commentData.anchorText != null && { anchorText: commentData.anchorText }),
+                    ...(commentData.parentId != null && { parentId: commentData.parentId }),
+                  });
+                },
+                sx: {
+                  color: '#8027FF',
+                  fontFamily: '"DM Sans", sans-serif',
+                  fontSize: '0.8125rem',
+                  fontWeight: 600,
+                  textTransform: 'none',
+                  minWidth: 0,
+                  padding: '2px 8px',
+                },
+              },
+              'Undo',
+            );
+            showToast('Comment deleted', 'success', undoButton);
+          },
+        },
+      );
     },
-    [id, deleteComment],
+    [id, threads, deleteComment, createComment, showToast],
   );
 
   const handleMarginReply = useCallback(
@@ -528,6 +607,10 @@ export function TemplateEditorPage() {
           }
           readOnly={isReadOnly}
           crepeRef={crepeRef}
+          canUndo={canUndo}
+          canRedo={canRedo}
+          onUndo={handleUndo}
+          onRedo={handleRedo}
         />
 
         {/* Full-bleed white editor surface */}

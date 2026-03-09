@@ -1,4 +1,4 @@
-import { Box, IconButton, Typography } from '@mui/material';
+import { Box, Divider, IconButton, Typography } from '@mui/material';
 import FormatBoldIcon from '@mui/icons-material/FormatBold';
 import FormatItalicIcon from '@mui/icons-material/FormatItalic';
 import TitleOutlined from '@mui/icons-material/TitleOutlined';
@@ -9,6 +9,8 @@ import FormatListNumberedOutlined from '@mui/icons-material/FormatListNumberedOu
 import BookmarkBorderOutlined from '@mui/icons-material/BookmarkBorderOutlined';
 import CodeOutlined from '@mui/icons-material/CodeOutlined';
 import HorizontalRuleOutlined from '@mui/icons-material/HorizontalRuleOutlined';
+import UndoRounded from '@mui/icons-material/UndoRounded';
+import RedoRounded from '@mui/icons-material/RedoRounded';
 import type { Crepe } from '@milkdown/crepe';
 import {
   toggleStrongCommand,
@@ -30,6 +32,10 @@ interface EditorToolbarProps {
   readOnly?: boolean | undefined;
   onInsertMarkdown?: ((prefix: string, suffix?: string) => void) | undefined;
   crepeRef?: React.RefObject<Crepe | null> | undefined;
+  canUndo?: boolean | undefined;
+  canRedo?: boolean | undefined;
+  onUndo?: (() => void) | undefined;
+  onRedo?: (() => void) | undefined;
 }
 
 const helperButtonStyle = {
@@ -50,6 +56,10 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
   readOnly,
   onInsertMarkdown,
   crepeRef,
+  canUndo,
+  canRedo,
+  onUndo,
+  onRedo,
 }) => {
   const showMarkdownHelpers = mode === 'source' && !readOnly;
 
@@ -73,6 +83,27 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
       {/* Left: Markdown helper buttons */}
       {showMarkdownHelpers && (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <IconButton
+            aria-label="Undo"
+            sx={helperButtonStyle}
+            disabled={canUndo === false}
+            onClick={onUndo}
+          >
+            <UndoRounded sx={{ fontSize: '20px' }} />
+          </IconButton>
+          <IconButton
+            aria-label="Redo"
+            sx={helperButtonStyle}
+            disabled={canRedo === false}
+            onClick={onRedo}
+          >
+            <RedoRounded sx={{ fontSize: '20px' }} />
+          </IconButton>
+          <Divider
+            orientation="vertical"
+            flexItem
+            sx={{ mx: 0.5, borderColor: 'var(--border-primary)' }}
+          />
           <IconButton
             aria-label="Bold"
             sx={helperButtonStyle}

@@ -20,6 +20,8 @@ const shortcutGroups: ShortcutGroup[] = [
   {
     label: 'Editor',
     shortcuts: [
+      { keys: ['Cmd', 'Z'], description: 'Undo' },
+      { keys: ['Cmd', 'Shift', 'Z'], description: 'Redo' },
       { keys: ['Ctrl', 'Shift', 'P'], description: 'Toggle panel' },
       { keys: ['Escape'], description: 'Close pane / dismiss' },
     ],

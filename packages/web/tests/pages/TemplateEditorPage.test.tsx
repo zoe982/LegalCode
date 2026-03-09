@@ -35,14 +35,17 @@ vi.mock('../../src/hooks/useAuth.js', () => ({
 const mockUseTemplate = vi.fn();
 const mockCreateMutateAsync = vi.fn();
 const mockDeleteMutate = vi.fn();
+const mockRestoreMutate = vi.fn();
 
 const mockUseCreateTemplate = vi.fn();
 const mockUseDeleteTemplate = vi.fn();
+const mockUseRestoreTemplate = vi.fn();
 
 vi.mock('../../src/hooks/useTemplates.js', () => ({
   useTemplate: (...args: unknown[]) => mockUseTemplate(...args) as unknown,
   useCreateTemplate: () => mockUseCreateTemplate() as unknown,
   useDeleteTemplate: () => mockUseDeleteTemplate() as unknown,
+  useRestoreTemplate: () => mockUseRestoreTemplate() as unknown,
 }));
 
 vi.mock('../../src/hooks/useCategories.js', () => ({
@@ -589,6 +592,10 @@ function setupMutationMocks() {
   mockUseDeleteTemplate.mockReturnValue({
     ...createMutationResult(vi.fn()),
     mutate: mockDeleteMutate,
+  });
+  mockUseRestoreTemplate.mockReturnValue({
+    ...createMutationResult(vi.fn()),
+    mutate: mockRestoreMutate,
   });
 }
 
@@ -1139,6 +1146,96 @@ describe('TemplateEditorPage', () => {
       await waitFor(() => {
         expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
       });
+    });
+
+    it('shows undo toast with "Template moved to trash" after successful delete', () => {
+      mockDeleteMutate.mockImplementation((_id: string, opts: { onSuccess: () => void }) => {
+        opts.onSuccess();
+      });
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onDelete as () => void)();
+      });
+
+      const deleteButton = screen.getByRole('button', { name: /delete/i });
+      act(() => {
+        deleteButton.click();
+      });
+
+      expect(mockNavigate).toHaveBeenCalledWith('/templates');
+      expect(mockShowToast).toHaveBeenCalledWith(
+        'Template moved to trash',
+        'success',
+        expect.anything(),
+      );
+    });
+
+    it('calls restoreMutation.mutate when undo button in toast is clicked after delete', () => {
+      mockDeleteMutate.mockImplementation((_id: string, opts: { onSuccess: () => void }) => {
+        opts.onSuccess();
+      });
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onDelete as () => void)();
+      });
+
+      const deleteButton = screen.getByRole('button', { name: /delete/i });
+      act(() => {
+        deleteButton.click();
+      });
+
+      // Extract the action (undo button) from the showToast call
+      const toastCall = mockShowToast.mock.calls.find(
+        (call: unknown[]) => call[0] === 'Template moved to trash',
+      );
+      expect(toastCall).toBeDefined();
+      const undoAction = toastCall![2] as { props: { onClick: () => void } };
+      expect(undoAction).toBeDefined();
+
+      // Click the undo action
+      act(() => {
+        undoAction.props.onClick();
+      });
+
+      expect(mockRestoreMutate).toHaveBeenCalledWith('t1', expect.anything());
+    });
+
+    it('shows "Template restored" toast when undo restore succeeds', () => {
+      mockDeleteMutate.mockImplementation((_id: string, opts: { onSuccess: () => void }) => {
+        opts.onSuccess();
+      });
+      mockRestoreMutate.mockImplementation((_id: string, opts: { onSuccess: () => void }) => {
+        opts.onSuccess();
+      });
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onDelete as () => void)();
+      });
+
+      const deleteButton = screen.getByRole('button', { name: /delete/i });
+      act(() => {
+        deleteButton.click();
+      });
+
+      // Extract the undo action from the toast call
+      const toastCall = mockShowToast.mock.calls.find(
+        (call: unknown[]) => call[0] === 'Template moved to trash',
+      );
+      const undoAction = toastCall![2] as { props: { onClick: () => void } };
+
+      // Click undo
+      act(() => {
+        undoAction.props.onClick();
+      });
+
+      // Should show "Template restored" toast
+      expect(mockShowToast).toHaveBeenCalledWith('Template restored', 'success');
     });
   });
 
@@ -1726,7 +1823,83 @@ describe('TemplateEditorPage', () => {
       // Both panels render InlineCommentMargin; click the last one (review panel)
       const deleteButtons = screen.getAllByTestId('margin-delete');
       await user.click(deleteButtons.at(-1)!);
-      expect(mockDeleteComment).toHaveBeenCalledWith({ templateId: 't1', commentId: 'c1' });
+      expect(mockDeleteComment).toHaveBeenCalledWith(
+        { templateId: 't1', commentId: 'c1' },
+        expect.anything(),
+      );
+    });
+
+    it('shows undo toast after comment deletion and re-creates comment on undo', async () => {
+      const user = userEvent.setup();
+      const mockDeleteComment = vi.fn(
+        (_vars: { templateId: string; commentId: string }, opts?: { onSuccess?: () => void }) => {
+          opts?.onSuccess?.();
+        },
+      );
+      const mockCommentThread = {
+        comment: {
+          id: 'c1',
+          templateId: 't1',
+          parentId: null,
+          authorId: 'u1',
+          authorName: 'Alice',
+          authorEmail: 'alice@acasus.com',
+          content: 'This needs review',
+          anchorFrom: '10',
+          anchorTo: '20',
+          anchorText: 'some text',
+          resolved: false,
+          resolvedBy: null,
+          createdAt: '2026-01-01T00:00:00Z',
+          updatedAt: '2026-01-01T00:00:00Z',
+        },
+        replies: [],
+      };
+      mockUseComments.mockReturnValue({
+        threads: [mockCommentThread],
+        isLoading: false,
+        createComment: mockCreateComment,
+        resolveComment: vi.fn(),
+        deleteComment: mockDeleteComment,
+        showResolved: false,
+        toggleShowResolved: vi.fn(),
+      });
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('review');
+      });
+
+      // Both panels render InlineCommentMargin; click the last one (review panel)
+      const deleteButtons = screen.getAllByTestId('margin-delete');
+      await user.click(deleteButtons.at(-1)!);
+      expect(mockDeleteComment).toHaveBeenCalledWith(
+        { templateId: 't1', commentId: 'c1' },
+        expect.anything(),
+      );
+
+      // Should show toast with "Comment deleted" and an undo action
+      expect(mockShowToast).toHaveBeenCalledWith('Comment deleted', 'success', expect.anything());
+
+      // Extract the undo action and click it
+      const toastCall = mockShowToast.mock.calls.find(
+        (call: unknown[]) => call[0] === 'Comment deleted',
+      );
+      const undoAction = toastCall![2] as { props: { onClick: () => void } };
+
+      act(() => {
+        undoAction.props.onClick();
+      });
+
+      // Undo should re-create the comment with original data
+      expect(mockCreateComment).toHaveBeenCalledWith({
+        templateId: 't1',
+        content: 'This needs review',
+        anchorFrom: '10',
+        anchorTo: '20',
+        anchorText: 'some text',
+      });
     });
 
     it('wires reply callback to createComment from useComments', async () => {
