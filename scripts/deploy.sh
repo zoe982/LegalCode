@@ -31,6 +31,7 @@ gate "Lint"            pnpm lint
 gate "Dead Code"       pnpm dead-code
 gate "Security Scan"   pnpm security:scan
 gate "Contract Tests"  pnpm contract:check
+gate "Migration Drift" bash scripts/migration-drift-check.sh
 gate "Test + Coverage" pnpm test
 gate "Build"           pnpm build
 gate "Bundle Size"     pnpm bundle:check

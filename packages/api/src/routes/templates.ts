@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { HTTPException } from 'hono/http-exception';
 import type { AppEnv } from '../types/env.js';
 import { authMiddleware, requireRole } from '../middleware/auth.js';
 import { getDb } from '../db/index.js';
@@ -102,7 +103,7 @@ templateRoutes.post('/', requireRole('admin', 'editor'), async (c) => {
   const user = c.get('user');
   const result = await createTemplate(db, parsed.data, user.id);
   if ('error' in result) {
-    return c.json({ error: 'Failed to create template' }, 500);
+    throw new HTTPException(500, { message: `createTemplate failed: ${result.message}` });
   }
   c.executionCtx.waitUntil(
     logAudit(db, {

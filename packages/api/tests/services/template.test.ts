@@ -65,7 +65,7 @@ describe('template service', () => {
         'user-1',
       );
 
-      expect(result).toEqual({ error: 'db_error' });
+      expect(result).toEqual({ error: 'db_error', message: 'D1_ERROR' });
     });
 
     it('logs error to console.error when batch insert fails', async () => {
@@ -94,7 +94,10 @@ describe('template service', () => {
         'user-1',
       );
 
-      expect(result).toEqual({ error: 'db_error' });
+      expect(result).toEqual({
+        error: 'db_error',
+        message: 'UNIQUE constraint failed: templates.slug',
+      });
     });
 
     it('generates slug from title with random suffix', async () => {

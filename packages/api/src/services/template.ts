@@ -59,7 +59,10 @@ export async function createTemplate(
   db: AppDb,
   input: CreateTemplateInput,
   userId: string,
-): Promise<{ template: typeof templates.$inferSelect; tags: string[] } | { error: 'db_error' }> {
+): Promise<
+  | { template: typeof templates.$inferSelect; tags: string[] }
+  | { error: 'db_error'; message: string }
+> {
   const id = crypto.randomUUID();
   const slug = generateSlug(input.title);
   const now = nowISO();
@@ -122,7 +125,8 @@ export async function createTemplate(
     await db.batch(ops as unknown as [BatchItem<'sqlite'>, ...BatchItem<'sqlite'>[]]);
   } catch (e) {
     console.error('[createTemplate] batch insert failed:', e);
-    return { error: 'db_error' as const };
+    const message = e instanceof Error ? e.message : String(e);
+    return { error: 'db_error' as const, message };
   }
 
   return {
