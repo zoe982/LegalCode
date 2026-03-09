@@ -17,41 +17,41 @@ function renderBreadcrumbs(props?: { templateName?: string; pageName?: string })
 }
 
 describe('Breadcrumbs', () => {
-  it('renders Acasus wordmark', () => {
+  it('renders LegalCode wordmark', () => {
     renderBreadcrumbs();
-    expect(screen.getByText('Acasus')).toBeInTheDocument();
+    expect(screen.getByText('LegalCode')).toBeInTheDocument();
   });
 
-  it('renders Acasus wordmark as a link to /templates', () => {
+  it('renders LegalCode wordmark as a link to /templates', () => {
     renderBreadcrumbs();
-    const link = screen.getByRole('link', { name: /acasus/i });
+    const link = screen.getByRole('link', { name: /legalcode/i });
     expect(link).toHaveAttribute('href', '/templates');
   });
 
-  it('renders Acasus wordmark with serif font class', () => {
+  it('renders LegalCode wordmark with serif font class', () => {
     renderBreadcrumbs();
-    const wordmark = screen.getByText('Acasus');
+    const wordmark = screen.getByText('LegalCode');
     // MUI applies font via CSS-in-JS class; verify element exists and is a link
     expect(wordmark).toBeInTheDocument();
     expect(wordmark.closest('a')).not.toBeNull();
   });
 
-  it('renders Acasus wordmark in dark purple color (#451F61)', () => {
+  it('renders LegalCode wordmark in dark purple color (#451F61)', () => {
     renderBreadcrumbs();
-    const wordmark = screen.getByText('Acasus');
+    const wordmark = screen.getByText('LegalCode');
     expect(wordmark).toHaveStyle({ color: '#451F61' });
   });
 
-  it('renders only Acasus when no templateName is provided', () => {
+  it('renders only LegalCode when no templateName is provided', () => {
     renderBreadcrumbs();
-    expect(screen.getByText('Acasus')).toBeInTheDocument();
+    expect(screen.getByText('LegalCode')).toBeInTheDocument();
     // No separator or "Templates" text when no template name
     expect(screen.queryByText('Templates')).not.toBeInTheDocument();
   });
 
   it('renders 3-level breadcrumb when templateName is provided', () => {
     renderBreadcrumbs({ templateName: 'My Contract' });
-    expect(screen.getByText('Acasus')).toBeInTheDocument();
+    expect(screen.getByText('LegalCode')).toBeInTheDocument();
     expect(screen.getByText('Templates')).toBeInTheDocument();
     expect(screen.getByText('My Contract')).toBeInTheDocument();
   });
@@ -91,13 +91,13 @@ describe('Breadcrumbs', () => {
 
   it('renders 2-level breadcrumb when pageName is provided', () => {
     renderBreadcrumbs({ pageName: 'Admin' });
-    expect(screen.getByText('Acasus')).toBeInTheDocument();
+    expect(screen.getByText('LegalCode')).toBeInTheDocument();
     expect(screen.getByText('Admin')).toBeInTheDocument();
   });
 
-  it('renders Acasus as link to /templates when pageName is provided', () => {
+  it('renders LegalCode as link to /templates when pageName is provided', () => {
     renderBreadcrumbs({ pageName: 'Settings' });
-    const link = screen.getByRole('link', { name: /acasus/i });
+    const link = screen.getByRole('link', { name: /legalcode/i });
     expect(link).toHaveAttribute('href', '/templates');
   });
 
@@ -107,7 +107,7 @@ describe('Breadcrumbs', () => {
     expect(pageNameEl.closest('a')).toBeNull();
   });
 
-  it('renders separator between Acasus and pageName', () => {
+  it('renders separator between LegalCode and pageName', () => {
     renderBreadcrumbs({ pageName: 'Settings' });
     const separators = screen.getAllByText('/');
     expect(separators).toHaveLength(1);

@@ -49,9 +49,9 @@ describe('TopAppBar', () => {
     expect(bar).toHaveStyle({ backgroundColor: '#FFFFFF' });
   });
 
-  it('renders Breadcrumbs component with Acasus wordmark', () => {
+  it('renders Breadcrumbs component with LegalCode wordmark', () => {
     renderAppBar();
-    expect(screen.getByText('Acasus')).toBeInTheDocument();
+    expect(screen.getByText('LegalCode')).toBeInTheDocument();
   });
 
   it('passes breadcrumbTemplateName to Breadcrumbs', () => {
@@ -125,7 +125,7 @@ describe('TopAppBar', () => {
     });
     expect(screen.getByTestId('doc-header')).toBeInTheDocument();
     // Breadcrumbs should not be rendered
-    expect(screen.queryByText('Acasus')).not.toBeInTheDocument();
+    expect(screen.queryByText('LegalCode')).not.toBeInTheDocument();
   });
 
   it('renders avatar alongside documentHeader', () => {

@@ -14,7 +14,7 @@ export function LoginPage() {
         justifyContent: 'center',
         alignItems: 'center',
         minHeight: '100vh',
-        backgroundColor: '#FFFFFF',
+        background: 'radial-gradient(ellipse 80% 60% at 50% 40%, #F9F9FB 0%, #FFFFFF 70%)',
         marginTop: '-5vh',
         '@keyframes letterFadeIn': {
           from: { opacity: 0, transform: 'translateY(8px)' },
@@ -32,62 +32,78 @@ export function LoginPage() {
         },
       }}
     >
-      <Box sx={{ maxWidth: 400, textAlign: 'center' }}>
+      <Box
+        sx={{
+          maxWidth: 480,
+          textAlign: 'center',
+          '@media (max-width: 480px)': {
+            px: 3,
+          },
+        }}
+      >
         {/* Wordmark */}
         <Typography
           component="div"
           sx={{
             fontFamily: '"Source Serif 4", Georgia, "Times New Roman", serif',
-            fontWeight: 700,
-            fontSize: '3.5rem',
+            fontSize: '4.5rem',
             color: '#451F61',
             letterSpacing: '-0.02em',
             '@media (max-width: 900px)': {
-              fontSize: '2.5rem',
+              fontSize: '3rem',
+            },
+            '@media (max-width: 480px)': {
+              fontSize: '2.25rem',
             },
           }}
         >
-          {'Acasus'.split('').map((letter, index) => (
+          {'Acasus LegalCode'.split('').map((letter, index) => (
             <span
               key={index}
-              style={{
-                display: 'inline-block',
-                animation: `letterFadeIn 400ms ease-out ${String(index * 60)}ms both`,
-              }}
+              style={
+                letter === ' '
+                  ? {
+                      display: 'inline-block',
+                      width: '0.25em',
+                      animation: `letterFadeIn 400ms ease-out ${String(index * 50)}ms both`,
+                    }
+                  : {
+                      display: 'inline-block',
+                      fontWeight: index <= 5 ? 700 : 400,
+                      animation: `letterFadeIn 400ms ease-out ${String(index * 50)}ms both`,
+                    }
+              }
             >
-              {letter}
+              {letter === ' ' ? '\u00A0' : letter}
             </span>
           ))}
         </Typography>
 
-        {/* Product name */}
+        {/* Tagline */}
         <Typography
           sx={{
-            fontFamily: '"Source Serif 4", Georgia, "Times New Roman", serif',
+            fontFamily: '"DM Sans", "Helvetica Neue", Arial, sans-serif',
             fontWeight: 400,
-            fontSize: '1.25rem',
-            color: '#6B6D82',
-            letterSpacing: '0.08em',
-            mt: 1,
-            animation: 'contentFadeIn 500ms ease-out 800ms both',
-            '@media (max-width: 900px)': {
-              fontSize: '1rem',
-            },
+            fontSize: '0.9375rem',
+            color: '#9B9DB0',
+            letterSpacing: '0.04em',
+            mt: 2,
+            animation: 'contentFadeIn 500ms ease-out 900ms both',
           }}
         >
-          LegalCode
+          Legal template management
         </Typography>
 
         {/* Hairline separator */}
         <Box
           aria-hidden="true"
           sx={{
-            width: 48,
+            width: 56,
             height: '1px',
             backgroundColor: '#EFE3D3',
             mx: 'auto',
-            my: 4,
-            animation: 'contentFadeIn 500ms ease-out 800ms both',
+            my: 5,
+            animation: 'contentFadeIn 500ms ease-out 1000ms both',
             '@media (max-width: 900px)': {
               width: 36,
             },
@@ -101,20 +117,26 @@ export function LoginPage() {
             void login();
           }}
           sx={{
-            height: 44,
+            height: 48,
             px: 4,
-            minWidth: 220,
+            minWidth: 240,
             backgroundColor: '#8027FF',
             color: '#fff',
-            borderRadius: '10px',
+            borderRadius: '12px',
             textTransform: 'none',
-            animation: 'contentFadeIn 500ms ease-out 800ms both',
+            fontWeight: 500,
+            fontSize: '0.9375rem',
+            boxShadow: '0 2px 8px rgba(128,39,255,0.25)',
+            animation: 'contentFadeIn 500ms ease-out 1100ms both',
             '&:hover': {
               backgroundColor: '#6B1FDB',
+              transform: 'translateY(-1px)',
+              boxShadow: '0 4px 12px rgba(128,39,255,0.35)',
             },
             '&:active': {
               backgroundColor: '#5A18B8',
               transform: 'scale(0.98)',
+              boxShadow: '0 1px 4px rgba(128,39,255,0.2)',
             },
             '&:focus-visible': {
               boxShadow: '0 0 0 3px rgba(128,39,255,0.2)',
@@ -137,7 +159,7 @@ export function LoginPage() {
           left: 0,
           right: 0,
           textAlign: 'center',
-          animation: 'contentFadeIn 500ms ease-out 800ms both',
+          animation: 'contentFadeIn 500ms ease-out 1200ms both',
         }}
       >
         <Typography

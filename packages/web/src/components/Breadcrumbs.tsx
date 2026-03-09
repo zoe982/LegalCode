@@ -18,7 +18,7 @@ export function Breadcrumbs({ templateName, pageName }: BreadcrumbsProps) {
         minWidth: 0,
       }}
     >
-      {/* Acasus wordmark — always visible */}
+      {/* LegalCode wordmark — always visible */}
       <Typography
         component={Link}
         to="/templates"
@@ -34,7 +34,7 @@ export function Breadcrumbs({ templateName, pageName }: BreadcrumbsProps) {
           },
         }}
       >
-        Acasus
+        LegalCode
       </Typography>
 
       {/* Page-level breadcrumb (Admin, Settings, etc.) — only when no templateName */}

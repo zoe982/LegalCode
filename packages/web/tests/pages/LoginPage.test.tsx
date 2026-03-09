@@ -37,16 +37,16 @@ describe('LoginPage', () => {
     mockLogin.mockClear();
   });
 
-  it('renders Acasus wordmark', () => {
+  it('renders Acasus LegalCode wordmark', () => {
     render(<LoginPage />, { wrapper: Wrapper });
     expect(
-      screen.getByText((_content, element) => element?.textContent === 'Acasus'),
+      screen.getByText((_content, element) => element?.textContent === 'Acasus\u00A0LegalCode'),
     ).toBeInTheDocument();
   });
 
-  it('renders LegalCode product name', () => {
+  it('renders tagline', () => {
     render(<LoginPage />, { wrapper: Wrapper });
-    expect(screen.getByText('LegalCode')).toBeInTheDocument();
+    expect(screen.getByText('Legal template management')).toBeInTheDocument();
   });
 
   it('renders sign-in button', () => {
@@ -62,10 +62,11 @@ describe('LoginPage', () => {
     expect(mockLogin).toHaveBeenCalledTimes(1);
   });
 
-  it('uses white background', () => {
+  it('uses radial gradient background', () => {
     render(<LoginPage />, { wrapper: Wrapper });
     const container = screen.getByTestId('login-page');
-    expect(container).toHaveStyle({ backgroundColor: '#FFFFFF' });
+    const styles = window.getComputedStyle(container);
+    expect(styles.background).toContain('radial-gradient');
   });
 
   it('renders footer with security text', () => {
@@ -85,16 +86,20 @@ describe('LoginPage', () => {
 
   it('wordmark uses Source Serif 4 font', () => {
     render(<LoginPage />, { wrapper: Wrapper });
-    const wordmark = screen.getByText((_content, element) => element?.textContent === 'Acasus');
+    const wordmark = screen.getByText(
+      (_content, element) => element?.textContent === 'Acasus\u00A0LegalCode',
+    );
     const styles = window.getComputedStyle(wordmark);
     expect(styles.fontFamily).toContain('Source Serif 4');
   });
 
   it('respects prefers-reduced-motion via animation styles on letter spans', () => {
     render(<LoginPage />, { wrapper: Wrapper });
-    const wordmark = screen.getByText((_content, element) => element?.textContent === 'Acasus');
+    const wordmark = screen.getByText(
+      (_content, element) => element?.textContent === 'Acasus\u00A0LegalCode',
+    );
     const letterSpans = wordmark.querySelectorAll('span');
-    expect(letterSpans.length).toBe(6); // A-c-a-s-u-s
+    expect(letterSpans.length).toBe(16); // A-c-a-s-u-s-space-L-e-g-a-l-C-o-d-e
     for (const span of letterSpans) {
       const style = span.getAttribute('style') ?? '';
       expect(style).toContain('animation');

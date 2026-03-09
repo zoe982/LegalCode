@@ -25,7 +25,7 @@ interface TopAppBarProps {
  * Top app bar — v3 design: 48px height, white background, bottom border.
  * No sidebar companion. Full-width across the viewport.
  *
- * Left: Breadcrumbs (Acasus wordmark + optional template path)
+ * Left: Breadcrumbs (LegalCode wordmark + optional template path)
  * Center-right: panelToggles slot (editor toggle buttons)
  * Right: rightSlot (presence, version button) + AvatarDropdownMenu
  */
