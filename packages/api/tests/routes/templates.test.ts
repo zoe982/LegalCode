@@ -33,7 +33,6 @@ vi.mock('../../src/services/template.js', () => ({
   getTemplateVersion: (...args: unknown[]) => mockGetTemplateVersion(...args) as unknown,
   downloadTemplate: (...args: unknown[]) => mockDownloadTemplate(...args) as unknown,
   saveContent: (...args: unknown[]) => mockSaveContent(...args) as unknown,
-  saveDraftContent: (...args: unknown[]) => mockSaveContent(...args) as unknown,
   deleteTemplate: (...args: unknown[]) => mockDeleteTemplate(...args) as unknown,
   restoreTemplate: (...args: unknown[]) => mockRestoreTemplate(...args) as unknown,
   hardDeleteTemplate: (...args: unknown[]) => mockHardDeleteTemplate(...args) as unknown,

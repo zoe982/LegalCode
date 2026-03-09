@@ -74,14 +74,9 @@ export const autosaveResponseSchema = z.object({
   updatedAt: z.string(),
 });
 
-// Backwards-compatible aliases
-export const autosaveDraftSchema = autosaveSchema;
-export const autosaveDraftResponseSchema = autosaveResponseSchema;
-
 export type CreateTemplateInput = z.infer<typeof createTemplateSchema>;
 export type UpdateTemplateInput = z.infer<typeof updateTemplateSchema>;
 export type AutosaveInput = z.infer<typeof autosaveSchema>;
-export type AutosaveDraftInput = z.infer<typeof autosaveDraftSchema>;
 export type TemplateQuery = z.infer<typeof templateQuerySchema>;
 
 export const categorySchema = z.object({

@@ -419,9 +419,6 @@ export async function saveContent(
   return { updatedAt: now };
 }
 
-// Backwards-compatible alias
-export const saveDraftContent = saveContent;
-
 // ── deleteTemplate (soft delete) ──────────────────────────────────────
 
 type DeleteResult = { error: 'not_found' } | { error: 'already_deleted' } | { success: true };

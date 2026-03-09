@@ -30,7 +30,6 @@ vi.mock('../../src/services/template.js', () => ({
   getTemplateVersion: vi.fn(),
   downloadTemplate: vi.fn(),
   saveContent: vi.fn(),
-  saveDraftContent: vi.fn(),
   deleteTemplate: vi.fn(),
   restoreTemplate: vi.fn(),
   hardDeleteTemplate: vi.fn(),

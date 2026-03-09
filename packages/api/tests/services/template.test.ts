@@ -9,7 +9,6 @@ import {
   getTemplateVersion,
   downloadTemplate,
   saveContent,
-  saveDraftContent,
   deleteTemplate,
   restoreTemplate,
   hardDeleteTemplate,
@@ -752,10 +751,6 @@ describe('template service', () => {
 
       expect(result).toHaveProperty('updatedAt');
       expect(batchSpy).toHaveBeenCalledTimes(1);
-    });
-
-    it('saveDraftContent is an alias for saveContent', () => {
-      expect(saveDraftContent).toBe(saveContent);
     });
   });
 

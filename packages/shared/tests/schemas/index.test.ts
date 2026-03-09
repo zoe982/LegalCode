@@ -8,8 +8,6 @@ import {
   templateQuerySchema,
   autosaveSchema,
   autosaveResponseSchema,
-  autosaveDraftSchema,
-  autosaveDraftResponseSchema,
 } from '../../src/schemas/index.js';
 
 describe('auditActionSchema', () => {
@@ -201,11 +199,6 @@ describe('autosaveSchema', () => {
   it('rejects empty content', () => {
     const result = autosaveSchema.safeParse({ content: '' });
     expect(result.success).toBe(false);
-  });
-
-  it('backwards-compatible aliases work', () => {
-    expect(autosaveDraftSchema).toBe(autosaveSchema);
-    expect(autosaveDraftResponseSchema).toBe(autosaveResponseSchema);
   });
 });
 
