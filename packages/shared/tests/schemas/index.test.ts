@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { auditActionSchema } from '../../src/schemas/index.js';
 import { isAutoVersion } from '../../src/schemas/index.js';
+import { createTemplateSchema, updateTemplateSchema } from '../../src/schemas/index.js';
 
 describe('auditActionSchema', () => {
   it('accepts all valid audit actions', () => {
@@ -58,5 +59,66 @@ describe('isAutoVersion', () => {
 
   it('returns false for empty string', () => {
     expect(isAutoVersion('')).toBe(false);
+  });
+});
+
+describe('createTemplateSchema country field', () => {
+  it('accepts 2-character country codes', () => {
+    const result = createTemplateSchema.safeParse({
+      title: 'Test',
+      category: 'General',
+      content: '# Test',
+      country: 'US',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts 3-character country codes', () => {
+    const result = createTemplateSchema.safeParse({
+      title: 'Test',
+      category: 'General',
+      content: '# Test',
+      country: 'USA',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects 1-character country codes', () => {
+    const result = createTemplateSchema.safeParse({
+      title: 'Test',
+      category: 'General',
+      content: '# Test',
+      country: 'U',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects 4-character country codes', () => {
+    const result = createTemplateSchema.safeParse({
+      title: 'Test',
+      category: 'General',
+      content: '# Test',
+      country: 'USAA',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts null country', () => {
+    const result = createTemplateSchema.safeParse({
+      title: 'Test',
+      category: 'General',
+      content: '# Test',
+      country: null,
+    });
+    expect(result.success).toBe(true);
+  });
+});
+
+describe('updateTemplateSchema country field', () => {
+  it('accepts 3-character country codes', () => {
+    const result = updateTemplateSchema.safeParse({
+      country: 'USA',
+    });
+    expect(result.success).toBe(true);
   });
 });
