@@ -11,10 +11,12 @@ import { TemplateListPage } from '../../src/pages/TemplateListPage.js';
 import type { Template } from '@legalcode/shared';
 import type { TemplateListResponse } from '../../src/services/templates.js';
 import type { CategoryListResponse } from '../../src/services/categories.js';
+import type { CountryListResponse } from '../../src/services/countries.js';
 import type { UseQueryResult } from '@tanstack/react-query';
 
 const mockUseTemplates = vi.fn();
 const mockUseCategories = vi.fn();
+const mockUseCountries = vi.fn();
 const mockNavigate = vi.fn();
 
 vi.mock('react-router', async () => {
@@ -31,6 +33,10 @@ vi.mock('../../src/hooks/useTemplates.js', () => ({
 
 vi.mock('../../src/hooks/useCategories.js', () => ({
   useCategories: () => mockUseCategories() as unknown,
+}));
+
+vi.mock('../../src/hooks/useCountries.js', () => ({
+  useCountries: () => mockUseCountries() as unknown,
 }));
 
 const mockTemplates: Template[] = [
@@ -119,6 +125,12 @@ const mockCategories = [
   { id: 'c3', name: 'Compliance', createdAt: '2026-01-01T00:00:00Z' },
 ];
 
+const mockCountriesList = [
+  { id: 'co1', name: 'Argentina', code: 'AR', createdAt: '2026-01-01T00:00:00Z' },
+  { id: 'co2', name: 'United Kingdom', code: 'UK', createdAt: '2026-01-01T00:00:00Z' },
+  { id: 'co3', name: 'United States', code: 'US', createdAt: '2026-01-01T00:00:00Z' },
+];
+
 function createCategoryQueryResult(
   overrides: Partial<UseQueryResult<CategoryListResponse>>,
 ): UseQueryResult<CategoryListResponse> {
@@ -152,6 +164,39 @@ function createCategoryQueryResult(
   } as UseQueryResult<CategoryListResponse>;
 }
 
+function createCountryQueryResult(
+  overrides: Partial<UseQueryResult<CountryListResponse>>,
+): UseQueryResult<CountryListResponse> {
+  return {
+    data: undefined,
+    dataUpdatedAt: 0,
+    error: null,
+    errorUpdateCount: 0,
+    errorUpdatedAt: 0,
+    failureCount: 0,
+    failureReason: null,
+    fetchStatus: 'idle',
+    isError: false,
+    isFetched: true,
+    isFetchedAfterMount: true,
+    isFetching: false,
+    isInitialLoading: false,
+    isLoading: false,
+    isLoadingError: false,
+    isPaused: false,
+    isPending: false,
+    isPlaceholderData: false,
+    isRefetchError: false,
+    isRefetching: false,
+    isStale: false,
+    isSuccess: true,
+    promise: Promise.resolve({ countries: [] }),
+    refetch: vi.fn(),
+    status: 'success',
+    ...overrides,
+  } as UseQueryResult<CountryListResponse>;
+}
+
 function Wrapper({ children }: { children: ReactNode }) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -171,6 +216,11 @@ describe('TemplateListPage', () => {
     mockUseCategories.mockReturnValue(
       createCategoryQueryResult({
         data: { categories: mockCategories },
+      }),
+    );
+    mockUseCountries.mockReturnValue(
+      createCountryQueryResult({
+        data: { countries: mockCountriesList },
       }),
     );
   });
@@ -786,6 +836,141 @@ describe('TemplateListPage', () => {
     render(<TemplateListPage />, { wrapper: Wrapper });
 
     const divider = screen.getByTestId('category-divider');
+    expect(divider).toBeInTheDocument();
+  });
+
+  it('renders country filter chips from API', () => {
+    mockUseTemplates.mockReturnValue(
+      createQueryResult({
+        data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
+      }),
+    );
+
+    render(<TemplateListPage />, { wrapper: Wrapper });
+
+    expect(screen.getByRole('button', { name: 'Argentina' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'United Kingdom' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'United States' })).toBeInTheDocument();
+  });
+
+  it('filters by country when country chip is clicked', async () => {
+    const user = userEvent.setup();
+    mockUseTemplates.mockReturnValue(
+      createQueryResult({
+        data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
+      }),
+    );
+
+    render(<TemplateListPage />, { wrapper: Wrapper });
+    await user.click(screen.getByRole('button', { name: 'Argentina' }));
+
+    await waitFor(() => {
+      const lastCall = mockUseTemplates.mock.calls[mockUseTemplates.mock.calls.length - 1] as [
+        Record<string, unknown>,
+      ];
+      expect(lastCall[0]).toEqual(expect.objectContaining({ country: 'AR' }));
+    });
+  });
+
+  it('"Clear filters" resets country filter', async () => {
+    const user = userEvent.setup();
+    mockUseTemplates.mockReturnValue(
+      createQueryResult({
+        data: { data: [], total: 0, page: 1, limit: 20 },
+      }),
+    );
+
+    render(<TemplateListPage />, { wrapper: Wrapper });
+
+    // Click a country to activate filter
+    await user.click(screen.getByRole('button', { name: 'Argentina' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Clear filters' })).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Clear filters' }));
+
+    await waitFor(() => {
+      const lastCall = mockUseTemplates.mock.calls[mockUseTemplates.mock.calls.length - 1] as [
+        Record<string, unknown>,
+      ];
+      expect(lastCall[0]).not.toHaveProperty('country');
+    });
+  });
+
+  it('clicking "All" country chip clears country filter', async () => {
+    const user = userEvent.setup();
+    mockUseTemplates.mockReturnValue(
+      createQueryResult({
+        data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
+      }),
+    );
+
+    render(<TemplateListPage />, { wrapper: Wrapper });
+
+    // First select a country
+    await user.click(screen.getByRole('button', { name: 'Argentina' }));
+
+    await waitFor(() => {
+      const lastCall = mockUseTemplates.mock.calls[mockUseTemplates.mock.calls.length - 1] as [
+        Record<string, unknown>,
+      ];
+      expect(lastCall[0]).toEqual(expect.objectContaining({ country: 'AR' }));
+    });
+
+    // Then click "All" country chip to clear
+    await user.click(screen.getByTestId('country-chip-all'));
+
+    await waitFor(() => {
+      const lastCall = mockUseTemplates.mock.calls[mockUseTemplates.mock.calls.length - 1] as [
+        Record<string, unknown>,
+      ];
+      expect(lastCall[0]).not.toHaveProperty('country');
+    });
+  });
+
+  it('clicking active country chip toggles it off', async () => {
+    const user = userEvent.setup();
+    mockUseTemplates.mockReturnValue(
+      createQueryResult({
+        data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
+      }),
+    );
+
+    render(<TemplateListPage />, { wrapper: Wrapper });
+
+    // Click Argentina to activate
+    await user.click(screen.getByRole('button', { name: 'Argentina' }));
+
+    await waitFor(() => {
+      const lastCall = mockUseTemplates.mock.calls[mockUseTemplates.mock.calls.length - 1] as [
+        Record<string, unknown>,
+      ];
+      expect(lastCall[0]).toEqual(expect.objectContaining({ country: 'AR' }));
+    });
+
+    // Click Argentina again to deactivate
+    await user.click(screen.getByRole('button', { name: 'Argentina' }));
+
+    await waitFor(() => {
+      const lastCall = mockUseTemplates.mock.calls[mockUseTemplates.mock.calls.length - 1] as [
+        Record<string, unknown>,
+      ];
+      expect(lastCall[0]).not.toHaveProperty('country');
+    });
+  });
+
+  it('country divider separates category and country chips', () => {
+    mockUseTemplates.mockReturnValue(
+      createQueryResult({
+        data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
+      }),
+    );
+
+    render(<TemplateListPage />, { wrapper: Wrapper });
+
+    const divider = screen.getByTestId('country-divider');
     expect(divider).toBeInTheDocument();
   });
 });

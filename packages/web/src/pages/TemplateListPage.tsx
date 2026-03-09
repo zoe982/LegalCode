@@ -9,6 +9,7 @@ import SearchOffIcon from '@mui/icons-material/SearchOff';
 import type { TemplateStatus } from '@legalcode/shared';
 import { useTemplates } from '../hooks/useTemplates.js';
 import { useCategories } from '../hooks/useCategories.js';
+import { useCountries } from '../hooks/useCountries.js';
 import { TemplateCard } from '../components/TemplateCard.js';
 import { SkeletonCard } from '../components/SkeletonCard.js';
 
@@ -40,6 +41,7 @@ export function TemplateListPage() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  const [countryFilter, setCountryFilter] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<SortBy>('updated');
   const [sortAnchorEl, setSortAnchorEl] = useState<HTMLElement | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -60,6 +62,7 @@ export function TemplateListPage() {
     ...(debouncedSearch !== '' ? { search: debouncedSearch } : {}),
     ...(statusFilter !== 'all' ? { status: statusFilter } : {}),
     ...(categoryFilter !== null ? { category: categoryFilter } : {}),
+    ...(countryFilter !== null ? { country: countryFilter } : {}),
     sort: sortBy,
   };
 
@@ -70,10 +73,16 @@ export function TemplateListPage() {
   const { data: categoriesData } = useCategories();
   const categoryNames = categoriesData?.categories.map((c) => c.name) ?? [];
 
+  const { data: countriesData } = useCountries();
+  const countryList = countriesData?.countries ?? [];
+
   const currentSortLabel = SORT_OPTIONS.find((o) => o.value === sortBy)?.label ?? 'Recently edited';
 
   const hasActiveFilters =
-    debouncedSearch !== '' || statusFilter !== 'all' || categoryFilter !== null;
+    debouncedSearch !== '' ||
+    statusFilter !== 'all' ||
+    categoryFilter !== null ||
+    countryFilter !== null;
 
   if (isLoading) {
     return (
@@ -283,6 +292,81 @@ export function TemplateListPage() {
                 </Box>
               );
             })}
+            {countryList.length > 0 && (
+              <>
+                <Box
+                  data-testid="country-divider"
+                  sx={{
+                    width: '1px',
+                    height: '20px',
+                    backgroundColor: '#E4E5ED',
+                    alignSelf: 'center',
+                    mx: 1,
+                  }}
+                />
+                <Box
+                  data-testid="country-chip-all"
+                  component="button"
+                  type="button"
+                  role="button"
+                  onClick={() => {
+                    setCountryFilter(null);
+                  }}
+                  sx={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    borderRadius: '9999px',
+                    padding: '5px 14px',
+                    fontFamily: '"DM Sans", sans-serif',
+                    fontSize: '0.8125rem',
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                    transition: 'all 150ms ease',
+                    border: countryFilter === null ? 'none' : '1px solid #E4E5ED',
+                    backgroundColor: countryFilter === null ? '#8027FF' : '#F9F9FB',
+                    color: countryFilter === null ? '#FFFFFF' : '#6B6D82',
+                    '&:hover': {
+                      backgroundColor: countryFilter === null ? '#6B1FDB' : '#F3F3F7',
+                    },
+                  }}
+                >
+                  All
+                </Box>
+                {countryList.map((country) => {
+                  const isActive = countryFilter === country.code;
+                  return (
+                    <Box
+                      key={`country-${country.code}`}
+                      component="button"
+                      type="button"
+                      role="button"
+                      onClick={() => {
+                        setCountryFilter(countryFilter === country.code ? null : country.code);
+                      }}
+                      sx={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        borderRadius: '9999px',
+                        padding: '5px 14px',
+                        fontFamily: '"DM Sans", sans-serif',
+                        fontSize: '0.8125rem',
+                        fontWeight: 500,
+                        cursor: 'pointer',
+                        transition: 'all 150ms ease',
+                        border: isActive ? 'none' : '1px solid #E4E5ED',
+                        backgroundColor: isActive ? '#8027FF' : '#F9F9FB',
+                        color: isActive ? '#FFFFFF' : '#6B6D82',
+                        '&:hover': {
+                          backgroundColor: isActive ? '#6B1FDB' : '#F3F3F7',
+                        },
+                      }}
+                    >
+                      {country.name}
+                    </Box>
+                  );
+                })}
+              </>
+            )}
           </Box>
 
           {/* Sort button */}
@@ -387,6 +471,7 @@ export function TemplateListPage() {
                 setDebouncedSearch('');
                 setStatusFilter('all');
                 setCategoryFilter(null);
+                setCountryFilter(null);
               }}
               sx={{
                 mt: 1,
