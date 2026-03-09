@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { commentService } from '../services/comments.js';
+import { useTrackedMutation } from './useTrackedMutation.js';
 import type { Comment, CommentThread, CreateCommentInput } from '../types/comments.js';
 
 function groupIntoThreads(comments: Comment[], showResolved: boolean): CommentThread[] {
@@ -36,9 +37,9 @@ function groupIntoThreads(comments: Comment[], showResolved: boolean): CommentTh
 }
 
 export interface UseCommentsOptions {
-  onCreateError?: (() => void) | undefined;
-  onResolveError?: (() => void) | undefined;
-  onDeleteError?: (() => void) | undefined;
+  onCreateError?: ((error: Error) => void) | undefined;
+  onResolveError?: ((error: Error) => void) | undefined;
+  onDeleteError?: ((error: Error) => void) | undefined;
 }
 
 export function useComments(templateId: string | undefined, options?: UseCommentsOptions) {
@@ -57,37 +58,42 @@ export function useComments(templateId: string | undefined, options?: UseComment
     [query.data, showResolved],
   );
 
-  const createMutation = useMutation({
+  const createMutation = useTrackedMutation<Comment, CreateCommentInput>({
     mutationFn: (input: CreateCommentInput) => commentService.createComment(input),
+    mutationLabel: 'comment.create',
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['comments', templateId] });
     },
-    onError: () => {
-      options?.onCreateError?.();
+    onError: (error: Error) => {
+      options?.onCreateError?.(error);
     },
   });
 
-  const resolveMutation = useMutation({
-    mutationFn: ({ templateId: tId, commentId }: { templateId: string; commentId: string }) =>
-      commentService.resolveComment(tId, commentId),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['comments', templateId] });
-    },
-    onError: () => {
-      options?.onResolveError?.();
-    },
-  });
+  const resolveMutation = // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
+    useTrackedMutation<void, { templateId: string; commentId: string }>({
+      mutationFn: ({ templateId: tId, commentId }: { templateId: string; commentId: string }) =>
+        commentService.resolveComment(tId, commentId),
+      mutationLabel: 'comment.resolve',
+      onSuccess: () => {
+        void queryClient.invalidateQueries({ queryKey: ['comments', templateId] });
+      },
+      onError: (error: Error) => {
+        options?.onResolveError?.(error);
+      },
+    });
 
-  const deleteMutation = useMutation({
-    mutationFn: ({ templateId: tId, commentId }: { templateId: string; commentId: string }) =>
-      commentService.deleteComment(tId, commentId),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['comments', templateId] });
-    },
-    onError: () => {
-      options?.onDeleteError?.();
-    },
-  });
+  const deleteMutation = // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
+    useTrackedMutation<void, { templateId: string; commentId: string }>({
+      mutationFn: ({ templateId: tId, commentId }: { templateId: string; commentId: string }) =>
+        commentService.deleteComment(tId, commentId),
+      mutationLabel: 'comment.delete',
+      onSuccess: () => {
+        void queryClient.invalidateQueries({ queryKey: ['comments', templateId] });
+      },
+      onError: (error: Error) => {
+        options?.onDeleteError?.(error);
+      },
+    });
 
   const toggleShowResolved = useCallback(() => {
     setShowResolved((prev) => !prev);

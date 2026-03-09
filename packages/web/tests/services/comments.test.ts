@@ -129,6 +129,19 @@ describe('commentService', () => {
         'Failed to resolve comment',
       );
     });
+
+    it('throws with API error message on 415 Content-Type rejection', async () => {
+      vi.mocked(fetch).mockResolvedValue(
+        new Response(JSON.stringify({ error: 'Content-Type must be application/json' }), {
+          status: 415,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+
+      await expect(commentService.resolveComment('tpl-1', 'c1')).rejects.toThrow(
+        'Content-Type must be application/json',
+      );
+    });
   });
 
   describe('deleteComment', () => {

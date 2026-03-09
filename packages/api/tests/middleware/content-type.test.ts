@@ -74,6 +74,7 @@ describe('requireJsonContentType', () => {
         Upgrade: 'websocket',
         Connection: 'Upgrade',
       },
+      body: 'upgrade-payload',
     });
     // WebSocket upgrade won't actually complete in test, but should pass through middleware
     expect(res.status).not.toBe(415);
@@ -96,6 +97,23 @@ describe('requireJsonContentType', () => {
     const res = await app.request('/test', {
       method: 'PUT',
       headers: { 'Content-Type': 'multipart/form-data' },
+      body: 'some body',
+    });
+    expect(res.status).toBe(415);
+  });
+
+  it('allows PATCH with no body and no Content-Type header', async () => {
+    const app = createTestApp();
+    const res = await app.request('/test', {
+      method: 'PATCH',
+    });
+    expect(res.status).toBe(200);
+  });
+
+  it('still rejects PATCH with body but no Content-Type', async () => {
+    const app = createTestApp();
+    const res = await app.request('/test', {
+      method: 'PATCH',
       body: 'some body',
     });
     expect(res.status).toBe(415);

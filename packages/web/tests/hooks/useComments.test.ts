@@ -21,6 +21,10 @@ vi.mock('../../src/services/comments.js', () => ({
   },
 }));
 
+vi.mock('../../src/services/errorReporter.js', () => ({
+  reportError: vi.fn().mockResolvedValue(undefined),
+}));
+
 const parentComment: Comment = {
   id: 'c1',
   templateId: 'tpl-1',
@@ -285,7 +289,7 @@ describe('useComments', () => {
     });
 
     await waitFor(() => {
-      expect(onCreateError).toHaveBeenCalledOnce();
+      expect(onCreateError).toHaveBeenCalledWith(expect.any(Error));
     });
   });
 
@@ -306,7 +310,7 @@ describe('useComments', () => {
     });
 
     await waitFor(() => {
-      expect(onResolveError).toHaveBeenCalledOnce();
+      expect(onResolveError).toHaveBeenCalledWith(expect.any(Error));
     });
   });
 
@@ -327,7 +331,7 @@ describe('useComments', () => {
     });
 
     await waitFor(() => {
-      expect(onDeleteError).toHaveBeenCalledOnce();
+      expect(onDeleteError).toHaveBeenCalledWith(expect.any(Error));
     });
   });
 

@@ -73,14 +73,14 @@ export function TemplateEditorPage() {
     useEditorComments();
   /* v8 ignore next 10 -- error toast callbacks tested at hook level in useComments.test.ts */
   const commentErrorCallbacks = {
-    onCreateError: () => {
-      showToast('Failed to save comment', 'error');
+    onCreateError: (error: Error) => {
+      showToast(error.message || 'Failed to save comment', 'error');
     },
-    onResolveError: () => {
-      showToast('Failed to resolve comment', 'error');
+    onResolveError: (error: Error) => {
+      showToast(error.message || 'Failed to resolve comment', 'error');
     },
-    onDeleteError: () => {
-      showToast('Failed to delete comment', 'error');
+    onDeleteError: (error: Error) => {
+      showToast(error.message || 'Failed to delete comment', 'error');
     },
   };
   const { threads, isCreating, createComment, resolveComment, deleteComment } = useComments(

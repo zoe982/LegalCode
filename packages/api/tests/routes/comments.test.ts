@@ -3,6 +3,7 @@ import { Hono } from 'hono';
 import type { AppEnv } from '../../src/types/env.js';
 import { issueJWT } from '../../src/services/auth.js';
 import { commentSchema, commentsResponseSchema } from '@legalcode/shared';
+import { requireJsonContentType } from '../../src/middleware/content-type.js';
 
 vi.mock('../../src/db/index.js', () => ({
   getDb: vi.fn().mockReturnValue({}),
@@ -68,6 +69,7 @@ async function importAndCreateApp(opts?: { withDO?: boolean }) {
     });
     await next();
   });
+  app.use('/templates/*', requireJsonContentType);
   app.route('/templates', templateRoutes);
   return app;
 }

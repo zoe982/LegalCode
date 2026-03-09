@@ -10,6 +10,12 @@ export const requireJsonContentType = createMiddleware<AppEnv>(async (c, next): 
     return;
   }
 
+  // Skip if there's no body (e.g., PATCH /resolve with empty body)
+  if (c.req.raw.body === null) {
+    await next();
+    return;
+  }
+
   // Skip WebSocket upgrades
   if (c.req.header('Upgrade')?.toLowerCase() === 'websocket') {
     await next();
