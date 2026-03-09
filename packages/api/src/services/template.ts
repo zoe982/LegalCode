@@ -112,7 +112,8 @@ export async function createTemplate(
 
   try {
     await db.batch(ops as unknown as [BatchItem<'sqlite'>, ...BatchItem<'sqlite'>[]]);
-  } catch {
+  } catch (e) {
+    console.error('[createTemplate] batch insert failed:', e);
     return { error: 'db_error' as const };
   }
 

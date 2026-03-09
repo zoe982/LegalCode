@@ -47,6 +47,21 @@ describe('template service', () => {
       expect(result).toEqual({ error: 'db_error' });
     });
 
+    it('logs error to console.error when batch insert fails', async () => {
+      const dbError = new Error('D1_ERROR');
+      vi.spyOn(db, 'batch').mockRejectedValue(dbError);
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+      await createTemplate(
+        db,
+        { title: 'Failing', category: 'contracts', content: '# Fail' },
+        'user-1',
+      );
+
+      expect(consoleSpy).toHaveBeenCalledWith('[createTemplate] batch insert failed:', dbError);
+      consoleSpy.mockRestore();
+    });
+
     it('returns db_error on UNIQUE constraint failure', async () => {
       vi.spyOn(db, 'batch').mockRejectedValue(
         new Error('UNIQUE constraint failed: templates.slug'),

@@ -90,6 +90,7 @@ export function TemplateEditorPage() {
   // Auto-create draft when user starts typing in create mode
   const autoCreateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasAutoCreatedRef = useRef(false);
+  const autoCreateFailedRef = useRef(false);
 
   const { showToast } = useToast();
   const queryClient = useQueryClient();
@@ -241,7 +242,8 @@ export function TemplateEditorPage() {
         void navigate(`/templates/${created.template.id}`, { replace: true });
       })
       .catch(() => {
-        hasAutoCreatedRef.current = false;
+        // hasAutoCreatedRef stays true — blocks useEffect-driven retries
+        autoCreateFailedRef.current = true;
         setAutoCreateState('idle');
         showToast('Failed to save draft', 'error');
       });
@@ -292,11 +294,18 @@ export function TemplateEditorPage() {
         if (autoCreateTimerRef.current) {
           clearTimeout(autoCreateTimerRef.current);
         }
+        if (autoCreateFailedRef.current) {
+          autoCreateFailedRef.current = false;
+          hasAutoCreatedRef.current = false; // Reset to allow retry
+        }
         performAutoCreate();
       } else if (!isCreateMode && status === 'draft') {
         autosave.saveNow();
       }
-      showToast("Your work is saved automatically — you're all set", 'success');
+      // Only show "all set" toast if not in create mode (create mode shows its own toasts)
+      if (!isCreateMode) {
+        showToast("Your work is saved automatically — you're all set", 'success');
+      }
     }, [isCreateMode, title, status, autosave, showToast, performAutoCreate]),
     onAddComment: handleAddComment,
   });

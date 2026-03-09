@@ -2920,6 +2920,72 @@ describe('TemplateEditorPage', () => {
 
       expect(mockCreateMutateAsync).not.toHaveBeenCalled();
     });
+
+    it('does not retry auto-create in a loop when creation fails', async () => {
+      mockCreateMutateAsync.mockRejectedValue(new Error('Server error'));
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      // Set title to trigger auto-create
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onTitleChange as (t: string) => void)('Loop Test');
+      });
+
+      // Advance past debounce — first call fires and fails
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1100);
+      });
+
+      await waitFor(() => {
+        expect(mockCreateMutateAsync).toHaveBeenCalledTimes(1);
+      });
+
+      // Clear mock and advance a long time — should NOT retry
+      mockCreateMutateAsync.mockClear();
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(10000);
+      });
+
+      expect(mockCreateMutateAsync).toHaveBeenCalledTimes(0);
+    });
+
+    it('Ctrl+S allows manual retry after auto-create failure', async () => {
+      mockCreateMutateAsync.mockRejectedValueOnce(new Error('Server error'));
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      // Set title to trigger auto-create
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onTitleChange as (t: string) => void)('Retry Via Ctrl+S');
+      });
+
+      // Advance past debounce — first call fires and fails
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1100);
+      });
+
+      await waitFor(() => {
+        expect(mockShowToast).toHaveBeenCalledWith('Failed to save draft', 'error');
+      });
+
+      // Set up success for retry
+      mockCreateMutateAsync.mockResolvedValue({
+        template: { ...draftTemplate, id: 'retry-success' },
+      });
+
+      // Trigger Ctrl+S for manual retry
+      const lastCall = mockUseKeyboardShortcuts.mock.calls.at(-1) as [{ onCtrlS: () => void }];
+      act(() => {
+        lastCall[0].onCtrlS();
+      });
+
+      await waitFor(() => {
+        expect(mockCreateMutateAsync).toHaveBeenCalledTimes(2);
+      });
+    });
   });
 
   describe('Comment creation flow', () => {
