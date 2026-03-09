@@ -6,6 +6,7 @@ import { issueJWT } from '../../src/services/auth.js';
 
 const mockDbChain = {
   from: vi.fn().mockReturnThis(),
+  orderBy: vi.fn().mockReturnThis(),
   where: vi.fn().mockReturnThis(),
   returning: vi.fn().mockResolvedValue([]),
 };
@@ -33,6 +34,7 @@ vi.mock('../../src/db/schema.js', () => ({
 
 vi.mock('drizzle-orm', () => ({
   eq: vi.fn((...args: unknown[]) => args),
+  asc: vi.fn((...args: unknown[]) => args),
 }));
 
 vi.mock('../../src/services/auth.js', async (importOriginal) => {
@@ -87,9 +89,29 @@ describe('GET /countries', () => {
     expect(res.status).toBe(401);
   });
 
+  it('returns countries sorted alphabetically by name', async () => {
+    const unsortedCountries = [
+      { id: 'c-3', name: 'Zambia', code: 'ZM', createdAt: '2026-01-01' },
+      { id: 'c-1', name: 'Argentina', code: 'AR', createdAt: '2026-01-01' },
+      { id: 'c-2', name: 'Belgium', code: 'BE', createdAt: '2026-01-01' },
+    ];
+    mockDbChain.orderBy.mockResolvedValueOnce(unsortedCountries);
+
+    const app = await importAndCreateApp();
+    const token = await viewerToken();
+    const res = await app.request('/countries', {
+      headers: { Cookie: `__Host-auth=${token}` },
+    });
+    expect(res.status).toBe(200);
+
+    // Verify asc was called with countries.name
+    const { asc: ascFn } = await import('drizzle-orm');
+    expect(ascFn).toHaveBeenCalledWith('name');
+  });
+
   it('returns 200 with countries list matching shared schema', async () => {
     const mockCountries = [{ id: 'c-1', name: 'Germany', code: 'DE', createdAt: '2026-01-01' }];
-    mockDbChain.from.mockResolvedValueOnce(mockCountries);
+    mockDbChain.orderBy.mockResolvedValueOnce(mockCountries);
 
     const app = await importAndCreateApp();
     const token = await viewerToken();

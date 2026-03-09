@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { eq } from 'drizzle-orm';
+import { eq, asc } from 'drizzle-orm';
 import type { AppEnv } from '../types/env.js';
 import { authMiddleware, requireRole } from '../middleware/auth.js';
 import { getDb } from '../db/index.js';
@@ -12,7 +12,7 @@ countryRoutes.use('*', authMiddleware);
 
 countryRoutes.get('/', async (c) => {
   const db = getDb(c.env.DB);
-  const result = await db.select().from(countries);
+  const result = await db.select().from(countries).orderBy(asc(countries.name));
   return c.json({ countries: result });
 });
 
