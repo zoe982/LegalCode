@@ -3,6 +3,7 @@ import type { BatchItem } from 'drizzle-orm/batch';
 import { updateTemplateSchema, templateQuerySchema } from '@legalcode/shared';
 import type { CreateTemplateInput, UpdateTemplateInput, TemplateQuery } from '@legalcode/shared';
 import type { AppDb } from '../db/index.js';
+import { batchOps } from '../utils/db.js';
 import {
   templates,
   templateVersions,
@@ -122,7 +123,7 @@ export async function createTemplate(
   }
 
   try {
-    await db.batch(ops as unknown as [BatchItem<'sqlite'>, ...BatchItem<'sqlite'>[]]);
+    await batchOps(db, ops);
   } catch (e) {
     console.error('[createTemplate] batch insert failed:', e);
     const message = e instanceof Error ? e.message : String(e);
@@ -368,7 +369,7 @@ export async function updateTemplate(
     tagNames = existingTags.map((row) => row.name);
   }
 
-  await db.batch(ops as unknown as [BatchItem<'sqlite'>, ...BatchItem<'sqlite'>[]]);
+  await batchOps(db, ops);
 
   return {
     template: updatedTemplate,
@@ -400,7 +401,7 @@ export async function saveContent(
 
   const now = nowISO();
 
-  const templateUpdate: Record<string, unknown> = { updatedAt: now };
+  const templateUpdate: Partial<typeof templates.$inferInsert> = { updatedAt: now };
   if (title !== undefined) {
     templateUpdate.title = title;
   }
@@ -418,7 +419,7 @@ export async function saveContent(
     db.update(templates).set(templateUpdate).where(eq(templates.id, templateId)),
   ];
 
-  await db.batch(ops as unknown as [BatchItem<'sqlite'>, ...BatchItem<'sqlite'>[]]);
+  await batchOps(db, ops);
 
   return { updatedAt: now };
 }
@@ -464,7 +465,7 @@ export async function deleteTemplate(
     db.insert(auditLog).values(auditRow),
   ];
 
-  await db.batch(ops as unknown as [BatchItem<'sqlite'>, ...BatchItem<'sqlite'>[]]);
+  await batchOps(db, ops);
 
   return { success: true };
 }
@@ -516,7 +517,7 @@ export async function hardDeleteTemplate(db: AppDb, templateId: string): Promise
     db.delete(templates).where(eq(templates.id, templateId)),
   ];
 
-  await db.batch(ops as unknown as [BatchItem<'sqlite'>, ...BatchItem<'sqlite'>[]]);
+  await batchOps(db, ops);
 
   return { success: true };
 }
