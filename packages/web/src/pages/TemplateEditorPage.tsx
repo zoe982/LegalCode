@@ -23,6 +23,7 @@ import {
   useUnarchiveTemplate,
 } from '../hooks/useTemplates.js';
 import { templateService } from '../services/templates.js';
+import { useCategories } from '../hooks/useCategories.js';
 import { useCollaboration } from '../hooks/useCollaboration.js';
 import { PresenceAvatars } from '../components/PresenceAvatars.js';
 import { ConnectionStatus } from '../components/ConnectionStatus.js';
@@ -57,6 +58,9 @@ export function TemplateEditorPage() {
   const templateQuery = useTemplate(id ?? '');
   const templateData = templateQuery.data;
 
+  const categoriesQuery = useCategories();
+  const categories = categoriesQuery.data?.categories ?? [];
+
   const createMutation = useCreateTemplate();
   const publishMutation = usePublishTemplate();
   const archiveMutation = useArchiveTemplate();
@@ -81,6 +85,7 @@ export function TemplateEditorPage() {
   const [publishDialogOpen, setPublishDialogOpen] = useState(false);
 
   const isDirtyRef = useRef(false);
+  const [autoCreateState, setAutoCreateState] = useState<'idle' | 'saving'>('idle');
 
   // Auto-create draft when user starts typing in create mode
   const autoCreateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -215,44 +220,52 @@ export function TemplateEditorPage() {
     prevSaveStateRef.current = autosave.saveState;
   }, [autosave.saveState, showToast]);
 
+  // Shared auto-create logic for debounced auto-create and Ctrl+S
+  const performAutoCreate = useCallback(() => {
+    if (hasAutoCreatedRef.current || title.trim() === '') return;
+    hasAutoCreatedRef.current = true;
+    setAutoCreateState('saving');
+    const resolvedCategory = category !== '' ? category : (categories[0]?.name ?? 'General');
+    const resolvedCountry = country !== '' ? country : undefined;
+    const resolvedContent = content !== '' ? content : ' ';
+    void createMutation
+      .mutateAsync({
+        title,
+        category: resolvedCategory,
+        country: resolvedCountry,
+        content: resolvedContent,
+      })
+      .then((result: unknown) => {
+        const created = result as { template: Template };
+        setAutoCreateState('idle');
+        void navigate(`/templates/${created.template.id}`, { replace: true });
+      })
+      .catch(() => {
+        hasAutoCreatedRef.current = false;
+        setAutoCreateState('idle');
+        showToast('Failed to save draft', 'error');
+      });
+  }, [title, category, categories, country, content, createMutation, navigate, showToast]);
+
   // Auto-create draft when user starts typing in create mode
   useEffect(() => {
     if (!isCreateMode || hasAutoCreatedRef.current) return;
-    // Need at least a title to create
     if (title.trim() === '') return;
-    if (category.trim() === '') return;
-    if (content.trim() === '') return;
 
-    // Clear previous timer
     if (autoCreateTimerRef.current) {
       clearTimeout(autoCreateTimerRef.current);
     }
 
     autoCreateTimerRef.current = setTimeout(() => {
-      hasAutoCreatedRef.current = true;
-      void createMutation
-        .mutateAsync({
-          title,
-          category,
-          country: country || undefined,
-          content,
-        })
-        .then((result: unknown) => {
-          const created = result as { template: Template };
-          void navigate(`/templates/${created.template.id}`, { replace: true });
-        })
-        .catch(() => {
-          hasAutoCreatedRef.current = false; // Allow retry
-          showToast('Failed to save draft', 'error');
-        });
-    }, 1500); // 1.5s debounce
+      performAutoCreate();
+    }, 1000);
 
     return () => {
       if (autoCreateTimerRef.current) {
         clearTimeout(autoCreateTimerRef.current);
       }
     };
-  }, [isCreateMode, title, category, country, content, createMutation, navigate, showToast]);
+  }, [isCreateMode, title, performAutoCreate]);
 
   // Clean up auto-create timer on unmount
   useEffect(() => {
@@ -275,11 +288,16 @@ export function TemplateEditorPage() {
       setShortcutHelpOpen(true);
     }, []),
     onCtrlS: useCallback(() => {
-      if (!isCreateMode && status === 'draft') {
+      if (isCreateMode && title.trim() !== '') {
+        if (autoCreateTimerRef.current) {
+          clearTimeout(autoCreateTimerRef.current);
+        }
+        performAutoCreate();
+      } else if (!isCreateMode && status === 'draft') {
         autosave.saveNow();
       }
       showToast("Your work is saved automatically — you're all set", 'success');
-    }, [isCreateMode, status, autosave, showToast]),
+    }, [isCreateMode, title, status, autosave, showToast, performAutoCreate]),
     onAddComment: handleAddComment,
   });
 
@@ -289,23 +307,6 @@ export function TemplateEditorPage() {
       void templateService.download(id);
     }
   }, [id]);
-
-  const handleCreateDraft = useCallback(() => {
-    void createMutation
-      .mutateAsync({
-        title,
-        category,
-        country: country || undefined,
-        content,
-      })
-      .then((result: unknown) => {
-        const created = result as { template: Template };
-        void navigate(`/templates/${created.template.id}`);
-      })
-      .catch(() => {
-        showToast('Failed to create template', 'error');
-      });
-  }, [createMutation, title, category, country, content, navigate, showToast]);
 
   const handlePublishClick = useCallback(() => {
     setPublishDialogOpen(true);
@@ -324,15 +325,17 @@ export function TemplateEditorPage() {
 
   // Derive connection status for draft autosave display
   const draftSaveStatus: ConnectionStatusType | null =
-    !isCreateMode && status === 'draft' && !isViewer
-      ? autosave.saveState === 'saving'
-        ? 'saving'
-        : autosave.saveState === 'saved'
-          ? 'saved'
-          : autosave.saveState === 'error'
-            ? 'error'
-            : 'connected' // idle -> show as connected/saved
-      : null;
+    isCreateMode && autoCreateState === 'saving'
+      ? 'saving'
+      : !isCreateMode && status === 'draft' && !isViewer
+        ? autosave.saveState === 'saving'
+          ? 'saving'
+          : autosave.saveState === 'saved'
+            ? 'saved'
+            : autosave.saveState === 'error'
+              ? 'error'
+              : 'connected' // idle -> show as connected/saved
+        : null;
 
   // Right slot content for DocumentHeader
   const documentHeaderRightSlot = !isCreateMode ? (
@@ -347,6 +350,10 @@ export function TemplateEditorPage() {
       <IconButton onClick={handleExport} aria-label="export">
         <DownloadIcon />
       </IconButton>
+    </Box>
+  ) : draftSaveStatus != null ? (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+      <ConnectionStatus status={draftSaveStatus} />
     </Box>
   ) : undefined;
 
@@ -373,7 +380,6 @@ export function TemplateEditorPage() {
           onPublish={!isReadOnly && status === 'draft' ? handlePublishClick : undefined}
           onArchive={!isReadOnly && status === 'active' ? handleArchiveClick : undefined}
           onUnarchive={status === 'archived' ? handleUnarchiveClick : undefined}
-          onSaveDraft={isCreateMode ? handleCreateDraft : undefined}
           rightSlot={documentHeaderRightSlot}
         />
       ),
@@ -399,7 +405,6 @@ export function TemplateEditorPage() {
     handlePublishClick,
     handleArchiveClick,
     handleUnarchiveClick,
-    handleCreateDraft,
     draftSaveStatus,
     autosave.saveState,
     isViewer,

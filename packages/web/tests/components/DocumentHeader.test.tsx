@@ -93,7 +93,6 @@ interface RenderProps {
   updatedAt?: string | undefined;
   createdBy?: string | undefined;
   currentVersion?: number | undefined;
-  onSaveDraft?: (() => void) | undefined;
   rightSlot?: ReactNode;
 }
 
@@ -315,27 +314,9 @@ describe('DocumentHeader', () => {
     expect(screen.queryByRole('radio', { name: 'Review' })).not.toBeInTheDocument();
   });
 
-  it('create mode: shows Save Draft button', () => {
-    renderHeader({ isCreateMode: true, onSaveDraft: vi.fn() });
-    expect(screen.getByRole('button', { name: 'Save Draft' })).toBeInTheDocument();
-  });
-
-  it('create mode: Save Draft disabled when title is empty', () => {
-    renderHeader({ isCreateMode: true, title: '', onSaveDraft: vi.fn() });
-    expect(screen.getByRole('button', { name: 'Save Draft' })).toBeDisabled();
-  });
-
-  it('create mode: Save Draft enabled when title is non-empty', () => {
-    renderHeader({ isCreateMode: true, title: 'My Template', onSaveDraft: vi.fn() });
-    expect(screen.getByRole('button', { name: 'Save Draft' })).toBeEnabled();
-  });
-
-  it('create mode: calls onSaveDraft when Save Draft is clicked', async () => {
-    const user = userEvent.setup();
-    const onSaveDraft = vi.fn();
-    renderHeader({ isCreateMode: true, title: 'My Template', onSaveDraft });
-    await user.click(screen.getByRole('button', { name: 'Save Draft' }));
-    expect(onSaveDraft).toHaveBeenCalled();
+  it('create mode: does not render Save Draft button', () => {
+    renderHeader({ isCreateMode: true });
+    expect(screen.queryByRole('button', { name: 'Save Draft' })).not.toBeInTheDocument();
   });
 
   // Viewer role

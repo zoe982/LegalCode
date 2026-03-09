@@ -41,7 +41,6 @@ export interface DocumentHeaderProps {
   updatedAt?: string | undefined;
   createdBy?: string | undefined;
   currentVersion?: number | undefined;
-  onSaveDraft?: (() => void) | undefined;
   rightSlot?: ReactNode | undefined;
 }
 
@@ -134,7 +133,6 @@ export function DocumentHeader({
   updatedAt,
   createdBy,
   currentVersion,
-  onSaveDraft,
   rightSlot,
 }: DocumentHeaderProps) {
   const navigate = useNavigate();
@@ -616,34 +614,6 @@ export function DocumentHeader({
           }}
         >
           Unarchive
-        </Button>
-      )}
-
-      {/* Save Draft — create mode only */}
-      {isCreateMode && onSaveDraft != null && (
-        <Button
-          aria-label="Save Draft"
-          onClick={onSaveDraft}
-          disabled={title.trim() === ''}
-          variant="contained"
-          size="small"
-          sx={{
-            height: '28px',
-            padding: '0 12px',
-            borderRadius: '6px',
-            backgroundColor: 'var(--accent-primary)',
-            color: 'var(--text-on-purple)',
-            fontFamily: '"DM Sans", sans-serif',
-            fontSize: '0.8125rem',
-            fontWeight: 600,
-            textTransform: 'none',
-            mr: '8px',
-            '&:hover': {
-              backgroundColor: 'var(--accent-primary-hover)',
-            },
-          }}
-        >
-          Save Draft
         </Button>
       )}
 

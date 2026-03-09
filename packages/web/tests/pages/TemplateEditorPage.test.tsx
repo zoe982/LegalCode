@@ -1,7 +1,7 @@
 /// <reference types="@testing-library/jest-dom/vitest" />
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/unbound-method */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor, act, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -52,6 +52,15 @@ vi.mock('../../src/hooks/useTemplates.js', () => ({
   usePublishTemplate: () => mockUsePublishTemplate() as unknown,
   useArchiveTemplate: () => mockUseArchiveTemplate() as unknown,
   useUnarchiveTemplate: () => mockUseUnarchiveTemplate() as unknown,
+}));
+
+vi.mock('../../src/hooks/useCategories.js', () => ({
+  useCategories: () => ({
+    data: { categories: [{ id: 'c1', name: 'Employment', createdAt: '2026-01-01T00:00:00Z' }] },
+    isLoading: false,
+    isError: false,
+    isSuccess: true,
+  }),
 }));
 
 vi.mock('../../src/components/MarkdownEditor.js', () => ({
@@ -446,11 +455,6 @@ vi.mock('../../src/components/DocumentHeader.js', () => ({
             Unarchive
           </button>
         )}
-        {typeof props.onSaveDraft === 'function' && (
-          <button data-testid="dh-save-draft" onClick={props.onSaveDraft as () => void}>
-            Save Draft
-          </button>
-        )}
         {props.rightSlot != null && (
           <div data-testid="dh-right-slot">{props.rightSlot as React.ReactNode}</div>
         )}
@@ -698,12 +702,6 @@ describe('TemplateEditorPage', () => {
       expect(getByTestId('dh-create-mode')).toBeInTheDocument();
     });
 
-    it('passes onSaveDraft callback to DocumentHeader in create mode', () => {
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-      const { getByTestId } = renderDocumentHeader();
-      expect(getByTestId('dh-save-draft')).toBeInTheDocument();
-    });
-
     it('does not show Export button in create mode', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
       const { queryByTestId } = renderDocumentHeader();
@@ -747,12 +745,6 @@ describe('TemplateEditorPage', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
       const { getByTestId } = renderDocumentHeader();
       expect(getByTestId('dh-title')).toHaveTextContent('Employment Agreement');
-    });
-
-    it('does not pass onSaveDraft to DocumentHeader for existing drafts (autosave handles saving)', () => {
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-      const { queryByTestId } = renderDocumentHeader();
-      expect(queryByTestId('dh-save-draft')).not.toBeInTheDocument();
     });
 
     it('uses useAutosave hook for draft templates', () => {
@@ -934,12 +926,6 @@ describe('TemplateEditorPage', () => {
       );
     });
 
-    it('does not show Save Draft button for active templates', () => {
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-      const { queryByTestId } = renderDocumentHeader();
-      expect(queryByTestId('dh-save-draft')).not.toBeInTheDocument();
-    });
-
     it('passes onArchive to DocumentHeader for active templates', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
       const { getByTestId } = renderDocumentHeader();
@@ -1029,23 +1015,6 @@ describe('TemplateEditorPage', () => {
       expect(queryByTestId('dh-publish')).not.toBeInTheDocument();
       expect(queryByTestId('dh-archive')).not.toBeInTheDocument();
     });
-
-    it('does not pass onSaveDraft to DocumentHeader in create mode for viewer', () => {
-      mockUseParams.mockReturnValue({});
-      mockUseTemplate.mockReturnValue(
-        createTemplateQueryResult({
-          data: undefined,
-          isLoading: false,
-          isPending: true,
-          isSuccess: false,
-          status: 'pending',
-        }),
-      );
-
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-      // Viewer should still get onSaveDraft in create mode since isCreateMode is the condition
-      // The readOnly flag is used for disabling editing within DocumentHeader
-    });
   });
 
   describe('Export button', () => {
@@ -1099,49 +1068,6 @@ describe('TemplateEditorPage', () => {
         exportBtn?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
       });
       expect(templates.templateService.download).toHaveBeenCalledWith('t1');
-    });
-  });
-
-  describe('Create mode actions', () => {
-    beforeEach(() => {
-      mockUseParams.mockReturnValue({});
-      mockUseTemplate.mockReturnValue(
-        createTemplateQueryResult({
-          data: undefined,
-          isLoading: false,
-          isPending: true,
-          isSuccess: false,
-          status: 'pending',
-        }),
-      );
-    });
-
-    it('calls createMutation when Save Draft is triggered via DocumentHeader', async () => {
-      const user = userEvent.setup();
-      mockCreateMutateAsync.mockResolvedValue({
-        template: { ...draftTemplate, id: 'new-1' },
-      });
-
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-
-      // Click Save Draft via DocumentHeader mock button
-      const { getByTestId } = renderDocumentHeader();
-      await user.click(getByTestId('dh-save-draft'));
-      expect(mockCreateMutateAsync).toHaveBeenCalledTimes(1);
-    });
-
-    it('shows error toast when create draft fails', async () => {
-      const user = userEvent.setup();
-      mockCreateMutateAsync.mockRejectedValue(new Error('Failed'));
-
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-
-      const { getByTestId } = renderDocumentHeader();
-      await user.click(getByTestId('dh-save-draft'));
-
-      await waitFor(() => {
-        expect(mockShowToast).toHaveBeenCalledWith(expect.stringMatching(/failed|error/i), 'error');
-      });
     });
   });
 
@@ -1359,23 +1285,12 @@ describe('TemplateEditorPage', () => {
           status: 'pending',
         }),
       );
-      mockCreateMutateAsync.mockResolvedValue({
-        template: { ...draftTemplate, id: 'new-1' },
-      });
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-
-      // Type in the markdown editor (mocked as textarea)
       const editor = screen.getByTestId('markdown-editor');
       await user.type(editor, '# Test Content');
-
-      // Save via DocumentHeader
-      renderDocumentHeader();
-      act(() => {
-        (latestDocumentHeaderProps.onSaveDraft as () => void)();
-      });
-
-      expect(mockCreateMutateAsync).toHaveBeenCalledTimes(1);
+      // Content is tracked in component state; verified via auto-create tests
+      expect(editor).toHaveValue('# Test Content');
     });
   });
 
@@ -2724,23 +2639,13 @@ describe('TemplateEditorPage', () => {
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
-      // Simulate title change via DocumentHeader
       renderDocumentHeader();
       act(() => {
         (latestDocumentHeaderProps.onTitleChange as (t: string) => void)('My New Template');
       });
-      // Set category
-      renderDocumentHeader();
-      act(() => {
-        (latestDocumentHeaderProps.onCategoryChange as (c: string) => void)('contracts');
-      });
-      // Set content via MarkdownEditor
-      const editor = screen.getByTestId('markdown-editor');
-      fireEvent.change(editor, { target: { value: '# Test content' } });
 
-      // Advance past the 1.5s debounce
       await act(async () => {
-        await vi.advanceTimersByTimeAsync(1600);
+        await vi.advanceTimersByTimeAsync(1100);
       });
 
       await waitFor(() => {
@@ -2763,15 +2668,9 @@ describe('TemplateEditorPage', () => {
       act(() => {
         (latestDocumentHeaderProps.onTitleChange as (t: string) => void)('Auto Draft');
       });
-      renderDocumentHeader();
-      act(() => {
-        (latestDocumentHeaderProps.onCategoryChange as (c: string) => void)('contracts');
-      });
-      const editor = screen.getByTestId('markdown-editor');
-      fireEvent.change(editor, { target: { value: '# Test content' } });
 
       await act(async () => {
-        await vi.advanceTimersByTimeAsync(1600);
+        await vi.advanceTimersByTimeAsync(1100);
       });
 
       await waitFor(() => {
@@ -2788,15 +2687,9 @@ describe('TemplateEditorPage', () => {
       act(() => {
         (latestDocumentHeaderProps.onTitleChange as (t: string) => void)('Retry Draft');
       });
-      renderDocumentHeader();
-      act(() => {
-        (latestDocumentHeaderProps.onCategoryChange as (c: string) => void)('contracts');
-      });
-      const editor = screen.getByTestId('markdown-editor');
-      fireEvent.change(editor, { target: { value: '# Test content' } });
 
       act(() => {
-        vi.advanceTimersByTime(1600);
+        vi.advanceTimersByTime(1100);
       });
 
       await waitFor(() => {
@@ -2815,73 +2708,28 @@ describe('TemplateEditorPage', () => {
       expect(mockCreateMutateAsync).not.toHaveBeenCalled();
     });
 
-    it('does not auto-create when category is empty', async () => {
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-
-      // Set title but leave category empty (default)
-      renderDocumentHeader();
-      act(() => {
-        (latestDocumentHeaderProps.onTitleChange as (t: string) => void)('My Template');
-      });
-
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(1600);
-      });
-
-      expect(mockCreateMutateAsync).not.toHaveBeenCalled();
-    });
-
-    it('does not auto-create when content is empty', async () => {
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-
-      // Set title and category but leave content empty
-      renderDocumentHeader();
-      act(() => {
-        (latestDocumentHeaderProps.onTitleChange as (t: string) => void)('My Template');
-      });
-      renderDocumentHeader();
-      act(() => {
-        (latestDocumentHeaderProps.onCategoryChange as (c: string) => void)('contracts');
-      });
-
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(1600);
-      });
-
-      expect(mockCreateMutateAsync).not.toHaveBeenCalled();
-    });
-
-    it('auto-creates when all required fields are filled', async () => {
+    it('auto-creates draft with default category when only title is provided', async () => {
       mockCreateMutateAsync.mockResolvedValue({
-        template: { ...draftTemplate, id: 'auto-full' },
+        template: { ...draftTemplate, id: 'auto-default' },
       });
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
-      // Set title
       renderDocumentHeader();
       act(() => {
-        (latestDocumentHeaderProps.onTitleChange as (t: string) => void)('Full Template');
+        (latestDocumentHeaderProps.onTitleChange as (t: string) => void)('Title Only');
       });
-      // Set category
-      renderDocumentHeader();
-      act(() => {
-        (latestDocumentHeaderProps.onCategoryChange as (c: string) => void)('contracts');
-      });
-      // Set content via MarkdownEditor
-      const editor = screen.getByTestId('markdown-editor');
-      fireEvent.change(editor, { target: { value: '# Content here' } });
 
       await act(async () => {
-        await vi.advanceTimersByTimeAsync(1600);
+        await vi.advanceTimersByTimeAsync(1100);
       });
 
       await waitFor(() => {
         expect(mockCreateMutateAsync).toHaveBeenCalledWith(
           expect.objectContaining({
-            title: 'Full Template',
-            category: 'contracts',
-            content: '# Content here',
+            title: 'Title Only',
+            category: 'Employment',
+            content: ' ',
           }),
         );
       });
@@ -2901,14 +2749,6 @@ describe('TemplateEditorPage', () => {
         (latestDocumentHeaderProps.onTitleChange as (t: string) => void)('First');
       });
 
-      // Set category and content for the guard
-      renderDocumentHeader();
-      act(() => {
-        (latestDocumentHeaderProps.onCategoryChange as (c: string) => void)('contracts');
-      });
-      const editor = screen.getByTestId('markdown-editor');
-      fireEvent.change(editor, { target: { value: '# Test content' } });
-
       // Advance part way (not enough for debounce)
       act(() => {
         vi.advanceTimersByTime(500);
@@ -2922,7 +2762,7 @@ describe('TemplateEditorPage', () => {
 
       // Advance past the debounce
       act(() => {
-        vi.advanceTimersByTime(1600);
+        vi.advanceTimersByTime(1100);
       });
 
       await waitFor(() => {
@@ -2934,6 +2774,151 @@ describe('TemplateEditorPage', () => {
           }),
         );
       });
+    });
+
+    it('shows saving status during auto-create in create mode', async () => {
+      let resolveCreate: (value: unknown) => void = () => {
+        /* placeholder */
+      };
+      mockCreateMutateAsync.mockReturnValue(
+        new Promise((resolve) => {
+          resolveCreate = resolve;
+        }),
+      );
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onTitleChange as (t: string) => void)('Saving Template');
+      });
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1100);
+      });
+
+      // During save, rightSlot should show saving status
+      renderDocumentHeader();
+      expect(latestDocumentHeaderProps.rightSlot).not.toBeUndefined();
+
+      // Resolve the create
+      act(() => {
+        resolveCreate({ template: { ...draftTemplate, id: 'save-status' } });
+      });
+    });
+
+    it('Ctrl+S triggers immediate auto-create in create mode', () => {
+      mockCreateMutateAsync.mockResolvedValue({
+        template: { ...draftTemplate, id: 'ctrl-s-create' },
+      });
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      // Set title
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onTitleChange as (t: string) => void)('Ctrl+S Template');
+      });
+
+      // Trigger Ctrl+S without waiting for debounce
+      const lastCall = mockUseKeyboardShortcuts.mock.calls.at(-1) as [{ onCtrlS: () => void }];
+      act(() => {
+        lastCall[0].onCtrlS();
+      });
+
+      // Should create immediately without needing debounce
+      expect(mockCreateMutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Ctrl+S Template',
+        }),
+      );
+    });
+
+    it('does not render Save Draft button in create mode', () => {
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      const { queryByTestId } = renderDocumentHeader();
+      expect(queryByTestId('dh-save-draft')).not.toBeInTheDocument();
+    });
+
+    it('uses user-provided category, country, and content when set', async () => {
+      mockCreateMutateAsync.mockResolvedValue({
+        template: { ...draftTemplate, id: 'auto-full' },
+      });
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      // Set title
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onTitleChange as (t: string) => void)('Full Template');
+      });
+      // Set category
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onCategoryChange as (c: string) => void)('Compliance');
+      });
+      // Set country
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onCountryChange as (c: string) => void)('US');
+      });
+      // Set content via MarkdownEditor
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      const editor = screen.getByTestId('markdown-editor');
+      await user.type(editor, '# Content');
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1100);
+      });
+
+      await waitFor(() => {
+        expect(mockCreateMutateAsync).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title: 'Full Template',
+            category: 'Compliance',
+            country: 'US',
+            content: '# Content',
+          }),
+        );
+      });
+    });
+
+    it('does not auto-create again after hasAutoCreated is set', async () => {
+      mockCreateMutateAsync.mockResolvedValue({
+        template: { ...draftTemplate, id: 'auto-once' },
+      });
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      // First title entry triggers auto-create
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onTitleChange as (t: string) => void)('First Title');
+      });
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1100);
+      });
+
+      await waitFor(() => {
+        expect(mockCreateMutateAsync).toHaveBeenCalledTimes(1);
+      });
+
+      // Navigates away, so further title changes should not trigger another create
+      // Reset to verify no additional calls
+      mockCreateMutateAsync.mockClear();
+
+      // Change title again (should not trigger since hasAutoCreated is true)
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onTitleChange as (t: string) => void)('Second Title');
+      });
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1100);
+      });
+
+      expect(mockCreateMutateAsync).not.toHaveBeenCalled();
     });
   });
 
