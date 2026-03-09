@@ -3,9 +3,30 @@ import { HTTPException } from 'hono/http-exception';
 import type { AppEnv } from '../types/env.js';
 import { logError } from '../services/error-log.js';
 
+function http4xxDefault(status: number): string {
+  switch (status) {
+    case 400:
+      return 'Bad request';
+    case 401:
+      return 'Authentication required';
+    case 403:
+      return 'Forbidden';
+    case 404:
+      return 'Not found';
+    case 409:
+      return 'Conflict';
+    case 415:
+      return 'Unsupported media type';
+    case 429:
+      return 'Too many requests';
+    default:
+      return 'Request error';
+  }
+}
+
 export const errorHandler: ErrorHandler<AppEnv> = (err, c) => {
   if (err instanceof HTTPException && err.status < 500) {
-    return c.json({ error: err.message }, err.status);
+    return c.json({ error: err.message || http4xxDefault(err.status) }, err.status);
   }
 
   const status = err instanceof HTTPException ? err.status : 500;

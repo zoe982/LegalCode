@@ -345,4 +345,73 @@ describe('errorHandler', () => {
     expect(metadata).toHaveProperty('status', 500);
     consoleSpy.mockRestore();
   });
+
+  it('returns default "Forbidden" for HTTPException(403) with no message', async () => {
+    const app = createTestApp();
+    app.get('/csrf', () => {
+      throw new HTTPException(403);
+    });
+
+    const res = await app.request('/csrf');
+    expect(res.status).toBe(403);
+    const body: unknown = await res.json();
+    expect(body).toEqual({ error: 'Forbidden' });
+  });
+
+  it('returns default "Authentication required" for HTTPException(401) with no message', async () => {
+    const app = createTestApp();
+    app.get('/unauth', () => {
+      throw new HTTPException(401);
+    });
+
+    const res = await app.request('/unauth');
+    expect(res.status).toBe(401);
+    const body: unknown = await res.json();
+    expect(body).toEqual({ error: 'Authentication required' });
+  });
+
+  it('preserves custom message for HTTPException(400, { message: "Custom" })', async () => {
+    const app = createTestApp();
+    app.get('/custom', () => {
+      throw new HTTPException(400, { message: 'Custom' });
+    });
+
+    const res = await app.request('/custom');
+    expect(res.status).toBe(400);
+    const body: unknown = await res.json();
+    expect(body).toEqual({ error: 'Custom' });
+  });
+
+  it('returns fallback "Request error" for unknown 4xx status with no message', async () => {
+    const app = createTestApp();
+    app.get('/teapot', () => {
+      throw new HTTPException(418);
+    });
+
+    const res = await app.request('/teapot');
+    expect(res.status).toBe(418);
+    const body: unknown = await res.json();
+    expect(body).toEqual({ error: 'Request error' });
+  });
+
+  it.each([
+    [400, 'Bad request'],
+    [404, 'Not found'],
+    [409, 'Conflict'],
+    [415, 'Unsupported media type'],
+    [429, 'Too many requests'],
+  ] as const)(
+    'returns default "%s" message for HTTPException(%i) with no message',
+    async (status, expectedMsg) => {
+      const app = createTestApp();
+      app.get('/test-default', () => {
+        throw new HTTPException(status);
+      });
+
+      const res = await app.request('/test-default');
+      expect(res.status).toBe(status);
+      const body: unknown = await res.json();
+      expect(body).toEqual({ error: expectedMsg });
+    },
+  );
 });

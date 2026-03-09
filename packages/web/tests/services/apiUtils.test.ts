@@ -54,4 +54,18 @@ describe('extractApiError', () => {
       'Fallback (HTTP 403: {"error":""})',
     );
   });
+
+  it('falls through to fallback when error field is non-string', async () => {
+    const response = new Response(JSON.stringify({ error: 123 }), { status: 400 });
+    await expect(extractApiError(response, 'Fallback')).rejects.toThrow(
+      'Fallback (HTTP 400: {"error":123})',
+    );
+  });
+
+  it('falls back gracefully when response body is unreadable', async () => {
+    const response = new Response('body', { status: 502 });
+    // Consume body so .text() will reject
+    await response.text();
+    await expect(extractApiError(response, 'Fallback')).rejects.toThrow('Fallback (HTTP 502)');
+  });
 });
