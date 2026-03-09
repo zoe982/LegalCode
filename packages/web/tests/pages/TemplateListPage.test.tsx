@@ -10,9 +10,11 @@ import { theme } from '../../src/theme/index.js';
 import { TemplateListPage } from '../../src/pages/TemplateListPage.js';
 import type { Template } from '@legalcode/shared';
 import type { TemplateListResponse } from '../../src/services/templates.js';
+import type { CategoryListResponse } from '../../src/services/categories.js';
 import type { UseQueryResult } from '@tanstack/react-query';
 
 const mockUseTemplates = vi.fn();
+const mockUseCategories = vi.fn();
 const mockNavigate = vi.fn();
 
 vi.mock('react-router', async () => {
@@ -25,6 +27,10 @@ vi.mock('react-router', async () => {
 
 vi.mock('../../src/hooks/useTemplates.js', () => ({
   useTemplates: (...args: unknown[]) => mockUseTemplates(...args) as unknown,
+}));
+
+vi.mock('../../src/hooks/useCategories.js', () => ({
+  useCategories: () => mockUseCategories() as unknown,
 }));
 
 const mockTemplates: Template[] = [
@@ -107,6 +113,45 @@ function createQueryResult(
   } as UseQueryResult<TemplateListResponse>;
 }
 
+const mockCategories = [
+  { id: 'c1', name: 'Employment', createdAt: '2026-01-01T00:00:00Z' },
+  { id: 'c2', name: 'NDA', createdAt: '2026-01-01T00:00:00Z' },
+  { id: 'c3', name: 'Compliance', createdAt: '2026-01-01T00:00:00Z' },
+];
+
+function createCategoryQueryResult(
+  overrides: Partial<UseQueryResult<CategoryListResponse>>,
+): UseQueryResult<CategoryListResponse> {
+  return {
+    data: undefined,
+    dataUpdatedAt: 0,
+    error: null,
+    errorUpdateCount: 0,
+    errorUpdatedAt: 0,
+    failureCount: 0,
+    failureReason: null,
+    fetchStatus: 'idle',
+    isError: false,
+    isFetched: true,
+    isFetchedAfterMount: true,
+    isFetching: false,
+    isInitialLoading: false,
+    isLoading: false,
+    isLoadingError: false,
+    isPaused: false,
+    isPending: false,
+    isPlaceholderData: false,
+    isRefetchError: false,
+    isRefetching: false,
+    isStale: false,
+    isSuccess: true,
+    promise: Promise.resolve({ categories: [] }),
+    refetch: vi.fn(),
+    status: 'success',
+    ...overrides,
+  } as UseQueryResult<CategoryListResponse>;
+}
+
 function Wrapper({ children }: { children: ReactNode }) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -123,6 +168,11 @@ function Wrapper({ children }: { children: ReactNode }) {
 describe('TemplateListPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUseCategories.mockReturnValue(
+      createCategoryQueryResult({
+        data: { categories: mockCategories },
+      }),
+    );
   });
 
   it('shows 6 skeleton cards while fetching', () => {
@@ -390,7 +440,9 @@ describe('TemplateListPage', () => {
     );
 
     render(<TemplateListPage />, { wrapper: Wrapper });
-    expect(screen.getByRole('button', { name: 'All' })).toBeInTheDocument();
+    // There are two "All" buttons (status + category), so use getAllByRole
+    const allButtons = screen.getAllByRole('button', { name: 'All' });
+    expect(allButtons.length).toBeGreaterThanOrEqual(1);
     expect(screen.getByRole('button', { name: 'Draft' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Active' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Archived' })).toBeInTheDocument();
@@ -550,7 +602,7 @@ describe('TemplateListPage', () => {
     expect(filterBar.className).toBeTruthy();
   });
 
-  it('renders category filter chips', () => {
+  it('renders category filter chips from API', () => {
     mockUseTemplates.mockReturnValue(
       createQueryResult({
         data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
@@ -559,9 +611,10 @@ describe('TemplateListPage', () => {
 
     render(<TemplateListPage />, { wrapper: Wrapper });
 
-    // Category chips derived from templates: Employment, NDA
+    // Category chips from useCategories API hook
     expect(screen.getByRole('button', { name: 'Employment' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'NDA' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Compliance' })).toBeInTheDocument();
   });
 
   it('filters by category when category chip is clicked', async () => {
@@ -643,5 +696,96 @@ describe('TemplateListPage', () => {
     expect(within(card1).getByText('Employment')).toBeInTheDocument();
 
     vi.useRealTimers();
+  });
+
+  it('"All" category chip is shown and active by default', () => {
+    mockUseTemplates.mockReturnValue(
+      createQueryResult({
+        data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
+      }),
+    );
+
+    render(<TemplateListPage />, { wrapper: Wrapper });
+
+    const allCategoryChip = screen.getByTestId('category-chip-all');
+    expect(allCategoryChip).toBeInTheDocument();
+    // "All" category chip should appear as a button
+    expect(allCategoryChip).toHaveAttribute('role', 'button');
+  });
+
+  it('clicking a category chip filters templates by category', async () => {
+    const user = userEvent.setup();
+    mockUseTemplates.mockReturnValue(
+      createQueryResult({
+        data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
+      }),
+    );
+
+    render(<TemplateListPage />, { wrapper: Wrapper });
+    await user.click(screen.getByRole('button', { name: 'NDA' }));
+
+    await waitFor(() => {
+      const lastCall = mockUseTemplates.mock.calls[mockUseTemplates.mock.calls.length - 1] as [
+        Record<string, unknown>,
+      ];
+      expect(lastCall[0]).toEqual(expect.objectContaining({ category: 'NDA' }));
+    });
+  });
+
+  it('clicking "All" category chip clears category filter', async () => {
+    const user = userEvent.setup();
+    mockUseTemplates.mockReturnValue(
+      createQueryResult({
+        data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
+      }),
+    );
+
+    render(<TemplateListPage />, { wrapper: Wrapper });
+
+    // First select a category
+    await user.click(screen.getByRole('button', { name: 'Employment' }));
+
+    await waitFor(() => {
+      const lastCall = mockUseTemplates.mock.calls[mockUseTemplates.mock.calls.length - 1] as [
+        Record<string, unknown>,
+      ];
+      expect(lastCall[0]).toEqual(expect.objectContaining({ category: 'Employment' }));
+    });
+
+    // Then click "All" to clear the category filter
+    await user.click(screen.getByTestId('category-chip-all'));
+
+    await waitFor(() => {
+      const lastCall = mockUseTemplates.mock.calls[mockUseTemplates.mock.calls.length - 1] as [
+        Record<string, unknown>,
+      ];
+      expect(lastCall[0]).not.toHaveProperty('category');
+    });
+  });
+
+  it('categories from API with no matching templates still show as chips', () => {
+    mockUseTemplates.mockReturnValue(
+      createQueryResult({
+        data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
+      }),
+    );
+
+    render(<TemplateListPage />, { wrapper: Wrapper });
+
+    // 'Compliance' has no templates but should still appear as a filter chip
+    expect(screen.getByRole('button', { name: 'Compliance' })).toBeInTheDocument();
+  });
+
+  it('visual divider separates status and category chips', () => {
+    mockUseTemplates.mockReturnValue(
+      createQueryResult({
+        data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
+      }),
+    );
+
+    render(<TemplateListPage />, { wrapper: Wrapper });
+
+    const divider = screen.getByTestId('category-divider');
+    expect(divider).toBeInTheDocument();
   });
 });

@@ -139,18 +139,18 @@ describe('thinAutoVersions', () => {
   });
 
   it('thins to weekly beyond 30 days', async () => {
-    // Create multiple auto-versions in the same week (35 days ago)
-    const baseDate = new Date(Date.now() - 35 * 24 * 60 * 60 * 1000);
+    // Create multiple auto-versions in the same week bucket (45 days ago, within hours of each other)
+    const baseDate = new Date(Date.now() - 45 * 24 * 60 * 60 * 1000);
     const versions: MockVersion[] = [
       {
         id: 'v1',
         change_summary: '[auto] Checkpoint',
-        created_at: new Date(baseDate.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString(), // latest in week
+        created_at: new Date(baseDate.getTime() + 2 * 60 * 60 * 1000).toISOString(), // latest in week
       },
       {
         id: 'v2',
         change_summary: '[auto] Checkpoint',
-        created_at: new Date(baseDate.getTime() + 1 * 24 * 60 * 60 * 1000).toISOString(),
+        created_at: new Date(baseDate.getTime() + 1 * 60 * 60 * 1000).toISOString(),
       },
       {
         id: 'v3',

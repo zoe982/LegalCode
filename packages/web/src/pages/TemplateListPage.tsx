@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useMemo } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router';
 import { Box, Typography, InputAdornment, InputBase, Button, Menu, MenuItem } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
@@ -8,6 +8,7 @@ import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
 import SearchOffIcon from '@mui/icons-material/SearchOff';
 import type { TemplateStatus } from '@legalcode/shared';
 import { useTemplates } from '../hooks/useTemplates.js';
+import { useCategories } from '../hooks/useCategories.js';
 import { TemplateCard } from '../components/TemplateCard.js';
 import { SkeletonCard } from '../components/SkeletonCard.js';
 
@@ -66,15 +67,8 @@ export function TemplateListPage() {
 
   const templates = data?.data ?? [];
 
-  const categories = useMemo(() => {
-    const cats = new Set<string>();
-    for (const t of templates) {
-      if (t.category) {
-        cats.add(t.category);
-      }
-    }
-    return [...cats].sort();
-  }, [templates]);
+  const { data: categoriesData } = useCategories();
+  const categoryNames = categoriesData?.categories.map((c) => c.name) ?? [];
 
   const currentSortLabel = SORT_OPTIONS.find((o) => o.value === sortBy)?.label ?? 'Recently edited';
 
@@ -218,7 +212,45 @@ export function TemplateListPage() {
                 </Box>
               );
             })}
-            {categories.map((cat) => {
+            <Box
+              data-testid="category-divider"
+              sx={{
+                width: '1px',
+                height: '20px',
+                backgroundColor: '#E4E5ED',
+                alignSelf: 'center',
+                mx: 1,
+              }}
+            />
+            <Box
+              data-testid="category-chip-all"
+              component="button"
+              type="button"
+              role="button"
+              onClick={() => {
+                setCategoryFilter(null);
+              }}
+              sx={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                borderRadius: '9999px',
+                padding: '5px 14px',
+                fontFamily: '"DM Sans", sans-serif',
+                fontSize: '0.8125rem',
+                fontWeight: 500,
+                cursor: 'pointer',
+                transition: 'all 150ms ease',
+                border: categoryFilter === null ? 'none' : '1px solid #E4E5ED',
+                backgroundColor: categoryFilter === null ? '#8027FF' : '#F9F9FB',
+                color: categoryFilter === null ? '#FFFFFF' : '#6B6D82',
+                '&:hover': {
+                  backgroundColor: categoryFilter === null ? '#6B1FDB' : '#F3F3F7',
+                },
+              }}
+            >
+              All
+            </Box>
+            {categoryNames.map((cat) => {
               const isActive = categoryFilter === cat;
               return (
                 <Box
