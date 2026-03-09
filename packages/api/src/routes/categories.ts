@@ -5,6 +5,7 @@ import { authMiddleware, requireRole } from '../middleware/auth.js';
 import { getDb } from '../db/index.js';
 import { categories } from '../db/schema.js';
 import { createCategorySchema, updateCategorySchema } from '@legalcode/shared';
+import { logError } from '../services/error-log.js';
 
 export const categoryRoutes = new Hono<AppEnv>();
 
@@ -33,11 +34,29 @@ categoryRoutes.post('/', requireRole('admin'), async (c) => {
       })
       .returning();
     return c.json({ category }, 201);
-  } catch (err) {
+  } catch (err: unknown) {
     if (err instanceof Error && err.message.includes('UNIQUE constraint failed')) {
       return c.json({ error: 'Category already exists' }, 409);
     }
-    throw err;
+    console.error(
+      JSON.stringify({
+        timestamp: new Date().toISOString(),
+        status: 500,
+        message: err instanceof Error ? err.message : String(err),
+        stack: err instanceof Error ? err.stack : undefined,
+        path: '/api/categories',
+        method: 'POST',
+      }),
+    );
+    void logError(c.env.DB, {
+      source: 'backend',
+      severity: 'error',
+      message: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack : null,
+      url: '/api/categories',
+      userId: c.get('user').id,
+    });
+    return c.json({ error: 'Internal server error' }, 500);
   }
 });
 
@@ -59,20 +78,60 @@ categoryRoutes.put('/:id', requireRole('admin'), async (c) => {
       return c.json({ error: 'Category not found' }, 404);
     }
     return c.json({ category });
-  } catch (err) {
+  } catch (err: unknown) {
     if (err instanceof Error && err.message.includes('UNIQUE constraint failed')) {
       return c.json({ error: 'Category name already exists' }, 409);
     }
-    throw err;
+    console.error(
+      JSON.stringify({
+        timestamp: new Date().toISOString(),
+        status: 500,
+        message: err instanceof Error ? err.message : String(err),
+        stack: err instanceof Error ? err.stack : undefined,
+        path: `/api/categories/${id}`,
+        method: 'PUT',
+      }),
+    );
+    void logError(c.env.DB, {
+      source: 'backend',
+      severity: 'error',
+      message: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack : null,
+      url: `/api/categories/${id}`,
+      userId: c.get('user').id,
+    });
+    return c.json({ error: 'Internal server error' }, 500);
   }
 });
 
 categoryRoutes.delete('/:id', requireRole('admin'), async (c) => {
   const id = c.req.param('id');
   const db = getDb(c.env.DB);
-  const [deleted] = await db.delete(categories).where(eq(categories.id, id)).returning();
-  if (!deleted) {
-    return c.json({ error: 'Category not found' }, 404);
+  try {
+    const [deleted] = await db.delete(categories).where(eq(categories.id, id)).returning();
+    if (!deleted) {
+      return c.json({ error: 'Category not found' }, 404);
+    }
+    return c.json({ ok: true });
+  } catch (err: unknown) {
+    console.error(
+      JSON.stringify({
+        timestamp: new Date().toISOString(),
+        status: 500,
+        message: err instanceof Error ? err.message : String(err),
+        stack: err instanceof Error ? err.stack : undefined,
+        path: `/api/categories/${id}`,
+        method: 'DELETE',
+      }),
+    );
+    void logError(c.env.DB, {
+      source: 'backend',
+      severity: 'error',
+      message: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack : null,
+      url: `/api/categories/${id}`,
+      userId: c.get('user').id,
+    });
+    return c.json({ error: 'Internal server error' }, 500);
   }
-  return c.json({ ok: true });
 });

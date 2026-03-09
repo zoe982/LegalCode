@@ -67,7 +67,7 @@ adminRoutes.post('/users', async (c) => {
       source: 'backend',
       severity: 'error',
       message: err instanceof Error ? err.message : String(err),
-      stack: err instanceof Error ? (err.stack ?? null) : null,
+      stack: err instanceof Error ? err.stack : null,
       url: '/api/admin/users',
       userId: c.get('user').id,
     });
@@ -83,8 +83,30 @@ adminRoutes.patch('/users/:id', async (c) => {
     return c.json({ error: 'Invalid input', details: result.error.flatten() }, 400);
   }
   const db = getDb(c.env.DB);
-  await updateUserRole(db, id, result.data.role);
-  return c.json({ ok: true });
+  try {
+    await updateUserRole(db, id, result.data.role);
+    return c.json({ ok: true });
+  } catch (err: unknown) {
+    console.error(
+      JSON.stringify({
+        timestamp: new Date().toISOString(),
+        status: 500,
+        message: err instanceof Error ? err.message : String(err),
+        stack: err instanceof Error ? err.stack : undefined,
+        path: '/api/admin/users/:id',
+        method: 'PATCH',
+      }),
+    );
+    void logError(c.env.DB, {
+      source: 'backend',
+      severity: 'error',
+      message: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack : null,
+      url: '/api/admin/users/:id',
+      userId: c.get('user').id,
+    });
+    return c.json({ error: 'Internal server error' }, 500);
+  }
 });
 
 adminRoutes.delete('/users/:id', async (c) => {
@@ -94,9 +116,31 @@ adminRoutes.delete('/users/:id', async (c) => {
   if (!user) {
     return c.json({ error: 'User not found' }, 404);
   }
-  await deactivateUser(db, id);
-  await removeAllowedEmail(c.env.AUTH_KV, c.env.ALLOWED_EMAILS, user.email);
-  return c.json({ ok: true });
+  try {
+    await deactivateUser(db, id);
+    await removeAllowedEmail(c.env.AUTH_KV, c.env.ALLOWED_EMAILS, user.email);
+    return c.json({ ok: true });
+  } catch (err: unknown) {
+    console.error(
+      JSON.stringify({
+        timestamp: new Date().toISOString(),
+        status: 500,
+        message: err instanceof Error ? err.message : String(err),
+        stack: err instanceof Error ? err.stack : undefined,
+        path: '/api/admin/users/:id',
+        method: 'DELETE',
+      }),
+    );
+    void logError(c.env.DB, {
+      source: 'backend',
+      severity: 'error',
+      message: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack : null,
+      url: '/api/admin/users/:id',
+      userId: c.get('user').id,
+    });
+    return c.json({ error: 'Internal server error' }, 500);
+  }
 });
 
 adminRoutes.get('/errors', async (c) => {

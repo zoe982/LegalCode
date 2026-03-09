@@ -4,6 +4,12 @@ import { countrySchema } from '@legalcode/shared';
 import type { AppEnv } from '../../src/types/env.js';
 import { issueJWT } from '../../src/services/auth.js';
 
+const mockLogError = vi.fn().mockResolvedValue({ errorId: 'test-err-id' });
+
+vi.mock('../../src/services/error-log.js', () => ({
+  logError: (...args: unknown[]) => mockLogError(...args) as unknown,
+}));
+
 const mockDbChain = {
   from: vi.fn().mockReturnThis(),
   orderBy: vi.fn().mockReturnThis(),
@@ -251,11 +257,10 @@ describe('POST /countries', () => {
     expect(res.status).toBe(409);
   });
 
-  it('re-throws non-unique constraint errors', async () => {
+  it('returns 500 and logs error for unexpected DB errors', async () => {
     mockInsertReturning.mockRejectedValueOnce(new Error('Some other DB error'));
 
     const app = await importAndCreateApp();
-    app.onError((_err, c) => c.json({ error: 'Internal error' }, 500));
     const token = await adminToken();
     const res = await app.request('/countries', {
       method: 'POST',
@@ -266,6 +271,36 @@ describe('POST /countries', () => {
       body: JSON.stringify({ name: 'Germany', code: 'DE' }),
     });
     expect(res.status).toBe(500);
+    const body: { error: string } = await res.json();
+    expect(body.error).toBe('Internal server error');
+    expect(mockLogError).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        source: 'backend',
+        severity: 'error',
+        message: 'Some other DB error',
+        url: '/api/countries',
+      }),
+    );
+  });
+
+  it('returns 500 when error is not an Error instance', async () => {
+    mockInsertReturning.mockRejectedValueOnce('string error');
+    mockLogError.mockClear();
+
+    const app = await importAndCreateApp();
+    const token = await adminToken();
+    const res = await app.request('/countries', {
+      method: 'POST',
+      headers: {
+        Cookie: `__Host-auth=${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ name: 'Germany', code: 'DE' }),
+    });
+    expect(res.status).toBe(500);
+    const body: { error: string } = await res.json();
+    expect(body.error).toBe('Internal server error');
   });
 });
 
@@ -432,11 +467,10 @@ describe('PUT /countries/:id', () => {
     expect(res.status).toBe(409);
   });
 
-  it('re-throws non-unique constraint errors', async () => {
+  it('returns 500 and logs error for unexpected DB errors', async () => {
     mockUpdateReturning.mockRejectedValueOnce(new Error('Some other DB error'));
 
     const app = await importAndCreateApp();
-    app.onError((_err, c) => c.json({ error: 'Internal error' }, 500));
     const token = await adminToken();
     const res = await app.request('/countries/c-1', {
       method: 'PUT',
@@ -447,6 +481,36 @@ describe('PUT /countries/:id', () => {
       body: JSON.stringify({ name: 'Valid' }),
     });
     expect(res.status).toBe(500);
+    const body: { error: string } = await res.json();
+    expect(body.error).toBe('Internal server error');
+    expect(mockLogError).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        source: 'backend',
+        severity: 'error',
+        message: 'Some other DB error',
+        url: '/api/countries/c-1',
+      }),
+    );
+  });
+
+  it('returns 500 when error is not an Error instance', async () => {
+    mockUpdateReturning.mockRejectedValueOnce('string error');
+    mockLogError.mockClear();
+
+    const app = await importAndCreateApp();
+    const token = await adminToken();
+    const res = await app.request('/countries/c-1', {
+      method: 'PUT',
+      headers: {
+        Cookie: `__Host-auth=${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ name: 'Valid' }),
+    });
+    expect(res.status).toBe(500);
+    const body: { error: string } = await res.json();
+    expect(body.error).toBe('Internal server error');
   });
 });
 
@@ -497,5 +561,43 @@ describe('DELETE /countries/:id', () => {
       headers: { Cookie: `__Host-auth=${token}` },
     });
     expect(res.status).toBe(404);
+  });
+
+  it('returns 500 and logs error for unexpected DB errors', async () => {
+    mockDeleteReturning.mockRejectedValueOnce(new Error('DB error'));
+
+    const app = await importAndCreateApp();
+    const token = await adminToken();
+    const res = await app.request('/countries/c-1', {
+      method: 'DELETE',
+      headers: { Cookie: `__Host-auth=${token}` },
+    });
+    expect(res.status).toBe(500);
+    const body: { error: string } = await res.json();
+    expect(body.error).toBe('Internal server error');
+    expect(mockLogError).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        source: 'backend',
+        severity: 'error',
+        message: 'DB error',
+        url: '/api/countries/c-1',
+      }),
+    );
+  });
+
+  it('returns 500 when error is not an Error instance', async () => {
+    mockDeleteReturning.mockRejectedValueOnce('string error');
+    mockLogError.mockClear();
+
+    const app = await importAndCreateApp();
+    const token = await adminToken();
+    const res = await app.request('/countries/c-1', {
+      method: 'DELETE',
+      headers: { Cookie: `__Host-auth=${token}` },
+    });
+    expect(res.status).toBe(500);
+    const body: { error: string } = await res.json();
+    expect(body.error).toBe('Internal server error');
   });
 });

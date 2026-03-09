@@ -362,6 +362,11 @@ describe('POST /admin/users', () => {
 });
 
 describe('PATCH /admin/users/:id', () => {
+  beforeEach(() => {
+    mockUpdateUserRole.mockClear();
+    mockLogError.mockClear();
+  });
+
   it('returns 200 and updates role for admin', async () => {
     const app = await importAndCreateApp();
     const token = await adminToken();
@@ -391,6 +396,52 @@ describe('PATCH /admin/users/:id', () => {
     });
     expect(res.status).toBe(400);
   });
+
+  it('returns 500 and logs error for unexpected DB errors on role update', async () => {
+    mockUpdateUserRole.mockRejectedValueOnce(new Error('DB connection lost'));
+
+    const app = await importAndCreateApp();
+    const token = await adminToken();
+    const res = await app.request('/admin/users/user-123', {
+      method: 'PATCH',
+      headers: {
+        Cookie: `__Host-auth=${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ role: 'viewer' }),
+    });
+    expect(res.status).toBe(500);
+    const body: { error: string } = await res.json();
+    expect(body.error).toBe('Internal server error');
+    expect(mockLogError).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        source: 'backend',
+        severity: 'error',
+        message: 'DB connection lost',
+        url: '/api/admin/users/:id',
+      }),
+    );
+  });
+
+  it('returns 500 when error is not an Error instance on role update', async () => {
+    mockUpdateUserRole.mockRejectedValueOnce('string error');
+    mockLogError.mockClear();
+
+    const app = await importAndCreateApp();
+    const token = await adminToken();
+    const res = await app.request('/admin/users/user-123', {
+      method: 'PATCH',
+      headers: {
+        Cookie: `__Host-auth=${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ role: 'viewer' }),
+    });
+    expect(res.status).toBe(500);
+    const body: { error: string } = await res.json();
+    expect(body.error).toBe('Internal server error');
+  });
 });
 
 describe('DELETE /admin/users/:id', () => {
@@ -406,6 +457,7 @@ describe('DELETE /admin/users/:id', () => {
     });
     mockRemoveAllowedEmail.mockClear();
     mockDeactivateUser.mockClear();
+    mockLogError.mockClear();
   });
 
   it('returns 200 and deactivates user for admin', async () => {
@@ -465,6 +517,68 @@ describe('DELETE /admin/users/:id', () => {
       headers: { Cookie: `__Host-auth=${token}` },
     });
     expect(res.status).toBe(403);
+  });
+
+  it('returns 500 and logs error when deactivateUser fails', async () => {
+    mockDeactivateUser.mockRejectedValueOnce(new Error('DB error'));
+
+    const app = await importAndCreateApp();
+    const token = await adminToken();
+    const res = await app.request('/admin/users/user-456', {
+      method: 'DELETE',
+      headers: { Cookie: `__Host-auth=${token}` },
+    });
+    expect(res.status).toBe(500);
+    const body: { error: string } = await res.json();
+    expect(body.error).toBe('Internal server error');
+    expect(mockLogError).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        source: 'backend',
+        severity: 'error',
+        message: 'DB error',
+        url: '/api/admin/users/:id',
+      }),
+    );
+  });
+
+  it('returns 500 and logs error when removeAllowedEmail fails after user deletion', async () => {
+    mockRemoveAllowedEmail.mockRejectedValueOnce(new Error('KV write failed'));
+
+    const app = await importAndCreateApp();
+    const token = await adminToken();
+    const res = await app.request('/admin/users/user-456', {
+      method: 'DELETE',
+      headers: { Cookie: `__Host-auth=${token}` },
+    });
+    expect(res.status).toBe(500);
+    const body: { error: string } = await res.json();
+    expect(body.error).toBe('Internal server error');
+    expect(mockDeactivateUser).toHaveBeenCalledWith(expect.anything(), 'user-456');
+    expect(mockLogError).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        source: 'backend',
+        severity: 'error',
+        message: 'KV write failed',
+        url: '/api/admin/users/:id',
+      }),
+    );
+  });
+
+  it('returns 500 when error is not an Error instance on delete', async () => {
+    mockDeactivateUser.mockRejectedValueOnce('string error');
+    mockLogError.mockClear();
+
+    const app = await importAndCreateApp();
+    const token = await adminToken();
+    const res = await app.request('/admin/users/user-456', {
+      method: 'DELETE',
+      headers: { Cookie: `__Host-auth=${token}` },
+    });
+    expect(res.status).toBe(500);
+    const body: { error: string } = await res.json();
+    expect(body.error).toBe('Internal server error');
   });
 });
 

@@ -5,6 +5,7 @@ import { authMiddleware, requireRole } from '../middleware/auth.js';
 import { getDb } from '../db/index.js';
 import { countries } from '../db/schema.js';
 import { createCountrySchema, updateCountrySchema } from '@legalcode/shared';
+import { logError } from '../services/error-log.js';
 
 export const countryRoutes = new Hono<AppEnv>();
 
@@ -34,11 +35,29 @@ countryRoutes.post('/', requireRole('admin'), async (c) => {
       })
       .returning();
     return c.json({ country }, 201);
-  } catch (err) {
+  } catch (err: unknown) {
     if (err instanceof Error && err.message.includes('UNIQUE constraint failed')) {
       return c.json({ error: 'Country already exists' }, 409);
     }
-    throw err;
+    console.error(
+      JSON.stringify({
+        timestamp: new Date().toISOString(),
+        status: 500,
+        message: err instanceof Error ? err.message : String(err),
+        stack: err instanceof Error ? err.stack : undefined,
+        path: '/api/countries',
+        method: 'POST',
+      }),
+    );
+    void logError(c.env.DB, {
+      source: 'backend',
+      severity: 'error',
+      message: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack : null,
+      url: '/api/countries',
+      userId: c.get('user').id,
+    });
+    return c.json({ error: 'Internal server error' }, 500);
   }
 });
 
@@ -70,20 +89,62 @@ countryRoutes.put('/:id', requireRole('admin'), async (c) => {
       return c.json({ error: 'Country not found' }, 404);
     }
     return c.json({ country });
-  } catch (err) {
+  } catch (err: unknown) {
     if (err instanceof Error && err.message.includes('UNIQUE constraint failed')) {
       return c.json({ error: 'Country name or code already exists' }, 409);
     }
-    throw err;
+    const url = `/api/countries/${id}`;
+    console.error(
+      JSON.stringify({
+        timestamp: new Date().toISOString(),
+        status: 500,
+        message: err instanceof Error ? err.message : String(err),
+        stack: err instanceof Error ? err.stack : undefined,
+        path: url,
+        method: 'PUT',
+      }),
+    );
+    void logError(c.env.DB, {
+      source: 'backend',
+      severity: 'error',
+      message: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack : null,
+      url,
+      userId: c.get('user').id,
+    });
+    return c.json({ error: 'Internal server error' }, 500);
   }
 });
 
 countryRoutes.delete('/:id', requireRole('admin'), async (c) => {
   const id = c.req.param('id');
   const db = getDb(c.env.DB);
-  const [deleted] = await db.delete(countries).where(eq(countries.id, id)).returning();
-  if (!deleted) {
-    return c.json({ error: 'Country not found' }, 404);
+  try {
+    const [deleted] = await db.delete(countries).where(eq(countries.id, id)).returning();
+    if (!deleted) {
+      return c.json({ error: 'Country not found' }, 404);
+    }
+    return c.json({ ok: true });
+  } catch (err: unknown) {
+    const url = `/api/countries/${id}`;
+    console.error(
+      JSON.stringify({
+        timestamp: new Date().toISOString(),
+        status: 500,
+        message: err instanceof Error ? err.message : String(err),
+        stack: err instanceof Error ? err.stack : undefined,
+        path: url,
+        method: 'DELETE',
+      }),
+    );
+    void logError(c.env.DB, {
+      source: 'backend',
+      severity: 'error',
+      message: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack : null,
+      url,
+      userId: c.get('user').id,
+    });
+    return c.json({ error: 'Internal server error' }, 500);
   }
-  return c.json({ ok: true });
 });
