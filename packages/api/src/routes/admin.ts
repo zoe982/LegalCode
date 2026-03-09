@@ -9,7 +9,7 @@ import {
   deactivateUser,
   findUserById,
 } from '../services/user.js';
-import { listErrors, resolveError } from '../services/error-log.js';
+import { listErrors, resolveError, logError } from '../services/error-log.js';
 import {
   createUserSchema,
   updateUserRoleSchema,
@@ -38,13 +38,39 @@ adminRoutes.post('/users', async (c) => {
   const db = getDb(c.env.DB);
   try {
     const user = await createUser(db, result.data);
-    await addAllowedEmail(c.env.AUTH_KV, c.env.ALLOWED_EMAILS, result.data.email);
+    try {
+      await addAllowedEmail(c.env.AUTH_KV, c.env.ALLOWED_EMAILS, result.data.email);
+    } catch (kvErr: unknown) {
+      // KV failed — roll back the DB user to maintain consistency
+      await deactivateUser(db, user.id).catch(() => {
+        /* best-effort rollback */
+      });
+      throw kvErr;
+    }
     return c.json({ user }, 201);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : '';
     if (message.includes('UNIQUE constraint failed')) {
       return c.json({ error: 'A user with this email already exists' }, 409);
     }
+    console.error(
+      JSON.stringify({
+        timestamp: new Date().toISOString(),
+        status: 500,
+        message: err instanceof Error ? err.message : String(err),
+        stack: err instanceof Error ? err.stack : undefined,
+        path: '/api/admin/users',
+        method: 'POST',
+      }),
+    );
+    void logError(c.env.DB, {
+      source: 'backend',
+      severity: 'error',
+      message: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? (err.stack ?? null) : null,
+      url: '/api/admin/users',
+      userId: c.get('user').id,
+    });
     return c.json({ error: 'Internal server error' }, 500);
   }
 });

@@ -26,10 +26,12 @@ vi.mock('../src/services/user.js', () => ({
 
 const mockListErrors = vi.fn().mockResolvedValue([]);
 const mockResolveError = vi.fn().mockResolvedValue(true);
+const mockLogError = vi.fn().mockResolvedValue({ errorId: 'mock-err' });
 
 vi.mock('../src/services/error-log.js', () => ({
   listErrors: (...args: unknown[]) => mockListErrors(...args) as unknown,
   resolveError: (...args: unknown[]) => mockResolveError(...args) as unknown,
+  logError: (...args: unknown[]) => mockLogError(...args) as unknown,
 }));
 
 const mockGetAllowedEmails = vi.fn().mockResolvedValue(['a@acasus.com']);

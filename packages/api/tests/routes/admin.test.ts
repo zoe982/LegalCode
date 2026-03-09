@@ -28,10 +28,12 @@ vi.mock('../../src/db/index.js', () => ({
 
 const mockListErrors = vi.fn().mockResolvedValue([]);
 const mockResolveError = vi.fn().mockResolvedValue(true);
+const mockLogError = vi.fn().mockResolvedValue({ errorId: 'test-err-id' });
 
 vi.mock('../../src/services/error-log.js', () => ({
   listErrors: (...args: unknown[]) => mockListErrors(...args) as unknown,
   resolveError: (...args: unknown[]) => mockResolveError(...args) as unknown,
+  logError: (...args: unknown[]) => mockLogError(...args) as unknown,
 }));
 
 vi.mock('../../src/db/schema.js', () => ({
@@ -164,6 +166,8 @@ describe('POST /admin/users', () => {
   beforeEach(() => {
     mockAddAllowedEmail.mockClear();
     mockCreateUser.mockReset();
+    mockDeactivateUser.mockClear();
+    mockLogError.mockClear();
   });
 
   it('returns 201 and creates user for admin', async () => {
@@ -300,6 +304,60 @@ describe('POST /admin/users', () => {
       body: JSON.stringify({ email: 'new@acasus.com', name: 'New', role: 'editor' }),
     });
     expect(res.status).toBe(401);
+  });
+
+  it('rolls back created user when addAllowedEmail fails', async () => {
+    const createdUser = {
+      id: 'rollback-id',
+      email: 'rollback@acasus.com',
+      name: 'Rollback User',
+      role: 'editor',
+      createdAt: '2026-01-01',
+      updatedAt: '2026-01-01',
+    };
+    mockCreateUser.mockResolvedValueOnce(createdUser);
+    mockAddAllowedEmail.mockRejectedValueOnce(new Error('KV write failed'));
+
+    const app = await importAndCreateApp();
+    const token = await adminToken();
+    const res = await app.request('/admin/users', {
+      method: 'POST',
+      headers: {
+        Cookie: `__Host-auth=${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email: 'rollback@acasus.com', name: 'Rollback User', role: 'editor' }),
+    });
+    expect(res.status).toBe(500);
+    const body: { error: string } = await res.json();
+    expect(body.error).toBe('Internal server error');
+    // Verify rollback: deactivateUser should have been called with the created user's ID
+    expect(mockDeactivateUser).toHaveBeenCalledWith(expect.anything(), 'rollback-id');
+  });
+
+  it('logs error to error_log on 500', async () => {
+    mockLogError.mockClear();
+    mockCreateUser.mockRejectedValueOnce(new Error('Connection refused'));
+
+    const app = await importAndCreateApp();
+    const token = await adminToken();
+    await app.request('/admin/users', {
+      method: 'POST',
+      headers: {
+        Cookie: `__Host-auth=${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email: 'log@acasus.com', name: 'Log User', role: 'editor' }),
+    });
+    expect(mockLogError).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        source: 'backend',
+        severity: 'error',
+        message: 'Connection refused',
+        url: '/api/admin/users',
+      }),
+    );
   });
 });
 
