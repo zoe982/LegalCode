@@ -129,12 +129,12 @@ describe('rateLimit', () => {
     expect(resB.status).toBe(200);
   });
 
-  it('allows requests after window expires', async () => {
+  it('allows requests after window expires (new bucket)', async () => {
     const kv = createMockKv();
     const app = createTestApp(kv, { maxRequests: 2, windowSeconds: 10, prefix: 'expire' });
     const ip = '3.3.3.3';
 
-    // Use a fixed "now" for the first two requests
+    // Use a fixed "now" for the first two requests (bucket = floor(1000000 / 10) = 100000)
     const baseTime = 1000000;
     vi.spyOn(Date, 'now').mockReturnValue(baseTime * 1000);
 
@@ -145,13 +145,13 @@ describe('rateLimit', () => {
       headers: { 'CF-Connecting-IP': ip },
     });
 
-    // Should be blocked now
+    // Should be blocked now (same bucket, count = 2)
     const blocked = await app.request('/test', {
       headers: { 'CF-Connecting-IP': ip },
     });
     expect(blocked.status).toBe(429);
 
-    // Advance time past the window (11 seconds later)
+    // Advance time to a new bucket (11 seconds later → bucket changes)
     vi.spyOn(Date, 'now').mockReturnValue((baseTime + 11) * 1000);
 
     const allowed = await app.request('/test', {
@@ -171,10 +171,10 @@ describe('rateLimit', () => {
     });
     expect(res.status).toBe(200);
 
-    // Verify the KV key used the first IP from X-Forwarded-For
+    // Verify the KV key used the first IP from X-Forwarded-For (key includes bucket)
     // eslint-disable-next-line @typescript-eslint/unbound-method
     expect(kv.put).toHaveBeenCalledWith(
-      'ratelimit:test:5.5.5.5',
+      expect.stringMatching(/^ratelimit:test:5\.5\.5\.5:\d+$/),
       expect.any(String),
       expect.objectContaining({ expirationTtl: 60 }),
     );
@@ -188,7 +188,7 @@ describe('rateLimit', () => {
 
     // eslint-disable-next-line @typescript-eslint/unbound-method
     expect(kv.put).toHaveBeenCalledWith(
-      'ratelimit:test:unknown',
+      expect.stringMatching(/^ratelimit:test:unknown:\d+$/),
       expect.any(String),
       expect.objectContaining({ expirationTtl: 60 }),
     );
@@ -198,13 +198,15 @@ describe('rateLimit', () => {
     const kv = createMockKv();
     const app = createTestApp(kv);
 
-    // Pre-store corrupted data
-    await kv.put('ratelimit:test:7.7.7.7', 'not-valid-json');
+    // Pre-store corrupted data in the current time bucket
+    const now = Math.floor(Date.now() / 1000);
+    const bucket = Math.floor(now / 60);
+    await kv.put(`ratelimit:test:7.7.7.7:${bucket.toString()}`, 'not-a-number');
 
     const res = await app.request('/test', {
       headers: { 'CF-Connecting-IP': '7.7.7.7' },
     });
-    // Should still pass through — corrupted data resets to empty
+    // parseInt('not-a-number') = NaN, treated as 0 — should still pass through
     expect(res.status).toBe(200);
   });
 });

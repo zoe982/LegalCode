@@ -69,6 +69,11 @@ function createTestApp() {
     env.GOOGLE_CLIENT_ID = 'test-client-id';
     env.GOOGLE_CLIENT_SECRET = 'test-client-secret';
     env.ALLOWED_EMAILS = 'alice@acasus.com,zoe@marsico.org';
+    Object.defineProperty(c, 'executionCtx', {
+      value: { waitUntil: vi.fn(), passThroughOnException: vi.fn() },
+      writable: true,
+      configurable: true,
+    });
     await next();
   });
   app.route('/auth', authRoutes);
@@ -116,22 +121,6 @@ describe('GET /auth/callback', () => {
     expect(text).toContain('Authentication was unsuccessful.');
   });
 
-  it('returns 500 when PKCE KV data is malformed JSON', async () => {
-    const { app, kv } = createTestApp();
-    await kv.put('pkce:valid-state', 'not-valid-json');
-
-    const res = await app.request('/auth/callback?code=abc&state=valid-state');
-    expect(res.status).toBe(500);
-  });
-
-  it('returns 500 when PKCE KV data is missing codeVerifier field', async () => {
-    const { app, kv } = createTestApp();
-    await kv.put('pkce:valid-state', JSON.stringify({ wrong: 'field' }));
-
-    const res = await app.request('/auth/callback?code=abc&state=valid-state');
-    expect(res.status).toBe(500);
-  });
-
   it('returns 400 when PKCE state is not found in KV', async () => {
     const { app } = createTestApp();
     const res = await app.request('/auth/callback?code=abc&state=unknown-state');
@@ -143,7 +132,7 @@ describe('GET /auth/callback', () => {
   it('returns 403 when email is not in allowed list', async () => {
     const { app, kv } = createTestApp();
     // Pre-store PKCE state
-    await kv.put('pkce:valid-state', JSON.stringify({ codeVerifier: 'test-verifier' }));
+    await kv.put('pkce:valid-state', 'test-verifier');
 
     vi.mocked(exchangeCodeForTokens).mockResolvedValue({
       access_token: 'mock-access',
@@ -164,7 +153,7 @@ describe('GET /auth/callback', () => {
 
   it('returns 403 when user is not provisioned in DB', async () => {
     const { app, kv } = createTestApp();
-    await kv.put('pkce:valid-state', JSON.stringify({ codeVerifier: 'test-verifier' }));
+    await kv.put('pkce:valid-state', 'test-verifier');
 
     vi.mocked(exchangeCodeForTokens).mockResolvedValue({
       access_token: 'mock-access',
@@ -186,7 +175,7 @@ describe('GET /auth/callback', () => {
 
   it('sets cookies and redirects on successful callback', async () => {
     const { app, kv } = createTestApp();
-    await kv.put('pkce:valid-state', JSON.stringify({ codeVerifier: 'test-verifier' }));
+    await kv.put('pkce:valid-state', 'test-verifier');
 
     vi.mocked(exchangeCodeForTokens).mockResolvedValue({
       access_token: 'mock-access',
@@ -223,7 +212,7 @@ describe('GET /auth/callback', () => {
 
   it('deletes PKCE state from KV after use', async () => {
     const { app, kv } = createTestApp();
-    await kv.put('pkce:valid-state', JSON.stringify({ codeVerifier: 'test-verifier' }));
+    await kv.put('pkce:valid-state', 'test-verifier');
 
     vi.mocked(exchangeCodeForTokens).mockResolvedValue({
       access_token: 'mock-access',

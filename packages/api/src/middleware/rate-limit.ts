@@ -1,8 +1,5 @@
 import { createMiddleware } from 'hono/factory';
-import { z } from 'zod';
 import type { AppEnv } from '../types/env.js';
-
-const requestTimestampsSchema = z.array(z.number());
 
 interface RateLimitConfig {
   maxRequests: number;
@@ -17,37 +14,23 @@ export function rateLimit(config: RateLimitConfig) {
       c.req.header('X-Forwarded-For')?.split(',')[0]?.trim() ??
       'unknown';
 
-    const key = `ratelimit:${config.prefix}:${ip}`;
     const now = Math.floor(Date.now() / 1000);
-    const windowStart = now - config.windowSeconds;
+    const bucket = Math.floor(now / config.windowSeconds);
+    const key = `ratelimit:${config.prefix}:${ip}:${bucket.toString()}`;
 
     // Get current count from KV
     const stored = await c.env.AUTH_KV.get(key);
-    let requests: number[] = [];
+    const count = stored ? parseInt(stored, 10) || 0 : 0;
 
-    if (stored) {
-      try {
-        requests = requestTimestampsSchema.parse(JSON.parse(stored));
-      } catch {
-        requests = [];
-      }
-    }
-
-    // Filter to current window
-    requests = requests.filter((t) => t > windowStart);
-
-    if (requests.length >= config.maxRequests) {
-      // requests[0] is guaranteed to exist since requests.length >= config.maxRequests
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- length check above guarantees element exists
-      const retryAfter = config.windowSeconds - (now - requests[0]!);
+    if (count >= config.maxRequests) {
+      const retryAfter = config.windowSeconds - (now % config.windowSeconds);
       c.header('Retry-After', String(retryAfter));
       c.res = c.json({ error: 'Too many requests' }, 429);
       return;
     }
 
-    // Add current request
-    requests.push(now);
-    await c.env.AUTH_KV.put(key, JSON.stringify(requests), {
+    // Increment counter
+    await c.env.AUTH_KV.put(key, String(count + 1), {
       expirationTtl: config.windowSeconds,
     });
 

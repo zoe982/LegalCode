@@ -149,7 +149,7 @@ export async function isEmailAllowedWithKV(
   kv: KVNamespace,
   fallbackAllowedEmails: string,
 ): Promise<boolean> {
-  const kvData = await kv.get('allowed_emails');
+  const kvData = await kv.get('allowed_emails', { cacheTtl: 60 });
   if (kvData) {
     const emails = emailListSchema.parse(JSON.parse(kvData));
     return emails.map((e) => e.toLowerCase()).includes(email.toLowerCase());
@@ -161,7 +161,7 @@ export async function getAllowedEmails(
   kv: KVNamespace,
   fallbackAllowedEmails: string,
 ): Promise<string[]> {
-  const kvData = await kv.get('allowed_emails');
+  const kvData = await kv.get('allowed_emails', { cacheTtl: 60 });
   if (kvData) {
     return emailListSchema.parse(JSON.parse(kvData));
   }

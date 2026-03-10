@@ -16,7 +16,6 @@ import { getDb } from '../db/index.js';
 import { findUserByEmail } from '../services/user.js';
 import { rateLimit } from '../middleware/rate-limit.js';
 
-const pkceSchema = z.object({ codeVerifier: z.string() });
 const refreshDataSchema = z.object({
   userId: z.string(),
   email: z.string(),
@@ -36,7 +35,7 @@ authRoutes.get('/google', authRateLimit, async (c) => {
   const { codeVerifier, codeChallenge } = await generatePKCE();
   const state = crypto.randomUUID();
 
-  await c.env.AUTH_KV.put(`pkce:${state}`, JSON.stringify({ codeVerifier }), {
+  await c.env.AUTH_KV.put(`pkce:${state}`, codeVerifier, {
     expirationTtl: PKCE_STATE_TTL,
   });
 
@@ -70,9 +69,9 @@ authRoutes.get('/callback', authRateLimit, async (c) => {
       400,
     );
   }
-  await c.env.AUTH_KV.delete(`pkce:${state}`);
+  c.executionCtx.waitUntil(c.env.AUTH_KV.delete(`pkce:${state}`));
 
-  const { codeVerifier } = pkceSchema.parse(JSON.parse(pkceData));
+  const codeVerifier = pkceData;
 
   const redirectUri = new URL('/api/auth/callback', c.req.url).toString();
   const tokens = await exchangeCodeForTokens({
@@ -153,7 +152,7 @@ authRoutes.post('/refresh', refreshRateLimit, async (c) => {
     return c.json({ error: 'Invalid or expired refresh token' }, 401);
   }
 
-  await c.env.AUTH_KV.delete(`refresh:${refreshToken}`);
+  c.executionCtx.waitUntil(c.env.AUTH_KV.delete(`refresh:${refreshToken}`));
 
   const { userId, email, role } = refreshDataSchema.parse(JSON.parse(data));
 
