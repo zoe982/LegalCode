@@ -27,8 +27,8 @@ export interface DocumentHeaderProps {
   onCategoryChange: (category: string) => void;
   country: string;
   onCountryChange: (country: string) => void;
-  editorMode: 'source' | 'review';
-  onModeChange: (mode: 'source' | 'review') => void;
+  editorMode: 'edit' | 'source';
+  onModeChange: (mode: 'edit' | 'source') => void;
   templateId?: string | undefined;
   isCreateMode: boolean;
   readOnly: boolean;
@@ -350,9 +350,25 @@ export function DocumentHeader({
               transition: 'transform cubic-bezier(0.2, 0, 0, 1) 200ms',
             }}
             style={{
-              transform: editorMode === 'source' ? 'translateX(0)' : 'translateX(100%)',
+              transform: editorMode === 'edit' ? 'translateX(0)' : 'translateX(100%)',
             }}
           />
+          <Box
+            component="button"
+            role="radio"
+            aria-checked={editorMode === 'edit'}
+            aria-label="Edit"
+            onClick={() => {
+              onModeChange('edit');
+            }}
+            sx={{
+              ...modeSegmentStyle,
+              color: editorMode === 'edit' ? 'var(--text-primary)' : 'var(--text-secondary)',
+              fontWeight: editorMode === 'edit' ? 600 : 500,
+            }}
+          >
+            Edit
+          </Box>
           <Box
             component="button"
             role="radio"
@@ -368,22 +384,6 @@ export function DocumentHeader({
             }}
           >
             Source
-          </Box>
-          <Box
-            component="button"
-            role="radio"
-            aria-checked={editorMode === 'review'}
-            aria-label="Review"
-            onClick={() => {
-              onModeChange('review');
-            }}
-            sx={{
-              ...modeSegmentStyle,
-              color: editorMode === 'review' ? 'var(--text-primary)' : 'var(--text-secondary)',
-              fontWeight: editorMode === 'review' ? 600 : 500,
-            }}
-          >
-            Review
           </Box>
         </Box>
       )}

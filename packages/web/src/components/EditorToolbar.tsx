@@ -24,7 +24,7 @@ import { callCommand } from '@milkdown/kit/utils';
 import { FirstUseTooltip } from './FirstUseTooltip.js';
 
 interface EditorToolbarProps {
-  mode: 'source' | 'review';
+  mode: 'edit' | 'source';
   wordCount: number;
   readOnly?: boolean | undefined;
   onInsertMarkdown?: ((prefix: string, suffix?: string) => void) | undefined;
@@ -57,7 +57,7 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
   onUndo,
   onRedo,
 }) => {
-  const showMarkdownHelpers = mode === 'source' && !readOnly;
+  const showMarkdownHelpers = mode === 'edit' && !readOnly;
 
   const executeCommand = (commandFn: ReturnType<typeof callCommand>) => {
     crepeRef?.current?.editor.action(commandFn);

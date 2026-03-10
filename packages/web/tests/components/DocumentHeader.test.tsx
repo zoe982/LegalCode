@@ -76,8 +76,8 @@ interface RenderProps {
   onCategoryChange?: (category: string) => void;
   country?: string;
   onCountryChange?: (country: string) => void;
-  editorMode?: 'source' | 'review';
-  onModeChange?: (mode: 'source' | 'review') => void;
+  editorMode?: 'edit' | 'source';
+  onModeChange?: (mode: 'edit' | 'source') => void;
   templateId?: string | undefined;
   isCreateMode?: boolean;
   readOnly?: boolean;
@@ -97,7 +97,7 @@ function renderHeader(props: RenderProps = {}) {
     onCategoryChange: vi.fn(),
     country: 'US',
     onCountryChange: vi.fn(),
-    editorMode: 'source' as const,
+    editorMode: 'edit' as const,
     onModeChange: vi.fn(),
     templateId: 't1',
     isCreateMode: false,
@@ -183,24 +183,24 @@ describe('DocumentHeader', () => {
   });
 
   // Mode toggle
-  it('renders Source and Review mode toggle', () => {
-    renderHeader({ editorMode: 'source' });
+  it('renders Edit and Source mode toggle', () => {
+    renderHeader({ editorMode: 'edit' });
+    expect(screen.getByRole('radio', { name: 'Edit' })).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: 'Source' })).toBeInTheDocument();
-    expect(screen.getByRole('radio', { name: 'Review' })).toBeInTheDocument();
   });
 
-  it('mode toggle switches between Source and Review', async () => {
+  it('mode toggle switches between Edit and Source', async () => {
     const user = userEvent.setup();
     const onModeChange = vi.fn();
-    renderHeader({ editorMode: 'source', onModeChange });
-    await user.click(screen.getByRole('radio', { name: 'Review' }));
-    expect(onModeChange).toHaveBeenCalledWith('review');
+    renderHeader({ editorMode: 'edit', onModeChange });
+    await user.click(screen.getByRole('radio', { name: 'Source' }));
+    expect(onModeChange).toHaveBeenCalledWith('source');
   });
 
   it('active mode segment is marked as checked', () => {
-    renderHeader({ editorMode: 'source' });
-    expect(screen.getByRole('radio', { name: 'Source' })).toHaveAttribute('aria-checked', 'true');
-    expect(screen.getByRole('radio', { name: 'Review' })).toHaveAttribute('aria-checked', 'false');
+    renderHeader({ editorMode: 'edit' });
+    expect(screen.getByRole('radio', { name: 'Edit' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('radio', { name: 'Source' })).toHaveAttribute('aria-checked', 'false');
   });
 
   // No publish/archive/unarchive buttons (removed in soft-delete refactor)
@@ -256,8 +256,8 @@ describe('DocumentHeader', () => {
 
   it('create mode: no mode toggle', () => {
     renderHeader({ isCreateMode: true });
+    expect(screen.queryByRole('radio', { name: 'Edit' })).not.toBeInTheDocument();
     expect(screen.queryByRole('radio', { name: 'Source' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('radio', { name: 'Review' })).not.toBeInTheDocument();
   });
 
   it('create mode: does not render Save Draft button', () => {
@@ -311,13 +311,13 @@ describe('DocumentHeader', () => {
     expect(screen.queryByText('Delete template')).not.toBeInTheDocument();
   });
 
-  // Mode toggle: click Source (covers onModeChange('source') branch)
-  it('clicking Source mode calls onModeChange with source', async () => {
+  // Mode toggle: click Edit (covers onModeChange('edit') branch)
+  it('clicking Edit mode calls onModeChange with edit', async () => {
     const user = userEvent.setup();
     const onModeChange = vi.fn();
-    renderHeader({ editorMode: 'review', onModeChange });
-    await user.click(screen.getByRole('radio', { name: 'Source' }));
-    expect(onModeChange).toHaveBeenCalledWith('source');
+    renderHeader({ editorMode: 'source', onModeChange });
+    await user.click(screen.getByRole('radio', { name: 'Edit' }));
+    expect(onModeChange).toHaveBeenCalledWith('edit');
   });
 
   // Popover without optional metadata fields
@@ -366,13 +366,13 @@ describe('DocumentHeader', () => {
     expect(screen.queryByTestId('right-slot-content')).not.toBeInTheDocument();
   });
 
-  // Review mode style
-  it('review mode marks Review radio as checked', () => {
-    renderHeader({ editorMode: 'review' });
-    const reviewRadio = screen.getByRole('radio', { name: 'Review' });
-    expect(reviewRadio).toHaveAttribute('aria-checked', 'true');
+  // Source mode style
+  it('source mode marks Source radio as checked', () => {
+    renderHeader({ editorMode: 'source' });
     const sourceRadio = screen.getByRole('radio', { name: 'Source' });
-    expect(sourceRadio).toHaveAttribute('aria-checked', 'false');
+    expect(sourceRadio).toHaveAttribute('aria-checked', 'true');
+    const editRadio = screen.getByRole('radio', { name: 'Edit' });
+    expect(editRadio).toHaveAttribute('aria-checked', 'false');
   });
 
   // formatRelativeTime branches via popover with updatedAt

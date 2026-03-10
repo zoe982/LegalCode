@@ -417,20 +417,20 @@ vi.mock('../../src/components/DocumentHeader.js', () => ({
         {typeof props.onModeChange === 'function' && (
           <>
             <button
+              data-testid="dh-mode-edit"
+              onClick={() => {
+                (props.onModeChange as (m: string) => void)('edit');
+              }}
+            >
+              Edit
+            </button>
+            <button
               data-testid="dh-mode-source"
               onClick={() => {
                 (props.onModeChange as (m: string) => void)('source');
               }}
             >
               Source
-            </button>
-            <button
-              data-testid="dh-mode-review"
-              onClick={() => {
-                (props.onModeChange as (m: string) => void)('review');
-              }}
-            >
-              Review
             </button>
           </>
         )}
@@ -692,14 +692,14 @@ describe('TemplateEditorPage', () => {
       expect(queryByTestId('dh-right-slot')).not.toBeInTheDocument();
     });
 
-    it('shows review content when mode is switched to review', async () => {
+    it('shows source content when mode is switched to source', async () => {
       const user = userEvent.setup();
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
-      // Switch to review via DocumentHeader mock
+      // Switch to source via DocumentHeader mock
       const { getByTestId } = renderDocumentHeader();
-      await user.click(getByTestId('dh-mode-review'));
-      expect(screen.getByTestId('review-content')).toBeInTheDocument();
+      await user.click(getByTestId('dh-mode-source'));
+      expect(screen.getByTestId('source-content')).toBeInTheDocument();
     });
 
     it('does not render publish or archive elements in create mode', () => {
@@ -857,7 +857,7 @@ describe('TemplateEditorPage', () => {
     it('passes editorMode to DocumentHeader', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
       const { getByTestId } = renderDocumentHeader();
-      expect(getByTestId('dh-mode')).toHaveTextContent('source');
+      expect(getByTestId('dh-mode')).toHaveTextContent('edit');
     });
 
     it('passes category to DocumentHeader', () => {
@@ -1488,48 +1488,48 @@ describe('TemplateEditorPage', () => {
       expect(screen.getByTestId('editor-toolbar')).toBeInTheDocument();
     });
 
-    it('starts in source mode', () => {
+    it('starts in edit mode', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
       const { getByTestId } = renderDocumentHeader();
-      expect(getByTestId('dh-mode')).toHaveTextContent('source');
+      expect(getByTestId('dh-mode')).toHaveTextContent('edit');
     });
 
-    it('switches to review mode when Review is clicked via DocumentHeader', () => {
+    it('switches to source mode when Source is clicked via DocumentHeader', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
       renderDocumentHeader();
       act(() => {
-        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('review');
+        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('source');
       });
       // After mode change, DocumentHeader should receive updated mode
-      expect(screen.getByTestId('review-content')).toBeInTheDocument();
+      expect(screen.getByTestId('source-content')).toBeInTheDocument();
     });
 
-    it('keeps markdown editor in DOM but hides it in review mode', () => {
+    it('keeps markdown editor in DOM but hides it in source mode', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
       renderDocumentHeader();
       act(() => {
-        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('review');
+        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('source');
       });
       // Editor stays in DOM (no unmount) but its container is hidden
       expect(screen.getByTestId('markdown-editor')).toBeInTheDocument();
-      const sourceContainer = screen.getByTestId('source-editor-container');
+      const sourceContainer = screen.getByTestId('edit-editor-container');
       expect(sourceContainer).toHaveStyle({ display: 'none' });
     });
 
-    it('both source and review panels are always in the DOM', () => {
+    it('both edit and source panels are always in the DOM', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-      // In source mode (default), both panels should be in DOM
+      // In edit mode (default), both panels should be in DOM
       expect(screen.getByTestId('markdown-editor')).toBeInTheDocument();
-      expect(screen.getByTestId('review-content')).toBeInTheDocument();
+      expect(screen.getByTestId('source-content')).toBeInTheDocument();
     });
 
-    it('shows read-only content in review mode', () => {
+    it('shows read-only content in source mode', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
       renderDocumentHeader();
       act(() => {
-        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('review');
+        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('source');
       });
-      expect(screen.getByTestId('review-content')).toBeInTheDocument();
+      expect(screen.getByTestId('source-content')).toBeInTheDocument();
     });
   });
 
@@ -1709,7 +1709,7 @@ describe('TemplateEditorPage', () => {
     });
   });
 
-  describe('Inline comment margin in review mode', () => {
+  describe('Inline comment margin in source mode', () => {
     beforeEach(() => {
       mockUseParams.mockReturnValue({ id: 't1' });
       mockUseTemplate.mockReturnValue(
@@ -1719,18 +1719,18 @@ describe('TemplateEditorPage', () => {
       );
     });
 
-    it('renders InlineCommentMargin in review mode', () => {
+    it('renders InlineCommentMargin in source mode', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
       renderDocumentHeader();
       act(() => {
-        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('review');
+        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('source');
       });
 
-      // Both source and review panels are always in DOM; both have InlineCommentMargin
+      // Both edit and source panels are always in DOM; both have InlineCommentMargin
       expect(screen.getAllByTestId('inline-comment-margin').length).toBeGreaterThanOrEqual(1);
     });
 
-    it('renders InlineCommentMargin in source mode for existing templates', () => {
+    it('renders InlineCommentMargin in edit mode for existing templates', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
       // In edit mode (id exists), InlineCommentMargin renders in both panels
@@ -1792,10 +1792,10 @@ describe('TemplateEditorPage', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
       renderDocumentHeader();
       act(() => {
-        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('review');
+        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('source');
       });
 
-      // Both panels render InlineCommentMargin; click the last one (review panel)
+      // Both panels render InlineCommentMargin; click the last one (source panel)
       const resolveButtons = screen.getAllByTestId('margin-resolve');
       await user.click(resolveButtons.at(-1)!);
       expect(mockResolveComment).toHaveBeenCalledWith({ templateId: 't1', commentId: 'c1' });
@@ -1817,10 +1817,10 @@ describe('TemplateEditorPage', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
       renderDocumentHeader();
       act(() => {
-        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('review');
+        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('source');
       });
 
-      // Both panels render InlineCommentMargin; click the last one (review panel)
+      // Both panels render InlineCommentMargin; click the last one (source panel)
       const deleteButtons = screen.getAllByTestId('margin-delete');
       await user.click(deleteButtons.at(-1)!);
       expect(mockDeleteComment).toHaveBeenCalledWith(
@@ -1868,10 +1868,10 @@ describe('TemplateEditorPage', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
       renderDocumentHeader();
       act(() => {
-        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('review');
+        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('source');
       });
 
-      // Both panels render InlineCommentMargin; click the last one (review panel)
+      // Both panels render InlineCommentMargin; click the last one (source panel)
       const deleteButtons = screen.getAllByTestId('margin-delete');
       await user.click(deleteButtons.at(-1)!);
       expect(mockDeleteComment).toHaveBeenCalledWith(
@@ -1908,10 +1908,10 @@ describe('TemplateEditorPage', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
       renderDocumentHeader();
       act(() => {
-        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('review');
+        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('source');
       });
 
-      // Both panels render InlineCommentMargin; click the last one (review panel)
+      // Both panels render InlineCommentMargin; click the last one (source panel)
       const replyButtons = screen.getAllByTestId('margin-reply');
       await user.click(replyButtons.at(-1)!);
       expect(mockCreateComment).toHaveBeenCalledWith({
@@ -2034,7 +2034,7 @@ describe('TemplateEditorPage', () => {
   });
 
   describe('inline comments wiring', () => {
-    it('InlineCommentMargin receives threads from useComments in review mode', () => {
+    it('InlineCommentMargin receives threads from useComments in source mode', () => {
       mockUseParams.mockReturnValue({ id: 't1' });
       mockUseTemplate.mockReturnValue(
         createTemplateQueryResult({
@@ -2076,7 +2076,7 @@ describe('TemplateEditorPage', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
       renderDocumentHeader();
       act(() => {
-        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('review');
+        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('source');
       });
 
       // Both panels render InlineCommentMargin; check at least one shows thread count
@@ -2149,7 +2149,7 @@ describe('TemplateEditorPage', () => {
       expect(mockStartComment).not.toHaveBeenCalled();
     });
 
-    it('shows toast when handleReviewAddComment is called in create mode (review)', () => {
+    it('shows toast when handleReviewAddComment is called in create mode (source)', () => {
       // Create mode: no id
       mockUseParams.mockReturnValue({});
       mockUseTextSelection.mockReturnValue({
@@ -2161,7 +2161,7 @@ describe('TemplateEditorPage', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
       renderDocumentHeader();
       act(() => {
-        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('review');
+        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('source');
       });
 
       // FloatingCommentButton should not be visible in create mode
@@ -2233,7 +2233,7 @@ describe('TemplateEditorPage', () => {
       );
     });
 
-    it('calls useCommentHighlights in review mode with threads', () => {
+    it('calls useCommentHighlights in source mode with threads', () => {
       const mockThreads = [
         {
           comment: {
@@ -2265,7 +2265,7 @@ describe('TemplateEditorPage', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
       renderDocumentHeader();
       act(() => {
-        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('review');
+        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('source');
       });
 
       expect(mockUseCommentHighlights).toHaveBeenCalled();
@@ -2280,10 +2280,10 @@ describe('TemplateEditorPage', () => {
       // In source mode, useCommentHighlights is called with empty threads array
       const lastCall = mockUseCommentHighlights.mock.calls.at(-1) as unknown[];
       expect(lastCall[1]).toEqual([]);
-      expect(screen.getByTestId('source-editor-surface')).toBeInTheDocument();
+      expect(screen.getByTestId('edit-editor-surface')).toBeInTheDocument();
     });
 
-    it('shows FloatingCommentButton in review mode when text is selected', () => {
+    it('shows FloatingCommentButton in source mode when text is selected', () => {
       mockUseTextSelection.mockReturnValue({
         selectedText: 'Draft content',
         selectionRect: { top: 100, left: 200, width: 100, height: 20 } as DOMRect,
@@ -2293,14 +2293,14 @@ describe('TemplateEditorPage', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
       renderDocumentHeader();
       act(() => {
-        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('review');
+        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('source');
       });
 
       const commentBtn = screen.getByTestId('floating-comment-button');
       expect(commentBtn).toBeInTheDocument();
     });
 
-    it('review mode FloatingCommentButton click triggers review add comment', async () => {
+    it('source mode FloatingCommentButton click triggers review add comment', async () => {
       const user = userEvent.setup();
       mockUseTextSelection.mockReturnValue({
         selectedText: 'Draft content',
@@ -2311,13 +2311,13 @@ describe('TemplateEditorPage', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
       renderDocumentHeader();
       act(() => {
-        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('review');
+        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('source');
       });
 
       const commentBtn = screen.getByTestId('floating-comment-button');
       await user.click(commentBtn);
 
-      // InlineCommentMargin should be rendered in review mode (both panels have it)
+      // InlineCommentMargin should be rendered in source mode (both panels have it)
       expect(screen.getAllByTestId('inline-comment-margin').length).toBeGreaterThanOrEqual(1);
     });
   });
@@ -2848,7 +2848,7 @@ describe('TemplateEditorPage', () => {
       expect(mockCancelComment).toHaveBeenCalled();
     });
 
-    it('renders NewCommentCard in review mode when review pending anchor exists', async () => {
+    it('renders NewCommentCard in source mode when review pending anchor exists', async () => {
       const user = userEvent.setup();
       mockUseTextSelection.mockReturnValue({
         selectedText: 'Draft content',
@@ -2859,10 +2859,10 @@ describe('TemplateEditorPage', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
       renderDocumentHeader();
       act(() => {
-        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('review');
+        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('source');
       });
 
-      // Click the floating comment button to set review pending anchor
+      // Click the floating comment button to set source mode pending anchor
       const commentBtn = screen.getByTestId('floating-comment-button');
       await user.click(commentBtn);
 
@@ -2872,7 +2872,7 @@ describe('TemplateEditorPage', () => {
       expect(screen.getByTestId('ncc-top')).toHaveTextContent('100');
     });
 
-    it('review mode submit calls createComment and clears review pending anchor', async () => {
+    it('source mode submit calls createComment and clears review pending anchor', async () => {
       const user = userEvent.setup();
       mockUseTextSelection.mockReturnValue({
         selectedText: 'Draft content',
@@ -2883,7 +2883,7 @@ describe('TemplateEditorPage', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
       renderDocumentHeader();
       act(() => {
-        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('review');
+        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('source');
       });
 
       // Click floating comment button to set pending anchor
@@ -2902,7 +2902,7 @@ describe('TemplateEditorPage', () => {
       expect(screen.queryByTestId('new-comment-card')).not.toBeInTheDocument();
     });
 
-    it('review mode cancel clears review pending anchor', async () => {
+    it('source mode cancel clears review pending anchor', async () => {
       const user = userEvent.setup();
       mockUseTextSelection.mockReturnValue({
         selectedText: 'Draft content',
@@ -2913,7 +2913,7 @@ describe('TemplateEditorPage', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
       renderDocumentHeader();
       act(() => {
-        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('review');
+        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('source');
       });
 
       // Click floating comment button to set pending anchor

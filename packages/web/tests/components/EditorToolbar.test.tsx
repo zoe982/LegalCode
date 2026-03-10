@@ -36,7 +36,7 @@ const mockCrepeRef = {
 
 function renderToolbar(props: Partial<Parameters<typeof EditorToolbar>[0]> = {}) {
   const defaultProps = {
-    mode: 'source' as const,
+    mode: 'edit' as const,
     wordCount: 142,
   };
   return render(
@@ -52,8 +52,8 @@ describe('EditorToolbar', () => {
     mockAction.mockClear();
   });
 
-  it('shows all markdown helper buttons in source mode including Bold and Italic', () => {
-    renderToolbar({ mode: 'source' });
+  it('shows all markdown helper buttons in edit mode including Bold and Italic', () => {
+    renderToolbar({ mode: 'edit' });
     expect(screen.getByRole('button', { name: 'Bold' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Italic' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Heading' })).toBeInTheDocument();
@@ -66,14 +66,14 @@ describe('EditorToolbar', () => {
     expect(screen.getByRole('button', { name: 'Horizontal Rule' })).toBeInTheDocument();
   });
 
-  it('hides markdown helpers in review mode', () => {
-    renderToolbar({ mode: 'review' });
+  it('hides markdown helpers in source mode', () => {
+    renderToolbar({ mode: 'source' });
     expect(screen.queryByRole('button', { name: 'Heading' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Bold' })).not.toBeInTheDocument();
   });
 
   it('hides markdown helpers when readOnly', () => {
-    renderToolbar({ mode: 'source', readOnly: true });
+    renderToolbar({ mode: 'edit', readOnly: true });
     expect(screen.queryByRole('button', { name: 'Heading' })).not.toBeInTheDocument();
   });
 
@@ -213,8 +213,8 @@ describe('EditorToolbar', () => {
 
   it('does not render mode toggle buttons (moved to DocumentHeader)', () => {
     renderToolbar();
+    expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Source' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Review' })).not.toBeInTheDocument();
   });
 
   it('does not render mode toggle indicator (moved to DocumentHeader)', () => {
@@ -252,48 +252,48 @@ describe('EditorToolbar', () => {
   });
 
   describe('Undo/Redo buttons', () => {
-    it('renders Undo and Redo buttons in source mode', () => {
-      renderToolbar({ mode: 'source' });
+    it('renders Undo and Redo buttons in edit mode', () => {
+      renderToolbar({ mode: 'edit' });
       expect(screen.getByRole('button', { name: 'Undo' })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Redo' })).toBeInTheDocument();
     });
 
-    it('hides Undo and Redo buttons in review mode', () => {
-      renderToolbar({ mode: 'review' });
+    it('hides Undo and Redo buttons in source mode', () => {
+      renderToolbar({ mode: 'source' });
       expect(screen.queryByRole('button', { name: 'Undo' })).not.toBeInTheDocument();
       expect(screen.queryByRole('button', { name: 'Redo' })).not.toBeInTheDocument();
     });
 
     it('hides Undo and Redo buttons when readOnly', () => {
-      renderToolbar({ mode: 'source', readOnly: true });
+      renderToolbar({ mode: 'edit', readOnly: true });
       expect(screen.queryByRole('button', { name: 'Undo' })).not.toBeInTheDocument();
       expect(screen.queryByRole('button', { name: 'Redo' })).not.toBeInTheDocument();
     });
 
     it('disables Undo button when canUndo is false', () => {
-      renderToolbar({ mode: 'source', canUndo: false });
+      renderToolbar({ mode: 'edit', canUndo: false });
       expect(screen.getByRole('button', { name: 'Undo' })).toBeDisabled();
     });
 
     it('disables Redo button when canRedo is false', () => {
-      renderToolbar({ mode: 'source', canRedo: false });
+      renderToolbar({ mode: 'edit', canRedo: false });
       expect(screen.getByRole('button', { name: 'Redo' })).toBeDisabled();
     });
 
     it('enables Undo button when canUndo is true', () => {
-      renderToolbar({ mode: 'source', canUndo: true });
+      renderToolbar({ mode: 'edit', canUndo: true });
       expect(screen.getByRole('button', { name: 'Undo' })).not.toBeDisabled();
     });
 
     it('enables Redo button when canRedo is true', () => {
-      renderToolbar({ mode: 'source', canRedo: true });
+      renderToolbar({ mode: 'edit', canRedo: true });
       expect(screen.getByRole('button', { name: 'Redo' })).not.toBeDisabled();
     });
 
     it('calls onUndo when Undo button is clicked', async () => {
       const user = userEvent.setup();
       const onUndo = vi.fn();
-      renderToolbar({ mode: 'source', onUndo });
+      renderToolbar({ mode: 'edit', onUndo });
       await user.click(screen.getByRole('button', { name: 'Undo' }));
       expect(onUndo).toHaveBeenCalledTimes(1);
     });
@@ -301,13 +301,13 @@ describe('EditorToolbar', () => {
     it('calls onRedo when Redo button is clicked', async () => {
       const user = userEvent.setup();
       const onRedo = vi.fn();
-      renderToolbar({ mode: 'source', onRedo });
+      renderToolbar({ mode: 'edit', onRedo });
       await user.click(screen.getByRole('button', { name: 'Redo' }));
       expect(onRedo).toHaveBeenCalledTimes(1);
     });
 
     it('renders a divider between undo/redo and formatting buttons', () => {
-      renderToolbar({ mode: 'source' });
+      renderToolbar({ mode: 'edit' });
       const divider = screen.getByRole('separator');
       expect(divider).toBeInTheDocument();
     });

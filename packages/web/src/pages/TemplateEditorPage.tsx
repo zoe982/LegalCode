@@ -62,7 +62,7 @@ export function TemplateEditorPage() {
   const [content, setContent] = useState('');
   const [formInitialized, setFormInitialized] = useState(false);
 
-  const [editorMode, setEditorMode] = useState<'source' | 'review'>('source');
+  const [editorMode, setEditorMode] = useState<'edit' | 'source'>('edit');
   const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
@@ -101,10 +101,10 @@ export function TemplateEditorPage() {
     crepeRef.current = crepe;
   }, []);
 
-  // Source mode comment margin ref
+  // Edit mode comment margin ref
   const sourceContentRef = useRef<HTMLDivElement>(null);
 
-  // Review mode comment highlighting
+  // Source mode comment highlighting
   const reviewContentRef = useRef<HTMLDivElement>(null);
   const reviewTextSelection = useTextSelection(reviewContentRef);
   const [activeCommentId, setActiveCommentId] = useState<string | null>(null);
@@ -116,7 +116,7 @@ export function TemplateEditorPage() {
 
   useCommentHighlights(
     reviewContentRef,
-    editorMode === 'review' ? threads : [],
+    editorMode === 'source' ? threads : [],
     handleCommentClick,
   );
 
@@ -144,7 +144,7 @@ export function TemplateEditorPage() {
     [id, pendingAnchor, createComment, cancelComment],
   );
 
-  // Review mode pending comment state
+  // Source mode pending comment state
   const [reviewPendingAnchor, setReviewPendingAnchor] = useState<{
     anchorText: string;
   } | null>(null);
@@ -651,11 +651,11 @@ export function TemplateEditorPage() {
             }}
           >
             {/* Editor content — title/category moved to DocumentHeader */}
-            {/* Source mode — always mounted, hidden when review */}
+            {/* Edit mode — always mounted, hidden when source */}
             <Box
-              data-testid="source-editor-container"
+              data-testid="edit-editor-container"
               sx={{
-                display: editorMode === 'source' ? 'block' : 'none',
+                display: editorMode === 'edit' ? 'block' : 'none',
                 maxWidth: '720px',
                 mx: 'auto',
                 position: 'relative',
@@ -663,7 +663,7 @@ export function TemplateEditorPage() {
             >
               <Box
                 ref={sourceContentRef}
-                data-testid="source-editor-surface"
+                data-testid="edit-editor-surface"
                 sx={{
                   backgroundColor: '#FFFFFF',
                   position: 'relative',
@@ -706,10 +706,10 @@ export function TemplateEditorPage() {
               )}
             </Box>
 
-            {/* Review mode — always mounted, hidden when source */}
+            {/* Source mode — always mounted, hidden when edit */}
             <Box
               sx={{
-                display: editorMode === 'review' ? 'block' : 'none',
+                display: editorMode === 'source' ? 'block' : 'none',
                 maxWidth: '720px',
                 mx: 'auto',
                 position: 'relative',
@@ -718,7 +718,7 @@ export function TemplateEditorPage() {
               <Box sx={{ position: 'relative' }}>
                 <Box
                   ref={reviewContentRef}
-                  data-testid="review-content"
+                  data-testid="source-content"
                   sx={{
                     backgroundColor: '#FFFFFF',
                     fontFamily: '"Source Serif 4", Georgia, "Times New Roman", serif',
