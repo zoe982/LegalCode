@@ -134,12 +134,14 @@ describe('InlineCommentCard', () => {
     const onReply = vi.fn();
     const thread = createThread();
 
-    render(<InlineCommentCard thread={thread} {...defaultProps} onReply={onReply} isActive />, {
+    render(<InlineCommentCard thread={thread} {...defaultProps} onReply={onReply} />, {
       wrapper: Wrapper,
     });
 
+    // Click the reply placeholder first
+    await user.click(screen.getByText('Reply...'));
+
     const replyInput = screen.getByPlaceholderText('Reply...');
-    await user.click(replyInput);
     await user.type(replyInput, 'My reply');
 
     // Send button should appear
@@ -225,40 +227,29 @@ describe('InlineCommentCard', () => {
     expect(style.top).toBe('120px');
   });
 
-  it('shows ghost reply text when card is not active and not hovered', () => {
+  it('always shows reply placeholder when not focused', () => {
     const thread = createThread();
 
     render(<InlineCommentCard thread={thread} {...defaultProps} isActive={false} />, {
       wrapper: Wrapper,
     });
 
-    // Ghost text should be visible
+    // Reply placeholder should always be visible
     expect(screen.getByText('Reply...')).toBeInTheDocument();
-    // Real TextField should not be present
+    // Real TextField should not be present until clicked
     expect(screen.queryByPlaceholderText('Reply...')).not.toBeInTheDocument();
   });
 
-  it('shows TextField when card is active', () => {
+  it('shows TextField when reply placeholder is clicked', async () => {
+    const user = userEvent.setup();
     const thread = createThread();
 
-    render(<InlineCommentCard thread={thread} {...defaultProps} isActive />, {
+    render(<InlineCommentCard thread={thread} {...defaultProps} />, {
       wrapper: Wrapper,
     });
 
-    // Real TextField should be present
-    expect(screen.getByPlaceholderText('Reply...')).toBeInTheDocument();
-  });
-
-  it('shows TextField when card is hovered', () => {
-    const thread = createThread();
-
-    render(<InlineCommentCard thread={thread} {...defaultProps} isActive={false} />, {
-      wrapper: Wrapper,
-    });
-
-    // Hover the card
-    const article = screen.getByRole('article');
-    fireEvent.mouseEnter(article);
+    // Click the reply placeholder
+    await user.click(screen.getByText('Reply...'));
 
     // Real TextField should now be present
     expect(screen.getByPlaceholderText('Reply...')).toBeInTheDocument();
@@ -342,9 +333,12 @@ describe('InlineCommentCard', () => {
     const onReply = vi.fn();
     const thread = createThread();
 
-    render(<InlineCommentCard thread={thread} {...defaultProps} onReply={onReply} isActive />, {
+    render(<InlineCommentCard thread={thread} {...defaultProps} onReply={onReply} />, {
       wrapper: Wrapper,
     });
+
+    // Click the reply placeholder first
+    await user.click(screen.getByText('Reply...'));
 
     const replyInput = screen.getByPlaceholderText('Reply...');
     await user.click(replyInput);
@@ -377,6 +371,23 @@ describe('InlineCommentCard', () => {
     expect(article).toBeInstanceOf(HTMLElement);
   });
 
+  it('displays getDisplayName result instead of raw author name', () => {
+    const thread = createThread({ authorName: 'joseph.marsico@acasus.com' });
+
+    render(<InlineCommentCard thread={thread} {...defaultProps} />, { wrapper: Wrapper });
+
+    expect(screen.getByText('Joseph Marsico')).toBeInTheDocument();
+  });
+
+  it('shows raw author name as tooltip', () => {
+    const thread = createThread({ authorName: 'joseph.marsico@acasus.com' });
+
+    render(<InlineCommentCard thread={thread} {...defaultProps} />, { wrapper: Wrapper });
+
+    const authorEl = screen.getByText('Joseph Marsico');
+    expect(authorEl).toHaveAttribute('title', 'joseph.marsico@acasus.com');
+  });
+
   it('renders resolved card with relative position for connector line', () => {
     const thread = createThread({ resolved: true, resolvedBy: 'u1' });
     const { container } = render(<InlineCommentCard thread={thread} {...defaultProps} />, {
@@ -387,7 +398,7 @@ describe('InlineCommentCard', () => {
     expect(article).toBeInstanceOf(HTMLElement);
   });
 
-  it('hides ghost text and shows TextField when reply is being typed', async () => {
+  it('hides placeholder and shows TextField when reply is being typed', async () => {
     const user = userEvent.setup();
     const thread = createThread();
 
@@ -395,12 +406,11 @@ describe('InlineCommentCard', () => {
       wrapper: Wrapper,
     });
 
-    // Initially ghost text
+    // Initially placeholder box
     expect(screen.getByText('Reply...')).toBeInTheDocument();
 
-    // Hover to reveal TextField
-    const article = screen.getByRole('article');
-    fireEvent.mouseEnter(article);
+    // Click the reply placeholder to focus
+    await user.click(screen.getByText('Reply...'));
 
     // Now TextField should be present
     const input = screen.getByPlaceholderText('Reply...');

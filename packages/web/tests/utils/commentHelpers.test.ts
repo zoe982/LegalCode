@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   formatRelativeTime,
   getAvatarColor,
+  getDisplayName,
   AVATAR_COLORS,
 } from '../../src/utils/commentHelpers.js';
 
@@ -32,6 +33,24 @@ describe('commentHelpers', () => {
     it('returns fallback color for out-of-bounds (should not happen but safe)', () => {
       // With modulo this won't happen, but the ?? fallback covers it
       expect(getAvatarColor(0)).toBe('#8027FF');
+    });
+  });
+
+  describe('getDisplayName', () => {
+    it('extracts and title-cases email local part with dots', () => {
+      expect(getDisplayName('joseph.marsico@acasus.com')).toBe('Joseph Marsico');
+    });
+
+    it('returns display name as-is when it contains a space', () => {
+      expect(getDisplayName('Alice Smith')).toBe('Alice Smith');
+    });
+
+    it('returns single word as-is when no space or @', () => {
+      expect(getDisplayName('Admin')).toBe('Admin');
+    });
+
+    it('title-cases single-part email local', () => {
+      expect(getDisplayName('admin@acasus.com')).toBe('Admin');
     });
   });
 

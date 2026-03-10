@@ -13,7 +13,7 @@ import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import SendIcon from '@mui/icons-material/Send';
 import type { CommentThread, Comment } from '../types/comments.js';
-import { formatRelativeTime, getAvatarColor } from '../utils/commentHelpers.js';
+import { formatRelativeTime, getAvatarColor, getDisplayName } from '../utils/commentHelpers.js';
 
 export interface InlineCommentCardProps {
   thread: CommentThread;
@@ -46,21 +46,27 @@ function CommentRow({
             width: avatarSize,
             height: avatarSize,
             fontSize: isReply === true ? '0.625rem' : '0.75rem',
+            fontWeight: 500,
             bgcolor: getAvatarColor(authorIndex),
           }}
         >
           {comment.authorName.charAt(0).toUpperCase()}
         </Avatar>
         <Typography
+          title={comment.authorName}
           sx={{
             fontSize: '0.8125rem',
             fontWeight: isReply === true ? 500 : 600,
             color: '#12111A',
             fontFamily: '"DM Sans", sans-serif',
             letterSpacing: '-0.01em',
+            maxWidth: 120,
+            textOverflow: 'ellipsis',
+            overflow: 'hidden',
+            whiteSpace: 'nowrap',
           }}
         >
-          {comment.authorName}
+          {getDisplayName(comment.authorName)}
         </Typography>
         <Typography
           sx={{
@@ -102,9 +108,6 @@ export function InlineCommentCard({
   const [replyFocused, setReplyFocused] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
-  const [isHovered, setIsHovered] = useState(false);
-
-  const showReplyInput = isActive === true || isHovered || replyFocused || replyText !== '';
 
   const handleSendReply = useCallback(() => {
     if (replyText.trim() === '') return;
@@ -169,7 +172,7 @@ export function InlineCommentCard({
           <CheckRoundedIcon
             sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5, color: '#2e7d32' }}
           />
-          {thread.comment.authorName} resolved
+          {getDisplayName(thread.comment.authorName)} resolved
         </Typography>
         <Collapse in={expanded}>
           <Box sx={{ mt: 1 }}>
@@ -186,12 +189,6 @@ export function InlineCommentCard({
       aria-label={`Comment by ${thread.comment.authorName}`}
       style={style}
       {...(isActive === true ? { 'data-active': 'true' } : {})}
-      onMouseEnter={() => {
-        setIsHovered(true);
-      }}
-      onMouseLeave={() => {
-        setIsHovered(false);
-      }}
       sx={{
         p: '14px 16px',
         borderRadius: '10px',
@@ -199,7 +196,7 @@ export function InlineCommentCard({
         border: isActive === true ? '1px solid #8027FF' : '1px solid #E4E5ED',
         boxShadow:
           isActive === true
-            ? '0 0 0 1px rgba(128,39,255,0.12), 0 4px 12px rgba(128,39,255,0.08)'
+            ? '0 0 0 1px rgba(128,39,255,0.2), 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04)'
             : '0 1px 2px rgba(0,0,0,0.04)',
         transition: 'box-shadow 200ms ease, border-color 200ms ease, background-color 200ms ease',
         width: '100%',
@@ -234,13 +231,12 @@ export function InlineCommentCard({
           }}
           sx={{
             fontStyle: 'italic',
-            borderLeft: '2px solid #FBBF24',
-            backgroundColor: 'rgba(251, 191, 36, 0.06)',
+            borderLeft: '2px solid #FBBF2433',
+            backgroundColor: 'transparent',
             pl: 1,
-            py: 0.5,
+            py: 0.25,
             pr: 1,
-            borderRadius: '0 4px 4px 0',
-            mb: 1.5,
+            mb: 1,
             color: '#6B6D82',
             fontSize: '0.8125rem',
             fontFamily: '"DM Sans", sans-serif',
@@ -256,34 +252,39 @@ export function InlineCommentCard({
       )}
 
       {/* Header row: Avatar + author + timestamp + resolve + more menu */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.5 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
         <Avatar
           sx={{
             width: 24,
             height: 24,
             fontSize: '0.75rem',
+            fontWeight: 500,
             bgcolor: getAvatarColor(threadIndex),
           }}
         >
           {thread.comment.authorName.charAt(0).toUpperCase()}
         </Avatar>
         <Typography
+          title={thread.comment.authorName}
           sx={{
             fontSize: '0.8125rem',
             fontWeight: 600,
             color: '#12111A',
             fontFamily: '"DM Sans", sans-serif',
-            letterSpacing: '-0.01em',
+            maxWidth: 120,
+            textOverflow: 'ellipsis',
+            overflow: 'hidden',
+            whiteSpace: 'nowrap',
           }}
         >
-          {thread.comment.authorName}
+          {getDisplayName(thread.comment.authorName)}
         </Typography>
         <Typography
           sx={{
             fontSize: '0.75rem',
             color: '#9B9DB0',
             fontFamily: '"DM Sans", sans-serif',
-            flex: 1,
+            whiteSpace: 'nowrap',
           }}
         >
           {`\u00B7 ${formatRelativeTime(thread.comment.createdAt)}`}
@@ -296,10 +297,11 @@ export function InlineCommentCard({
             onResolve(thread.comment.id);
           }}
           sx={{
+            ml: 'auto',
             color: '#6B6D82',
             opacity: 0,
             transition: 'opacity 0.2s',
-            '&:hover': { color: '#2e7d32' },
+            '&:hover': { color: '#059669' },
           }}
         >
           <CheckRoundedIcon sx={{ fontSize: 16 }} />
@@ -313,9 +315,26 @@ export function InlineCommentCard({
         >
           <MoreVertIcon sx={{ fontSize: 16 }} />
         </IconButton>
-        <Menu anchorEl={menuAnchor} open={menuAnchor != null} onClose={handleMenuClose}>
-          <MenuItem onClick={handleEdit}>Edit</MenuItem>
-          <MenuItem onClick={handleDelete}>Delete</MenuItem>
+        <Menu
+          anchorEl={menuAnchor}
+          open={menuAnchor != null}
+          onClose={handleMenuClose}
+          slotProps={{
+            paper: {
+              sx: {
+                minWidth: 160,
+                borderRadius: '12px',
+                border: '1px solid #E4E5ED',
+              },
+            },
+          }}
+        >
+          <MenuItem onClick={handleEdit} sx={{ py: '8px', px: '12px' }}>
+            Edit
+          </MenuItem>
+          <MenuItem onClick={handleDelete} sx={{ color: '#DC2626', py: '8px', px: '12px' }}>
+            Delete
+          </MenuItem>
         </Menu>
       </Box>
 
@@ -334,7 +353,7 @@ export function InlineCommentCard({
 
       {/* Replies */}
       {thread.replies.length > 0 && (
-        <Box sx={{ pl: 4, mt: 1.5, pt: 1, borderTop: '1px solid #F3F3F7' }}>
+        <Box sx={{ pl: 6, mt: 1.5, pt: 1, borderTop: '1px solid #F3F3F7' }}>
           {thread.replies.map((reply, rIdx) => (
             <CommentRow
               key={reply.id}
@@ -347,12 +366,12 @@ export function InlineCommentCard({
       )}
 
       {/* Reply input */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 1, ml: 2 }}>
-        {showReplyInput ? (
-          <>
+      <Box sx={{ mt: 1.5, pl: 4 }}>
+        {replyFocused || replyText !== '' ? (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <TextField
               size="small"
-              variant="standard"
+              variant="outlined"
               placeholder="Reply..."
               value={replyText}
               onChange={(e) => {
@@ -366,36 +385,46 @@ export function InlineCommentCard({
                   setReplyFocused(false);
                 }, 200);
               }}
+              autoFocus
               sx={{
                 flex: 1,
                 '& .MuiInputBase-input': { fontSize: '0.75rem', py: 0.5, px: 1 },
-                '& .MuiInput-underline:after': { borderBottomColor: '#8027FF' },
+                '& .MuiOutlinedInput-root': {
+                  '&.Mui-focused fieldset': { borderColor: '#8027FF' },
+                },
               }}
             />
-            {(replyFocused || replyText !== '') && (
-              <IconButton
-                size="small"
-                aria-label="send"
-                onClick={handleSendReply}
-                sx={{ color: '#8027FF' }}
-              >
-                <SendIcon sx={{ fontSize: 16 }} />
-              </IconButton>
-            )}
-          </>
+            <IconButton
+              size="small"
+              aria-label="send"
+              onClick={handleSendReply}
+              sx={{ color: '#8027FF' }}
+            >
+              <SendIcon sx={{ fontSize: 16 }} />
+            </IconButton>
+          </Box>
         ) : (
-          <Typography
+          <Box
+            onClick={() => {
+              setReplyFocused(true);
+            }}
             sx={{
-              fontSize: '0.75rem',
-              color: '#9B9DB0',
-              fontFamily: '"DM Sans", sans-serif',
+              backgroundColor: '#F3F3F7',
+              borderRadius: '6px',
+              padding: '6px 10px',
               cursor: 'pointer',
-              py: 0.5,
-              px: 1,
             }}
           >
-            Reply...
-          </Typography>
+            <Typography
+              sx={{
+                fontSize: '0.75rem',
+                color: '#9B9DB0',
+                fontFamily: '"DM Sans", sans-serif',
+              }}
+            >
+              Reply...
+            </Typography>
+          </Box>
         )}
       </Box>
     </Box>

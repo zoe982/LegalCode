@@ -5,6 +5,22 @@ export function getAvatarColor(index: number): string {
   return AVATAR_COLORS[index % AVATAR_COLORS.length] ?? '#8027FF';
 }
 
+export function getDisplayName(authorName: string): string {
+  // If it contains a space, use as-is (already a display name)
+  if (authorName.includes(' ')) return authorName;
+  // If it looks like an email, extract and title-case the local part
+  if (authorName.includes('@')) {
+    /* v8 ignore next -- split('@') always returns at least one element; ?? satisfies noUncheckedIndexedAccess */
+    const localPart = authorName.split('@')[0] ?? authorName;
+    return localPart
+      .split('.')
+      .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+      .join(' ');
+  }
+  // Otherwise return as-is
+  return authorName;
+}
+
 export function formatRelativeTime(dateStr: string): string {
   const now = Date.now();
   const then = new Date(dateStr).getTime();
