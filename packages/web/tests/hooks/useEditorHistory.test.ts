@@ -2,27 +2,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
 
-const {
-  mockYUndoCommand,
-  mockYRedoCommand,
-  mockEditorViewCtx,
-  mockUndoCommandKey,
-  mockRedoCommandKey,
-  mockCallCommand,
-} = vi.hoisted(() => ({
-  mockYUndoCommand: vi.fn(),
-  mockYRedoCommand: vi.fn(),
-  mockEditorViewCtx: Symbol('editorViewCtx'),
-  mockUndoCommandKey: 'undoCommandKey',
-  mockRedoCommandKey: 'redoCommandKey',
-  mockCallCommand: vi.fn((key: string) => `callCommand:${key}`),
-}));
-
-vi.mock('y-prosemirror', () => ({
-  undoCommand: (...args: unknown[]) => mockYUndoCommand(...args) as unknown,
-  redoCommand: (...args: unknown[]) => mockYRedoCommand(...args) as unknown,
-  yUndoPlugin: vi.fn(),
-}));
+const { mockEditorViewCtx, mockUndoCommandKey, mockRedoCommandKey, mockCallCommand } = vi.hoisted(
+  () => ({
+    mockEditorViewCtx: Symbol('editorViewCtx'),
+    mockUndoCommandKey: 'undoCommandKey',
+    mockRedoCommandKey: 'redoCommandKey',
+    mockCallCommand: vi.fn((key: string) => `callCommand:${key}`),
+  }),
+);
 
 vi.mock('@milkdown/kit/core', () => ({
   editorViewCtx: mockEditorViewCtx,
@@ -76,41 +63,31 @@ describe('useEditorHistory', () => {
 
   it('returns canUndo true when crepeRef has a value', () => {
     const crepeRef = createCrepeRef(true);
-    const { result } = renderHook(() =>
-      useEditorHistory({ crepeRef: crepeRef as never, isCollaborative: false }),
-    );
+    const { result } = renderHook(() => useEditorHistory({ crepeRef: crepeRef as never }));
     expect(result.current.canUndo).toBe(true);
   });
 
   it('returns canRedo true when crepeRef has a value', () => {
     const crepeRef = createCrepeRef(true);
-    const { result } = renderHook(() =>
-      useEditorHistory({ crepeRef: crepeRef as never, isCollaborative: false }),
-    );
+    const { result } = renderHook(() => useEditorHistory({ crepeRef: crepeRef as never }));
     expect(result.current.canRedo).toBe(true);
   });
 
   it('returns canUndo false when crepeRef is null', () => {
     const crepeRef = createCrepeRef(false);
-    const { result } = renderHook(() =>
-      useEditorHistory({ crepeRef: crepeRef as never, isCollaborative: false }),
-    );
+    const { result } = renderHook(() => useEditorHistory({ crepeRef: crepeRef as never }));
     expect(result.current.canUndo).toBe(false);
   });
 
   it('returns canRedo false when crepeRef is null', () => {
     const crepeRef = createCrepeRef(false);
-    const { result } = renderHook(() =>
-      useEditorHistory({ crepeRef: crepeRef as never, isCollaborative: false }),
-    );
+    const { result } = renderHook(() => useEditorHistory({ crepeRef: crepeRef as never }));
     expect(result.current.canRedo).toBe(false);
   });
 
   it('handleUndo is a no-op when crepeRef is null', () => {
     const crepeRef = createCrepeRef(false);
-    const { result } = renderHook(() =>
-      useEditorHistory({ crepeRef: crepeRef as never, isCollaborative: false }),
-    );
+    const { result } = renderHook(() => useEditorHistory({ crepeRef: crepeRef as never }));
     // Should not throw
     result.current.handleUndo();
     expect(mockAction).not.toHaveBeenCalled();
@@ -118,18 +95,14 @@ describe('useEditorHistory', () => {
 
   it('handleRedo is a no-op when crepeRef is null', () => {
     const crepeRef = createCrepeRef(false);
-    const { result } = renderHook(() =>
-      useEditorHistory({ crepeRef: crepeRef as never, isCollaborative: false }),
-    );
+    const { result } = renderHook(() => useEditorHistory({ crepeRef: crepeRef as never }));
     result.current.handleRedo();
     expect(mockAction).not.toHaveBeenCalled();
   });
 
   it('handleUndo calls callCommand with undoCommand.key in non-collaborative mode', () => {
     const crepeRef = createCrepeRef(true);
-    const { result } = renderHook(() =>
-      useEditorHistory({ crepeRef: crepeRef as never, isCollaborative: false }),
-    );
+    const { result } = renderHook(() => useEditorHistory({ crepeRef: crepeRef as never }));
     result.current.handleUndo();
     expect(mockAction).toHaveBeenCalledTimes(1);
     expect(mockCallCommand).toHaveBeenCalledWith(mockUndoCommandKey);
@@ -137,38 +110,32 @@ describe('useEditorHistory', () => {
 
   it('handleRedo calls callCommand with redoCommand.key in non-collaborative mode', () => {
     const crepeRef = createCrepeRef(true);
-    const { result } = renderHook(() =>
-      useEditorHistory({ crepeRef: crepeRef as never, isCollaborative: false }),
-    );
+    const { result } = renderHook(() => useEditorHistory({ crepeRef: crepeRef as never }));
     result.current.handleRedo();
     expect(mockAction).toHaveBeenCalledTimes(1);
     expect(mockCallCommand).toHaveBeenCalledWith(mockRedoCommandKey);
   });
 
-  it('handleUndo calls y-prosemirror undo in collaborative mode', () => {
+  it('always uses ProseMirror built-in undo regardless of context', () => {
     const crepeRef = createCrepeRef(true);
-    const { result } = renderHook(() =>
-      useEditorHistory({ crepeRef: crepeRef as never, isCollaborative: true }),
-    );
+    const { result } = renderHook(() => useEditorHistory({ crepeRef: crepeRef as never }));
     result.current.handleUndo();
     expect(mockAction).toHaveBeenCalledTimes(1);
-    expect(mockYUndoCommand).toHaveBeenCalledWith(mockView.state, mockView.dispatch);
+    expect(mockCallCommand).toHaveBeenCalledWith(mockUndoCommandKey);
   });
 
-  it('handleRedo calls y-prosemirror redo in collaborative mode', () => {
+  it('always uses ProseMirror built-in redo regardless of context', () => {
     const crepeRef = createCrepeRef(true);
-    const { result } = renderHook(() =>
-      useEditorHistory({ crepeRef: crepeRef as never, isCollaborative: true }),
-    );
+    const { result } = renderHook(() => useEditorHistory({ crepeRef: crepeRef as never }));
     result.current.handleRedo();
     expect(mockAction).toHaveBeenCalledTimes(1);
-    expect(mockYRedoCommand).toHaveBeenCalledWith(mockView.state, mockView.dispatch);
+    expect(mockCallCommand).toHaveBeenCalledWith(mockRedoCommandKey);
   });
 
   it('returns stable function references across re-renders', () => {
     const crepeRef = createCrepeRef(true);
     const { result, rerender } = renderHook(() =>
-      useEditorHistory({ crepeRef: crepeRef as never, isCollaborative: false }),
+      useEditorHistory({ crepeRef: crepeRef as never }),
     );
     const firstUndo = result.current.handleUndo;
     const firstRedo = result.current.handleRedo;

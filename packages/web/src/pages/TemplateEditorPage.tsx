@@ -191,11 +191,8 @@ export function TemplateEditorPage() {
   const isDeleted = templateData?.template.deletedAt != null;
   const isReadOnly = isViewer || isDeleted;
 
-  const isCollaborativeActive =
-    !isCreateMode && collaboration.ydoc != null && collaboration.awareness != null;
   const { canUndo, canRedo, handleUndo, handleRedo } = useEditorHistory({
     crepeRef,
-    isCollaborative: isCollaborativeActive,
   });
 
   const autosave = useAutosave({
@@ -676,11 +673,6 @@ export function TemplateEditorPage() {
                   defaultValue={!isCreateMode ? templateData?.content : undefined}
                   onChange={handleContentChange}
                   readOnly={isReadOnly}
-                  collaboration={
-                    !isCreateMode && collaboration.ydoc && collaboration.awareness
-                      ? { ydoc: collaboration.ydoc, awareness: collaboration.awareness }
-                      : undefined
-                  }
                   onEditorReady={handleEditorReady}
                   onSelectionChange={onSelectionChange}
                 />

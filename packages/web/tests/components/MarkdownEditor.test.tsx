@@ -1,8 +1,6 @@
 /// <reference types="@testing-library/jest-dom/vitest" />
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import type { Doc as YDoc } from 'yjs';
-import type { Awareness } from 'y-protocols/awareness';
 
 // Mock CSS imports that Milkdown uses
 vi.mock('@milkdown/crepe/theme/common/style.css', () => ({}));
@@ -31,11 +29,6 @@ vi.mock('@milkdown/crepe', () => {
 
 vi.mock('@milkdown/kit/utils', () => ({
   $prose: (factory: () => unknown) => factory(),
-}));
-
-const mockYUndoPlugin = vi.fn().mockReturnValue({ key: 'mock-y-undo-plugin' });
-vi.mock('y-prosemirror', () => ({
-  yUndoPlugin: (...args: unknown[]) => mockYUndoPlugin(...args) as unknown,
 }));
 
 const mockCreateCommentPlugin = vi.fn().mockReturnValue({ key: 'mock-comment-plugin' });
@@ -222,58 +215,6 @@ describe('MarkdownEditor', () => {
     }).not.toThrow();
   });
 
-  it('renders with collaboration prop without error', () => {
-    render(
-      <MarkdownEditor
-        collaboration={{
-          ydoc: {} as YDoc,
-          awareness: {} as Awareness,
-        }}
-      />,
-    );
-    expect(screen.getByTestId('milkdown-editor')).toBeInTheDocument();
-  });
-
-  it('registers onChange listener even when collaboration is provided', () => {
-    captured.editorCallback = null;
-    const onChange = vi.fn();
-
-    render(
-      <MarkdownEditor
-        onChange={onChange}
-        collaboration={{
-          ydoc: {} as YDoc,
-          awareness: {} as Awareness,
-        }}
-      />,
-    );
-
-    const editorCb = captured.editorCallback as ((root: HTMLElement) => unknown) | null;
-    expect(editorCb).not.toBeNull();
-    const fakeRoot = document.createElement('div');
-    editorCb?.(fakeRoot);
-
-    // In collaboration mode, onChange should still be registered
-    expect(mockOn).toHaveBeenCalledTimes(1);
-
-    // Verify the listener fires correctly
-    const listenerSetupFn = (mockOn.mock.calls[0] as unknown[])[0] as (listener: {
-      markdownUpdated: (cb: (ctx: unknown, md: string) => void) => void;
-    }) => void;
-
-    const mockMarkdownUpdated = vi.fn();
-    listenerSetupFn({ markdownUpdated: mockMarkdownUpdated });
-
-    expect(mockMarkdownUpdated).toHaveBeenCalledTimes(1);
-    const registeredCb = (mockMarkdownUpdated.mock.calls[0] as unknown[])[0] as (
-      ctx: unknown,
-      md: string,
-    ) => void;
-
-    registeredCb(null, '# Collab update');
-    expect(onChange).toHaveBeenCalledWith('# Collab update');
-  });
-
   it('renders wrapper with data-testid and menu CSS overrides', () => {
     // This test verifies the wrapper Box has data-testid="markdown-editor-wrapper"
     // and that MUI sx classes are applied. The sx prop includes CSS overrides for:
@@ -285,31 +226,6 @@ describe('MarkdownEditor', () => {
     expect(wrapper).toBeInTheDocument();
     // MUI Box with sx generates className-based styles; verify the element has classes applied
     expect(wrapper.className).not.toBe('');
-  });
-
-  it('uses actual defaultValue in collaboration mode', async () => {
-    captured.editorCallback = null;
-
-    render(
-      <MarkdownEditor
-        defaultValue="# Collab content"
-        collaboration={{
-          ydoc: {} as YDoc,
-          awareness: {} as Awareness,
-        }}
-      />,
-    );
-
-    const editorCb = captured.editorCallback as ((root: HTMLElement) => unknown) | null;
-    expect(editorCb).not.toBeNull();
-    const fakeRoot = document.createElement('div');
-    editorCb?.(fakeRoot);
-
-    // Verify Crepe was called with the actual defaultValue, not empty string
-    const { Crepe: CrepeMock } = await import('@milkdown/crepe');
-    expect(CrepeMock).toHaveBeenCalledWith(
-      expect.objectContaining({ defaultValue: '# Collab content' }),
-    );
   });
 
   it('calls onEditorReady with crepe instance when provided', () => {
@@ -372,33 +288,9 @@ describe('MarkdownEditor', () => {
     expect(mockEditorUse).not.toHaveBeenCalled();
   });
 
-  it('installs yUndoPlugin via editor.use when collaboration is provided', () => {
+  it('never installs yUndoPlugin (no collaboration plugin)', () => {
     captured.editorCallback = null;
     mockEditorUse.mockClear();
-    mockYUndoPlugin.mockClear();
-
-    render(
-      <MarkdownEditor
-        collaboration={{
-          ydoc: {} as YDoc,
-          awareness: {} as Awareness,
-        }}
-      />,
-    );
-
-    const editorCb = captured.editorCallback as ((root: HTMLElement) => unknown) | null;
-    expect(editorCb).not.toBeNull();
-    const fakeRoot = document.createElement('div');
-    editorCb?.(fakeRoot);
-
-    expect(mockYUndoPlugin).toHaveBeenCalled();
-    expect(mockEditorUse).toHaveBeenCalled();
-  });
-
-  it('does not install yUndoPlugin when collaboration is not provided', () => {
-    captured.editorCallback = null;
-    mockEditorUse.mockClear();
-    mockYUndoPlugin.mockClear();
 
     render(<MarkdownEditor />);
 
@@ -407,12 +299,13 @@ describe('MarkdownEditor', () => {
     const fakeRoot = document.createElement('div');
     editorCb?.(fakeRoot);
 
-    expect(mockYUndoPlugin).not.toHaveBeenCalled();
+    // Without onSelectionChange, editor.use should not be called at all
+    expect(mockEditorUse).not.toHaveBeenCalled();
   });
 
   it('does not re-create editorCallback when onChange identity changes (stable ref)', () => {
-    // After the fix, editorCallback depends only on [isCollaborative], not on
-    // onChange/onEditorReady/defaultValue/etc. Changing onChange identity should
+    // After the fix, editorCallback depends only on [] (no deps besides stable refs),
+    // not on onChange/onEditorReady/defaultValue/etc. Changing onChange identity should
     // NOT produce a new callback reference.
     captured.editorCallbackHistory = [];
 
