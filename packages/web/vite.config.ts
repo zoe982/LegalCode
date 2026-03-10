@@ -30,8 +30,6 @@ export default defineConfig({
         ],
       },
       workbox: {
-        skipWaiting: true,
-        clientsClaim: true,
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024, // 3 MiB — main bundle is ~2.3 MiB
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api\//],
