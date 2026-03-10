@@ -179,16 +179,18 @@ export function TemplateListPage() {
         {/* Filter row: chips left, sort right */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-            <Box
-              data-testid="category-divider"
+            <Typography
               sx={{
-                width: '1px',
-                height: '20px',
-                backgroundColor: '#E4E5ED',
+                fontFamily: '"DM Sans", sans-serif',
+                fontSize: '0.8125rem',
+                fontWeight: 600,
+                color: '#9B9DB0',
                 alignSelf: 'center',
-                mx: 1,
+                mr: 0.5,
               }}
-            />
+            >
+              Category
+            </Typography>
             <Box
               data-testid="category-chip-all"
               component="button"
@@ -252,16 +254,19 @@ export function TemplateListPage() {
             })}
             {countryList.length > 0 && (
               <>
-                <Box
-                  data-testid="country-divider"
+                <Typography
                   sx={{
-                    width: '1px',
-                    height: '20px',
-                    backgroundColor: '#E4E5ED',
+                    fontFamily: '"DM Sans", sans-serif',
+                    fontSize: '0.8125rem',
+                    fontWeight: 600,
+                    color: '#9B9DB0',
                     alignSelf: 'center',
-                    mx: 1,
+                    ml: 1,
+                    mr: 0.5,
                   }}
-                />
+                >
+                  Country
+                </Typography>
                 <Box
                   data-testid="country-chip-all"
                   component="button"

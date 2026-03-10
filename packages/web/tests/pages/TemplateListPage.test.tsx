@@ -822,7 +822,7 @@ describe('TemplateListPage', () => {
     expect(screen.getByRole('button', { name: 'Compliance' })).toBeInTheDocument();
   });
 
-  it('visual divider separates category chips', () => {
+  it('displays Category label before category chips', () => {
     mockUseTemplates.mockReturnValue(
       createQueryResult({
         data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
@@ -831,8 +831,7 @@ describe('TemplateListPage', () => {
 
     render(<TemplateListPage />, { wrapper: Wrapper });
 
-    const divider = screen.getByTestId('category-divider');
-    expect(divider).toBeInTheDocument();
+    expect(screen.getByText('Category')).toBeInTheDocument();
   });
 
   it('renders country filter chips from API', () => {
@@ -957,7 +956,7 @@ describe('TemplateListPage', () => {
     });
   });
 
-  it('country divider separates category and country chips', () => {
+  it('displays Country label before country chips', () => {
     mockUseTemplates.mockReturnValue(
       createQueryResult({
         data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
@@ -966,8 +965,7 @@ describe('TemplateListPage', () => {
 
     render(<TemplateListPage />, { wrapper: Wrapper });
 
-    const divider = screen.getByTestId('country-divider');
-    expect(divider).toBeInTheDocument();
+    expect(screen.getByText('Country')).toBeInTheDocument();
   });
 
   describe('Delete template flow', () => {
