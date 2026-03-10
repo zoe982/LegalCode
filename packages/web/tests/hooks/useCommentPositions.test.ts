@@ -33,14 +33,30 @@ describe('useCommentPositions', () => {
     return { current: element };
   }
 
-  function createContainerWithMarks(marks: { id: string; offsetTop: number }[]): HTMLDivElement {
+  function createContainerWithMarks(marks: { id: string; top: number }[]): HTMLDivElement {
     const container = document.createElement('div');
+    Object.defineProperty(container, 'scrollTop', { value: 0, configurable: true });
+    container.getBoundingClientRect = vi.fn().mockReturnValue({
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      width: 0,
+      height: 0,
+    });
     document.body.appendChild(container);
 
     for (const m of marks) {
       const mark = document.createElement('mark');
       mark.setAttribute('data-comment-id', m.id);
-      Object.defineProperty(mark, 'offsetTop', { value: m.offsetTop, configurable: true });
+      mark.getBoundingClientRect = vi.fn().mockReturnValue({
+        top: m.top,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        width: 0,
+        height: 0,
+      });
       container.appendChild(mark);
     }
 
@@ -65,7 +81,7 @@ describe('useCommentPositions', () => {
   });
 
   it('positions a single comment based on mark element offsetTop', () => {
-    const container = createContainerWithMarks([{ id: 'c1', offsetTop: 120 }]);
+    const container = createContainerWithMarks([{ id: 'c1', top: 120 }]);
     const ref = createMockRef(container);
 
     const { result } = renderHook(() => useCommentPositions(ref, ['c1'], new Map()));
@@ -77,8 +93,8 @@ describe('useCommentPositions', () => {
 
   it('positions multiple comments correctly', () => {
     const container = createContainerWithMarks([
-      { id: 'c1', offsetTop: 100 },
-      { id: 'c2', offsetTop: 500 },
+      { id: 'c1', top: 100 },
+      { id: 'c2', top: 500 },
     ]);
     const ref = createMockRef(container);
 
@@ -94,8 +110,8 @@ describe('useCommentPositions', () => {
 
   it('resolves collisions by pushing overlapping cards down with 12px gap and 200px fallback height', () => {
     const container = createContainerWithMarks([
-      { id: 'c1', offsetTop: 100 },
-      { id: 'c2', offsetTop: 105 },
+      { id: 'c1', top: 100 },
+      { id: 'c2', top: 105 },
     ]);
     const ref = createMockRef(container);
 
@@ -110,8 +126,8 @@ describe('useCommentPositions', () => {
 
   it('uses measured heights from cardHeights map for collision resolution', () => {
     const container = createContainerWithMarks([
-      { id: 'c1', offsetTop: 100 },
-      { id: 'c2', offsetTop: 105 },
+      { id: 'c1', top: 100 },
+      { id: 'c2', top: 105 },
     ]);
     const ref = createMockRef(container);
     const cardHeights = new Map([['c1', 60]]);
@@ -127,9 +143,9 @@ describe('useCommentPositions', () => {
 
   it('falls back to CARD_MIN_HEIGHT when cardHeights has no entry for a comment', () => {
     const container = createContainerWithMarks([
-      { id: 'c1', offsetTop: 100 },
-      { id: 'c2', offsetTop: 105 },
-      { id: 'c3', offsetTop: 110 },
+      { id: 'c1', top: 100 },
+      { id: 'c2', top: 105 },
+      { id: 'c3', top: 110 },
     ]);
     const ref = createMockRef(container);
     // Only c1 has a measured height; c2 will use fallback (200)
@@ -149,15 +165,28 @@ describe('useCommentPositions', () => {
 
   it('recalculates positions when ResizeObserver fires', () => {
     const container = document.createElement('div');
+    Object.defineProperty(container, 'scrollTop', { value: 0, configurable: true });
+    container.getBoundingClientRect = vi.fn().mockReturnValue({
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      width: 0,
+      height: 0,
+    });
     document.body.appendChild(container);
 
     const mark = document.createElement('mark');
     mark.setAttribute('data-comment-id', 'c1');
-    let offsetValue = 100;
-    Object.defineProperty(mark, 'offsetTop', {
-      get: () => offsetValue,
-      configurable: true,
-    });
+    let markTop = 100;
+    mark.getBoundingClientRect = vi.fn().mockImplementation(() => ({
+      top: markTop,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      width: 0,
+      height: 0,
+    }));
     container.appendChild(mark);
 
     const ref = createMockRef(container);
@@ -165,8 +194,8 @@ describe('useCommentPositions', () => {
 
     expect(result.current).toEqual([{ commentId: 'c1', top: 100 }]);
 
-    // Change offsetTop and trigger resize
-    offsetValue = 200;
+    // Change position and trigger resize
+    markTop = 200;
     act(() => {
       resizeCallback?.([], {} as ResizeObserver);
     });
@@ -197,7 +226,7 @@ describe('useCommentPositions', () => {
   });
 
   it('skips comment IDs without matching mark elements', () => {
-    const container = createContainerWithMarks([{ id: 'c1', offsetTop: 100 }]);
+    const container = createContainerWithMarks([{ id: 'c1', top: 100 }]);
     const ref = createMockRef(container);
 
     const { result } = renderHook(() => useCommentPositions(ref, ['c1', 'c-missing'], new Map()));
@@ -210,8 +239,8 @@ describe('useCommentPositions', () => {
 
   it('recalculates when commentIds change', () => {
     const container = createContainerWithMarks([
-      { id: 'c1', offsetTop: 100 },
-      { id: 'c2', offsetTop: 200 },
+      { id: 'c1', top: 100 },
+      { id: 'c2', top: 200 },
     ]);
     const ref = createMockRef(container);
 
@@ -240,8 +269,8 @@ describe('useCommentPositions', () => {
 
   it('sorts positions by top value', () => {
     const container = createContainerWithMarks([
-      { id: 'c1', offsetTop: 300 },
-      { id: 'c2', offsetTop: 100 },
+      { id: 'c1', top: 300 },
+      { id: 'c2', top: 100 },
     ]);
     const ref = createMockRef(container);
 
@@ -252,5 +281,97 @@ describe('useCommentPositions', () => {
     expect(result.current[1]?.commentId).toBe('c1');
 
     document.body.removeChild(container);
+  });
+
+  it('finds comment anchors using span elements (source mode)', () => {
+    const container = document.createElement('div');
+    Object.defineProperty(container, 'scrollTop', { value: 0, configurable: true });
+    container.getBoundingClientRect = vi.fn().mockReturnValue({
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      width: 0,
+      height: 0,
+    });
+    document.body.appendChild(container);
+
+    // Use span instead of mark (like ProseMirror decorations in source mode)
+    const span = document.createElement('span');
+    span.setAttribute('data-comment-id', 'c1');
+    span.getBoundingClientRect = vi.fn().mockReturnValue({
+      top: 150,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      width: 0,
+      height: 0,
+    });
+    container.appendChild(span);
+
+    const ref = createMockRef(container);
+    const { result } = renderHook(() => useCommentPositions(ref, ['c1'], new Map()));
+
+    expect(result.current).toEqual([{ commentId: 'c1', top: 150 }]);
+
+    document.body.removeChild(container);
+  });
+
+  it('recalculates positions on scroll events', () => {
+    const scrollParent = document.createElement('div');
+    Object.defineProperty(scrollParent, 'style', {
+      value: { overflowY: 'auto' },
+      configurable: true,
+    });
+    // Make getComputedStyle return overflowY: 'auto' for scroll detection
+    const originalGetComputedStyle = window.getComputedStyle;
+    vi.spyOn(window, 'getComputedStyle').mockImplementation((el) => {
+      if (el === scrollParent) {
+        return { overflowY: 'auto' } as CSSStyleDeclaration;
+      }
+      return originalGetComputedStyle(el);
+    });
+
+    const container = document.createElement('div');
+    Object.defineProperty(container, 'scrollTop', { value: 0, configurable: true });
+    container.getBoundingClientRect = vi.fn().mockReturnValue({
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      width: 0,
+      height: 0,
+    });
+    scrollParent.appendChild(container);
+    document.body.appendChild(scrollParent);
+
+    const mark = document.createElement('mark');
+    mark.setAttribute('data-comment-id', 'c1');
+    let markTop = 100;
+    mark.getBoundingClientRect = vi.fn().mockImplementation(() => ({
+      top: markTop,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      width: 0,
+      height: 0,
+    }));
+    container.appendChild(mark);
+
+    const ref = createMockRef(container);
+    const { result } = renderHook(() => useCommentPositions(ref, ['c1'], new Map()));
+
+    expect(result.current).toEqual([{ commentId: 'c1', top: 100 }]);
+
+    // Simulate scroll — positions change
+    markTop = 50;
+    act(() => {
+      scrollParent.dispatchEvent(new Event('scroll'));
+    });
+
+    expect(result.current).toEqual([{ commentId: 'c1', top: 50 }]);
+
+    document.body.removeChild(scrollParent);
+    vi.restoreAllMocks();
   });
 });

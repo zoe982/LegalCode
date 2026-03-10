@@ -181,6 +181,20 @@ describe('commentPlugin', () => {
     expect(result.decorations[0]?.attrs.style).toContain('rgba(245,166,35,0.2)');
   });
 
+  it('decorations include data-comment-id attribute', () => {
+    const plugin = createCommentPlugin();
+    const propsSpec = getPropsSpec(plugin);
+    const anchors: CommentAnchor[] = [{ commentId: 'c1', from: 5, to: 15, resolved: false }];
+    const mockState = {
+      commentPlugin: { anchors, activeCommentId: null },
+      doc: { content: { size: 100 } },
+    };
+    const result = propsSpec.decorations(mockState) as {
+      decorations: { from: number; to: number; attrs: Record<string, string> }[];
+    };
+    expect(result.decorations[0]?.attrs['data-comment-id']).toBe('c1');
+  });
+
   it('decorations applies active style when anchor matches activeCommentId', () => {
     const plugin = createCommentPlugin();
     const propsSpec = getPropsSpec(plugin);

@@ -43,12 +43,16 @@ export function useCommentPositions(
     const rawPositions: CommentPosition[] = [];
 
     for (const commentId of ids) {
-      const mark = container.querySelector<HTMLElement>(`mark[data-comment-id="${commentId}"]`);
-      if (!mark) continue;
+      const element = container.querySelector<HTMLElement>(`[data-comment-id="${commentId}"]`);
+      if (!element) continue;
+
+      const elementRect = element.getBoundingClientRect();
+      const containerRect = container.getBoundingClientRect();
+      const top = elementRect.top - containerRect.top + container.scrollTop;
 
       rawPositions.push({
         commentId,
-        top: mark.offsetTop,
+        top,
       });
     }
 
@@ -91,6 +95,31 @@ export function useCommentPositions(
 
     return () => {
       observer.disconnect();
+    };
+  }, [containerRef, calculate]);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    // Find nearest scrollable ancestor
+    let scrollParent: HTMLElement | null = container.parentElement;
+    while (scrollParent) {
+      const overflow = window.getComputedStyle(scrollParent).overflowY;
+      if (overflow === 'auto' || overflow === 'scroll') break;
+      scrollParent = scrollParent.parentElement;
+    }
+
+    if (!scrollParent) return;
+
+    const onScroll = () => {
+      calculate();
+    };
+
+    scrollParent.addEventListener('scroll', onScroll, { passive: true });
+
+    return () => {
+      scrollParent.removeEventListener('scroll', onScroll);
     };
   }, [containerRef, calculate]);
 

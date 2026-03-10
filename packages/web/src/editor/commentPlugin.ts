@@ -69,6 +69,7 @@ export function createCommentPlugin(options: CommentPluginOptions = {}): Plugin 
           decorations.push(
             Decoration.inline(anchor.from, anchor.to, {
               class: isActive ? 'comment-highlight comment-highlight--active' : 'comment-highlight',
+              'data-comment-id': anchor.commentId,
               style: isActive
                 ? 'background-color: rgba(245,166,35,0.33);'
                 : anchor.resolved
