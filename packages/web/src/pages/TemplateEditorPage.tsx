@@ -97,6 +97,9 @@ export function TemplateEditorPage() {
 
   // Crepe editor ref for Milkdown commands
   const crepeRef = useRef<Crepe | null>(null);
+  const handleEditorReady = useCallback((crepe: Crepe) => {
+    crepeRef.current = crepe;
+  }, []);
 
   // Source mode comment margin ref
   const sourceContentRef = useRef<HTMLDivElement>(null);
@@ -366,17 +369,39 @@ export function TemplateEditorPage() {
               : 'connected' // idle -> show as connected/saved
         : null;
 
+  // Derive a single unified connection status
+  const unifiedStatus: ConnectionStatusType | null = useMemo(() => {
+    // Priority: error > saving > reconnecting > connecting > disconnected > saved > connected
+    const statuses: ConnectionStatusType[] = [];
+    if (draftSaveStatus != null) statuses.push(draftSaveStatus);
+    if (!isCreateMode && collaboration.status !== 'disconnected') {
+      statuses.push(collaboration.status as ConnectionStatusType);
+    }
+    if (statuses.length === 0) return null;
+
+    const priority: ConnectionStatusType[] = [
+      'error',
+      'saving',
+      'reconnecting',
+      'connecting',
+      'disconnected',
+      'saved',
+      'connected',
+    ];
+    for (const p of priority) {
+      if (statuses.includes(p)) return p;
+    }
+    return statuses[0] ?? null;
+  }, [draftSaveStatus, isCreateMode, collaboration.status]);
+
   // Right slot content for DocumentHeader
   const documentHeaderRightSlot = useMemo(() => {
     if (!isCreateMode) {
       return (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          {draftSaveStatus != null && <ConnectionStatus status={draftSaveStatus} />}
+          {unifiedStatus != null && <ConnectionStatus status={unifiedStatus} autoHide />}
           {collaboration.status !== 'disconnected' && (
-            <>
-              <ConnectionStatus status={collaboration.status as ConnectionStatusType} />
-              <PresenceAvatars users={collaboration.connectedUsers} />
-            </>
+            <PresenceAvatars users={collaboration.connectedUsers} />
           )}
           <IconButton onClick={handleExport} aria-label="export">
             <DownloadIcon />
@@ -387,13 +412,14 @@ export function TemplateEditorPage() {
     if (draftSaveStatus != null) {
       return (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <ConnectionStatus status={draftSaveStatus} />
+          <ConnectionStatus status={draftSaveStatus} autoHide />
         </Box>
       );
     }
     return undefined;
   }, [
     isCreateMode,
+    unifiedStatus,
     draftSaveStatus,
     collaboration.status,
     collaboration.connectedUsers,
@@ -604,15 +630,6 @@ export function TemplateEditorPage() {
         <EditorToolbar
           mode={editorMode}
           wordCount={wordCount}
-          connectionStatus={
-            !isCreateMode && collaboration.status !== 'disconnected'
-              ? (collaboration.status as
-                  | 'connected'
-                  | 'connecting'
-                  | 'disconnected'
-                  | 'reconnecting')
-              : undefined
-          }
           readOnly={isReadOnly}
           crepeRef={crepeRef}
           canUndo={canUndo}
@@ -664,9 +681,7 @@ export function TemplateEditorPage() {
                       ? { ydoc: collaboration.ydoc, awareness: collaboration.awareness }
                       : undefined
                   }
-                  onEditorReady={(crepe) => {
-                    crepeRef.current = crepe;
-                  }}
+                  onEditorReady={handleEditorReady}
                   onSelectionChange={onSelectionChange}
                 />
                 {!isCreateMode && (

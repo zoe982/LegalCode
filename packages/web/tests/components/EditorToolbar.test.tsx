@@ -97,9 +97,14 @@ describe('EditorToolbar', () => {
     expect(screen.getByTestId('editor-toolbar')).toBeInTheDocument();
   });
 
-  it('renders ConnectionStatus when connectionStatus is provided', () => {
-    renderToolbar({ connectionStatus: 'connected' });
-    expect(screen.getByText('All changes saved')).toBeInTheDocument();
+  it('does not render ConnectionStatus even if connectionStatus is passed', () => {
+    // After the fix, EditorToolbar no longer accepts or renders ConnectionStatus
+    renderToolbar();
+    expect(screen.queryByText('All changes saved')).not.toBeInTheDocument();
+    expect(screen.queryByText('Saving...')).not.toBeInTheDocument();
+    expect(screen.queryByText('Connecting...')).not.toBeInTheDocument();
+    expect(screen.queryByText('Reconnecting...')).not.toBeInTheDocument();
+    expect(screen.queryByText('Save failed — retrying...')).not.toBeInTheDocument();
   });
 
   it('calls crepeRef.editor.action for Bold button', async () => {
@@ -239,9 +244,11 @@ describe('EditorToolbar', () => {
     });
   });
 
-  it('does not render ConnectionStatus when connectionStatus is not provided', () => {
-    renderToolbar();
+  it('never renders ConnectionStatus regardless of props', () => {
+    // ConnectionStatus has been fully removed from EditorToolbar
+    renderToolbar({ wordCount: 50 });
     expect(screen.queryByText('All changes saved')).not.toBeInTheDocument();
+    expect(screen.queryByText('Offline — changes saved locally')).not.toBeInTheDocument();
   });
 
   describe('Undo/Redo buttons', () => {

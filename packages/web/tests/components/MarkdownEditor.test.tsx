@@ -43,8 +43,12 @@ vi.mock('../../src/editor/commentPlugin.js', () => ({
   createCommentPlugin: (...args: unknown[]) => mockCreateCommentPlugin(...args) as unknown,
 }));
 
-const captured: { editorCallback: ((root: HTMLElement) => unknown) | null } = {
+const captured: {
+  editorCallback: ((root: HTMLElement) => unknown) | null;
+  editorCallbackHistory: ((root: HTMLElement) => unknown)[];
+} = {
   editorCallback: null,
+  editorCallbackHistory: [],
 };
 
 vi.mock('@milkdown/react', () => ({
@@ -54,6 +58,7 @@ vi.mock('@milkdown/react', () => ({
   Milkdown: () => <div data-testid="milkdown-editor" />,
   useEditor: (cb: (root: HTMLElement) => unknown) => {
     captured.editorCallback = cb;
+    captured.editorCallbackHistory.push(cb);
     return { get: () => null };
   },
 }));
@@ -64,6 +69,7 @@ import { MarkdownEditor } from '../../src/components/MarkdownEditor.js';
 describe('MarkdownEditor', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    captured.editorCallbackHistory = [];
   });
 
   it('renders the editor container', () => {
@@ -168,7 +174,10 @@ describe('MarkdownEditor', () => {
     expect(mockSetReadonly).not.toHaveBeenCalled();
   });
 
-  it('does not call on() when onChange is not provided', () => {
+  it('always calls on() even when onChange is not provided (ref-based listener)', () => {
+    // After the fix, crepe.on() is always registered because the implementation
+    // uses a ref (onChangeRef.current?.(md)) instead of closing over onChange.
+    // This means the listener is always installed and safely no-ops when onChange is undefined.
     captured.editorCallback = null;
 
     render(<MarkdownEditor />);
@@ -178,7 +187,39 @@ describe('MarkdownEditor', () => {
     const fakeRoot = document.createElement('div');
     editorCb?.(fakeRoot);
 
-    expect(mockOn).not.toHaveBeenCalled();
+    expect(mockOn).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not crash when listener fires with no onChange provided', () => {
+    // After the fix, the listener uses onChangeRef.current?.(md) which safely
+    // handles undefined onChange without crashing.
+    captured.editorCallback = null;
+
+    render(<MarkdownEditor />);
+
+    const editorCb = captured.editorCallback as ((root: HTMLElement) => unknown) | null;
+    expect(editorCb).not.toBeNull();
+    const fakeRoot = document.createElement('div');
+    editorCb?.(fakeRoot);
+
+    // Get the listener setup function
+    const listenerSetupFn = (mockOn.mock.calls[0] as unknown[])[0] as (listener: {
+      markdownUpdated: (cb: (ctx: unknown, md: string) => void) => void;
+    }) => void;
+
+    const mockMarkdownUpdated = vi.fn();
+    listenerSetupFn({ markdownUpdated: mockMarkdownUpdated });
+
+    expect(mockMarkdownUpdated).toHaveBeenCalledTimes(1);
+    const registeredCb = (mockMarkdownUpdated.mock.calls[0] as unknown[])[0] as (
+      ctx: unknown,
+      md: string,
+    ) => void;
+
+    // Should not throw even though onChange is not provided
+    expect(() => {
+      registeredCb(null, '# some markdown');
+    }).not.toThrow();
   });
 
   it('renders with collaboration prop without error', () => {
@@ -367,5 +408,74 @@ describe('MarkdownEditor', () => {
     editorCb?.(fakeRoot);
 
     expect(mockYUndoPlugin).not.toHaveBeenCalled();
+  });
+
+  it('does not re-create editorCallback when onChange identity changes (stable ref)', () => {
+    // After the fix, editorCallback depends only on [isCollaborative], not on
+    // onChange/onEditorReady/defaultValue/etc. Changing onChange identity should
+    // NOT produce a new callback reference.
+    captured.editorCallbackHistory = [];
+
+    const onChange1 = vi.fn();
+    const onChange2 = vi.fn();
+
+    const { rerender } = render(<MarkdownEditor onChange={onChange1} />);
+
+    // Capture the callback after first render
+    expect(captured.editorCallbackHistory.length).toBeGreaterThanOrEqual(1);
+    const firstCallback = captured.editorCallbackHistory[captured.editorCallbackHistory.length - 1];
+
+    // Re-render with a different onChange function identity
+    rerender(<MarkdownEditor onChange={onChange2} />);
+
+    // Capture the callback after second render
+    const lastCallback = captured.editorCallbackHistory[captured.editorCallbackHistory.length - 1];
+
+    // The callback reference should be the same (stable) because
+    // onChange is stored in a ref, not a dependency
+    expect(lastCallback).toBe(firstCallback);
+  });
+
+  it('uses latest onChange via ref even after identity change', () => {
+    // After the fix, even though editorCallback is stable, it should use the
+    // latest onChange function via a ref. This means:
+    // 1. Render with onChange1, create editor, fire listener -> calls onChange1
+    // 2. Rerender with onChange2, fire listener again -> calls onChange2 (not onChange1)
+    captured.editorCallback = null;
+
+    const onChange1 = vi.fn();
+    const onChange2 = vi.fn();
+
+    const { rerender } = render(<MarkdownEditor onChange={onChange1} />);
+
+    // Trigger the editor callback to set up the listener
+    const editorCb = captured.editorCallback as ((root: HTMLElement) => unknown) | null;
+    expect(editorCb).not.toBeNull();
+    const fakeRoot = document.createElement('div');
+    editorCb?.(fakeRoot);
+
+    // Get the listener
+    expect(mockOn).toHaveBeenCalledTimes(1);
+    const listenerSetupFn = (mockOn.mock.calls[0] as unknown[])[0] as (listener: {
+      markdownUpdated: (cb: (ctx: unknown, md: string) => void) => void;
+    }) => void;
+
+    const mockMarkdownUpdated = vi.fn();
+    listenerSetupFn({ markdownUpdated: mockMarkdownUpdated });
+    const registeredCb = (mockMarkdownUpdated.mock.calls[0] as unknown[])[0] as (
+      ctx: unknown,
+      md: string,
+    ) => void;
+
+    // Fire with onChange1 active
+    registeredCb(null, '# first');
+    expect(onChange1).toHaveBeenCalledWith('# first');
+
+    // Rerender with onChange2
+    rerender(<MarkdownEditor onChange={onChange2} />);
+
+    // Fire again — should call onChange2 via the updated ref
+    registeredCb(null, '# second');
+    expect(onChange2).toHaveBeenCalledWith('# second');
   });
 });

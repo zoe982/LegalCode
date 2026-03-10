@@ -1,3 +1,4 @@
+import { useState, useEffect, useRef } from 'react';
 import { Box, keyframes } from '@mui/material';
 
 export type ConnectionStatusType =
@@ -12,6 +13,7 @@ export type ConnectionStatusType =
 interface ConnectionStatusProps {
   status: ConnectionStatusType;
   onRetry?: (() => void) | undefined;
+  autoHide?: boolean | undefined;
 }
 
 const pulse = keyframes`
@@ -33,14 +35,45 @@ const statusConfig: Record<
   error: { label: 'Save failed — retrying...', dotColor: '#DC2626', pulsing: true },
 };
 
-export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({ status, onRetry }) => {
+export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
+  status,
+  onRetry,
+  autoHide,
+}) => {
   const config = statusConfig[status];
+  const [visible, setVisible] = useState(true);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!autoHide) {
+      setVisible(true);
+      return;
+    }
+
+    if (status === 'connected' || status === 'saved') {
+      timerRef.current = setTimeout(() => {
+        setVisible(false);
+      }, 2000);
+    } else {
+      setVisible(true);
+    }
+
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+  }, [autoHide, status]);
+
   return (
     <Box
       sx={{
         display: 'inline-flex',
         alignItems: 'center',
         gap: '8px',
+        opacity: visible ? 1 : 0,
+        transition: 'opacity 0.3s ease',
       }}
     >
       <Box

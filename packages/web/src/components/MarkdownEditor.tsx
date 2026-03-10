@@ -38,32 +38,46 @@ function MilkdownEditor({
   const crepeRef = useRef<Crepe | null>(null);
   const isCollaborative = collaboration !== undefined;
 
+  const onChangeRef = useRef(onChange);
+  const onEditorReadyRef = useRef(onEditorReady);
+  const defaultValueRef = useRef(defaultValue);
+  const onSelectionChangeRef = useRef(onSelectionChange);
+  const readOnlyRef = useRef(readOnly);
+
+  onChangeRef.current = onChange;
+  onEditorReadyRef.current = onEditorReady;
+  defaultValueRef.current = defaultValue;
+  onSelectionChangeRef.current = onSelectionChange;
+  readOnlyRef.current = readOnly;
+
   const editorCallback = useCallback(
     (root: HTMLElement) => {
       const crepe = new Crepe({
         root,
-        defaultValue: defaultValue ?? '',
+        defaultValue: defaultValueRef.current ?? '',
         features: {
           [CrepeFeature.Toolbar]: false,
         },
       });
 
-      if (onChange) {
-        crepe.on(
-          (listener: { markdownUpdated: (cb: (ctx: unknown, md: string) => void) => void }) => {
-            listener.markdownUpdated((_ctx: unknown, md: string) => {
-              onChange(md);
-            });
-          },
-        );
-      }
+      // Always register the listener, use ref for onChange
+      crepe.on(
+        (listener: { markdownUpdated: (cb: (ctx: unknown, md: string) => void) => void }) => {
+          listener.markdownUpdated((_ctx: unknown, md: string) => {
+            onChangeRef.current?.(md);
+          });
+        },
+      );
 
-      if (readOnly === true) {
+      if (readOnlyRef.current === true) {
         crepe.setReadonly(true);
       }
 
-      if (onSelectionChange) {
-        crepe.editor.use($prose(() => createCommentPlugin({ onSelectionChange })));
+      if (onSelectionChangeRef.current) {
+        const selectionChangeFn = onSelectionChangeRef.current;
+        crepe.editor.use(
+          $prose(() => createCommentPlugin({ onSelectionChange: selectionChangeFn })),
+        );
       }
 
       if (isCollaborative) {
@@ -71,11 +85,11 @@ function MilkdownEditor({
       }
 
       crepeRef.current = crepe;
-      onEditorReady?.(crepe);
+      onEditorReadyRef.current?.(crepe);
 
       return crepe;
     },
-    [defaultValue, onChange, readOnly, isCollaborative, onEditorReady, onSelectionChange],
+    [isCollaborative],
   );
 
   useEditor(editorCallback, []);

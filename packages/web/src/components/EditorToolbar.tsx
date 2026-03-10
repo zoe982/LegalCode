@@ -21,14 +21,11 @@ import {
   insertHrCommand,
 } from '@milkdown/kit/preset/commonmark';
 import { callCommand } from '@milkdown/kit/utils';
-import { ConnectionStatus } from './ConnectionStatus.js';
-import type { ConnectionStatusType } from './ConnectionStatus.js';
 import { FirstUseTooltip } from './FirstUseTooltip.js';
 
 interface EditorToolbarProps {
   mode: 'source' | 'review';
   wordCount: number;
-  connectionStatus?: ConnectionStatusType | undefined;
   readOnly?: boolean | undefined;
   onInsertMarkdown?: ((prefix: string, suffix?: string) => void) | undefined;
   crepeRef?: React.RefObject<Crepe | null> | undefined;
@@ -52,7 +49,6 @@ const helperButtonStyle = {
 export const EditorToolbar: React.FC<EditorToolbarProps> = ({
   mode,
   wordCount,
-  connectionStatus,
   readOnly,
   onInsertMarkdown,
   crepeRef,
@@ -214,7 +210,6 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
             {wordCount} {wordCount === 1 ? 'word' : 'words'}
           </Typography>
         </FirstUseTooltip>
-        {connectionStatus != null && <ConnectionStatus status={connectionStatus} />}
       </Box>
     </Box>
   );

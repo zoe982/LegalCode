@@ -1,6 +1,6 @@
 /// <reference types="@testing-library/jest-dom/vitest" />
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { render, screen, act } from '@testing-library/react';
 import { ConnectionStatus } from '../../src/components/ConnectionStatus.js';
 
 describe('ConnectionStatus', () => {
@@ -132,5 +132,107 @@ describe('ConnectionStatus', () => {
     expect(dot).toHaveStyle({ backgroundColor: '#DC2626' });
     const style = window.getComputedStyle(dot);
     expect(style.animation).toContain('1.5s');
+  });
+
+  describe('autoHide prop', () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('fades out after 2 seconds when autoHide is true and status is connected', () => {
+      vi.useFakeTimers();
+      const { container } = render(<ConnectionStatus status="connected" autoHide={true} />);
+      const wrapper = container.firstElementChild as HTMLElement;
+      // Initially visible
+      expect(wrapper).toHaveStyle({ opacity: '1' });
+
+      act(() => {
+        vi.advanceTimersByTime(2000);
+      });
+
+      // Should fade out after 2 seconds
+      expect(wrapper).toHaveStyle({ opacity: '0' });
+    });
+
+    it('fades out after 2 seconds when autoHide is true and status is saved', () => {
+      vi.useFakeTimers();
+      const { container } = render(<ConnectionStatus status="saved" autoHide={true} />);
+      const wrapper = container.firstElementChild as HTMLElement;
+      expect(wrapper).toHaveStyle({ opacity: '1' });
+
+      act(() => {
+        vi.advanceTimersByTime(2000);
+      });
+
+      expect(wrapper).toHaveStyle({ opacity: '0' });
+    });
+
+    it('stays visible when autoHide is true and status is saving', () => {
+      vi.useFakeTimers();
+      const { container } = render(<ConnectionStatus status="saving" autoHide={true} />);
+      const wrapper = container.firstElementChild as HTMLElement;
+      expect(wrapper).toHaveStyle({ opacity: '1' });
+
+      act(() => {
+        vi.advanceTimersByTime(2000);
+      });
+
+      // Should remain visible for active statuses
+      expect(wrapper).toHaveStyle({ opacity: '1' });
+    });
+
+    it('stays visible when autoHide is true and status is error', () => {
+      vi.useFakeTimers();
+      const { container } = render(<ConnectionStatus status="error" autoHide={true} />);
+      const wrapper = container.firstElementChild as HTMLElement;
+      expect(wrapper).toHaveStyle({ opacity: '1' });
+
+      act(() => {
+        vi.advanceTimersByTime(2000);
+      });
+
+      expect(wrapper).toHaveStyle({ opacity: '1' });
+    });
+
+    it('stays visible when autoHide is true and status is reconnecting', () => {
+      vi.useFakeTimers();
+      const { container } = render(<ConnectionStatus status="reconnecting" autoHide={true} />);
+      const wrapper = container.firstElementChild as HTMLElement;
+      expect(wrapper).toHaveStyle({ opacity: '1' });
+
+      act(() => {
+        vi.advanceTimersByTime(2000);
+      });
+
+      expect(wrapper).toHaveStyle({ opacity: '1' });
+    });
+
+    it('stays visible when autoHide is true and status is connecting', () => {
+      vi.useFakeTimers();
+      const { container } = render(<ConnectionStatus status="connecting" autoHide={true} />);
+      const wrapper = container.firstElementChild as HTMLElement;
+      expect(wrapper).toHaveStyle({ opacity: '1' });
+
+      act(() => {
+        vi.advanceTimersByTime(2000);
+      });
+
+      expect(wrapper).toHaveStyle({ opacity: '1' });
+    });
+
+    it('always remains visible when autoHide is not set (default behavior)', () => {
+      vi.useFakeTimers();
+      const { container } = render(<ConnectionStatus status="connected" />);
+      const wrapper = container.firstElementChild as HTMLElement;
+
+      act(() => {
+        vi.advanceTimersByTime(5000);
+      });
+
+      // Without autoHide, component should always remain visible
+      // (no opacity style set, or opacity: 1)
+      const style = window.getComputedStyle(wrapper);
+      expect(style.opacity).not.toBe('0');
+    });
   });
 });
