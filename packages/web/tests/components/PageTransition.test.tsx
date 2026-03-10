@@ -61,4 +61,14 @@ describe('PageTransition', () => {
     const container = screen.getByTestId('page-transition');
     expect(container).toBeInTheDocument();
   });
+
+  it('has height 100% for proper layout flow', () => {
+    render(
+      <PageTransition>
+        <div>Test</div>
+      </PageTransition>,
+    );
+    const container = screen.getByTestId('page-transition');
+    expect(container).toHaveStyle({ height: '100%' });
+  });
 });

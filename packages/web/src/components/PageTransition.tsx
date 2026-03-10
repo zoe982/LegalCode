@@ -21,6 +21,7 @@ export function PageTransition({ children }: PageTransitionProps) {
     <Box
       data-testid="page-transition"
       sx={{
+        height: '100%',
         animation: `${pageIn} 200ms ease-out backwards`,
         '@media (prefers-reduced-motion: reduce)': {
           animation: 'none',
