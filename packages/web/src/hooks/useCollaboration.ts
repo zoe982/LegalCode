@@ -94,6 +94,19 @@ export function useCollaboration(
     function connect() {
       /* v8 ignore next -- defensive guard; cancelled checked first in scheduleReconnect */
       if (cancelled) return;
+
+      // Close previous WebSocket from prior reconnect attempt within this effect.
+      // Nullify handlers first to prevent stale onclose/onopen from firing.
+      if (wsRef.current) {
+        const prev = wsRef.current;
+        prev.onopen = null;
+        prev.onclose = null;
+        prev.onerror = null;
+        prev.onmessage = null;
+        prev.close();
+        wsRef.current = null;
+      }
+
       setStatus('connecting');
 
       const protocol = globalThis.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -133,6 +146,13 @@ export function useCollaboration(
     function scheduleReconnect() {
       /* v8 ignore next -- defensive guard; cleanup sets cancelled before close triggers this */
       if (cancelled) return;
+
+      // Clear any existing reconnect timer to prevent double-scheduling
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
+
       const attempt = reconnectAttemptRef.current;
       if (attempt >= RECONNECT_DELAYS.length) {
         setStatus('disconnected');

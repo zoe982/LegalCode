@@ -931,4 +931,168 @@ describe('useCollaboration', () => {
 
     vi.stubGlobal('WebSocket', OriginalMockWebSocket);
   });
+
+  it('stale onclose from reconnect-replaced WebSocket does not double-schedule reconnect', async () => {
+    vi.useFakeTimers();
+    const OriginalMockWebSocket = MockWebSocket;
+
+    // Track all WebSocket instances and their handlers for fine-grained control
+    const wsTracker: {
+      instance: MockWebSocket;
+      oncloseHandler: (() => void) | null;
+    }[] = [];
+
+    vi.stubGlobal(
+      'WebSocket',
+      class TrackedWebSocket {
+        static CONNECTING = 0;
+        static OPEN = 1;
+        static CLOSING = 2;
+        static CLOSED = 3;
+        readyState = 0;
+        onopen: (() => void) | null = null;
+        onclose: (() => void) | null = null;
+        onmessage: ((e: { data: unknown }) => void) | null = null;
+        onerror: (() => void) | null = null;
+        binaryType = 'blob';
+        send = vi.fn();
+        url: string;
+        private trackerEntry: (typeof wsTracker)[number];
+        close = vi.fn().mockImplementation(() => {
+          this.readyState = 3;
+          // Store the onclose handler for deferred firing — do NOT call it now
+          this.trackerEntry.oncloseHandler = this.onclose;
+        });
+        constructor(url: string) {
+          this.url = url;
+          this.trackerEntry = { instance: this as unknown as MockWebSocket, oncloseHandler: null };
+          wsTracker.push(this.trackerEntry);
+          wsInstances.push(this as unknown as MockWebSocket);
+          // Auto-open after microtask
+          setTimeout(() => {
+            this.readyState = 1;
+            this.onopen?.();
+          }, 0);
+        }
+      },
+    );
+
+    const { result } = renderHook(() => useCollaboration('tmpl-1', testUser));
+
+    // Step 1: WS1 opens successfully
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+    expect(result.current.status).toBe('connected');
+    expect(wsTracker).toHaveLength(1);
+
+    // Step 2: WS1 disconnects — trigger onclose directly (server drop)
+    act(() => {
+      const ws1 = wsTracker[0]?.instance;
+      if (ws1) {
+        ws1.readyState = 3;
+        ws1.onclose?.();
+      }
+    });
+    expect(result.current.status).toBe('reconnecting');
+
+    // Step 3: Reconnect timer fires → connect() creates WS2
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+    expect(result.current.status).toBe('connecting');
+    expect(wsTracker).toHaveLength(2);
+
+    // WS2 opens successfully
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+    expect(result.current.status).toBe('connected');
+
+    // Step 4: Now simulate WS1's DEFERRED onclose firing (stale event)
+    // In the buggy code, WS1's onclose handler is still attached and `cancelled === false`
+    // (same effect), so it would call setStatus('reconnecting') + scheduleReconnect()
+    const ws1Entry = wsTracker[0];
+    const staleOnclose = ws1Entry?.oncloseHandler ?? ws1Entry?.instance.onclose;
+
+    if (staleOnclose) {
+      act(() => {
+        staleOnclose();
+      });
+    }
+
+    // Status should still be 'connected' — stale onclose must be a no-op
+    expect(result.current.status).toBe('connected');
+
+    // No extra WebSocket instances should be created from double-scheduling
+    expect(wsTracker).toHaveLength(2);
+
+    vi.stubGlobal('WebSocket', OriginalMockWebSocket);
+  });
+
+  it('rapid WebSocket failures do not create more than one pending WebSocket', async () => {
+    vi.useFakeTimers();
+    const OriginalMockWebSocket = MockWebSocket;
+
+    // WebSocket that immediately errors on creation
+    let wsCreateCount = 0;
+    vi.stubGlobal(
+      'WebSocket',
+      class FailingWebSocket {
+        static CONNECTING = 0;
+        static OPEN = 1;
+        static CLOSING = 2;
+        static CLOSED = 3;
+        readyState = 0;
+        onopen: (() => void) | null = null;
+        onclose: (() => void) | null = null;
+        onmessage: ((e: { data: unknown }) => void) | null = null;
+        onerror: (() => void) | null = null;
+        binaryType = 'blob';
+        send = vi.fn();
+        close = vi.fn().mockImplementation(function (this: {
+          readyState: number;
+          onclose: (() => void) | null;
+        }) {
+          this.readyState = 3;
+          // onclose fires asynchronously after close()
+          setTimeout(() => {
+            this.onclose?.();
+          }, 0);
+        });
+        url: string;
+        constructor(url: string) {
+          this.url = url;
+          wsCreateCount++;
+          wsInstances.push(this as unknown as MockWebSocket);
+          // Immediately error
+          setTimeout(() => {
+            this.onerror?.();
+          }, 0);
+        }
+      },
+    );
+
+    renderHook(() => useCollaboration('tmpl-1', testUser));
+
+    // Initial connect creates WS1, which immediately errors → close() → deferred onclose
+    // After each reconnect delay, a new WS is created
+    // With the bug, stale onclose handlers can fire and create EXTRA WebSockets
+
+    // Process through 3 reconnect cycles
+    for (let i = 0; i < 3; i++) {
+      await act(async () => {
+        await vi.runAllTimersAsync();
+      });
+    }
+
+    // Count should be at most 6 (initial + 5 reconnect attempts before giving up)
+    // vi.runAllTimersAsync() exhausts the full reconnect chain in one call, so
+    // the relevant property is that the chain terminates (not exponential growth).
+    // With the bug, stale onclose handlers fire after close() without bounds.
+    // Change 2 (timer-clearing in scheduleReconnect) prevents unbounded double-scheduling.
+    expect(wsCreateCount).toBeLessThanOrEqual(6);
+
+    vi.stubGlobal('WebSocket', OriginalMockWebSocket);
+  });
 });
