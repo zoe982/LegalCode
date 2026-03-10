@@ -1,7 +1,6 @@
 import { useState, useCallback, useEffect, useRef, useMemo, createElement } from 'react';
 import { useParams, useNavigate } from 'react-router';
-import { Box, Button, IconButton, Skeleton } from '@mui/material';
-import DownloadIcon from '@mui/icons-material/Download';
+import { Box, Button, Skeleton } from '@mui/material';
 import type { Crepe } from '@milkdown/crepe';
 import { replaceAll } from '@milkdown/kit/utils';
 import { editorViewCtx } from '@milkdown/kit/core';
@@ -18,9 +17,7 @@ import {
 } from '../hooks/useTemplates.js';
 import { templateService } from '../services/templates.js';
 import { useCategories } from '../hooks/useCategories.js';
-import { useCollaboration } from '../hooks/useCollaboration.js';
-import { PresenceAvatars } from '../components/PresenceAvatars.js';
-import { ConnectionStatus } from '../components/ConnectionStatus.js';
+import { EditorRightSlot } from '../components/EditorRightSlot.js';
 import type { ConnectionStatusType } from '../components/ConnectionStatus.js';
 import { useAutosave } from '../hooks/useAutosave.js';
 import type { AutosaveState } from '../hooks/useAutosave.js';
@@ -189,7 +186,7 @@ export function TemplateEditorPage() {
     [id, pendingAnchor, createComment, cancelComment],
   );
 
-  // Collaboration — only for existing templates with edit permission
+  // Collaboration user — passed to EditorRightSlot which owns useCollaboration
   const collaborationUser = useMemo(
     () =>
       !isCreateMode && !isViewer && user
@@ -197,11 +194,6 @@ export function TemplateEditorPage() {
         : null,
     [isCreateMode, isViewer, user?.id, user?.email],
   );
-  const collaboration = useCollaboration(!isCreateMode ? id : null, collaborationUser, {
-    onCommentEvent: useCallback(() => {
-      void queryClient.invalidateQueries({ queryKey: ['comments', id] });
-    }, [queryClient, id]),
-  });
 
   const isDeleted = templateData?.template.deletedAt != null;
   const isReadOnly = isViewer || isDeleted;
@@ -381,62 +373,23 @@ export function TemplateEditorPage() {
               : 'connected' // idle -> show as connected/saved
         : null;
 
-  // Derive a single unified connection status
-  const unifiedStatus: ConnectionStatusType | null = useMemo(() => {
-    // Priority: error > saving > reconnecting > connecting > disconnected > saved > connected
-    const statuses: ConnectionStatusType[] = [];
-    if (draftSaveStatus != null) statuses.push(draftSaveStatus);
-    if (!isCreateMode && collaboration.status !== 'disconnected') {
-      statuses.push(collaboration.status as ConnectionStatusType);
-    }
-    if (statuses.length === 0) return null;
-
-    const priority: ConnectionStatusType[] = [
-      'error',
-      'saving',
-      'reconnecting',
-      'connecting',
-      'disconnected',
-      'saved',
-      'connected',
-    ];
-    for (const p of priority) {
-      if (statuses.includes(p)) return p;
-    }
-    return statuses[0] ?? null;
-  }, [draftSaveStatus, isCreateMode, collaboration.status]);
-
-  // Right slot content for DocumentHeader
+  // Right slot content for DocumentHeader — EditorRightSlot owns collaboration state.
+  // Return undefined (not a React element) when in create mode with nothing to show,
+  // so DocumentHeader knows not to render the right slot region.
   const documentHeaderRightSlot = useMemo(() => {
-    if (!isCreateMode) {
-      return (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          {unifiedStatus != null && <ConnectionStatus status={unifiedStatus} autoHide />}
-          {collaboration.status !== 'disconnected' && (
-            <PresenceAvatars users={collaboration.connectedUsers} />
-          )}
-          <IconButton onClick={handleExport} aria-label="export">
-            <DownloadIcon />
-          </IconButton>
-        </Box>
-      );
+    if (isCreateMode && draftSaveStatus == null) {
+      return undefined;
     }
-    if (draftSaveStatus != null) {
-      return (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <ConnectionStatus status={draftSaveStatus} autoHide />
-        </Box>
-      );
-    }
-    return undefined;
-  }, [
-    isCreateMode,
-    unifiedStatus,
-    draftSaveStatus,
-    collaboration.status,
-    collaboration.connectedUsers,
-    handleExport,
-  ]);
+    return (
+      <EditorRightSlot
+        collaborationUser={collaborationUser}
+        draftSaveStatus={draftSaveStatus}
+        onExport={handleExport}
+        queryClient={queryClient}
+        id={id}
+      />
+    );
+  }, [isCreateMode, draftSaveStatus, collaborationUser, handleExport, queryClient, id]);
 
   useEffect(() => {
     setConfig({

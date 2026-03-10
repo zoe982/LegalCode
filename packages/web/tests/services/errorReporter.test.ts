@@ -143,7 +143,27 @@ describe('errorReporter', () => {
         unknown
       >;
       expect(body.source).toBe('frontend');
+      expect(body.severity).toBe('error');
       expect(body.message).toBe('Uncaught TypeError');
+    });
+
+    it('includes viewport and userAgent metadata in error events', () => {
+      removeHandlers = installGlobalErrorHandlers();
+
+      const errorEvent = new ErrorEvent('error', {
+        message: 'Test error',
+        error: new Error('Test error'),
+      });
+      window.dispatchEvent(errorEvent);
+
+      const body = JSON.parse(fetchSpy.mock.calls[0]?.[1]?.body as string) as Record<
+        string,
+        unknown
+      >;
+      const metadata = JSON.parse(body.metadata as string) as Record<string, unknown>;
+      expect(metadata).toHaveProperty('userAgent');
+      expect(metadata).toHaveProperty('viewportWidth');
+      expect(metadata).toHaveProperty('viewportHeight');
     });
 
     it('reports unhandledrejection events', () => {
@@ -167,7 +187,27 @@ describe('errorReporter', () => {
         unknown
       >;
       expect(body.source).toBe('frontend');
+      expect(body.severity).toBe('error');
       expect(body.message).toBe('Rejected!');
+    });
+
+    it('includes viewport and userAgent metadata in unhandledrejection events', () => {
+      removeHandlers = installGlobalErrorHandlers();
+
+      const rejectionEvent = new PromiseRejectionEvent('unhandledrejection', {
+        promise: Promise.resolve(),
+        reason: new Error('Rejected!'),
+      });
+      window.dispatchEvent(rejectionEvent);
+
+      const body = JSON.parse(fetchSpy.mock.calls[0]?.[1]?.body as string) as Record<
+        string,
+        unknown
+      >;
+      const metadata = JSON.parse(body.metadata as string) as Record<string, unknown>;
+      expect(metadata).toHaveProperty('userAgent');
+      expect(metadata).toHaveProperty('viewportWidth');
+      expect(metadata).toHaveProperty('viewportHeight');
     });
 
     it('handles non-Error rejection reasons', () => {

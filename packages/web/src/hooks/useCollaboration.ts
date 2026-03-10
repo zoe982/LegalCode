@@ -55,6 +55,46 @@ export function useCollaboration(
     closingRef.current = false;
     let cancelled = false;
 
+    // Safety net: track status update timestamps to detect render loops.
+    // If more than 10 status updates happen within a 5-second window, force disconnect.
+    const statusUpdateTimestamps: number[] = [];
+
+    function safeSetStatus(newStatus: ConnectionStatus) {
+      const now = Date.now();
+      // Remove timestamps older than 5 seconds
+      while (statusUpdateTimestamps.length > 0 && (statusUpdateTimestamps[0] ?? 0) < now - 5000) {
+        statusUpdateTimestamps.shift();
+      }
+      statusUpdateTimestamps.push(now);
+
+      if (statusUpdateTimestamps.length > 10) {
+        // Render loop detected — force disconnect
+        /* v8 ignore next 2 -- defensive guard; cancelled is always false on first trigger */
+        if (!cancelled) {
+          const loopCount = statusUpdateTimestamps.length;
+          cancelled = true;
+          closingRef.current = true;
+          wsRef.current?.close();
+          setStatus('disconnected');
+          statusUpdateTimestamps.length = 0;
+          void reportError({
+            source: 'websocket',
+            severity: 'error',
+            message: 'Render loop detected: too many status updates in 5s',
+            metadata: JSON.stringify({
+              templateId,
+              statusUpdateCount: loopCount,
+              reconnectAttempt: reconnectAttemptRef.current,
+            }),
+            url: window.location.href,
+          });
+        }
+        return;
+      }
+
+      setStatus(newStatus);
+    }
+
     const ydoc = new Y.Doc();
     const awareness = new Awareness(ydoc);
     ydocRef.current = ydoc;
@@ -107,7 +147,7 @@ export function useCollaboration(
         wsRef.current = null;
       }
 
-      setStatus('connecting');
+      safeSetStatus('connecting');
 
       const protocol = globalThis.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const wsUrl = `${protocol}//${globalThis.location.host}/api/collaborate/${String(templateId)}`;
@@ -117,7 +157,7 @@ export function useCollaboration(
 
       ws.onopen = () => {
         if (cancelled) return;
-        setStatus('connected');
+        safeSetStatus('connected');
         reconnectAttemptRef.current = 0;
       };
 
@@ -133,7 +173,7 @@ export function useCollaboration(
 
       ws.onclose = () => {
         if (!cancelled && !closingRef.current) {
-          setStatus('reconnecting');
+          safeSetStatus('reconnecting');
           scheduleReconnect();
         }
       };
@@ -155,7 +195,7 @@ export function useCollaboration(
 
       const attempt = reconnectAttemptRef.current;
       if (attempt >= RECONNECT_DELAYS.length) {
-        setStatus('disconnected');
+        safeSetStatus('disconnected');
         void reportError({
           source: 'websocket',
           severity: 'warning',

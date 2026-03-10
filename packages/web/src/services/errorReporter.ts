@@ -20,9 +20,15 @@ export function installGlobalErrorHandlers(): () => void {
   function handleError(event: ErrorEvent): void {
     void reportError({
       source: 'frontend',
+      severity: 'error',
       message: event.message || 'Unknown error',
       stack: event.error instanceof Error ? (event.error.stack ?? null) : null,
       url: window.location.href,
+      metadata: JSON.stringify({
+        userAgent: navigator.userAgent,
+        viewportWidth: window.innerWidth,
+        viewportHeight: window.innerHeight,
+      }),
     });
   }
 
@@ -31,9 +37,15 @@ export function installGlobalErrorHandlers(): () => void {
     const isError = reason instanceof Error;
     void reportError({
       source: 'frontend',
+      severity: 'error',
       message: isError ? reason.message : String(reason),
       stack: isError ? (reason.stack ?? null) : null,
       url: window.location.href,
+      metadata: JSON.stringify({
+        userAgent: navigator.userAgent,
+        viewportWidth: window.innerWidth,
+        viewportHeight: window.innerHeight,
+      }),
     });
   }
 
