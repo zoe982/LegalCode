@@ -111,6 +111,18 @@ vi.mock('@milkdown/kit/utils', () => ({
   replaceAll: (content: string) => mockReplaceAll(content) as unknown,
 }));
 
+vi.mock('@milkdown/kit/core', () => ({
+  editorViewCtx: Symbol('editorViewCtx'),
+}));
+
+vi.mock('../../src/editor/commentAnchors.js', () => ({
+  resolveAnchors: vi.fn().mockReturnValue([]),
+}));
+
+vi.mock('../../src/editor/commentPlugin.js', () => ({
+  commentPluginKey: { getState: vi.fn() },
+}));
+
 const mockGetVersion = vi.fn();
 vi.mock('../../src/services/templates.js', () => ({
   templateService: {
@@ -412,7 +424,7 @@ vi.mock('../../src/components/FloatingCommentButton.js', () => ({
     onClick,
     visible,
   }: {
-    position: { top: number; left: number } | null;
+    top: number | null;
     visible: boolean;
     onClick: () => void;
   }) =>
@@ -2799,6 +2811,110 @@ describe('TemplateEditorPage', () => {
       await user.click(screen.getByTestId('ncc-cancel'));
 
       expect(mockCancelComment).toHaveBeenCalled();
+    });
+  });
+
+  describe('comment anchor sync', () => {
+    it('calls editor.action when threads are present after editor ready', () => {
+      mockUseParams.mockReturnValue({ id: 't1' });
+      mockUseTemplate.mockReturnValue(
+        createTemplateQueryResult({
+          data: templateData(draftTemplate, '# Draft content'),
+        }),
+      );
+
+      const mockCommentThread = {
+        comment: {
+          id: 'c1',
+          templateId: 't1',
+          content: 'test',
+          anchorText: 'Hello',
+          anchorFrom: '2',
+          anchorTo: '7',
+          parentId: null,
+          resolved: false,
+          authorId: 'u1',
+          authorName: 'Alice',
+          authorEmail: 'alice@acasus.com',
+          resolvedBy: null,
+          createdAt: '2026-01-01T00:00:00Z',
+          updatedAt: '2026-01-01T00:00:00Z',
+        },
+        replies: [],
+      };
+
+      mockUseComments.mockReturnValue({
+        threads: [mockCommentThread],
+        isLoading: false,
+        createComment: mockCreateComment,
+        resolveComment: vi.fn(),
+        deleteComment: vi.fn(),
+        showResolved: false,
+        toggleShowResolved: vi.fn(),
+      });
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      // The thread count should be reflected in the margin
+      expect(screen.getByTestId('margin-thread-count')).toHaveTextContent('1');
+    });
+
+    it('syncs anchors to ProseMirror via useEffect when threads change', () => {
+      mockUseParams.mockReturnValue({ id: 't1' });
+      mockUseTemplate.mockReturnValue(
+        createTemplateQueryResult({
+          data: templateData(draftTemplate, '# Draft content'),
+        }),
+      );
+
+      // Start with empty threads
+      mockUseComments.mockReturnValue({
+        threads: [],
+        isLoading: false,
+        createComment: mockCreateComment,
+        resolveComment: vi.fn(),
+        deleteComment: vi.fn(),
+        showResolved: false,
+        toggleShowResolved: vi.fn(),
+      });
+
+      const { rerender } = render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      expect(screen.getByTestId('margin-thread-count')).toHaveTextContent('0');
+
+      const mockCommentThread = {
+        comment: {
+          id: 'c2',
+          templateId: 't1',
+          content: 'another test',
+          anchorText: 'Draft',
+          anchorFrom: '2',
+          anchorTo: '7',
+          parentId: null,
+          resolved: false,
+          authorId: 'u1',
+          authorName: 'Alice',
+          authorEmail: 'alice@acasus.com',
+          resolvedBy: null,
+          createdAt: '2026-01-01T00:00:00Z',
+          updatedAt: '2026-01-01T00:00:00Z',
+        },
+        replies: [],
+      };
+
+      mockUseComments.mockReturnValue({
+        threads: [mockCommentThread],
+        isLoading: false,
+        createComment: mockCreateComment,
+        resolveComment: vi.fn(),
+        deleteComment: vi.fn(),
+        showResolved: false,
+        toggleShowResolved: vi.fn(),
+      });
+
+      rerender(<TemplateEditorPage />);
+
+      expect(screen.getByTestId('margin-thread-count')).toHaveTextContent('1');
     });
   });
 });

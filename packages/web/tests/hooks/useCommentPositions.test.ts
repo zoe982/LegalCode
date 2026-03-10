@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { renderHook, act, waitFor } from '@testing-library/react';
 import { useCommentPositions } from '../../src/hooks/useCommentPositions.js';
 
 // ── ResizeObserver mock ──────────────────────────────────────────────
@@ -315,6 +315,75 @@ describe('useCommentPositions', () => {
     expect(result.current).toEqual([{ commentId: 'c1', top: 150 }]);
 
     document.body.removeChild(container);
+  });
+
+  it('recalculates when MutationObserver detects new data-comment-id elements', async () => {
+    const container = document.createElement('div');
+    Object.defineProperty(container, 'scrollTop', { value: 0, configurable: true });
+    container.getBoundingClientRect = vi.fn().mockReturnValue({
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      width: 0,
+      height: 0,
+    });
+    document.body.appendChild(container);
+
+    const ref = createMockRef(container);
+    const { result } = renderHook(() => useCommentPositions(ref, ['c1'], new Map()));
+
+    // Initially no mark elements, so no positions
+    expect(result.current).toEqual([]);
+
+    // Add a mark element with data-comment-id — MutationObserver should trigger recalculation
+    const mark = document.createElement('mark');
+    mark.setAttribute('data-comment-id', 'c1');
+    mark.getBoundingClientRect = vi.fn().mockReturnValue({
+      top: 250,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      width: 0,
+      height: 0,
+    });
+
+    act(() => {
+      container.appendChild(mark);
+    });
+
+    // MutationObserver fires asynchronously in jsdom
+    await waitFor(() => {
+      expect(result.current).toEqual([{ commentId: 'c1', top: 250 }]);
+    });
+
+    document.body.removeChild(container);
+  });
+
+  it('disconnects MutationObserver on unmount', () => {
+    const disconnectSpy = vi.fn();
+    const originalMutationObserver = globalThis.MutationObserver;
+    vi.stubGlobal(
+      'MutationObserver',
+      class {
+        constructor(private cb: MutationCallback) {
+          void this.cb;
+        }
+        observe = vi.fn();
+        disconnect = disconnectSpy;
+        takeRecords = vi.fn().mockReturnValue([]);
+      },
+    );
+
+    const container = document.createElement('div');
+    const ref = createMockRef(container);
+    const { unmount } = renderHook(() => useCommentPositions(ref, ['c1'], new Map()));
+
+    unmount();
+
+    expect(disconnectSpy).toHaveBeenCalled();
+
+    vi.stubGlobal('MutationObserver', originalMutationObserver);
   });
 
   it('recalculates positions on scroll events', () => {

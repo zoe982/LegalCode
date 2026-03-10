@@ -4,6 +4,9 @@ import { Box, Button, IconButton, Skeleton } from '@mui/material';
 import DownloadIcon from '@mui/icons-material/Download';
 import type { Crepe } from '@milkdown/crepe';
 import { replaceAll } from '@milkdown/kit/utils';
+import { editorViewCtx } from '@milkdown/kit/core';
+import { resolveAnchors } from '../editor/commentAnchors.js';
+import { commentPluginKey } from '../editor/commentPlugin.js';
 import { MarkdownEditor } from '../components/MarkdownEditor.js';
 import { RawMarkdownEditor } from '../components/RawMarkdownEditor.js';
 import { useAuth } from '../hooks/useAuth.js';
@@ -96,9 +99,50 @@ export function TemplateEditorPage() {
 
   // Crepe editor ref for Milkdown commands
   const crepeRef = useRef<Crepe | null>(null);
-  const handleEditorReady = useCallback((crepe: Crepe) => {
-    crepeRef.current = crepe;
-  }, []);
+  const handleEditorReady = useCallback(
+    (crepe: Crepe) => {
+      crepeRef.current = crepe;
+      // Sync existing comment anchors if threads already loaded
+      if (threads.length > 0) {
+        try {
+          crepe.editor.action((ctx) => {
+            const view = ctx.get(editorViewCtx);
+            const docSize = view.state.doc.content.size;
+            const anchors = resolveAnchors(
+              threads.map((t) => t.comment),
+              docSize,
+            );
+            const tr = view.state.tr.setMeta(commentPluginKey, { anchors });
+            view.dispatch(tr);
+          });
+        } catch {
+          // Editor may not be fully initialized
+        }
+      }
+    },
+    [threads],
+  );
+
+  // Sync comment anchors to ProseMirror decorations
+  useEffect(() => {
+    const crepe = crepeRef.current;
+    if (!crepe || threads.length === 0) return;
+
+    try {
+      crepe.editor.action((ctx) => {
+        const view = ctx.get(editorViewCtx);
+        const docSize = view.state.doc.content.size;
+        const anchors = resolveAnchors(
+          threads.map((t) => t.comment),
+          docSize,
+        );
+        const tr = view.state.tr.setMeta(commentPluginKey, { anchors });
+        view.dispatch(tr);
+      });
+    } catch {
+      // Editor may not be ready yet
+    }
+  }, [threads]);
 
   // Edit mode comment margin ref
   const sourceContentRef = useRef<HTMLDivElement>(null);
@@ -655,14 +699,14 @@ export function TemplateEditorPage() {
                   onEditorReady={handleEditorReady}
                   onSelectionChange={onSelectionChange}
                 />
-                {!isCreateMode && (
-                  <FloatingCommentButton
-                    position={selectionInfo.buttonPosition}
-                    visible={selectionInfo.hasSelection && !isReadOnly}
-                    onClick={handleAddComment}
-                  />
-                )}
               </Box>
+              {!isCreateMode && (
+                <FloatingCommentButton
+                  top={selectionInfo.buttonPosition?.top ?? null}
+                  visible={selectionInfo.hasSelection && !isReadOnly}
+                  onClick={handleAddComment}
+                />
+              )}
               {id != null && (
                 <InlineCommentMargin
                   threads={threads}

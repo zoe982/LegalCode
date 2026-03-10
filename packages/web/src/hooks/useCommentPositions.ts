@@ -102,6 +102,26 @@ export function useCommentPositions(
     const container = containerRef.current;
     if (!container) return;
 
+    const observer = new MutationObserver(() => {
+      calculate();
+    });
+
+    observer.observe(container, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['data-comment-id'],
+    });
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [containerRef, calculate]);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
     // Find nearest scrollable ancestor
     let scrollParent: HTMLElement | null = container.parentElement;
     while (scrollParent) {

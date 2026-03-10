@@ -6,13 +6,13 @@ import { FloatingCommentButton } from '../../src/components/FloatingCommentButto
 
 function renderButton(
   props: Partial<{
-    position: { top: number; left: number } | null;
+    top: number | null;
     visible: boolean;
     onClick: () => void;
   }> = {},
 ) {
   const defaultProps = {
-    position: { top: 100, left: 200 } as { top: number; left: number } | null,
+    top: 100 as number | null,
     visible: true,
     onClick: vi.fn(),
     ...props,
@@ -24,7 +24,7 @@ function renderButton(
 }
 
 describe('FloatingCommentButton', () => {
-  it('renders button when visible and position is provided', () => {
+  it('renders button when visible and top is provided', () => {
     renderButton();
     expect(screen.getByTestId('floating-comment-button')).toBeInTheDocument();
   });
@@ -34,14 +34,9 @@ describe('FloatingCommentButton', () => {
     expect(screen.queryByTestId('floating-comment-button')).not.toBeInTheDocument();
   });
 
-  it('does not render when position is null', () => {
-    renderButton({ position: null });
+  it('does not render when top is null', () => {
+    renderButton({ top: null });
     expect(screen.queryByTestId('floating-comment-button')).not.toBeInTheDocument();
-  });
-
-  it('displays "Comment" text', () => {
-    renderButton();
-    expect(screen.getByText('Comment')).toBeInTheDocument();
   });
 
   it('displays chat bubble icon', () => {
@@ -49,6 +44,11 @@ describe('FloatingCommentButton', () => {
     const button = screen.getByTestId('floating-comment-button');
     const svg = button.querySelector('svg');
     expect(svg).toBeInTheDocument();
+  });
+
+  it('does not display "Comment" text label (icon-only)', () => {
+    renderButton();
+    expect(screen.queryByText('Comment')).not.toBeInTheDocument();
   });
 
   it('calls onClick when clicked', async () => {
@@ -68,9 +68,15 @@ describe('FloatingCommentButton', () => {
     expect(screen.getByLabelText('Add comment')).toBeInTheDocument();
   });
 
-  it('positions at the specified top/left', () => {
-    renderButton({ position: { top: 50, left: 150 } });
+  it('positions at the specified top', () => {
+    renderButton({ top: 50 });
     const button = screen.getByTestId('floating-comment-button');
-    expect(button).toHaveStyle({ top: '50px', left: '150px' });
+    expect(button).toHaveStyle({ top: '50px' });
+  });
+
+  it('renders as a circular button in the margin', () => {
+    renderButton();
+    const button = screen.getByTestId('floating-comment-button');
+    expect(button).toHaveStyle({ left: '100%', borderRadius: '50%' });
   });
 });
