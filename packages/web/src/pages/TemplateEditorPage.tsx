@@ -579,7 +579,7 @@ export function TemplateEditorPage() {
         >
           <Skeleton variant="rounded" width={120} height={28} sx={{ borderRadius: '8px' }} />
         </Box>
-        <Box sx={{ flex: 1, overflow: 'auto' }}>
+        <Box sx={{ flex: 1, overflowX: 'hidden', overflowY: 'auto' }}>
           <Box sx={{ maxWidth: '720px', mx: 'auto', py: 4, px: { xs: 2, sm: 4, md: 6 } }}>
             <Skeleton variant="text" width="50%" height={40} />
             <Box sx={{ borderBottom: '1px solid var(--border-secondary)', my: 3 }} />
@@ -630,7 +630,8 @@ export function TemplateEditorPage() {
         <Box
           sx={{
             flex: 1,
-            overflow: 'auto',
+            overflowX: 'hidden',
+            overflowY: 'auto',
             backgroundColor: '#FFFFFF',
           }}
         >
