@@ -470,6 +470,22 @@ export function TemplateEditorPage() {
     };
   }, [autosave.saveState]);
 
+  // Reset form when navigating to a different template
+  const prevIdRef = useRef(id);
+  useEffect(() => {
+    if (prevIdRef.current !== id) {
+      setFormInitialized(false);
+      setTitle('');
+      setCategory('');
+      setCountry('');
+      setContent('');
+      isDirtyRef.current = false;
+      hasAutoCreatedRef.current = false;
+      autoCreateFailedRef.current = false;
+      prevIdRef.current = id;
+    }
+  }, [id]);
+
   // Initialize form when template data loads
   if (!isCreateMode && templateData && !formInitialized) {
     setTitle(templateData.template.title);
