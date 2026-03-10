@@ -8,6 +8,7 @@ import type { CommentPluginOptions } from '../editor/commentPlugin.js';
 
 import '@milkdown/crepe/theme/common/style.css';
 import '@milkdown/crepe/theme/frame.css';
+import '../theme/editor.css';
 
 interface MarkdownEditorProps {
   defaultValue?: string | undefined;

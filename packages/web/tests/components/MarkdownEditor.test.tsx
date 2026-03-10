@@ -5,6 +5,7 @@ import { render, screen } from '@testing-library/react';
 // Mock CSS imports that Milkdown uses
 vi.mock('@milkdown/crepe/theme/common/style.css', () => ({}));
 vi.mock('@milkdown/crepe/theme/frame.css', () => ({}));
+vi.mock('../../src/theme/editor.css', () => ({}));
 
 const mockSetReadonly = vi.fn();
 const mockOn = vi.fn();
