@@ -87,6 +87,8 @@ const modeSegmentStyle = {
   backgroundColor: 'transparent',
   position: 'relative' as const,
   zIndex: 1,
+  flex: 1,
+  textAlign: 'center' as const,
 } as const;
 
 function formatDate(dateString: string): string {
@@ -343,7 +345,8 @@ export function DocumentHeader({
               position: 'absolute',
               top: '2px',
               bottom: '2px',
-              width: '50%',
+              left: '2px',
+              width: 'calc(50% - 2px)',
               backgroundColor: '#FFFFFF',
               borderRadius: '6px',
               boxShadow: 'var(--shadow-xs)',
