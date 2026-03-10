@@ -570,7 +570,14 @@ export function TemplateEditorPage() {
           <Skeleton variant="rounded" width={120} height={28} sx={{ borderRadius: '8px' }} />
         </Box>
         <Box sx={{ flex: 1, overflowX: 'hidden', overflowY: 'auto' }}>
-          <Box sx={{ maxWidth: '720px', mx: 'auto', py: 4, px: { xs: 2, sm: 4, md: 6 } }}>
+          <Box
+            sx={{
+              maxWidth: 'var(--editor-max-width)',
+              mx: 'auto',
+              py: 4,
+              px: { xs: 2, sm: 4, md: 6 },
+            }}
+          >
             <Skeleton variant="text" width="50%" height={40} />
             <Box sx={{ borderBottom: '1px solid var(--border-secondary)', my: 3 }} />
             <Skeleton variant="text" width="100%" height={20} />
@@ -628,7 +635,7 @@ export function TemplateEditorPage() {
               data-testid="edit-editor-container"
               sx={{
                 display: editorMode === 'edit' ? 'block' : 'none',
-                maxWidth: '720px',
+                maxWidth: 'var(--editor-max-width)',
                 mx: 'auto',
                 position: 'relative',
               }}
@@ -683,7 +690,7 @@ export function TemplateEditorPage() {
               data-testid="source-editor-wrapper"
               sx={{
                 display: editorMode === 'source' ? 'block' : 'none',
-                maxWidth: '720px',
+                maxWidth: 'var(--editor-max-width)',
                 mx: 'auto',
               }}
             >

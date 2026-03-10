@@ -241,7 +241,7 @@ export function VersionHistoryPage() {
           {/* Content */}
           <Box
             sx={{
-              maxWidth: 720,
+              maxWidth: 'var(--editor-max-width)',
               mx: 'auto',
               py: 4,
               px: { xs: 2, sm: 4, md: 6 },
