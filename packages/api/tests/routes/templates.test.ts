@@ -782,6 +782,86 @@ describe('PATCH /templates/:id', () => {
     const parsed = templateSchema.safeParse(body.template);
     expect(parsed.success).toBe(true);
   });
+
+  it('calls DO /invalidate after successful update when TEMPLATE_SESSION is available', async () => {
+    const mockStubFetch = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
+    const mockDoStub = { fetch: mockStubFetch };
+    const mockTemplateSession = {
+      idFromName: vi.fn().mockReturnValue('do-id-t-1'),
+      get: vi.fn().mockReturnValue(mockDoStub),
+    };
+
+    mockUpdateTemplate.mockResolvedValueOnce({
+      template: { id: 't-1', title: 'Updated', slug: 'updated-abc' },
+      tags: [],
+    });
+
+    const { templateRoutes } = await import('../../src/routes/templates.js');
+    const { errorHandler } = await import('../../src/middleware/error.js');
+    const app = new Hono<AppEnv>();
+
+    const waitUntilMock = vi.fn();
+
+    app.use('*', async (c, next) => {
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+      if (!c.env) {
+        // @ts-expect-error -- env is undefined in test context
+        c.env = {};
+      }
+      const env = c.env as Record<string, unknown>;
+      env.JWT_SECRET = JWT_SECRET;
+      env.DB = {};
+      env.TEMPLATE_SESSION = mockTemplateSession;
+      Object.defineProperty(c, 'executionCtx', {
+        value: { waitUntil: waitUntilMock },
+        writable: true,
+      });
+      await next();
+    });
+    app.onError(errorHandler);
+    app.route('/templates', templateRoutes);
+
+    const token = await adminToken();
+    const res = await app.request('/templates/t-1', {
+      method: 'PATCH',
+      headers: {
+        Cookie: `__Host-auth=${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ title: 'Updated' }),
+    });
+
+    expect(res.status).toBe(200);
+
+    // waitUntil should have been called (at least for audit log and DO invalidate)
+    expect(waitUntilMock).toHaveBeenCalled();
+
+    // The DO stub should have been retrieved for template t-1
+    expect(mockTemplateSession.idFromName).toHaveBeenCalledWith('t-1');
+    expect(mockTemplateSession.get).toHaveBeenCalled();
+  });
+
+  it('succeeds without calling DO invalidate when TEMPLATE_SESSION is not in env', async () => {
+    mockUpdateTemplate.mockResolvedValueOnce({
+      template: { id: 't-1', title: 'Updated', slug: 'updated-abc' },
+      tags: [],
+    });
+
+    // importAndCreateApp does NOT set TEMPLATE_SESSION in env
+    const app = await importAndCreateApp();
+    const token = await adminToken();
+    const res = await app.request('/templates/t-1', {
+      method: 'PATCH',
+      headers: {
+        Cookie: `__Host-auth=${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ title: 'Updated' }),
+    });
+
+    // Should succeed normally even without TEMPLATE_SESSION
+    expect(res.status).toBe(200);
+  });
 });
 
 // ── PATCH /templates/:id/autosave ─────────────────────────────────────

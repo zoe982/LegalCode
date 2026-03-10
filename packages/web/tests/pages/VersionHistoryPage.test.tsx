@@ -597,4 +597,395 @@ describe('VersionHistoryPage', () => {
       breadcrumbPageName: 'Version History',
     });
   });
+
+  it('does not infinite loop when templateData reference changes', () => {
+    setupLoadedMocks();
+
+    const { rerender } = render(<VersionHistoryPage />);
+
+    // Simulate TanStack Query returning new reference with same data
+    mockUseTemplate.mockReturnValue(
+      makeTemplateQueryResult({
+        isSuccess: true,
+        isFetched: true,
+        data: {
+          template: { ...mockTemplate }, // new object reference
+          content: mockVersions[2]?.content ?? '',
+          changeSummary: null,
+          tags: [],
+        },
+        status: 'success',
+      }),
+    );
+
+    // Should not throw "Maximum update depth exceeded"
+    expect(() => {
+      rerender(<VersionHistoryPage />);
+    }).not.toThrow();
+    expect(() => {
+      rerender(<VersionHistoryPage />);
+    }).not.toThrow();
+    expect(() => {
+      rerender(<VersionHistoryPage />);
+    }).not.toThrow();
+  });
+
+  it('does not duplicate fetch when selecting a non-current version', async () => {
+    const user = userEvent.setup();
+    setupLoadedMocks();
+
+    render(<VersionHistoryPage />);
+
+    const v1Option = screen.getByRole('option', { name: /v1/i });
+    await user.click(v1Option);
+
+    // Should only fetch once, not twice (no duplicate from effect)
+    await waitFor(() => {
+      expect(mockGetVersion).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('clicking back to current version uses cached content without fetching', async () => {
+    const user = userEvent.setup();
+    setupLoadedMocks();
+
+    render(<VersionHistoryPage />);
+
+    // First click v1 to move away from the current version (v3)
+    const v1Option = screen.getByRole('option', { name: /v1/i });
+    await user.click(v1Option);
+
+    await waitFor(() => {
+      expect(mockGetVersion).toHaveBeenCalledWith('t1', 1);
+    });
+
+    mockGetVersion.mockClear();
+
+    // Now click back to v3 (current). Since currentContent is not null and version === currentVersionNumber,
+    // the fast path should trigger and getVersion should NOT be called.
+    const v3Option = screen.getByRole('option', { name: /v3 \(current\)/i });
+    await user.click(v3Option);
+
+    // getVersion should NOT be called — content was cached
+    await waitFor(() => {
+      const preview = screen.getByRole('region', { name: /document preview/i });
+      expect(preview).toHaveTextContent('Final content');
+    });
+    expect(mockGetVersion).not.toHaveBeenCalled();
+  });
+
+  it('handles missing route id param (id ?? "" fallback)', () => {
+    // When useParams returns no id, templateId should default to empty string
+    mockUseParams.mockReturnValue({}); // id is undefined
+    mockUseTemplate.mockReturnValue(makeTemplateQueryResult({ isLoading: true, isPending: true }));
+    mockUseTemplateVersions.mockReturnValue(
+      makeVersionsQueryResult({ isLoading: true, isPending: true }),
+    );
+
+    render(<VersionHistoryPage />);
+
+    // Should render skeleton without crashing (templateId = '')
+    expect(screen.getByTestId('version-history-skeleton')).toBeInTheDocument();
+  });
+
+  it('auto-selects current version with null content when currentContent is undefined', () => {
+    mockUseParams.mockReturnValue({ id: 't1' });
+    // Template loaded with currentVersion=3 but content is undefined
+    mockUseTemplate.mockReturnValue(
+      makeTemplateQueryResult({
+        isSuccess: true,
+        isFetched: true,
+        data: {
+          template: mockTemplate,
+          content: undefined as unknown as string, // currentContent will be undefined → currentContent ?? null = null
+          changeSummary: null,
+          tags: [],
+        },
+        status: 'success',
+      }),
+    );
+    mockUseTemplateVersions.mockReturnValue(
+      makeVersionsQueryResult({
+        isSuccess: true,
+        isFetched: true,
+        data: mockVersions,
+        status: 'success',
+      }),
+    );
+
+    render(<VersionHistoryPage />);
+
+    // Should render (currentVersionNumber=3, auto-select fires, setVersionContent(undefined ?? null) = null)
+    expect(screen.getByRole('listbox', { name: /version list/i })).toBeInTheDocument();
+  });
+
+  it('restore confirm skips update when versionContent is empty', async () => {
+    const user = userEvent.setup();
+    setupLoadedMocks();
+
+    // Make v1 return empty content so !versionContent is true in handleRestoreConfirm
+    mockGetVersion.mockImplementation((_id: string, version: number) => {
+      if (version === 1) {
+        return Promise.resolve({
+          id: 'ver1',
+          templateId: 't1',
+          version: 1,
+          content: '', // empty string — !versionContent === true
+          changeSummary: null,
+          createdBy: 'u1',
+          createdAt: '2026-01-01T00:00:00Z',
+        });
+      }
+      const v = mockVersions.find((ver) => ver.version === version);
+      if (!v) return Promise.reject(new Error('Not found'));
+      return Promise.resolve(v);
+    });
+
+    render(<VersionHistoryPage />);
+
+    // Click v1 to load empty content
+    const v1Option = screen.getByRole('option', { name: /v1/i });
+    await user.click(v1Option);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /restore to version 1/i })).toBeInTheDocument();
+    });
+
+    // Open dialog
+    await user.click(screen.getByRole('button', { name: /restore to version 1/i }));
+    expect(screen.getByText(/restore to v1\?/i)).toBeInTheDocument();
+
+    // Click confirm — versionContent is '' (falsy), so early return fires; update NOT called
+    const confirmBtn = screen.getByRole('button', { name: /^restore$/i });
+    await user.click(confirmBtn);
+
+    // mockUpdate should NOT have been called since versionContent is empty
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it('shows diff with empty lines (covers text || empty fallback)', async () => {
+    const user = userEvent.setup();
+    mockUseParams.mockReturnValue({ id: 't1' });
+
+    // Use versions with empty lines so diff produces lines with empty text
+    const versionsWithEmptyLines = [
+      {
+        id: 'ver1',
+        templateId: 't1',
+        version: 1,
+        content: '\n\n', // empty lines only
+        changeSummary: null,
+        createdBy: 'u1',
+        createdAt: '2026-01-01T00:00:00Z',
+      },
+      {
+        id: 'ver2',
+        templateId: 't1',
+        version: 2,
+        content: 'something', // non-empty current content
+        changeSummary: null,
+        createdBy: 'u1',
+        createdAt: '2026-02-01T00:00:00Z',
+      },
+    ];
+
+    const mockTemplateV2 = { ...mockTemplate, currentVersion: 2 };
+    mockUseTemplate.mockReturnValue(
+      makeTemplateQueryResult({
+        isSuccess: true,
+        isFetched: true,
+        data: {
+          template: mockTemplateV2,
+          content: 'something',
+          changeSummary: null,
+          tags: [],
+        },
+        status: 'success',
+      }),
+    );
+    mockUseTemplateVersions.mockReturnValue(
+      makeVersionsQueryResult({
+        isSuccess: true,
+        isFetched: true,
+        data: versionsWithEmptyLines,
+        status: 'success',
+      }),
+    );
+    mockGetVersion.mockImplementation((_id: string, version: number) => {
+      const v = versionsWithEmptyLines.find((ver) => ver.version === version);
+      if (!v) return Promise.reject(new Error('Not found'));
+      return Promise.resolve(v);
+    });
+
+    render(<VersionHistoryPage />);
+
+    // Select v1 to get the empty-lines content
+    const v1Option = screen.getByRole('option', { name: /v1/i });
+    await user.click(v1Option);
+
+    await waitFor(() => {
+      const preview = screen.getByRole('region', { name: /document preview/i });
+      expect(preview).toBeInTheDocument();
+    });
+
+    // Enable diff
+    const diffToggle = screen.getByRole('checkbox', { name: /show changes/i });
+    await user.click(diffToggle);
+
+    // Diff view should appear (empty lines produce lines with empty text → '&nbsp;' fallback)
+    await waitFor(() => {
+      expect(screen.getByTestId('diff-view')).toBeInTheDocument();
+    });
+  });
+
+  it('renders version list and dialog when currentVersionNumber is undefined (covers ?? 0 fallback)', async () => {
+    const user = userEvent.setup();
+    mockUseParams.mockReturnValue({ id: 't1' });
+
+    // Template loaded but currentVersion is undefined (shouldn't normally happen, but covers fallback)
+    const templateWithUndefinedVersion = {
+      ...mockTemplate,
+      currentVersion: undefined as unknown as number,
+    };
+    mockUseTemplate.mockReturnValue(
+      makeTemplateQueryResult({
+        isSuccess: true,
+        isFetched: true,
+        data: {
+          template: templateWithUndefinedVersion,
+          content: '',
+          changeSummary: null,
+          tags: [],
+        },
+        status: 'success',
+      }),
+    );
+    mockUseTemplateVersions.mockReturnValue(
+      makeVersionsQueryResult({
+        isSuccess: true,
+        isFetched: true,
+        data: mockVersions,
+        status: 'success',
+      }),
+    );
+    mockGetVersion.mockImplementation((_id: string, version: number) => {
+      const v = mockVersions.find((ver) => ver.version === version);
+      if (!v) return Promise.reject(new Error('Not found'));
+      return Promise.resolve(v);
+    });
+
+    render(<VersionHistoryPage />);
+
+    // Should render the version list (line 376: currentVersionNumber ?? 0)
+    expect(screen.getByRole('listbox', { name: /version list/i })).toBeInTheDocument();
+
+    // Click v1 to load content and show restore button
+    const v1Option = screen.getByRole('option', { name: /v1/i });
+    await user.click(v1Option);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /restore to version 1/i })).toBeInTheDocument();
+    });
+
+    // Open dialog — renders line 599: currentVersionNumber ?? 0 + 1
+    await user.click(screen.getByRole('button', { name: /restore to version 1/i }));
+    expect(screen.getByText(/restore to v1\?/i)).toBeInTheDocument();
+
+    // Dialog text should include "v1" (0 + 1 = 1) for currentVersionNumber ?? 0
+    expect(screen.getByText(/preserved as v1/i)).toBeInTheDocument();
+
+    // Cancel
+    await user.click(screen.getByRole('button', { name: /cancel/i }));
+  });
+
+  it('restore dialog shows correct version count when currentVersionNumber is defined', async () => {
+    const user = userEvent.setup();
+    setupLoadedMocks();
+    const firstVersion = mockVersions[0];
+    if (firstVersion) mockGetVersion.mockResolvedValue(firstVersion);
+
+    render(<VersionHistoryPage />);
+
+    const v1Option = screen.getByRole('option', { name: /v1/i });
+    await user.click(v1Option);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /restore to version 1/i })).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole('button', { name: /restore to version 1/i }));
+
+    // The dialog shows "preserved as v{currentVersionNumber + 1}" using ?? 0 fallback
+    // With currentVersionNumber=3, it shows "v4"
+    await waitFor(() => {
+      expect(screen.getByText(/preserved as v4/i)).toBeInTheDocument();
+    });
+  });
+
+  it('falls through to fetch when clicking current version but currentContent is null', async () => {
+    const user = userEvent.setup();
+    mockUseParams.mockReturnValue({ id: 't1' });
+
+    // Start with loaded data so auto-select fires (selectedVersion = 3)
+    mockUseTemplate.mockReturnValue(
+      makeTemplateQueryResult({
+        isSuccess: true,
+        isFetched: true,
+        data: {
+          template: mockTemplate,
+          content: mockVersions[2]?.content ?? '',
+          changeSummary: null,
+          tags: [],
+        },
+        status: 'success',
+      }),
+    );
+    mockUseTemplateVersions.mockReturnValue(
+      makeVersionsQueryResult({
+        isSuccess: true,
+        isFetched: true,
+        data: mockVersions,
+        status: 'success',
+      }),
+    );
+    mockGetVersion.mockImplementation((_id: string, version: number) => {
+      const v = mockVersions.find((ver) => ver.version === version);
+      if (!v) return Promise.reject(new Error('Not found'));
+      return Promise.resolve(v);
+    });
+
+    const { rerender } = render(<VersionHistoryPage />);
+
+    // Click v1 to deselect v3 (selectedVersion becomes 1)
+    const v1Option = screen.getByRole('option', { name: /v1/i });
+    await user.click(v1Option);
+    await waitFor(() => {
+      expect(mockGetVersion).toHaveBeenCalledWith('t1', 1);
+    });
+    mockGetVersion.mockClear();
+
+    // Update mock: currentVersionNumber=3 but currentContent=null
+    mockUseTemplate.mockReturnValue(
+      makeTemplateQueryResult({
+        isSuccess: true,
+        isFetched: true,
+        data: {
+          template: mockTemplate,
+          content: null as unknown as string, // null content: fast path skipped, getVersion called
+          changeSummary: null,
+          tags: [],
+        },
+        status: 'success',
+      }),
+    );
+    rerender(<VersionHistoryPage />);
+
+    // Click v3 (currentVersionNumber=3, currentContent=null → fast path skipped)
+    const v3Option = screen.getByRole('option', { name: /v3 \(current\)/i });
+    await user.click(v3Option);
+
+    await waitFor(() => {
+      expect(mockGetVersion).toHaveBeenCalledWith('t1', 3);
+    });
+  });
 });

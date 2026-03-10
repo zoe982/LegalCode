@@ -12,12 +12,17 @@ vi.mock('yjs', () => {
       toString: vi.fn().mockReturnValue(''),
       toJSON: vi.fn().mockReturnValue(''),
       insert: vi.fn(),
+      delete: vi.fn(),
       observe: vi.fn(),
+      length: 0,
     };
     return {
       getText: vi.fn().mockReturnValue(mockText),
       on: vi.fn(),
       destroy: vi.fn(),
+      transact: vi.fn().mockImplementation((fn: () => void) => {
+        fn();
+      }),
       clientID: 1,
       _text: mockText,
     };
@@ -253,7 +258,7 @@ describe('TemplateSession', () => {
   });
 
   describe('alarm — grace period expiry', () => {
-    it('persists version and clears checkpoint when no editors connected', async () => {
+    it('persists version and clears checkpoint when contentChanged is true', async () => {
       const { persistVersion } = await import('../../src/services/template-persistence.js');
 
       // First connect to initialize the session
@@ -262,6 +267,20 @@ describe('TemplateSession', () => {
 
       // Get the server WebSocket that was accepted
       const serverWs = (ctx.acceptWebSocket as Mock).mock.calls[0]?.[0] as MockWebSocket;
+
+      // Send a MSG_SYNC to set contentChanged = true
+      const encoder = encoding.createEncoder();
+      encoding.writeVarUint(encoder, 0); // MSG_SYNC
+      encoding.writeVarUint(encoder, 0);
+      const msgData = encoding.toUint8Array(encoder);
+      await session.webSocketMessage(serverWs as unknown as WebSocket, msgData.buffer);
+
+      // Override toJSON to return non-empty content so the empty-content guard passes
+      const DocCtor = Y.Doc as unknown as Mock;
+      const mockDoc = DocCtor.mock.results[0]?.value as {
+        _text: { toJSON: Mock };
+      };
+      mockDoc._text.toJSON.mockReturnValueOnce('# Session content');
 
       // Disconnect (simulating webSocketClose)
       await session.webSocketClose(serverWs as unknown as WebSocket);
@@ -279,6 +298,98 @@ describe('TemplateSession', () => {
       );
       expect(ctx.storage.delete).toHaveBeenCalledWith('checkpoint');
       expect(ctx.storage.delete).toHaveBeenCalledWith('checkpointTimestamp');
+    });
+
+    it('skips persist but still clears checkpoint when contentChanged is false', async () => {
+      const { persistVersion } = await import('../../src/services/template-persistence.js');
+
+      // Connect to initialize the session
+      const req = createUpgradeRequest();
+      await session.fetch(req);
+
+      const serverWs = (ctx.acceptWebSocket as Mock).mock.calls[0]?.[0] as MockWebSocket;
+
+      // Disconnect WITHOUT sending any MSG_SYNC (contentChanged remains false)
+      await session.webSocketClose(serverWs as unknown as WebSocket);
+
+      await session.alarm();
+
+      // persistVersion should NOT be called since contentChanged is false
+      expect(persistVersion).not.toHaveBeenCalled();
+      // But checkpoint storage should still be cleaned up
+      expect(ctx.storage.delete).toHaveBeenCalledWith('checkpoint');
+      expect(ctx.storage.delete).toHaveBeenCalledWith('checkpointTimestamp');
+    });
+
+    it('skips persist when content is empty string', async () => {
+      const { persistVersion } = await import('../../src/services/template-persistence.js');
+
+      const req = createUpgradeRequest();
+      await session.fetch(req);
+
+      const serverWs = (ctx.acceptWebSocket as Mock).mock.calls[0]?.[0] as MockWebSocket;
+
+      // Send MSG_SYNC to set contentChanged = true
+      const encoder = encoding.createEncoder();
+      encoding.writeVarUint(encoder, 0);
+      encoding.writeVarUint(encoder, 0);
+      const msgData = encoding.toUint8Array(encoder);
+      await session.webSocketMessage(serverWs as unknown as WebSocket, msgData.buffer);
+
+      // Override toJSON to return empty string
+      const DocCtor = Y.Doc as unknown as Mock;
+      const mockDoc = DocCtor.mock.results[0]?.value as {
+        _text: { toJSON: Mock };
+      };
+      mockDoc._text.toJSON.mockReturnValueOnce('');
+
+      await session.webSocketClose(serverWs as unknown as WebSocket);
+      await session.alarm();
+
+      expect(persistVersion).not.toHaveBeenCalled();
+      // Checkpoint still cleaned up
+      expect(ctx.storage.delete).toHaveBeenCalledWith('checkpoint');
+      expect(ctx.storage.delete).toHaveBeenCalledWith('checkpointTimestamp');
+    });
+
+    it('skips persist when content is whitespace-only', async () => {
+      const { persistVersion } = await import('../../src/services/template-persistence.js');
+
+      const req = createUpgradeRequest();
+      await session.fetch(req);
+
+      const serverWs = (ctx.acceptWebSocket as Mock).mock.calls[0]?.[0] as MockWebSocket;
+
+      // Send MSG_SYNC to set contentChanged = true
+      const encoder = encoding.createEncoder();
+      encoding.writeVarUint(encoder, 0);
+      encoding.writeVarUint(encoder, 0);
+      const msgData = encoding.toUint8Array(encoder);
+      await session.webSocketMessage(serverWs as unknown as WebSocket, msgData.buffer);
+
+      // Override toJSON to return whitespace-only
+      const DocCtor = Y.Doc as unknown as Mock;
+      const mockDoc = DocCtor.mock.results[0]?.value as {
+        _text: { toJSON: Mock };
+      };
+      mockDoc._text.toJSON.mockReturnValueOnce('   ');
+
+      await session.webSocketClose(serverWs as unknown as WebSocket);
+      await session.alarm();
+
+      expect(persistVersion).not.toHaveBeenCalled();
+      // Checkpoint still cleaned up
+      expect(ctx.storage.delete).toHaveBeenCalledWith('checkpoint');
+      expect(ctx.storage.delete).toHaveBeenCalledWith('checkpointTimestamp');
+    });
+
+    it('always cleans up checkpoint storage even when not persisting (no ydoc)', async () => {
+      // Call alarm without initializing (no ydoc, no connections)
+      // cleanup() should be called but storage.delete should NOT (ydoc check gates it)
+      await session.alarm();
+
+      // No connections, no ydoc: storage.delete should NOT be called
+      expect(ctx.storage.delete).not.toHaveBeenCalled();
     });
   });
 
@@ -557,11 +668,26 @@ describe('TemplateSession', () => {
 
       const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
-      // Connect and disconnect to trigger alarm flow
+      // Connect and initialize the session
       const req = createUpgradeRequest();
       await session.fetch(req);
 
       const serverWs = (ctx.acceptWebSocket as Mock).mock.calls[0]?.[0] as MockWebSocket;
+
+      // Send MSG_SYNC to set contentChanged = true (required for alarm to attempt persist)
+      const encoder = encoding.createEncoder();
+      encoding.writeVarUint(encoder, 0); // MSG_SYNC
+      encoding.writeVarUint(encoder, 0);
+      const msgData = encoding.toUint8Array(encoder);
+      await session.webSocketMessage(serverWs as unknown as WebSocket, msgData.buffer);
+
+      // Override toJSON to return non-empty content so the empty-content guard passes
+      const DocCtor = Y.Doc as unknown as Mock;
+      const mockDoc = DocCtor.mock.results[0]?.value as {
+        _text: { toJSON: Mock };
+      };
+      mockDoc._text.toJSON.mockReturnValueOnce('# Content');
+
       await session.webSocketClose(serverWs as unknown as WebSocket);
 
       // Should not throw
@@ -826,6 +952,13 @@ describe('TemplateSession', () => {
       const msgData = encoding.toUint8Array(encoder);
       await session.webSocketMessage(serverWs as unknown as WebSocket, msgData.buffer);
 
+      // Override toJSON to return non-empty content
+      const DocCtor = Y.Doc as unknown as Mock;
+      const mockDoc = DocCtor.mock.results[0]?.value as {
+        _text: { toJSON: Mock };
+      };
+      mockDoc._text.toJSON.mockReturnValueOnce('# Real content');
+
       // Advance timers to trigger checkpoint
       await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
 
@@ -854,6 +987,30 @@ describe('TemplateSession', () => {
       expect(persistVersion).not.toHaveBeenCalled();
     });
 
+    it('skips persist during checkpoint when content is empty', async () => {
+      const { persistVersion } = await import('../../src/services/template-persistence.js');
+      (persistVersion as Mock).mockClear();
+
+      const req = createUpgradeRequest();
+      await session.fetch(req);
+
+      const serverWs = (ctx.acceptWebSocket as Mock).mock.calls[0]?.[0] as MockWebSocket;
+
+      // Send MSG_SYNC to set contentChanged = true
+      const encoder = encoding.createEncoder();
+      encoding.writeVarUint(encoder, 0); // MSG_SYNC
+      encoding.writeVarUint(encoder, 0);
+      const msgData = encoding.toUint8Array(encoder);
+      await session.webSocketMessage(serverWs as unknown as WebSocket, msgData.buffer);
+
+      // toJSON returns '' by default in mock — no need to override
+      // Advance timers to trigger checkpoint
+      await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
+
+      // Should NOT persist because content is empty
+      expect(persistVersion).not.toHaveBeenCalled();
+    });
+
     it('resets contentChanged flag after checkpoint', async () => {
       const { persistVersion } = await import('../../src/services/template-persistence.js');
       (persistVersion as Mock).mockClear();
@@ -869,6 +1026,13 @@ describe('TemplateSession', () => {
       encoding.writeVarUint(encoder, 0);
       const msgData = encoding.toUint8Array(encoder);
       await session.webSocketMessage(serverWs as unknown as WebSocket, msgData.buffer);
+
+      // Override toJSON to return non-empty content for first checkpoint
+      const DocCtor = Y.Doc as unknown as Mock;
+      const mockDoc = DocCtor.mock.results[0]?.value as {
+        _text: { toJSON: Mock };
+      };
+      mockDoc._text.toJSON.mockReturnValueOnce('# Real content');
 
       // First checkpoint should persist
       await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
@@ -897,6 +1061,13 @@ describe('TemplateSession', () => {
       const msgData = encoding.toUint8Array(encoder);
       await session.webSocketMessage(serverWs as unknown as WebSocket, msgData.buffer);
 
+      // Override toJSON to return non-empty content
+      const DocCtor = Y.Doc as unknown as Mock;
+      const mockDoc = DocCtor.mock.results[0]?.value as {
+        _text: { toJSON: Mock };
+      };
+      mockDoc._text.toJSON.mockReturnValueOnce('# Real content');
+
       await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
 
       expect(thinAutoVersions).toHaveBeenCalledWith(env.DB, 'tmpl-1');
@@ -912,8 +1083,22 @@ describe('TemplateSession', () => {
       await session.fetch(req);
 
       const serverWs = (ctx.acceptWebSocket as Mock).mock.calls[0]?.[0] as MockWebSocket;
-      await session.webSocketClose(serverWs as unknown as WebSocket);
 
+      // Send MSG_SYNC to set contentChanged = true
+      const encoder = encoding.createEncoder();
+      encoding.writeVarUint(encoder, 0); // MSG_SYNC
+      encoding.writeVarUint(encoder, 0);
+      const msgData = encoding.toUint8Array(encoder);
+      await session.webSocketMessage(serverWs as unknown as WebSocket, msgData.buffer);
+
+      // Override toJSON to return non-empty content
+      const DocCtor = Y.Doc as unknown as Mock;
+      const mockDoc = DocCtor.mock.results[0]?.value as {
+        _text: { toJSON: Mock };
+      };
+      mockDoc._text.toJSON.mockReturnValueOnce('# Session content');
+
+      await session.webSocketClose(serverWs as unknown as WebSocket);
       await session.alarm();
 
       expect(persistVersion).toHaveBeenCalledWith(
@@ -932,8 +1117,22 @@ describe('TemplateSession', () => {
       await session.fetch(req);
 
       const serverWs = (ctx.acceptWebSocket as Mock).mock.calls[0]?.[0] as MockWebSocket;
-      await session.webSocketClose(serverWs as unknown as WebSocket);
 
+      // Send MSG_SYNC to set contentChanged = true
+      const encoder = encoding.createEncoder();
+      encoding.writeVarUint(encoder, 0); // MSG_SYNC
+      encoding.writeVarUint(encoder, 0);
+      const msgData = encoding.toUint8Array(encoder);
+      await session.webSocketMessage(serverWs as unknown as WebSocket, msgData.buffer);
+
+      // Override toJSON to return non-empty content
+      const DocCtor = Y.Doc as unknown as Mock;
+      const mockDoc = DocCtor.mock.results[0]?.value as {
+        _text: { toJSON: Mock };
+      };
+      mockDoc._text.toJSON.mockReturnValueOnce('# Session content');
+
+      await session.webSocketClose(serverWs as unknown as WebSocket);
       await session.alarm();
 
       expect(thinAutoVersions).toHaveBeenCalledWith(env.DB, 'tmpl-1');
@@ -1016,6 +1215,104 @@ describe('TemplateSession', () => {
       // Should not throw
       const res = await session.fetch(req);
       expect(res.status).toBe(200);
+    });
+  });
+
+  describe('POST /invalidate', () => {
+    it('clears checkpoint storage and returns 200 when session is initialized', async () => {
+      // Initialize session
+      const req = createUpgradeRequest();
+      await session.fetch(req);
+
+      // Clear previous storage calls from initialization
+      (ctx.storage.delete as Mock).mockClear();
+      (ctx.storage.put as Mock).mockClear();
+
+      const invalidateReq = new Request('http://fake-host/invalidate', {
+        method: 'POST',
+      });
+      const res = await session.fetch(invalidateReq);
+
+      expect(res.status).toBe(200);
+      expect(ctx.storage.delete).toHaveBeenCalledWith('checkpoint');
+      expect(ctx.storage.delete).toHaveBeenCalledWith('checkpointTimestamp');
+    });
+
+    it('resets contentChanged to false on invalidate', async () => {
+      const { persistVersion } = await import('../../src/services/template-persistence.js');
+
+      // Initialize and mark content changed
+      const req = createUpgradeRequest();
+      await session.fetch(req);
+
+      const serverWs = (ctx.acceptWebSocket as Mock).mock.calls[0]?.[0] as MockWebSocket;
+
+      const encoder = encoding.createEncoder();
+      encoding.writeVarUint(encoder, 0); // MSG_SYNC
+      encoding.writeVarUint(encoder, 0);
+      const msgData = encoding.toUint8Array(encoder);
+      await session.webSocketMessage(serverWs as unknown as WebSocket, msgData.buffer);
+
+      // Invalidate — should reset contentChanged
+      const invalidateReq = new Request('http://fake-host/invalidate', {
+        method: 'POST',
+      });
+      await session.fetch(invalidateReq);
+
+      (persistVersion as Mock).mockClear();
+
+      // Disconnect and alarm — should NOT persist because contentChanged was reset
+      await session.webSocketClose(serverWs as unknown as WebSocket);
+      await session.alarm();
+
+      expect(persistVersion).not.toHaveBeenCalled();
+    });
+
+    it('reloads content from D1 into ydoc on invalidate', async () => {
+      const { getLatestVersionContent } =
+        await import('../../src/services/template-persistence.js');
+
+      // Initialize session (calls getLatestVersionContent once)
+      const req = createUpgradeRequest();
+      await session.fetch(req);
+
+      // Mock a new D1 response for the invalidate call
+      (getLatestVersionContent as Mock).mockResolvedValueOnce({
+        content: '# Restored Content',
+        version: 3,
+        createdAt: '2026-03-10T00:00:00Z',
+      });
+
+      const invalidateReq = new Request('http://fake-host/invalidate', {
+        method: 'POST',
+      });
+      const res = await session.fetch(invalidateReq);
+
+      expect(res.status).toBe(200);
+      // getLatestVersionContent should have been called again for the invalidate
+      expect(getLatestVersionContent).toHaveBeenCalledWith(env.DB, 'tmpl-1');
+
+      // The ydoc transact should have been called to reload content
+      const DocCtor = Y.Doc as unknown as Mock;
+      const mockDoc = DocCtor.mock.results[0]?.value as {
+        transact: Mock;
+        _text: { insert: Mock; delete: Mock };
+      };
+      expect(mockDoc.transact).toHaveBeenCalled();
+      expect(mockDoc._text.insert).toHaveBeenCalledWith(0, '# Restored Content');
+    });
+
+    it('returns 200 when session is not initialized (no ydoc)', async () => {
+      // Don't connect — session not initialized
+      const invalidateReq = new Request('http://fake-host/invalidate', {
+        method: 'POST',
+      });
+      const res = await session.fetch(invalidateReq);
+
+      expect(res.status).toBe(200);
+      // Storage cleanup still happens
+      expect(ctx.storage.delete).toHaveBeenCalledWith('checkpoint');
+      expect(ctx.storage.delete).toHaveBeenCalledWith('checkpointTimestamp');
     });
   });
 

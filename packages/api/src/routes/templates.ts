@@ -140,6 +140,19 @@ templateRoutes.patch('/:id', requireRole('admin', 'editor'), async (c) => {
       userEmail: user.email,
     }),
   );
+  // Invalidate the DO's stale checkpoint so the next session load uses the updated content
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+  if (c.env.TEMPLATE_SESSION) {
+    const doId = c.env.TEMPLATE_SESSION.idFromName(id);
+    const stub = c.env.TEMPLATE_SESSION.get(doId);
+    c.executionCtx.waitUntil(
+      stub.fetch(
+        new Request('https://internal/invalidate', {
+          method: 'POST',
+        }),
+      ),
+    );
+  }
   return c.json(result);
 });
 

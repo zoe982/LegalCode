@@ -51,6 +51,25 @@ export class TemplateSession implements DurableObject {
       return new Response(null, { status: 200 });
     }
 
+    // Handle cache invalidation (called after external content update, e.g., restore)
+    if (request.method === 'POST' && url.pathname === '/invalidate') {
+      await this.ctx.storage.delete('checkpoint');
+      await this.ctx.storage.delete('checkpointTimestamp');
+      this.contentChanged = false;
+      if (this.ydoc && this.initialized) {
+        const db = this.env.DB as D1Database;
+        const latestVersion = await getLatestVersionContent(db, this.templateId ?? '');
+        if (latestVersion) {
+          const text = this.ydoc.getText('content');
+          this.ydoc.transact(() => {
+            text.delete(0, text.length);
+            text.insert(0, latestVersion.content);
+          });
+        }
+      }
+      return new Response(null, { status: 200 });
+    }
+
     // Handle WebSocket upgrade
     const templateId = request.headers.get('X-Template-Id') ?? '';
     const userId = request.headers.get('X-User-Id') ?? '';
@@ -165,24 +184,29 @@ export class TemplateSession implements DurableObject {
     // Grace period expired
     if (this.connections.size > 0) return;
 
-    if (this.ydoc && this.templateId && this.lastUserId) {
+    if (this.contentChanged && this.ydoc && this.templateId && this.lastUserId) {
       const content = this.ydoc.getText('content').toJSON();
-      const db = this.env.DB as D1Database;
-      try {
-        await persistVersion(db, {
-          templateId: this.templateId,
-          content,
-          createdBy: this.lastUserId,
-          changeSummary: '[auto] Session close',
-        });
-        // Thin old auto-versions after persist
-        thinAutoVersions(db, this.templateId).catch((err: unknown) => {
-          console.error('Version thinning failed', err);
-        });
-      } catch (err: unknown) {
-        console.error('Failed to persist version on session close', err);
+      if (content.trim().length > 0) {
+        const db = this.env.DB as D1Database;
+        try {
+          await persistVersion(db, {
+            templateId: this.templateId,
+            content,
+            createdBy: this.lastUserId,
+            changeSummary: '[auto] Session close',
+          });
+          // Thin old auto-versions after persist
+          thinAutoVersions(db, this.templateId).catch((err: unknown) => {
+            console.error('Version thinning failed', err);
+          });
+        } catch (err: unknown) {
+          console.error('Failed to persist version on session close', err);
+        }
       }
+    }
 
+    // Always clean up checkpoint and state
+    if (this.ydoc) {
       await this.ctx.storage.delete('checkpoint');
       await this.ctx.storage.delete('checkpointTimestamp');
     }
@@ -291,22 +315,25 @@ export class TemplateSession implements DurableObject {
     // Auto-persist a version when content has changed
     if (this.contentChanged && this.templateId && this.lastUserId) {
       const content = this.ydoc.getText('content').toJSON();
-      const db = this.env.DB as D1Database;
-      try {
-        await persistVersion(db, {
-          templateId: this.templateId,
-          content,
-          createdBy: this.lastUserId,
-          changeSummary: '[auto] Checkpoint',
-        });
-        this.contentChanged = false;
-        // Fire and forget: thin old auto-versions
-        thinAutoVersions(db, this.templateId).catch((err: unknown) => {
-          console.error('Version thinning failed', err);
-        });
-      } catch {
-        /* checkpoint persist failure is non-fatal */
+      if (content.trim().length > 0) {
+        const db = this.env.DB as D1Database;
+        try {
+          await persistVersion(db, {
+            templateId: this.templateId,
+            content,
+            createdBy: this.lastUserId,
+            changeSummary: '[auto] Checkpoint',
+          });
+          // Fire and forget: thin old auto-versions
+          thinAutoVersions(db, this.templateId).catch((err: unknown) => {
+            console.error('Version thinning failed', err);
+          });
+        } catch {
+          /* checkpoint persist failure is non-fatal */
+        }
       }
+      // Reset contentChanged even if content was empty to prevent repeated empty checks
+      this.contentChanged = false;
     }
   }
 

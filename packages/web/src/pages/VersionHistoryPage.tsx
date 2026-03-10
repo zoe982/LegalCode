@@ -37,6 +37,10 @@ export function VersionHistoryPage() {
 
   const { setConfig, clearConfig } = useTopAppBarConfig();
 
+  // Extract primitive deps to avoid object reference instability
+  const currentVersionNumber = templateData?.template.currentVersion;
+  const currentContent = templateData?.content;
+
   // Set app bar config
   useEffect(() => {
     setConfig({
@@ -48,43 +52,49 @@ export function VersionHistoryPage() {
     };
   }, [setConfig, clearConfig, templateData?.template.title]);
 
-  // Auto-select current version on load
+  // Auto-select current version and set content on initial load
   useEffect(() => {
-    if (templateData && selectedVersion === null) {
-      setSelectedVersion(templateData.template.currentVersion);
+    if (currentVersionNumber != null && selectedVersion === null) {
+      setSelectedVersion(currentVersionNumber);
+      setVersionContent(currentContent ?? null);
     }
-  }, [templateData, selectedVersion]);
+  }, [currentVersionNumber, selectedVersion, currentContent]);
 
-  // Load version content when selected
+  // Keep content in sync when viewing the current version
   useEffect(() => {
-    if (!templateId || selectedVersion === null) return;
-
-    // If selecting the current version, use the template data content
-    if (selectedVersion === templateData?.template.currentVersion) {
-      setVersionContent(templateData.content);
-      return;
+    if (
+      selectedVersion != null &&
+      selectedVersion === currentVersionNumber &&
+      currentContent != null
+    ) {
+      setVersionContent(currentContent);
     }
-
-    setLoadingContent(true);
-    void templateService.getVersion(templateId, selectedVersion).then((v) => {
-      setVersionContent(v.content);
-      setLoadingContent(false);
-    });
-  }, [templateId, selectedVersion, templateData]);
+  }, [selectedVersion, currentVersionNumber, currentContent]);
 
   const handleVersionSelect = useCallback(
     (version: number) => {
       if (version === selectedVersion) return;
       setSelectedVersion(version);
+
+      // Use cached content for current version
+      if (version === currentVersionNumber && currentContent != null) {
+        setVersionContent(currentContent);
+        setLoadingContent(false);
+        return;
+      }
+
       setVersionContent(null);
       setLoadingContent(true);
 
+      const ignoreRef = { current: false };
       void templateService.getVersion(templateId, version).then((v) => {
-        setVersionContent(v.content);
-        setLoadingContent(false);
+        if (!ignoreRef.current) {
+          setVersionContent(v.content);
+          setLoadingContent(false);
+        }
       });
     },
-    [templateId, selectedVersion],
+    [templateId, selectedVersion, currentVersionNumber, currentContent],
   );
 
   const handleRestoreClick = useCallback(() => {
@@ -109,8 +119,7 @@ export function VersionHistoryPage() {
       });
   }, [templateId, selectedVersion, versionContent, navigate]);
 
-  const currentVersion = templateData?.template.currentVersion ?? 0;
-  const isCurrentSelected = selectedVersion === currentVersion;
+  const isCurrentSelected = selectedVersion === (currentVersionNumber ?? 0);
 
   const sorted = useMemo(() => {
     if (!versions) return [];
@@ -119,9 +128,8 @@ export function VersionHistoryPage() {
 
   // Diff computation
   const diffHtml = useMemo(() => {
-    if (!showDiff || !versionContent || !templateData) return null;
+    if (!showDiff || !versionContent || currentContent == null) return null;
 
-    const currentContent = templateData.content;
     const lines = computeDiff(versionContent, currentContent);
 
     return lines
@@ -135,7 +143,7 @@ export function VersionHistoryPage() {
         return `<div style="padding: 2px 8px;">${line.text || '&nbsp;'}</div>`;
       })
       .join('');
-  }, [showDiff, versionContent, templateData]);
+  }, [showDiff, versionContent, currentContent]);
 
   // Loading state
   if (templateQuery.isLoading || versionsLoading) {
@@ -365,7 +373,7 @@ export function VersionHistoryPage() {
             }}
           >
             {sorted.map((v) => {
-              const isCurrent = v.version === currentVersion;
+              const isCurrent = v.version === (currentVersionNumber ?? 0);
               const isSelected = v.version === selectedVersion;
 
               return (
@@ -588,7 +596,7 @@ export function VersionHistoryPage() {
           >
             This will create a new version with the content from v
             {selectedVersion != null ? String(selectedVersion) : ''}. The current content will be
-            preserved as v{String(currentVersion + 1)}.
+            preserved as v{String((currentVersionNumber ?? 0) + 1)}.
           </Typography>
         </DialogContent>
         <DialogActions>
