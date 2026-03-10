@@ -592,7 +592,7 @@ export function TemplateEditorPage() {
         <Box sx={{ flex: 1, overflowX: 'hidden', overflowY: 'auto', backgroundColor: '#EDEDED' }}>
           <Box
             sx={{
-              maxWidth: 1064,
+              maxWidth: 1200,
               mx: 'auto',
               py: 4,
               px: { xs: 2, sm: 4, md: 6 },
@@ -660,11 +660,11 @@ export function TemplateEditorPage() {
               px: { xs: 2, sm: 4, md: 6 },
             }}
           >
-            {/* Editor layout container — 1064px max, centers the 720px page with room for margin */}
+            {/* Editor layout container — 1200px max, centers the 860px page with room for margin */}
             <Box
               data-testid="editor-layout-container"
               sx={{
-                maxWidth: 1064,
+                maxWidth: 1200,
                 mx: 'auto',
                 position: 'relative',
               }}
@@ -674,7 +674,7 @@ export function TemplateEditorPage() {
                 data-testid="edit-editor-container"
                 sx={{
                   display: editorMode === 'edit' ? 'block' : 'none',
-                  width: 720,
+                  width: 860,
                   maxWidth: '100%',
                   backgroundColor: '#FFFFFF',
                   border: '1px solid #E0E0E4',
@@ -735,7 +735,7 @@ export function TemplateEditorPage() {
                 data-testid="source-editor-wrapper"
                 sx={{
                   display: editorMode === 'source' ? 'block' : 'none',
-                  width: 720,
+                  width: 860,
                   maxWidth: '100%',
                   backgroundColor: '#FFFFFF',
                   border: '1px solid #E0E0E4',
