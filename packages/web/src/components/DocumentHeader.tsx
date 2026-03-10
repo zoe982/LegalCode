@@ -89,6 +89,7 @@ const modeSegmentStyle = {
   zIndex: 1,
   flex: 1,
   textAlign: 'center' as const,
+  minWidth: 0,
 } as const;
 
 function formatDate(dateString: string): string {
