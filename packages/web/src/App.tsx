@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider, CssBaseline } from '@mui/material';
-import { createBrowserRouter, RouterProvider, Navigate } from 'react-router';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router';
 import type { RouteObject } from 'react-router';
 import { theme } from './theme/index.js';
 import { ErrorBoundary } from './components/ErrorBoundary.js';
@@ -53,8 +53,6 @@ export const routes: RouteObject[] = [
   },
 ];
 
-const router = createBrowserRouter(routes);
-
 export const App: React.FC = () => {
   return (
     <ErrorBoundary>
@@ -63,7 +61,29 @@ export const App: React.FC = () => {
           <CssBaseline />
           <OfflineBar />
           <ToastProvider>
-            <RouterProvider router={router} />
+            <BrowserRouter>
+              <Routes>
+                <Route path="/login" element={<LoginPage />} />
+                <Route
+                  path="/"
+                  element={
+                    <AuthGuard>
+                      <AppShell />
+                    </AuthGuard>
+                  }
+                >
+                  <Route index element={<Navigate to="/templates" replace />} />
+                  <Route path="templates" element={<TemplateListPage />} />
+                  <Route path="templates/new" element={<TemplateEditorPage />} />
+                  <Route path="templates/:id" element={<TemplateEditorPage />} />
+                  <Route path="templates/:id/diff/:v1/:v2" element={<DiffViewPage />} />
+                  <Route path="templates/:id/history" element={<VersionHistoryPage />} />
+                  <Route path="admin" element={<AdminPage />} />
+                  <Route path="settings" element={<SettingsPage />} />
+                  <Route path="*" element={<Navigate to="/templates" replace />} />
+                </Route>
+              </Routes>
+            </BrowserRouter>
           </ToastProvider>
           <ReloadPrompt />
           <InstallPrompt />
