@@ -54,6 +54,10 @@ export function MarginCommentTrigger({ top, visible, onClick }: MarginCommentTri
             color: '#12111A',
           },
         },
+        '&:focus-visible': {
+          outline: '2px solid #8027FF',
+          outlineOffset: '2px',
+        },
       }}
     >
       <ChatBubbleOutlineRoundedIcon
