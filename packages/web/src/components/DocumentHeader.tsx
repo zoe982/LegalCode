@@ -326,12 +326,12 @@ export function DocumentHeader({
           role="radiogroup"
           aria-label="Editor mode"
           sx={{
-            backgroundColor: 'var(--surface-tertiary)',
+            backgroundColor: '#EBEBF0',
             borderRadius: '8px',
             padding: '2px',
             display: 'inline-flex',
             position: 'relative',
-            border: '1px solid var(--border-primary)',
+            border: '1px solid #D5D6E0',
             ml: '12px',
             mr: '8px',
           }}
