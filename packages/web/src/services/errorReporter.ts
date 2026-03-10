@@ -1,4 +1,5 @@
 import type { ReportErrorInput } from '@legalcode/shared';
+import { BUILD_TIMESTAMP } from '../buildInfo.js';
 
 export async function reportError(report: ReportErrorInput): Promise<void> {
   try {
@@ -6,7 +7,7 @@ export async function reportError(report: ReportErrorInput): Promise<void> {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify(report),
+      body: JSON.stringify({ ...report, buildTimestamp: BUILD_TIMESTAMP }),
     });
     if (!response.ok) {
       console.warn('Error reporting failed:', response.status);
@@ -28,6 +29,7 @@ export function installGlobalErrorHandlers(): () => void {
         userAgent: navigator.userAgent,
         viewportWidth: window.innerWidth,
         viewportHeight: window.innerHeight,
+        buildTimestamp: BUILD_TIMESTAMP,
       }),
     });
   }
@@ -45,6 +47,7 @@ export function installGlobalErrorHandlers(): () => void {
         userAgent: navigator.userAgent,
         viewportWidth: window.innerWidth,
         viewportHeight: window.innerHeight,
+        buildTimestamp: BUILD_TIMESTAMP,
       }),
     });
   }

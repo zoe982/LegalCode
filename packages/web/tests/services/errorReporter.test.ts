@@ -17,6 +17,9 @@ if (typeof PromiseRejectionEvent === 'undefined') {
 const { reportError, installGlobalErrorHandlers } =
   await import('../../src/services/errorReporter.js');
 
+// BUILD_TIMESTAMP resolves to 'dev' in the test environment (no Vite define)
+const EXPECTED_BUILD_TIMESTAMP = 'dev';
+
 function spyOnFetch() {
   return vi.spyOn(globalThis, 'fetch');
 }
@@ -50,8 +53,22 @@ describe('errorReporter', () => {
         body: JSON.stringify({
           source: 'frontend',
           message: 'Test error',
+          buildTimestamp: EXPECTED_BUILD_TIMESTAMP,
         }),
       });
+    });
+
+    it('includes buildTimestamp in all error payloads', async () => {
+      await reportError({
+        source: 'frontend',
+        message: 'Test error',
+      });
+
+      const body = JSON.parse(fetchSpy.mock.calls[0]?.[1]?.body as string) as Record<
+        string,
+        unknown
+      >;
+      expect(body.buildTimestamp).toBe(EXPECTED_BUILD_TIMESTAMP);
     });
 
     it('includes optional fields when provided', async () => {
@@ -74,6 +91,7 @@ describe('errorReporter', () => {
             stack: 'Error\n  at foo',
             metadata: '{"key":"val"}',
             url: 'https://example.com',
+            buildTimestamp: EXPECTED_BUILD_TIMESTAMP,
           }),
         }),
       );
@@ -164,6 +182,7 @@ describe('errorReporter', () => {
       expect(metadata).toHaveProperty('userAgent');
       expect(metadata).toHaveProperty('viewportWidth');
       expect(metadata).toHaveProperty('viewportHeight');
+      expect(metadata).toHaveProperty('buildTimestamp');
     });
 
     it('reports unhandledrejection events', () => {
@@ -208,6 +227,7 @@ describe('errorReporter', () => {
       expect(metadata).toHaveProperty('userAgent');
       expect(metadata).toHaveProperty('viewportWidth');
       expect(metadata).toHaveProperty('viewportHeight');
+      expect(metadata).toHaveProperty('buildTimestamp');
     });
 
     it('handles non-Error rejection reasons', () => {

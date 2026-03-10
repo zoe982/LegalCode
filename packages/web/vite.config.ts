@@ -56,6 +56,9 @@ export default defineConfig({
       },
     }),
   ],
+  define: {
+    __BUILD_TIMESTAMP__: JSON.stringify(new Date().toISOString()),
+  },
   server: {
     port: 5173,
     proxy: {

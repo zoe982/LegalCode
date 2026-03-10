@@ -162,6 +162,11 @@ export function TemplateEditorPage() {
     [editorMode, content],
   );
 
+  // Ref for handleModeChange — read inside setConfig effect to avoid
+  // re-triggering the context update cycle that causes React Error #185.
+  const handleModeChangeRef = useRef(handleModeChange);
+  handleModeChangeRef.current = handleModeChange;
+
   const handleAddComment = useCallback(() => {
     if (isCreateMode) {
       showToast('Save the template first to add comments', 'info');
@@ -320,6 +325,11 @@ export function TemplateEditorPage() {
     setDeleteDialogOpen(true);
   }, []);
 
+  // Ref for handleDeleteClick — read inside setConfig effect to avoid
+  // re-triggering the context update cycle that causes React Error #185.
+  const handleDeleteClickRef = useRef(handleDeleteClick);
+  handleDeleteClickRef.current = handleDeleteClick;
+
   const handleDeleteConfirm = useCallback(() => {
     /* v8 ignore next -- defensive guard; id always exists when delete button is visible */
     if (!id) return;
@@ -391,6 +401,14 @@ export function TemplateEditorPage() {
     );
   }, [isCreateMode, draftSaveStatus, collaborationUser, handleExport, queryClient, id]);
 
+  // Ref for documentHeaderRightSlot — read inside setConfig effect to avoid
+  // re-triggering the context update cycle that causes React Error #185.
+  const rightSlotRef = useRef(documentHeaderRightSlot);
+  rightSlotRef.current = documentHeaderRightSlot;
+
+  // Refs break the render loop (React #185): volatile JSX/callback references
+  // are NOT deps — they update via refs, and draftSaveStatus covers the only
+  // primitive change that requires a context update for the right slot.
   useEffect(() => {
     setConfig({
       documentHeader: (
@@ -402,7 +420,9 @@ export function TemplateEditorPage() {
           country={country}
           onCountryChange={setCountry}
           editorMode={editorMode}
-          onModeChange={handleModeChange}
+          onModeChange={(mode: 'edit' | 'source') => {
+            handleModeChangeRef.current(mode);
+          }}
           templateId={id}
           isCreateMode={isCreateMode}
           readOnly={isReadOnly}
@@ -410,15 +430,20 @@ export function TemplateEditorPage() {
           updatedAt={templateData?.template.updatedAt}
           createdBy={templateData?.template.createdBy}
           currentVersion={templateData?.template.currentVersion}
-          rightSlot={documentHeaderRightSlot}
-          onDelete={!isCreateMode && !isReadOnly ? handleDeleteClick : undefined}
+          rightSlot={rightSlotRef.current}
+          onDelete={
+            !isCreateMode && !isReadOnly
+              ? () => {
+                  handleDeleteClickRef.current();
+                }
+              : undefined
+          }
         />
       ),
     });
     return () => {
       clearConfig();
     };
-    // Intentionally omitting deps captured through documentHeaderRightSlot
   }, [
     isCreateMode,
     templateData,
@@ -428,11 +453,9 @@ export function TemplateEditorPage() {
     editorMode,
     id,
     isReadOnly,
-    documentHeaderRightSlot,
+    draftSaveStatus,
     setConfig,
     clearConfig,
-    handleDeleteClick,
-    handleModeChange,
   ]);
 
   useEffect(() => {
