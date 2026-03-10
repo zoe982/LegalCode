@@ -427,6 +427,7 @@ export function TemplateEditorPage() {
     return () => {
       clearConfig();
     };
+    // Intentionally omitting deps captured through documentHeaderRightSlot
   }, [
     isCreateMode,
     templateData,
@@ -436,16 +437,10 @@ export function TemplateEditorPage() {
     editorMode,
     id,
     isReadOnly,
-    isDeleted,
-    collaboration.status,
-    collaboration.connectedUsers,
+    documentHeaderRightSlot,
     setConfig,
     clearConfig,
-    handleExport,
     handleDeleteClick,
-    draftSaveStatus,
-    autosave.saveState,
-    isViewer,
   ]);
 
   useEffect(() => {

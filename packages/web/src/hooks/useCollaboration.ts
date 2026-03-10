@@ -78,7 +78,14 @@ export function useCollaboration(
           users.push(u);
         }
       });
-      setConnectedUsers(users);
+      setConnectedUsers((prev) => {
+        if (prev.length !== users.length) return users;
+        const changed = users.some(
+          // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- prev[i] may be undefined if noUncheckedIndexedAccess is off
+          (u, i) => u.userId !== prev[i]?.userId || u.email !== prev[i]?.email,
+        );
+        return changed ? users : prev;
+      });
     };
     awareness.on('change', onAwarenessChange);
 
