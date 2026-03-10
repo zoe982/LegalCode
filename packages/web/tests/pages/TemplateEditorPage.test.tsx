@@ -87,6 +87,30 @@ vi.mock('../../src/components/MarkdownEditor.js', () => ({
   },
 }));
 
+vi.mock('../../src/components/RawMarkdownEditor.js', () => ({
+  RawMarkdownEditor: ({
+    value,
+    onChange,
+    readOnly,
+  }: {
+    value: string;
+    onChange?: (value: string) => void;
+    readOnly?: boolean;
+  }) => (
+    <textarea
+      data-testid="raw-markdown-editor"
+      value={value}
+      onChange={(e) => onChange?.(e.target.value)}
+      readOnly={readOnly}
+    />
+  ),
+}));
+
+const mockReplaceAll = vi.fn((content: string) => `replaceAll:${content}`);
+vi.mock('@milkdown/kit/utils', () => ({
+  replaceAll: (content: string) => mockReplaceAll(content) as unknown,
+}));
+
 const mockGetVersion = vi.fn();
 vi.mock('../../src/services/templates.js', () => ({
   templateService: {
@@ -333,19 +357,17 @@ vi.mock('../../src/hooks/useComments.js', () => ({
   useComments: (...args: unknown[]) => mockUseComments(...args) as unknown,
 }));
 
-const mockUseTextSelection = vi.fn().mockReturnValue({
-  selectedText: '',
-  selectionRect: null,
-  hasSelection: false,
-});
 vi.mock('../../src/hooks/useTextSelection.js', () => ({
-  useTextSelection: (...args: unknown[]) => mockUseTextSelection(...args) as unknown,
+  useTextSelection: () => ({
+    selectedText: '',
+    selectionRect: null,
+    hasSelection: false,
+  }),
 }));
 
-const mockUseCommentHighlights = vi.fn();
 vi.mock('../../src/hooks/useCommentHighlights.js', () => ({
-  useCommentHighlights: (...args: unknown[]) => {
-    mockUseCommentHighlights(...args);
+  useCommentHighlights: () => {
+    // no-op — useCommentHighlights is no longer used by TemplateEditorPage
   },
 }));
 
@@ -609,6 +631,7 @@ function renderDocumentHeader() {
 describe('TemplateEditorPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockReplaceAll.mockImplementation((content: string) => `replaceAll:${content}`);
     latestAppBarConfig = {};
     latestDocumentHeaderProps = {};
     mockUseAuth.mockReturnValue(editorAuth);
@@ -626,12 +649,6 @@ describe('TemplateEditorPage', () => {
       cancelComment: mockCancelComment,
       onSelectionChange: vi.fn(),
     });
-    mockUseTextSelection.mockReturnValue({
-      selectedText: '',
-      selectionRect: null,
-      hasSelection: false,
-    });
-    mockUseCommentHighlights.mockClear();
     mockUseComments.mockReturnValue({
       threads: [],
       isLoading: false,
@@ -692,14 +709,14 @@ describe('TemplateEditorPage', () => {
       expect(queryByTestId('dh-right-slot')).not.toBeInTheDocument();
     });
 
-    it('shows source content when mode is switched to source', async () => {
+    it('shows raw markdown editor when mode is switched to source', async () => {
       const user = userEvent.setup();
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
       // Switch to source via DocumentHeader mock
       const { getByTestId } = renderDocumentHeader();
       await user.click(getByTestId('dh-mode-source'));
-      expect(screen.getByTestId('source-content')).toBeInTheDocument();
+      expect(screen.getByTestId('raw-markdown-editor')).toBeInTheDocument();
     });
 
     it('does not render publish or archive elements in create mode', () => {
@@ -1500,8 +1517,9 @@ describe('TemplateEditorPage', () => {
       act(() => {
         (latestDocumentHeaderProps.onModeChange as (m: string) => void)('source');
       });
-      // After mode change, DocumentHeader should receive updated mode
-      expect(screen.getByTestId('source-content')).toBeInTheDocument();
+      // After mode change, RawMarkdownEditor should be visible
+      expect(screen.getByTestId('source-editor-wrapper')).toBeInTheDocument();
+      expect(screen.getByTestId('raw-markdown-editor')).toBeInTheDocument();
     });
 
     it('keeps markdown editor in DOM but hides it in source mode', () => {
@@ -1520,16 +1538,31 @@ describe('TemplateEditorPage', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
       // In edit mode (default), both panels should be in DOM
       expect(screen.getByTestId('markdown-editor')).toBeInTheDocument();
-      expect(screen.getByTestId('source-content')).toBeInTheDocument();
+      expect(screen.getByTestId('raw-markdown-editor')).toBeInTheDocument();
     });
 
-    it('shows read-only content in source mode', () => {
+    it('shows RawMarkdownEditor in source mode', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
       renderDocumentHeader();
       act(() => {
         (latestDocumentHeaderProps.onModeChange as (m: string) => void)('source');
       });
-      expect(screen.getByTestId('source-content')).toBeInTheDocument();
+      expect(screen.getByTestId('raw-markdown-editor')).toBeInTheDocument();
+    });
+
+    it('calls replaceAll when switching from source back to edit mode', () => {
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      renderDocumentHeader();
+      // Switch to source first
+      act(() => {
+        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('source');
+      });
+      // Switch back to edit
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('edit');
+      });
+      expect(mockReplaceAll).toHaveBeenCalled();
     });
   });
 
@@ -1709,7 +1742,7 @@ describe('TemplateEditorPage', () => {
     });
   });
 
-  describe('Inline comment margin in source mode', () => {
+  describe('Inline comment margin', () => {
     beforeEach(() => {
       mockUseParams.mockReturnValue({ id: 't1' });
       mockUseTemplate.mockReturnValue(
@@ -1719,25 +1752,13 @@ describe('TemplateEditorPage', () => {
       );
     });
 
-    it('renders InlineCommentMargin in source mode', () => {
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-      renderDocumentHeader();
-      act(() => {
-        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('source');
-      });
-
-      // Both edit and source panels are always in DOM; both have InlineCommentMargin
-      expect(screen.getAllByTestId('inline-comment-margin').length).toBeGreaterThanOrEqual(1);
-    });
-
     it('renders InlineCommentMargin in edit mode for existing templates', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
-      // In edit mode (id exists), InlineCommentMargin renders in both panels
-      expect(screen.getAllByTestId('inline-comment-margin').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getByTestId('inline-comment-margin')).toBeInTheDocument();
     });
 
-    it('does not render InlineCommentMargin in source mode for create mode (no id)', () => {
+    it('does not render InlineCommentMargin in create mode (no id)', () => {
       mockUseParams.mockReturnValue({});
       mockUseTemplate.mockReturnValue(
         createTemplateQueryResult({
@@ -1754,7 +1775,7 @@ describe('TemplateEditorPage', () => {
       expect(screen.queryByTestId('inline-comment-margin')).not.toBeInTheDocument();
     });
 
-    it('calls startComment when FloatingCommentButton is clicked in source mode', async () => {
+    it('calls startComment when FloatingCommentButton is clicked in edit mode', async () => {
       const user = userEvent.setup();
       mockUseEditorComments.mockReturnValue({
         selectionInfo: {
@@ -1790,14 +1811,9 @@ describe('TemplateEditorPage', () => {
       });
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-      renderDocumentHeader();
-      act(() => {
-        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('source');
-      });
 
-      // Both panels render InlineCommentMargin; click the last one (source panel)
-      const resolveButtons = screen.getAllByTestId('margin-resolve');
-      await user.click(resolveButtons.at(-1)!);
+      const resolveButton = screen.getByTestId('margin-resolve');
+      await user.click(resolveButton);
       expect(mockResolveComment).toHaveBeenCalledWith({ templateId: 't1', commentId: 'c1' });
     });
 
@@ -1815,14 +1831,9 @@ describe('TemplateEditorPage', () => {
       });
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-      renderDocumentHeader();
-      act(() => {
-        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('source');
-      });
 
-      // Both panels render InlineCommentMargin; click the last one (source panel)
-      const deleteButtons = screen.getAllByTestId('margin-delete');
-      await user.click(deleteButtons.at(-1)!);
+      const deleteButton = screen.getByTestId('margin-delete');
+      await user.click(deleteButton);
       expect(mockDeleteComment).toHaveBeenCalledWith(
         { templateId: 't1', commentId: 'c1' },
         expect.anything(),
@@ -1866,14 +1877,9 @@ describe('TemplateEditorPage', () => {
       });
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-      renderDocumentHeader();
-      act(() => {
-        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('source');
-      });
 
-      // Both panels render InlineCommentMargin; click the last one (source panel)
-      const deleteButtons = screen.getAllByTestId('margin-delete');
-      await user.click(deleteButtons.at(-1)!);
+      const deleteButton = screen.getByTestId('margin-delete');
+      await user.click(deleteButton);
       expect(mockDeleteComment).toHaveBeenCalledWith(
         { templateId: 't1', commentId: 'c1' },
         expect.anything(),
@@ -1906,14 +1912,9 @@ describe('TemplateEditorPage', () => {
       const user = userEvent.setup();
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-      renderDocumentHeader();
-      act(() => {
-        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('source');
-      });
 
-      // Both panels render InlineCommentMargin; click the last one (source panel)
-      const replyButtons = screen.getAllByTestId('margin-reply');
-      await user.click(replyButtons.at(-1)!);
+      const replyButton = screen.getByTestId('margin-reply');
+      await user.click(replyButton);
       expect(mockCreateComment).toHaveBeenCalledWith({
         templateId: 't1',
         content: 'test reply',
@@ -2034,7 +2035,7 @@ describe('TemplateEditorPage', () => {
   });
 
   describe('inline comments wiring', () => {
-    it('InlineCommentMargin receives threads from useComments in source mode', () => {
+    it('InlineCommentMargin receives threads from useComments in edit mode', () => {
       mockUseParams.mockReturnValue({ id: 't1' });
       mockUseTemplate.mockReturnValue(
         createTemplateQueryResult({
@@ -2074,19 +2075,14 @@ describe('TemplateEditorPage', () => {
       });
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
-      renderDocumentHeader();
-      act(() => {
-        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('source');
-      });
 
-      // Both panels render InlineCommentMargin; check at least one shows thread count
-      const threadCounts = screen.getAllByTestId('margin-thread-count');
-      expect(threadCounts.some((el) => el.textContent === '1')).toBe(true);
+      const threadCount = screen.getByTestId('margin-thread-count');
+      expect(threadCount).toHaveTextContent('1');
     });
   });
 
   describe('handleAddComment', () => {
-    it('calls startComment when FloatingCommentButton is clicked in source mode', async () => {
+    it('calls startComment when FloatingCommentButton is clicked in edit mode', async () => {
       const user = userEvent.setup();
       mockUseParams.mockReturnValue({ id: 't1' });
       mockUseTemplate.mockReturnValue(
@@ -2149,25 +2145,15 @@ describe('TemplateEditorPage', () => {
       expect(mockStartComment).not.toHaveBeenCalled();
     });
 
-    it('shows toast when handleReviewAddComment is called in create mode (source)', () => {
+    it('shows toast when handleAddComment is called via keyboard shortcut in create mode (source)', () => {
       // Create mode: no id
       mockUseParams.mockReturnValue({});
-      mockUseTextSelection.mockReturnValue({
-        selectedText: 'some text',
-        selectionRect: { top: 100, left: 200, width: 100, height: 20 } as DOMRect,
-        hasSelection: true,
-      });
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
       renderDocumentHeader();
       act(() => {
         (latestDocumentHeaderProps.onModeChange as (m: string) => void)('source');
       });
-
-      // FloatingCommentButton should not be visible in create mode
-      // But if it were (e.g., the guard was only on handleReviewAddComment), clicking it would toast
-      // Since FloatingCommentButton is hidden in create mode, verify it's not there
-      expect(screen.queryByTestId('floating-comment-button')).not.toBeInTheDocument();
 
       // Verify toast would fire if callback were called directly via keyboard shortcut
       const shortcutArgs = mockUseKeyboardShortcuts.mock.calls.at(-1)?.[0] as {
@@ -2223,7 +2209,7 @@ describe('TemplateEditorPage', () => {
     });
   });
 
-  describe('Review mode comment highlighting', () => {
+  describe('Source mode RawMarkdownEditor', () => {
     beforeEach(() => {
       mockUseParams.mockReturnValue({ id: 't1' });
       mockUseTemplate.mockReturnValue(
@@ -2233,80 +2219,34 @@ describe('TemplateEditorPage', () => {
       );
     });
 
-    it('calls useCommentHighlights in source mode with threads', () => {
-      const mockThreads = [
-        {
-          comment: {
-            id: 'c1',
-            templateId: 't1',
-            content: 'test',
-            anchorText: 'Draft',
-            anchorFrom: '0',
-            anchorTo: '5',
-            parentId: null,
-            resolved: false,
-            createdBy: 'u1',
-            authorEmail: 'alice@acasus.com',
-            createdAt: '2026-01-01T00:00:00Z',
-          },
-          replies: [],
-        },
-      ];
-      mockUseComments.mockReturnValue({
-        threads: mockThreads,
-        isLoading: false,
-        createComment: mockCreateComment,
-        resolveComment: vi.fn(),
-        deleteComment: vi.fn(),
-        showResolved: false,
-        toggleShowResolved: vi.fn(),
-      });
-
+    it('shows RawMarkdownEditor with current content in source mode', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
       renderDocumentHeader();
       act(() => {
         (latestDocumentHeaderProps.onModeChange as (m: string) => void)('source');
       });
 
-      expect(mockUseCommentHighlights).toHaveBeenCalled();
-      // Verify it was called with threads (second argument)
-      const lastCall = mockUseCommentHighlights.mock.calls.at(-1) as unknown[];
-      expect(lastCall[1]).toEqual(mockThreads);
+      const rawEditor = screen.getByTestId('raw-markdown-editor');
+      expect(rawEditor).toBeInTheDocument();
+      expect(rawEditor).toHaveValue('# Draft content');
     });
 
-    it('does not pass threads to useCommentHighlights in source mode', () => {
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-
-      // In source mode, useCommentHighlights is called with empty threads array
-      const lastCall = mockUseCommentHighlights.mock.calls.at(-1) as unknown[];
-      expect(lastCall[1]).toEqual([]);
-      expect(screen.getByTestId('edit-editor-surface')).toBeInTheDocument();
-    });
-
-    it('shows FloatingCommentButton in source mode when text is selected', () => {
-      mockUseTextSelection.mockReturnValue({
-        selectedText: 'Draft content',
-        selectionRect: { top: 100, left: 200, width: 100, height: 20 } as DOMRect,
-        hasSelection: true,
-      });
-
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-      renderDocumentHeader();
-      act(() => {
-        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('source');
-      });
-
-      const commentBtn = screen.getByTestId('floating-comment-button');
-      expect(commentBtn).toBeInTheDocument();
-    });
-
-    it('source mode FloatingCommentButton click triggers review add comment', async () => {
+    it('source mode RawMarkdownEditor calls handleContentChange on change', async () => {
       const user = userEvent.setup();
-      mockUseTextSelection.mockReturnValue({
-        selectedText: 'Draft content',
-        selectionRect: { top: 100, left: 200, width: 100, height: 20 } as DOMRect,
-        hasSelection: true,
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('source');
       });
+
+      const rawEditor = screen.getByTestId('raw-markdown-editor');
+      await user.clear(rawEditor);
+      await user.type(rawEditor, '# Updated');
+      expect(rawEditor).toHaveValue('# Updated');
+    });
+
+    it('source mode RawMarkdownEditor respects readOnly', () => {
+      mockUseAuth.mockReturnValue(viewerAuth);
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
       renderDocumentHeader();
@@ -2314,11 +2254,23 @@ describe('TemplateEditorPage', () => {
         (latestDocumentHeaderProps.onModeChange as (m: string) => void)('source');
       });
 
-      const commentBtn = screen.getByTestId('floating-comment-button');
-      await user.click(commentBtn);
+      const rawEditor = screen.getByTestId('raw-markdown-editor');
+      expect(rawEditor).toHaveAttribute('readonly');
+    });
 
-      // InlineCommentMargin should be rendered in source mode (both panels have it)
-      expect(screen.getAllByTestId('inline-comment-margin').length).toBeGreaterThanOrEqual(1);
+    it('does not show FloatingCommentButton or InlineCommentMargin in source mode', () => {
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('source');
+      });
+
+      // Edit mode container is hidden, so FloatingCommentButton inside it is hidden
+      const editContainer = screen.getByTestId('edit-editor-container');
+      expect(editContainer).toHaveStyle({ display: 'none' });
+
+      // Source mode only has RawMarkdownEditor, no comment UI
+      expect(screen.getByTestId('source-editor-wrapper')).toBeInTheDocument();
     });
   });
 
@@ -2846,83 +2798,6 @@ describe('TemplateEditorPage', () => {
       await user.click(screen.getByTestId('ncc-cancel'));
 
       expect(mockCancelComment).toHaveBeenCalled();
-    });
-
-    it('renders NewCommentCard in source mode when review pending anchor exists', async () => {
-      const user = userEvent.setup();
-      mockUseTextSelection.mockReturnValue({
-        selectedText: 'Draft content',
-        selectionRect: { top: 100, left: 200, width: 100, height: 20 } as DOMRect,
-        hasSelection: true,
-      });
-
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-      renderDocumentHeader();
-      act(() => {
-        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('source');
-      });
-
-      // Click the floating comment button to set source mode pending anchor
-      const commentBtn = screen.getByTestId('floating-comment-button');
-      await user.click(commentBtn);
-
-      expect(screen.getByTestId('new-comment-card')).toBeInTheDocument();
-      expect(screen.getByTestId('ncc-anchor')).toHaveTextContent('Draft content');
-      // Verify top position is passed from selectionRect
-      expect(screen.getByTestId('ncc-top')).toHaveTextContent('100');
-    });
-
-    it('source mode submit calls createComment and clears review pending anchor', async () => {
-      const user = userEvent.setup();
-      mockUseTextSelection.mockReturnValue({
-        selectedText: 'Draft content',
-        selectionRect: { top: 100, left: 200, width: 100, height: 20 } as DOMRect,
-        hasSelection: true,
-      });
-
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-      renderDocumentHeader();
-      act(() => {
-        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('source');
-      });
-
-      // Click floating comment button to set pending anchor
-      await user.click(screen.getByTestId('floating-comment-button'));
-
-      // Submit the comment
-      await user.click(screen.getByTestId('ncc-submit'));
-
-      expect(mockCreateComment).toHaveBeenCalledWith({
-        templateId: 't1',
-        content: 'test comment',
-        anchorText: 'Draft content',
-      });
-
-      // NewCommentCard should be gone after submit
-      expect(screen.queryByTestId('new-comment-card')).not.toBeInTheDocument();
-    });
-
-    it('source mode cancel clears review pending anchor', async () => {
-      const user = userEvent.setup();
-      mockUseTextSelection.mockReturnValue({
-        selectedText: 'Draft content',
-        selectionRect: { top: 100, left: 200, width: 100, height: 20 } as DOMRect,
-        hasSelection: true,
-      });
-
-      render(<TemplateEditorPage />, { wrapper: Wrapper });
-      renderDocumentHeader();
-      act(() => {
-        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('source');
-      });
-
-      // Click floating comment button to set pending anchor
-      await user.click(screen.getByTestId('floating-comment-button'));
-      expect(screen.getByTestId('new-comment-card')).toBeInTheDocument();
-
-      // Cancel
-      await user.click(screen.getByTestId('ncc-cancel'));
-      expect(screen.queryByTestId('new-comment-card')).not.toBeInTheDocument();
     });
   });
 });

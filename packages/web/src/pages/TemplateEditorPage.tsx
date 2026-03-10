@@ -3,7 +3,9 @@ import { useParams, useNavigate } from 'react-router';
 import { Box, Button, IconButton, Skeleton } from '@mui/material';
 import DownloadIcon from '@mui/icons-material/Download';
 import type { Crepe } from '@milkdown/crepe';
+import { replaceAll } from '@milkdown/kit/utils';
 import { MarkdownEditor } from '../components/MarkdownEditor.js';
+import { RawMarkdownEditor } from '../components/RawMarkdownEditor.js';
 import { useAuth } from '../hooks/useAuth.js';
 import {
   useTemplate,
@@ -22,7 +24,6 @@ import type { AutosaveState } from '../hooks/useAutosave.js';
 import { EditorToolbar } from '../components/EditorToolbar.js';
 import { useEditorHistory } from '../hooks/useEditorHistory.js';
 import { KeyboardShortcutHelp } from '../components/KeyboardShortcutHelp.js';
-import { markdownToHtml } from '../utils/markdownToHtml.js';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts.js';
 import { useToast } from '../components/Toast.js';
 import { useEditorComments } from '../hooks/useEditorComments.js';
@@ -32,8 +33,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import type { Template } from '@legalcode/shared';
 import { useTopAppBarConfig } from '../contexts/TopAppBarContext.js';
 import { CommentAnchorProvider } from '../contexts/CommentAnchorContext.js';
-import { useTextSelection } from '../hooks/useTextSelection.js';
-import { useCommentHighlights } from '../hooks/useCommentHighlights.js';
 import { DocumentHeader } from '../components/DocumentHeader.js';
 import { DeleteTemplateDialog } from '../components/DeleteTemplateDialog.js';
 import { InlineCommentMargin } from '../components/InlineCommentMargin.js';
@@ -104,20 +103,22 @@ export function TemplateEditorPage() {
   // Edit mode comment margin ref
   const sourceContentRef = useRef<HTMLDivElement>(null);
 
-  // Source mode comment highlighting
-  const reviewContentRef = useRef<HTMLDivElement>(null);
-  const reviewTextSelection = useTextSelection(reviewContentRef);
   const [activeCommentId, setActiveCommentId] = useState<string | null>(null);
 
-  /* v8 ignore next 3 -- callback passed to useCommentHighlights, invoked by DOM event handler */
+  /* v8 ignore next 3 -- callback passed to InlineCommentMargin, invoked by DOM event handler */
   const handleCommentClick = useCallback((commentId: string) => {
     setActiveCommentId(commentId);
   }, []);
 
-  useCommentHighlights(
-    reviewContentRef,
-    editorMode === 'source' ? threads : [],
-    handleCommentClick,
+  // Sync content back to Milkdown when switching from source to edit mode
+  const handleModeChange = useCallback(
+    (newMode: 'edit' | 'source') => {
+      if (newMode === 'edit' && editorMode === 'source') {
+        crepeRef.current?.editor.action(replaceAll(content));
+      }
+      setEditorMode(newMode);
+    },
+    [editorMode, content],
   );
 
   const handleAddComment = useCallback(() => {
@@ -142,36 +143,6 @@ export function TemplateEditorPage() {
       cancelComment();
     },
     [id, pendingAnchor, createComment, cancelComment],
-  );
-
-  // Source mode pending comment state
-  const [reviewPendingAnchor, setReviewPendingAnchor] = useState<{
-    anchorText: string;
-  } | null>(null);
-
-  const handleReviewAddComment = useCallback(() => {
-    /* v8 ignore next 4 -- defensive guard; FloatingCommentButton is hidden in create mode */
-    if (isCreateMode) {
-      showToast('Save the template first to add comments', 'info');
-      return;
-    }
-    if (reviewTextSelection.selectedText) {
-      setReviewPendingAnchor({ anchorText: reviewTextSelection.selectedText });
-    }
-  }, [isCreateMode, reviewTextSelection.selectedText, showToast]);
-
-  const handleReviewSubmitComment = useCallback(
-    (commentContent: string) => {
-      /* v8 ignore next -- defensive guard; id always exists when comments are available */
-      if (!id || !reviewPendingAnchor) return;
-      createComment({
-        templateId: id,
-        content: commentContent,
-        anchorText: reviewPendingAnchor.anchorText,
-      });
-      setReviewPendingAnchor(null);
-    },
-    [id, reviewPendingAnchor, createComment],
   );
 
   // Collaboration — only for existing templates with edit permission
@@ -434,7 +405,7 @@ export function TemplateEditorPage() {
           country={country}
           onCountryChange={setCountry}
           editorMode={editorMode}
-          onModeChange={setEditorMode}
+          onModeChange={handleModeChange}
           templateId={id}
           isCreateMode={isCreateMode}
           readOnly={isReadOnly}
@@ -464,6 +435,7 @@ export function TemplateEditorPage() {
     setConfig,
     clearConfig,
     handleDeleteClick,
+    handleModeChange,
   ]);
 
   useEffect(() => {
@@ -706,96 +678,20 @@ export function TemplateEditorPage() {
               )}
             </Box>
 
-            {/* Source mode — always mounted, hidden when edit */}
+            {/* Source mode — raw markdown editor */}
             <Box
+              data-testid="source-editor-wrapper"
               sx={{
                 display: editorMode === 'source' ? 'block' : 'none',
                 maxWidth: '720px',
                 mx: 'auto',
-                position: 'relative',
               }}
             >
-              <Box sx={{ position: 'relative' }}>
-                <Box
-                  ref={reviewContentRef}
-                  data-testid="source-content"
-                  sx={{
-                    backgroundColor: '#FFFFFF',
-                    fontFamily: '"Source Serif 4", Georgia, "Times New Roman", serif',
-                    lineHeight: 1.6,
-                    minHeight: 200,
-                    '& h1, & h2, & h3, & h4, & h5, & h6': {
-                      fontFamily: '"Source Serif 4", Georgia, "Times New Roman", serif',
-                      color: 'var(--text-primary)',
-                      fontWeight: 600,
-                    },
-                    '& .template-var': {
-                      backgroundColor: 'var(--accent-primary-subtle)',
-                      color: 'var(--accent-primary)',
-                      padding: '2px 4px',
-                      borderRadius: '4px',
-                    },
-                    '& .clause-ref': {
-                      backgroundColor: 'var(--accent-primary-subtle)',
-                      color: 'var(--accent-primary)',
-                      padding: '2px 4px',
-                      borderRadius: '4px',
-                      fontStyle: 'italic',
-                    },
-                    '& a': { color: 'var(--text-link)' },
-                    '& hr': {
-                      border: 'none',
-                      borderTop: '1px solid var(--border-primary)',
-                      margin: '24px 0',
-                    },
-                    '& table': { borderCollapse: 'collapse', width: '100%' },
-                    '& td, & th': {
-                      border: '1px solid var(--border-primary)',
-                      padding: '8px',
-                    },
-                  }}
-                  // nosemgrep: dangerous-innerhtml — markdownToHtml sanitizes input
-                  dangerouslySetInnerHTML={{
-                    __html: content ? markdownToHtml(content) : '<p>No content yet</p>',
-                  }}
-                />
-                {!isCreateMode && (
-                  <FloatingCommentButton
-                    position={
-                      reviewTextSelection.selectionRect
-                        ? {
-                            top: reviewTextSelection.selectionRect.top,
-                            left: reviewTextSelection.selectionRect.left,
-                          }
-                        : null
-                    }
-                    visible={reviewTextSelection.hasSelection && !isReadOnly}
-                    onClick={handleReviewAddComment}
-                  />
-                )}
-              </Box>
-              {id != null && (
-                <InlineCommentMargin
-                  threads={threads}
-                  contentRef={reviewContentRef}
-                  activeCommentId={activeCommentId}
-                  onCommentClick={handleCommentClick}
-                  templateId={id}
-                  onResolve={handleMarginResolve}
-                  onDelete={handleMarginDelete}
-                  onReply={handleMarginReply}
-                  pendingAnchor={reviewPendingAnchor}
-                  onSubmitComment={handleReviewSubmitComment}
-                  onCancelComment={() => {
-                    setReviewPendingAnchor(null);
-                  }}
-                  /* v8 ignore next 2 -- nullish coalescing fallback for missing user fields */
-                  authorName={user?.name ?? user?.email ?? ''}
-                  authorEmail={user?.email ?? ''}
-                  isCreating={isCreating}
-                  pendingCommentTop={reviewTextSelection.selectionRect?.top ?? undefined}
-                />
-              )}
+              <RawMarkdownEditor
+                value={content}
+                onChange={handleContentChange}
+                readOnly={isReadOnly}
+              />
             </Box>
           </Box>
         </Box>
