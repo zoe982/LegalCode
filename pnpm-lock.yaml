@@ -114,6 +114,24 @@ importers:
 
   packages/web:
     dependencies:
+      '@codemirror/commands':
+        specifier: ^6.10.2
+        version: 6.10.2
+      '@codemirror/lang-markdown':
+        specifier: ^6.5.0
+        version: 6.5.0
+      '@codemirror/language':
+        specifier: ^6.12.2
+        version: 6.12.2
+      '@codemirror/language-data':
+        specifier: ^6.5.2
+        version: 6.5.2
+      '@codemirror/state':
+        specifier: ^6.5.4
+        version: 6.5.4
+      '@codemirror/view':
+        specifier: ^6.39.16
+        version: 6.39.16
       '@emotion/react':
         specifier: ^11.14.0
         version: 11.14.0(@types/react@19.2.14)(react@19.2.4)
