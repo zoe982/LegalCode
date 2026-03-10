@@ -779,6 +779,95 @@ describe('useCollaboration', () => {
     expect(wsInstances.length).toBe(instanceCountBeforeUnmount);
   });
 
+  it('stale async onclose from old WebSocket does not set status to reconnecting (React #185)', async () => {
+    vi.useFakeTimers();
+    const OriginalMockWebSocket = MockWebSocket;
+
+    // Track onclose callbacks that will be fired manually (async close simulation)
+    const pendingOnCloseCallbacks: (() => void)[] = [];
+
+    // AsyncCloseWebSocket: close() does NOT fire onclose synchronously.
+    // Instead, it stores the callback so the test can fire it later,
+    // simulating the real browser behavior where onclose is async.
+    vi.stubGlobal(
+      'WebSocket',
+      class AsyncCloseWebSocket {
+        static CONNECTING = 0;
+        static OPEN = 1;
+        static CLOSING = 2;
+        static CLOSED = 3;
+        readyState = 0;
+        onopen: (() => void) | null = null;
+        onclose: (() => void) | null = null;
+        onmessage: ((e: { data: unknown }) => void) | null = null;
+        onerror: (() => void) | null = null;
+        binaryType = 'blob';
+        send = vi.fn();
+        url: string;
+        close() {
+          // Store the onclose callback for deferred firing — do NOT call it now
+          this.readyState = 3;
+          if (this.onclose) {
+            pendingOnCloseCallbacks.push(this.onclose);
+          }
+        }
+        constructor(url: string) {
+          this.url = url;
+          wsInstances.push(this as unknown as MockWebSocket);
+          setTimeout(() => {
+            this.readyState = 1;
+            this.onopen?.();
+          }, 0);
+        }
+      },
+    );
+
+    let currentUser = { ...testUser };
+    const { result, rerender } = renderHook(({ user }) => useCollaboration('tmpl-1', user), {
+      initialProps: { user: currentUser },
+    });
+
+    // Step 1: Open the initial WebSocket connection
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+    expect(result.current.status).toBe('connected');
+    expect(pendingOnCloseCallbacks).toHaveLength(0);
+
+    // Step 2: Re-render with a changed user value (different color).
+    // This triggers effect cleanup → ws.close() → onclose is NOT fired (stored).
+    // Then the new effect starts, creates a new WebSocket.
+    currentUser = { ...testUser, color: '#00ff00' };
+    rerender({ user: currentUser });
+
+    // Step 3: Let the NEW WebSocket open successfully
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+    expect(result.current.status).toBe('connected');
+
+    // There should be exactly 1 pending onclose from the OLD WebSocket
+    expect(pendingOnCloseCallbacks).toHaveLength(1);
+
+    // Step 4: NOW fire the stale onclose from the OLD WebSocket.
+    // Bug: The new effect has reset closingRef.current = false, so the stale
+    // onclose handler sees closingRef.current === false and calls
+    // setStatus('reconnecting') even though the new connection is fine.
+    act(() => {
+      const staleOnclose = pendingOnCloseCallbacks[0];
+      if (!staleOnclose) throw new Error('Expected pending onclose callback');
+      staleOnclose();
+    });
+
+    // The status should still be 'connected' — the stale onclose should be ignored.
+    // With the bug, this will be 'reconnecting' because onclose only checks
+    // closingRef.current (a ref, shared across effect runs) instead of the
+    // closure-local `cancelled` variable.
+    expect(result.current.status).toBe('connected');
+
+    vi.stubGlobal('WebSocket', OriginalMockWebSocket);
+  });
+
   it('rapid user reference changes do not cause error spam', async () => {
     vi.useFakeTimers();
     const OriginalMockWebSocket = MockWebSocket;

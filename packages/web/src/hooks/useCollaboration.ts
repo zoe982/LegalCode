@@ -45,9 +45,11 @@ export function useCollaboration(
   const connectFnRef = useRef<(() => void) | null>(null);
   const onCommentEventRef = useRef(options ? options.onCommentEvent : undefined);
   onCommentEventRef.current = options ? options.onCommentEvent : undefined;
+  const userRef = useRef(user);
+  userRef.current = user;
 
   useEffect(() => {
-    if (!templateId || !user) return undefined;
+    if (!templateId || !userRef.current) return undefined;
 
     reconnectAttemptRef.current = 0;
     closingRef.current = false;
@@ -60,9 +62,9 @@ export function useCollaboration(
 
     // Set local awareness state
     awareness.setLocalStateField('user', {
-      name: user.email,
-      color: user.color,
-      userId: user.userId,
+      name: userRef.current.email,
+      color: userRef.current.color,
+      userId: userRef.current.userId,
     });
 
     // IndexedDB persistence for offline support
@@ -101,6 +103,7 @@ export function useCollaboration(
       wsRef.current = ws;
 
       ws.onopen = () => {
+        if (cancelled) return;
         setStatus('connected');
         reconnectAttemptRef.current = 0;
       };
@@ -116,7 +119,7 @@ export function useCollaboration(
       };
 
       ws.onclose = () => {
-        if (!closingRef.current) {
+        if (!cancelled && !closingRef.current) {
           setStatus('reconnecting');
           scheduleReconnect();
         }
@@ -168,7 +171,7 @@ export function useCollaboration(
       ydocRef.current = null;
       awarenessRef.current = null;
     };
-  }, [templateId, user]);
+  }, [templateId, user?.userId, user?.email, user?.color]);
 
   const reconnect = useCallback(() => {
     if (reconnectTimerRef.current) {
