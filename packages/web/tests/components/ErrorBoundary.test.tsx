@@ -52,35 +52,30 @@ describe('ErrorBoundary', () => {
     expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
   });
 
-  it('recovers when Try Again is clicked', async () => {
+  it('calls window.location.reload when Try Again is clicked', async () => {
     const user = userEvent.setup();
-    let shouldThrow = true;
+    const reloadMock = vi.fn();
+    Object.defineProperty(window, 'location', {
+      value: Object.assign(
+        Object.create(Object.getPrototypeOf(window.location) as object),
+        window.location,
+        { reload: reloadMock },
+      ),
+      writable: true,
+      configurable: true,
+    });
 
-    function ConditionalThrower() {
-      if (shouldThrow) throw new Error('Test error');
-      return <div>Recovered</div>;
-    }
-
-    const { rerender } = renderWithTheme(
+    renderWithTheme(
       <ErrorBoundary>
-        <ConditionalThrower />
+        <ThrowingComponent shouldThrow={true} />
       </ErrorBoundary>,
     );
 
     expect(screen.getByRole('heading', { name: /something went wrong/i })).toBeInTheDocument();
 
-    shouldThrow = false;
     await user.click(screen.getByRole('button', { name: /try again/i }));
 
-    rerender(
-      <ThemeProvider theme={theme}>
-        <ErrorBoundary>
-          <ConditionalThrower />
-        </ErrorBoundary>
-      </ThemeProvider>,
-    );
-
-    expect(screen.getByText('Recovered')).toBeInTheDocument();
+    expect(reloadMock).toHaveBeenCalledOnce();
   });
 
   it('calls reportError from errorReporter service', () => {
@@ -268,5 +263,94 @@ describe('ErrorBoundary', () => {
         stack: null,
       }),
     );
+  });
+
+  it('sends SKIP_WAITING to waiting service worker in componentDidCatch', () => {
+    const postMessageMock = vi.fn();
+    const waitingWorker = { postMessage: postMessageMock };
+
+    const getRegistrationMock = vi.fn().mockResolvedValue({
+      waiting: waitingWorker,
+    });
+
+    Object.defineProperty(navigator, 'serviceWorker', {
+      value: { getRegistration: getRegistrationMock },
+      writable: true,
+      configurable: true,
+    });
+
+    renderWithTheme(
+      <ErrorBoundary>
+        <ThrowingComponent shouldThrow={true} />
+      </ErrorBoundary>,
+    );
+
+    // getRegistration should have been called
+    expect(getRegistrationMock).toHaveBeenCalled();
+  });
+
+  it('does not crash when serviceWorker.getRegistration rejects', () => {
+    const getRegistrationMock = vi.fn().mockRejectedValue(new Error('SW unavailable'));
+
+    Object.defineProperty(navigator, 'serviceWorker', {
+      value: { getRegistration: getRegistrationMock },
+      writable: true,
+      configurable: true,
+    });
+
+    // Should not throw — error UI still renders
+    renderWithTheme(
+      <ErrorBoundary>
+        <ThrowingComponent shouldThrow={true} />
+      </ErrorBoundary>,
+    );
+
+    expect(screen.getByRole('heading', { name: /something went wrong/i })).toBeInTheDocument();
+  });
+
+  it('does not crash when serviceWorker is unavailable (no waiting)', () => {
+    const getRegistrationMock = vi.fn().mockResolvedValue({
+      waiting: null,
+    });
+
+    Object.defineProperty(navigator, 'serviceWorker', {
+      value: { getRegistration: getRegistrationMock },
+      writable: true,
+      configurable: true,
+    });
+
+    renderWithTheme(
+      <ErrorBoundary>
+        <ThrowingComponent shouldThrow={true} />
+      </ErrorBoundary>,
+    );
+
+    // Should still render error UI
+    expect(screen.getByRole('heading', { name: /something went wrong/i })).toBeInTheDocument();
+  });
+
+  it('does not crash when serviceWorker is not in navigator', () => {
+    // eslint-disable-next-line @typescript-eslint/dot-notation -- need bracket notation to bypass type checking for test override
+    const originalSW = (navigator as unknown as Record<string, unknown>)['serviceWorker'];
+    Object.defineProperty(navigator, 'serviceWorker', {
+      value: undefined,
+      writable: true,
+      configurable: true,
+    });
+
+    renderWithTheme(
+      <ErrorBoundary>
+        <ThrowingComponent shouldThrow={true} />
+      </ErrorBoundary>,
+    );
+
+    expect(screen.getByRole('heading', { name: /something went wrong/i })).toBeInTheDocument();
+
+    // Restore
+    Object.defineProperty(navigator, 'serviceWorker', {
+      value: originalSW,
+      writable: true,
+      configurable: true,
+    });
   });
 });

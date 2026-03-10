@@ -16,6 +16,18 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      // Force-activate waiting service worker to escape cached broken bundles.
+      // Runs before React loads, so it is immune to React crashes.
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistration().then(function(reg) {
+          if (reg && reg.waiting) {
+            reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+            window.location.reload();
+          }
+        });
+      }
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

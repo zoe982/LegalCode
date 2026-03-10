@@ -36,6 +36,23 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     } catch {
       // Silently ignore reporting failures
     }
+    // Force-activate waiting service worker so next reload gets the latest version
+    try {
+      if ('serviceWorker' in navigator) {
+        void navigator.serviceWorker
+          .getRegistration()
+          .then((reg) => {
+            if (reg?.waiting) {
+              reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+            }
+          })
+          .catch(() => {
+            // Silently ignore — SW may be unavailable
+          });
+      }
+    } catch {
+      // Silently ignore SW activation failures
+    }
   }
 
   private handleCopyWork = (): void => {
@@ -62,7 +79,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   };
 
   private handleRetry = (): void => {
-    this.setState({ hasError: false, error: null, copiedWork: false });
+    window.location.reload();
   };
 
   override render(): ReactNode {
