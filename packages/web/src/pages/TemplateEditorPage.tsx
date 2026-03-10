@@ -28,7 +28,7 @@ import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts.js';
 import { useToast } from '../components/Toast.js';
 import { useEditorComments } from '../hooks/useEditorComments.js';
 import { useComments } from '../hooks/useComments.js';
-import { FloatingCommentButton } from '../components/FloatingCommentButton.js';
+import { MarginCommentTrigger } from '../components/MarginCommentTrigger.js';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Template } from '@legalcode/shared';
 import { useTopAppBarConfig } from '../contexts/TopAppBarContext.js';
@@ -549,7 +549,7 @@ export function TemplateEditorPage() {
           display: 'flex',
           flexDirection: 'column',
           height: '100%',
-          backgroundColor: '#FFFFFF',
+          backgroundColor: '#EDEDED',
         }}
       >
         <Box sx={{ px: 2, pt: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -566,23 +566,34 @@ export function TemplateEditorPage() {
         >
           <Skeleton variant="rounded" width={120} height={28} sx={{ borderRadius: '8px' }} />
         </Box>
-        <Box sx={{ flex: 1, overflowX: 'hidden', overflowY: 'auto' }}>
+        <Box sx={{ flex: 1, overflowX: 'hidden', overflowY: 'auto', backgroundColor: '#EDEDED' }}>
           <Box
             sx={{
-              maxWidth: 'var(--editor-max-width)',
+              maxWidth: 1064,
               mx: 'auto',
               py: 4,
               px: { xs: 2, sm: 4, md: 6 },
             }}
           >
-            <Skeleton variant="text" width="50%" height={40} />
-            <Box sx={{ borderBottom: '1px solid var(--border-secondary)', my: 3 }} />
-            <Skeleton variant="text" width="100%" height={20} />
-            <Skeleton variant="text" width="95%" height={20} />
-            <Skeleton variant="text" width="80%" height={20} />
-            <Skeleton variant="text" width="100%" height={20} sx={{ mt: 2 }} />
-            <Skeleton variant="text" width="70%" height={20} />
-            <Skeleton variant="text" width="90%" height={20} />
+            <Box
+              sx={{
+                backgroundColor: '#FFFFFF',
+                border: '1px solid #E0E0E4',
+                borderRadius: '2px',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06)',
+                p: { xs: '24px 16px', sm: '36px 48px', md: '48px 72px' },
+                my: 3,
+              }}
+            >
+              <Skeleton variant="text" width="50%" height={40} />
+              <Box sx={{ borderBottom: '1px solid var(--border-secondary)', my: 3 }} />
+              <Skeleton variant="text" width="100%" height={20} />
+              <Skeleton variant="text" width="95%" height={20} />
+              <Skeleton variant="text" width="80%" height={20} />
+              <Skeleton variant="text" width="100%" height={20} sx={{ mt: 2 }} />
+              <Skeleton variant="text" width="70%" height={20} />
+              <Skeleton variant="text" width="90%" height={20} />
+            </Box>
           </Box>
         </Box>
       </Box>
@@ -611,13 +622,13 @@ export function TemplateEditorPage() {
           onRedo={handleRedo}
         />
 
-        {/* Full-bleed white editor surface */}
+        {/* Canvas background — grey surface with centered page */}
         <Box
           sx={{
             flex: 1,
             overflowX: 'hidden',
             overflowY: 'auto',
-            backgroundColor: '#FFFFFF',
+            backgroundColor: '#EDEDED',
           }}
         >
           <Box
@@ -626,76 +637,98 @@ export function TemplateEditorPage() {
               px: { xs: 2, sm: 4, md: 6 },
             }}
           >
-            {/* Editor content — title/category moved to DocumentHeader */}
-            {/* Edit mode — always mounted, hidden when source */}
+            {/* Editor layout container — 1064px max, centers the 720px page with room for margin */}
             <Box
-              data-testid="edit-editor-container"
+              data-testid="editor-layout-container"
               sx={{
-                display: editorMode === 'edit' ? 'block' : 'none',
-                maxWidth: 'var(--editor-max-width)',
+                maxWidth: 1064,
                 mx: 'auto',
                 position: 'relative',
               }}
             >
+              {/* Edit mode — always mounted, hidden when source */}
               <Box
-                ref={sourceContentRef}
-                data-testid="edit-editor-surface"
+                data-testid="edit-editor-container"
                 sx={{
+                  display: editorMode === 'edit' ? 'block' : 'none',
+                  width: 720,
+                  maxWidth: '100%',
                   backgroundColor: '#FFFFFF',
+                  border: '1px solid #E0E0E4',
+                  borderRadius: '2px',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06)',
+                  p: { xs: '24px 16px', sm: '36px 48px', md: '48px 72px' },
+                  my: 3,
+                  minHeight: 'calc(100vh - 200px)',
                   position: 'relative',
                 }}
               >
-                <MarkdownEditor
-                  defaultValue={!isCreateMode ? templateData?.content : undefined}
+                <Box
+                  ref={sourceContentRef}
+                  data-testid="edit-editor-surface"
+                  sx={{
+                    position: 'relative',
+                  }}
+                >
+                  <MarkdownEditor
+                    defaultValue={!isCreateMode ? templateData?.content : undefined}
+                    onChange={handleContentChange}
+                    readOnly={isReadOnly}
+                    onEditorReady={handleEditorReady}
+                    onSelectionChange={onSelectionChange}
+                  />
+                </Box>
+                {!isCreateMode && (
+                  <MarginCommentTrigger
+                    top={selectionInfo.buttonPosition?.top ?? null}
+                    visible={selectionInfo.hasSelection && !isReadOnly}
+                    onClick={handleAddComment}
+                  />
+                )}
+                {id != null && (
+                  <InlineCommentMargin
+                    threads={threads}
+                    contentRef={sourceContentRef}
+                    activeCommentId={activeCommentId}
+                    onCommentClick={handleCommentClick}
+                    templateId={id}
+                    onResolve={handleMarginResolve}
+                    onDelete={handleMarginDelete}
+                    onReply={handleMarginReply}
+                    pendingAnchor={pendingAnchor}
+                    onSubmitComment={handleSubmitComment}
+                    onCancelComment={cancelComment}
+                    /* v8 ignore next 2 -- nullish coalescing fallback for missing user fields */
+                    authorName={user?.name ?? user?.email ?? ''}
+                    authorEmail={user?.email ?? ''}
+                    isCreating={isCreating}
+                    pendingCommentTop={selectionInfo.buttonPosition?.top ?? undefined}
+                  />
+                )}
+              </Box>
+
+              {/* Source mode — raw markdown editor */}
+              <Box
+                data-testid="source-editor-wrapper"
+                sx={{
+                  display: editorMode === 'source' ? 'block' : 'none',
+                  width: 720,
+                  maxWidth: '100%',
+                  backgroundColor: '#FFFFFF',
+                  border: '1px solid #E0E0E4',
+                  borderRadius: '2px',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06)',
+                  p: { xs: '24px 16px', sm: '36px 48px', md: '48px 72px' },
+                  my: 3,
+                  minHeight: 'calc(100vh - 200px)',
+                }}
+              >
+                <RawMarkdownEditor
+                  value={content}
                   onChange={handleContentChange}
                   readOnly={isReadOnly}
-                  onEditorReady={handleEditorReady}
-                  onSelectionChange={onSelectionChange}
                 />
               </Box>
-              {!isCreateMode && (
-                <FloatingCommentButton
-                  top={selectionInfo.buttonPosition?.top ?? null}
-                  visible={selectionInfo.hasSelection && !isReadOnly}
-                  onClick={handleAddComment}
-                />
-              )}
-              {id != null && (
-                <InlineCommentMargin
-                  threads={threads}
-                  contentRef={sourceContentRef}
-                  activeCommentId={activeCommentId}
-                  onCommentClick={handleCommentClick}
-                  templateId={id}
-                  onResolve={handleMarginResolve}
-                  onDelete={handleMarginDelete}
-                  onReply={handleMarginReply}
-                  pendingAnchor={pendingAnchor}
-                  onSubmitComment={handleSubmitComment}
-                  onCancelComment={cancelComment}
-                  /* v8 ignore next 2 -- nullish coalescing fallback for missing user fields */
-                  authorName={user?.name ?? user?.email ?? ''}
-                  authorEmail={user?.email ?? ''}
-                  isCreating={isCreating}
-                  pendingCommentTop={selectionInfo.buttonPosition?.top ?? undefined}
-                />
-              )}
-            </Box>
-
-            {/* Source mode — raw markdown editor */}
-            <Box
-              data-testid="source-editor-wrapper"
-              sx={{
-                display: editorMode === 'source' ? 'block' : 'none',
-                maxWidth: 'var(--editor-max-width)',
-                mx: 'auto',
-              }}
-            >
-              <RawMarkdownEditor
-                value={content}
-                onChange={handleContentChange}
-                readOnly={isReadOnly}
-              />
             </Box>
           </Box>
         </Box>

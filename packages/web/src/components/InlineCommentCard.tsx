@@ -147,6 +147,17 @@ export function InlineCommentCard({
           cursor: 'pointer',
           width: '100%',
           boxSizing: 'border-box',
+          position: 'relative',
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            left: '-24px',
+            top: '20px',
+            width: '24px',
+            height: '1px',
+            backgroundColor: '#D1D2DE',
+            transition: 'background-color 200ms ease',
+          },
         }}
         onClick={() => {
           setExpanded((prev) => !prev);
@@ -193,8 +204,19 @@ export function InlineCommentCard({
         transition: 'box-shadow 200ms ease, border-color 200ms ease, background-color 200ms ease',
         width: '100%',
         boxSizing: 'border-box',
+        position: 'relative',
         '&:hover .comment-actions': { opacity: 1 },
         '& .comment-actions:focus-within': { opacity: 1 },
+        '&::before': {
+          content: '""',
+          position: 'absolute',
+          left: '-24px',
+          top: '20px',
+          width: '24px',
+          height: '1px',
+          backgroundColor: isActive === true ? '#8027FF' : '#D1D2DE',
+          transition: 'background-color 200ms ease',
+        },
         ...(isActive !== true && {
           '&:hover': {
             borderColor: '#D1D2DE',

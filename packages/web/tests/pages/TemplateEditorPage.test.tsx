@@ -489,8 +489,8 @@ vi.mock('../../src/contexts/CommentAnchorContext.js', () => ({
   ),
 }));
 
-vi.mock('../../src/components/FloatingCommentButton.js', () => ({
-  FloatingCommentButton: ({
+vi.mock('../../src/components/MarginCommentTrigger.js', () => ({
+  MarginCommentTrigger: ({
     onClick,
     visible,
   }: {
@@ -499,7 +499,7 @@ vi.mock('../../src/components/FloatingCommentButton.js', () => ({
     onClick: () => void;
   }) =>
     visible ? (
-      <button data-testid="floating-comment-button" onClick={onClick}>
+      <button data-testid="margin-comment-trigger" onClick={onClick}>
         Comment
       </button>
     ) : null,
@@ -1867,7 +1867,7 @@ describe('TemplateEditorPage', () => {
       expect(screen.queryByTestId('inline-comment-margin')).not.toBeInTheDocument();
     });
 
-    it('calls startComment when FloatingCommentButton is clicked in edit mode', async () => {
+    it('calls startComment when MarginCommentTrigger is clicked in edit mode', async () => {
       const user = userEvent.setup();
       mockUseEditorComments.mockReturnValue({
         selectionInfo: {
@@ -1883,7 +1883,7 @@ describe('TemplateEditorPage', () => {
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
-      const commentBtn = await screen.findByTestId('floating-comment-button');
+      const commentBtn = await screen.findByTestId('margin-comment-trigger');
       await user.click(commentBtn);
 
       expect(mockStartComment).toHaveBeenCalled();
@@ -2174,7 +2174,7 @@ describe('TemplateEditorPage', () => {
   });
 
   describe('handleAddComment', () => {
-    it('calls startComment when FloatingCommentButton is clicked in edit mode', async () => {
+    it('calls startComment when MarginCommentTrigger is clicked in edit mode', async () => {
       const user = userEvent.setup();
       mockUseParams.mockReturnValue({ id: 't1' });
       mockUseTemplate.mockReturnValue(
@@ -2183,7 +2183,7 @@ describe('TemplateEditorPage', () => {
         }),
       );
 
-      // Make the floating button visible by providing a selection
+      // Make the margin trigger visible by providing a selection
       mockUseEditorComments.mockReturnValue({
         selectionInfo: {
           hasSelection: true,
@@ -2198,7 +2198,7 @@ describe('TemplateEditorPage', () => {
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
-      const commentBtn = await screen.findByTestId('floating-comment-button');
+      const commentBtn = await screen.findByTestId('margin-comment-trigger');
       await user.click(commentBtn);
 
       expect(mockStartComment).toHaveBeenCalled();
@@ -2223,7 +2223,7 @@ describe('TemplateEditorPage', () => {
 
       render(<TemplateEditorPage />, { wrapper: Wrapper });
 
-      // In create mode, FloatingCommentButton is hidden (!isCreateMode && ...)
+      // In create mode, MarginCommentTrigger is hidden (!isCreateMode && ...)
       // But handleAddComment is also wired to keyboard shortcut onAddComment
       // Let's invoke it via the keyboard shortcuts mock
       const shortcutArgs = mockUseKeyboardShortcuts.mock.calls[0]?.[0] as {
@@ -2353,14 +2353,14 @@ describe('TemplateEditorPage', () => {
       expect(rawEditor).toHaveAttribute('readonly');
     });
 
-    it('does not show FloatingCommentButton or InlineCommentMargin in source mode', () => {
+    it('does not show MarginCommentTrigger or InlineCommentMargin in source mode', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
       renderDocumentHeader();
       act(() => {
         (latestDocumentHeaderProps.onModeChange as (m: string) => void)('source');
       });
 
-      // Edit mode container is hidden, so FloatingCommentButton inside it is hidden
+      // Edit mode container is hidden, so MarginCommentTrigger inside it is hidden
       const editContainer = screen.getByTestId('edit-editor-container');
       expect(editContainer).toHaveStyle({ display: 'none' });
 

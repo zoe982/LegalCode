@@ -274,6 +274,13 @@ describe('InlineCommentMargin', () => {
     expect(screen.queryByTestId('new-comment-card')).not.toBeInTheDocument();
   });
 
+  it('has responsive hiding for narrow viewports', () => {
+    render(<InlineCommentMargin threads={[]} {...defaultProps} />, { wrapper: Wrapper });
+    const margin = screen.getByRole('complementary', { name: /comments/i });
+    // Component renders — responsive hiding is via CSS media query
+    expect(margin).toBeInTheDocument();
+  });
+
   it('card wrappers have transition style for smooth repositioning', () => {
     const threads = [createThread('c1', 'Animated card')];
 

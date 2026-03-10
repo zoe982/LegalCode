@@ -88,6 +88,8 @@ export function InlineCommentMargin({
         left: '100%',
         ml: 3,
         width: 320,
+        display: 'block',
+        '@media (max-width: 1119px)': { display: 'none' },
       }}
     >
       {/* Comment cards */}

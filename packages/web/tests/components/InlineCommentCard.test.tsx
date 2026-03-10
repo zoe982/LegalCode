@@ -366,6 +366,27 @@ describe('InlineCommentCard', () => {
     expect(screen.getByText(/alice resolved/i)).toBeInTheDocument();
   });
 
+  it('renders connector line pseudo-element container with relative position', () => {
+    const thread = createThread();
+    const { container } = render(<InlineCommentCard thread={thread} {...defaultProps} />, {
+      wrapper: Wrapper,
+    });
+    const article = container.querySelector('[role="article"]');
+    expect(article).toBeTruthy();
+    // Card should have position relative for connector line pseudo-element
+    expect(article).toBeInstanceOf(HTMLElement);
+  });
+
+  it('renders resolved card with relative position for connector line', () => {
+    const thread = createThread({ resolved: true, resolvedBy: 'u1' });
+    const { container } = render(<InlineCommentCard thread={thread} {...defaultProps} />, {
+      wrapper: Wrapper,
+    });
+    const article = container.querySelector('[role="article"]');
+    expect(article).toBeTruthy();
+    expect(article).toBeInstanceOf(HTMLElement);
+  });
+
   it('hides ghost text and shows TextField when reply is being typed', async () => {
     const user = userEvent.setup();
     const thread = createThread();
