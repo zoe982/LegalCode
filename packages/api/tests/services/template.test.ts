@@ -32,6 +32,7 @@ function mockTemplateRow(overrides: Partial<Record<string, unknown>> = {}) {
     id: 't1',
     title: 'Test',
     slug: 'test-abc123',
+    displayId: 'TEM-AAA-001',
     category: 'contracts',
     description: null,
     country: null,
@@ -53,10 +54,22 @@ describe('template service', () => {
     db = getDb(createMockD1());
   });
 
+  // Helper: mock db.select() for display ID query (returns no existing templates by default)
+  function setupDisplayIdSelectMock(existingDisplayId?: string) {
+    const limitSpy = vi
+      .fn()
+      .mockResolvedValue(existingDisplayId ? [{ displayId: existingDisplayId }] : []);
+    const orderBySpy = vi.fn().mockReturnValue({ limit: limitSpy });
+    const whereSpy = vi.fn().mockReturnValue({ orderBy: orderBySpy });
+    const fromSpy = vi.fn().mockReturnValue({ where: whereSpy });
+    return { from: fromSpy } as never;
+  }
+
   // ── createTemplate ──────────────────────────────────────────────────
 
   describe('createTemplate', () => {
     it('returns db_error when db.batch throws', async () => {
+      vi.spyOn(db, 'select').mockReturnValue(setupDisplayIdSelectMock());
       vi.spyOn(db, 'batch').mockRejectedValue(new Error('D1_ERROR'));
 
       const result = await createTemplate(
@@ -70,6 +83,7 @@ describe('template service', () => {
 
     it('logs error to console.error when batch insert fails', async () => {
       const dbError = new Error('D1_ERROR');
+      vi.spyOn(db, 'select').mockReturnValue(setupDisplayIdSelectMock());
       vi.spyOn(db, 'batch').mockRejectedValue(dbError);
       const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
@@ -84,6 +98,7 @@ describe('template service', () => {
     });
 
     it('returns db_error on UNIQUE constraint failure', async () => {
+      vi.spyOn(db, 'select').mockReturnValue(setupDisplayIdSelectMock());
       vi.spyOn(db, 'batch').mockRejectedValue(
         new Error('UNIQUE constraint failed: templates.slug'),
       );
@@ -101,6 +116,7 @@ describe('template service', () => {
     });
 
     it('generates slug from title with random suffix', async () => {
+      vi.spyOn(db, 'select').mockReturnValue(setupDisplayIdSelectMock());
       vi.spyOn(db, 'batch').mockResolvedValue([] as never);
 
       const result = await createTemplate(
@@ -115,6 +131,7 @@ describe('template service', () => {
     });
 
     it('strips special characters from slug', async () => {
+      vi.spyOn(db, 'select').mockReturnValue(setupDisplayIdSelectMock());
       vi.spyOn(db, 'batch').mockResolvedValue([] as never);
 
       const result = await createTemplate(
@@ -127,6 +144,7 @@ describe('template service', () => {
     });
 
     it('creates template with currentVersion 1 and null deletedAt', async () => {
+      vi.spyOn(db, 'select').mockReturnValue(setupDisplayIdSelectMock());
       const batchSpy = vi.spyOn(db, 'batch').mockResolvedValue([] as never);
 
       const result = await createTemplate(
@@ -145,6 +163,7 @@ describe('template service', () => {
     });
 
     it('creates version 1 with Initial version changeSummary', async () => {
+      vi.spyOn(db, 'select').mockReturnValue(setupDisplayIdSelectMock());
       const batchSpy = vi.spyOn(db, 'batch').mockResolvedValue([] as never);
 
       await createTemplate(
@@ -160,7 +179,11 @@ describe('template service', () => {
     it('creates tags when provided', async () => {
       const batchSpy = vi.spyOn(db, 'batch').mockResolvedValue([] as never);
 
-      vi.spyOn(db, 'select').mockReturnValue({
+      const selectSpy = vi.spyOn(db, 'select');
+      // First call: display ID query
+      selectSpy.mockReturnValueOnce(setupDisplayIdSelectMock());
+      // Subsequent calls: tag resolution
+      selectSpy.mockReturnValue({
         from: vi.fn().mockReturnValue({
           where: vi.fn().mockResolvedValue([]),
         }),
@@ -186,7 +209,11 @@ describe('template service', () => {
       vi.spyOn(db, 'batch').mockResolvedValue([] as never);
 
       const existingTag = { id: 'tag-existing', name: 'employment' };
-      vi.spyOn(db, 'select').mockReturnValue({
+      const selectSpy = vi.spyOn(db, 'select');
+      // First call: display ID query
+      selectSpy.mockReturnValueOnce(setupDisplayIdSelectMock());
+      // Subsequent calls: tag resolution
+      selectSpy.mockReturnValue({
         from: vi.fn().mockReturnValue({
           where: vi.fn().mockResolvedValue([existingTag]),
         }),
@@ -207,6 +234,7 @@ describe('template service', () => {
     });
 
     it('returns template with tags array', async () => {
+      vi.spyOn(db, 'select').mockReturnValue(setupDisplayIdSelectMock());
       vi.spyOn(db, 'batch').mockResolvedValue([] as never);
 
       const result = await createTemplate(
@@ -226,6 +254,7 @@ describe('template service', () => {
     });
 
     it('sets country to null when not provided', async () => {
+      vi.spyOn(db, 'select').mockReturnValue(setupDisplayIdSelectMock());
       vi.spyOn(db, 'batch').mockResolvedValue([] as never);
 
       const result = await createTemplate(
@@ -241,6 +270,7 @@ describe('template service', () => {
     });
 
     it('sets country when provided', async () => {
+      vi.spyOn(db, 'select').mockReturnValue(setupDisplayIdSelectMock());
       vi.spyOn(db, 'batch').mockResolvedValue([] as never);
 
       const result = await createTemplate(
@@ -256,6 +286,7 @@ describe('template service', () => {
     });
 
     it('sets createdBy to the userId', async () => {
+      vi.spyOn(db, 'select').mockReturnValue(setupDisplayIdSelectMock());
       vi.spyOn(db, 'batch').mockResolvedValue([] as never);
 
       const result = await createTemplate(
@@ -267,6 +298,54 @@ describe('template service', () => {
       expect('template' in result).toBe(true);
       if ('template' in result) {
         expect(result.template.createdBy).toBe('author-42');
+      }
+    });
+
+    it('assigns TEM-AAA-001 as displayId when no templates exist', async () => {
+      vi.spyOn(db, 'select').mockReturnValue(setupDisplayIdSelectMock());
+      vi.spyOn(db, 'batch').mockResolvedValue([] as never);
+
+      const result = await createTemplate(
+        db,
+        { title: 'First', category: 'contracts', content: '# First' },
+        'user-1',
+      );
+
+      expect('template' in result).toBe(true);
+      if ('template' in result) {
+        expect(result.template.displayId).toBe('TEM-AAA-001');
+      }
+    });
+
+    it('increments displayId based on highest existing one', async () => {
+      vi.spyOn(db, 'select').mockReturnValue(setupDisplayIdSelectMock('TEM-AAA-005'));
+      vi.spyOn(db, 'batch').mockResolvedValue([] as never);
+
+      const result = await createTemplate(
+        db,
+        { title: 'Sixth', category: 'contracts', content: '# Sixth' },
+        'user-1',
+      );
+
+      expect('template' in result).toBe(true);
+      if ('template' in result) {
+        expect(result.template.displayId).toBe('TEM-AAA-006');
+      }
+    });
+
+    it('rolls over letter group when numeric portion exceeds 999', async () => {
+      vi.spyOn(db, 'select').mockReturnValue(setupDisplayIdSelectMock('TEM-AAA-999'));
+      vi.spyOn(db, 'batch').mockResolvedValue([] as never);
+
+      const result = await createTemplate(
+        db,
+        { title: 'Thousandth', category: 'contracts', content: '# 1000' },
+        'user-1',
+      );
+
+      expect('template' in result).toBe(true);
+      if ('template' in result) {
+        expect(result.template.displayId).toBe('TEM-AAB-001');
       }
     });
   });

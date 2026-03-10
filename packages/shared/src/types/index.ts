@@ -23,6 +23,7 @@ export interface Template {
   id: string;
   title: string;
   slug: string;
+  displayId: string;
   category: string;
   description: string | null;
   country: string | null;

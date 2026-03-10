@@ -62,6 +62,7 @@ const mockTemplate: Template = {
   id: 't1',
   title: 'Service Agreement',
   slug: 'service-agreement',
+  displayId: 'TEM-AAA-001',
   category: 'contracts',
   description: null,
   country: 'US',

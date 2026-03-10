@@ -28,6 +28,7 @@ const deletedTemplate: Template = {
   id: 'tpl-1',
   title: 'Old NDA',
   slug: 'old-nda',
+  displayId: 'TEM-AAA-001',
   category: 'NDA',
   description: null,
   country: null,

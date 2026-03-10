@@ -40,6 +40,7 @@ export const templateSchema = z.object({
   id: z.string(),
   title: z.string(),
   slug: z.string(),
+  displayId: z.string(),
   category: z.string(),
   description: z.string().nullable(),
   country: z.string().nullable(),

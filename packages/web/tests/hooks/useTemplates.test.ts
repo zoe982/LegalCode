@@ -64,6 +64,7 @@ const mockTemplate: Template = {
   id: 'tpl-1',
   title: 'NDA',
   slug: 'nda',
+  displayId: 'TEM-AAA-001',
   category: 'contracts',
   description: null,
   country: null,

@@ -13,6 +13,7 @@ export const templates = sqliteTable('templates', {
   id: text('id').primaryKey(),
   title: text('title').notNull(),
   slug: text('slug').notNull().unique(),
+  displayId: text('display_id').notNull().default(''),
   category: text('category').notNull(),
   description: text('description'),
   country: text('country'),

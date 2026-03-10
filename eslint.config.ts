@@ -31,6 +31,7 @@ export default tseslint.config(
       '**/.wrangler/',
       'drizzle/',
       'drizzle.config.ts',
+      'scripts/',
       'pw-auth.mjs',
     ],
   },

@@ -70,19 +70,52 @@ export function TemplateCard({ template, onClick, onDelete }: TemplateCardProps)
     >
       {/* Top row: category + menu */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography
-          sx={{
-            fontFamily: '"DM Sans", sans-serif',
-            fontSize: '0.6875rem',
-            fontWeight: 600,
-            letterSpacing: '0.05em',
-            textTransform: 'uppercase',
-            color: '#6B6D82',
-            lineHeight: 1,
-          }}
-        >
-          {template.category}
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <Typography
+            sx={{
+              fontFamily: '"DM Sans", sans-serif',
+              fontSize: '0.6875rem',
+              fontWeight: 600,
+              letterSpacing: '0.05em',
+              textTransform: 'uppercase',
+              color: '#6B6D82',
+              lineHeight: 1,
+            }}
+          >
+            {template.category}
+          </Typography>
+          {template.country != null && template.country !== '' && (
+            <>
+              <Typography
+                component="span"
+                sx={{
+                  fontFamily: '"DM Sans", sans-serif',
+                  fontSize: '0.6875rem',
+                  fontWeight: 600,
+                  color: '#6B6D82',
+                  lineHeight: 1,
+                }}
+              >
+                {'\u00B7'}
+              </Typography>
+              <Typography
+                component="span"
+                data-testid="template-card-country"
+                sx={{
+                  fontFamily: '"DM Sans", sans-serif',
+                  fontSize: '0.6875rem',
+                  fontWeight: 600,
+                  letterSpacing: '0.05em',
+                  textTransform: 'uppercase',
+                  color: '#6B6D82',
+                  lineHeight: 1,
+                }}
+              >
+                {template.country}
+              </Typography>
+            </>
+          )}
+        </Box>
         {onDelete != null && (
           <IconButton
             aria-label="Template actions"
@@ -186,6 +219,28 @@ export function TemplateCard({ template, onClick, onDelete }: TemplateCardProps)
           mt: 1.5,
         }}
       >
+        <Typography
+          sx={{
+            fontFamily: '"DM Sans", sans-serif',
+            fontSize: '0.75rem',
+            color: '#9B9DB0',
+            lineHeight: 1,
+          }}
+        >
+          {template.displayId}
+        </Typography>
+        <Typography
+          component="span"
+          data-testid="separator-dot"
+          sx={{
+            fontFamily: '"DM Sans", sans-serif',
+            fontSize: '0.75rem',
+            color: '#9B9DB0',
+            lineHeight: 1,
+          }}
+        >
+          {'\u00B7'}
+        </Typography>
         <Typography
           sx={{
             fontFamily: '"DM Sans", sans-serif',

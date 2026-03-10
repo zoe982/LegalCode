@@ -573,6 +573,7 @@ const draftTemplate: Template = {
   id: 't1',
   title: 'Employment Agreement',
   slug: 'employment-agreement-abc123',
+  displayId: 'TEM-AAA-001',
   category: 'Employment',
   description: null,
   country: 'US',

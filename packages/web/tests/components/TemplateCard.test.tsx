@@ -9,6 +9,7 @@ const mockTemplate: Template = {
   id: 't1',
   title: 'Employment Agreement',
   slug: 'employment-agreement-abc123',
+  displayId: 'TEM-AAA-001',
   category: 'Employment',
   description: null,
   country: 'US',
@@ -218,5 +219,31 @@ describe('TemplateCard', () => {
     menuBtn.focus();
     menuBtn.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
     expect(onClick).not.toHaveBeenCalled();
+  });
+
+  // displayId tests
+  it('renders displayId in metadata', () => {
+    render(<TemplateCard template={mockTemplate} onClick={onClick} />);
+    expect(screen.getByText('TEM-AAA-001')).toBeInTheDocument();
+  });
+
+  // country tests
+  it('renders country next to category when present', () => {
+    render(<TemplateCard template={mockTemplate} onClick={onClick} />);
+    const countryEl = screen.getByTestId('template-card-country');
+    expect(countryEl).toBeInTheDocument();
+    expect(countryEl).toHaveTextContent('US');
+  });
+
+  it('does not render country when null', () => {
+    const templateNoCountry = { ...mockTemplate, country: null };
+    render(<TemplateCard template={templateNoCountry} onClick={onClick} />);
+    expect(screen.queryByTestId('template-card-country')).not.toBeInTheDocument();
+  });
+
+  it('does not render country when empty string', () => {
+    const templateEmptyCountry = { ...mockTemplate, country: '' };
+    render(<TemplateCard template={templateEmptyCountry} onClick={onClick} />);
+    expect(screen.queryByTestId('template-card-country')).not.toBeInTheDocument();
   });
 });

@@ -1,9 +1,10 @@
-import { eq, and, like, sql, desc, inArray, isNull, isNotNull, lt } from 'drizzle-orm';
+import { eq, ne, and, like, sql, desc, inArray, isNull, isNotNull, lt } from 'drizzle-orm';
 import type { BatchItem } from 'drizzle-orm/batch';
 import { updateTemplateSchema, templateQuerySchema } from '@legalcode/shared';
 import type { CreateTemplateInput, UpdateTemplateInput, TemplateQuery } from '@legalcode/shared';
 import type { AppDb } from '../db/index.js';
 import { batchOps } from '../utils/db.js';
+import { sequenceToDisplayId, displayIdToSequence } from '../utils/display-id.js';
 import {
   templates,
   templateVersions,
@@ -70,10 +71,28 @@ export async function createTemplate(
   const versionId = crypto.randomUUID();
   const tagNames = input.tags ?? [];
 
+  // Generate next display ID by finding the highest existing one (including deleted templates)
+  const maxDisplayIdRows = await db
+    .select({ displayId: templates.displayId })
+    .from(templates)
+    .where(ne(templates.displayId, ''))
+    .orderBy(desc(templates.displayId))
+    .limit(1);
+
+  const maxRow = maxDisplayIdRows[0];
+  let nextSeq: number;
+  if (maxRow?.displayId) {
+    nextSeq = displayIdToSequence(maxRow.displayId) + 1;
+  } else {
+    nextSeq = 1;
+  }
+  const displayId = sequenceToDisplayId(nextSeq);
+
   const templateRow = {
     id,
     title: input.title,
     slug,
+    displayId,
     category: input.category,
     description: input.description ?? null,
     country: input.country ?? null,
