@@ -200,11 +200,15 @@ describe('useCollaboration', () => {
     });
     expect(result.current.status).toBe('connected');
 
-    // Trigger close
+    // Trigger close — onclose is deferred via queueMicrotask
     act(() => {
       const ws = wsRef();
       ws.readyState = MockWebSocket.CLOSED;
       ws.onclose?.();
+    });
+    // Flush microtask queue so deferred onclose handler runs
+    await act(async () => {
+      await Promise.resolve();
     });
 
     expect(result.current.status).toBe('reconnecting');
@@ -219,10 +223,13 @@ describe('useCollaboration', () => {
       await vi.runAllTimersAsync();
     });
 
-    // Close triggers reconnect schedule
+    // Close triggers reconnect schedule — onclose is deferred via queueMicrotask
     act(() => {
       const ws = wsRef();
       ws.onclose?.();
+    });
+    await act(async () => {
+      await Promise.resolve();
     });
     expect(result.current.status).toBe('reconnecting');
 
@@ -263,6 +270,9 @@ describe('useCollaboration', () => {
     act(() => {
       const ws = wsRef();
       ws.onclose?.();
+    });
+    await act(async () => {
+      await Promise.resolve();
     });
 
     // Unmount before reconnect fires — should clear the timer
@@ -347,6 +357,9 @@ describe('useCollaboration', () => {
     act(() => {
       wsRef().onclose?.();
     });
+    await act(async () => {
+      await Promise.resolve();
+    });
     expect(result.current.status).toBe('reconnecting');
 
     // Simulate 5 failed reconnect attempts
@@ -361,6 +374,9 @@ describe('useCollaboration', () => {
         const ws = wsRef();
         ws.readyState = 3; // CLOSED
         ws.onclose?.();
+      });
+      await act(async () => {
+        await Promise.resolve();
       });
     }
 
@@ -415,6 +431,9 @@ describe('useCollaboration', () => {
       const ws = wsRef();
       ws.readyState = MockWebSocket.CLOSED;
       ws.onclose?.();
+    });
+    await act(async () => {
+      await Promise.resolve();
     });
     expect(result.current.status).toBe('reconnecting');
 
@@ -638,6 +657,9 @@ describe('useCollaboration', () => {
     act(() => {
       wsRef().onclose?.();
     });
+    await act(async () => {
+      await Promise.resolve();
+    });
 
     const delays = [1000, 2000, 4000, 8000, 16000];
     for (const delay of delays) {
@@ -648,6 +670,9 @@ describe('useCollaboration', () => {
         const ws = wsRef();
         ws.readyState = 3;
         ws.onclose?.();
+      });
+      await act(async () => {
+        await Promise.resolve();
       });
     }
 
@@ -675,6 +700,9 @@ describe('useCollaboration', () => {
     // Close and reconnect successfully
     act(() => {
       wsRef().onclose?.();
+    });
+    await act(async () => {
+      await Promise.resolve();
     });
     expect(result.current.status).toBe('reconnecting');
 
@@ -749,6 +777,9 @@ describe('useCollaboration', () => {
     act(() => {
       wsRef().onclose?.();
     });
+    await act(async () => {
+      await Promise.resolve();
+    });
 
     const delays = [1000, 2000, 4000, 8000, 16000];
     for (const delay of delays) {
@@ -759,6 +790,9 @@ describe('useCollaboration', () => {
         const ws = wsRef();
         ws.readyState = 3;
         ws.onclose?.();
+      });
+      await act(async () => {
+        await Promise.resolve();
       });
     }
 
@@ -832,15 +866,16 @@ describe('useCollaboration', () => {
     vi.useFakeTimers();
     const OriginalMockWebSocket = MockWebSocket;
 
-    // Track onclose callbacks that will be fired manually (async close simulation)
-    const pendingOnCloseCallbacks: (() => void)[] = [];
+    // Track onclose callbacks captured BEFORE cleanup nullifies them.
+    // This simulates a browser delivering the close event asynchronously
+    // after the handler was already set (before React cleanup runs).
+    const capturedOnCloseHandlers: (() => void)[] = [];
 
-    // AsyncCloseWebSocket: close() does NOT fire onclose synchronously.
-    // Instead, it stores the callback so the test can fire it later,
-    // simulating the real browser behavior where onclose is async.
+    // CaptureWebSocket: captures onclose handler in onopen so we can fire it
+    // later as a "stale" event from the old effect generation.
     vi.stubGlobal(
       'WebSocket',
-      class AsyncCloseWebSocket {
+      class CaptureWebSocket {
         static CONNECTING = 0;
         static OPEN = 1;
         static CLOSING = 2;
@@ -852,19 +887,17 @@ describe('useCollaboration', () => {
         onerror: (() => void) | null = null;
         binaryType = 'blob';
         send = vi.fn();
+        close = vi.fn();
         url: string;
-        close() {
-          // Store the onclose callback for deferred firing — do NOT call it now
-          this.readyState = 3;
-          if (this.onclose) {
-            pendingOnCloseCallbacks.push(this.onclose);
-          }
-        }
         constructor(url: string) {
           this.url = url;
           wsInstances.push(this as unknown as MockWebSocket);
           setTimeout(() => {
             this.readyState = 1;
+            // Capture the onclose handler while it's still attached
+            if (this.onclose) {
+              capturedOnCloseHandlers.push(this.onclose);
+            }
             this.onopen?.();
           }, 0);
         }
@@ -881,11 +914,11 @@ describe('useCollaboration', () => {
       await vi.runAllTimersAsync();
     });
     expect(result.current.status).toBe('connected');
-    expect(pendingOnCloseCallbacks).toHaveLength(0);
+    // The first WS's onclose handler was captured during onopen
+    expect(capturedOnCloseHandlers).toHaveLength(1);
 
     // Step 2: Re-render with a changed user value (different color).
-    // This triggers effect cleanup → ws.close() → onclose is NOT fired (stored).
-    // Then the new effect starts, creates a new WebSocket.
+    // Cleanup nullifies handlers and closes the old WS. New effect starts.
     currentUser = { ...testUser, color: '#00ff00' };
     rerender({ user: currentUser });
 
@@ -894,24 +927,24 @@ describe('useCollaboration', () => {
       await vi.runAllTimersAsync();
     });
     expect(result.current.status).toBe('connected');
+    // Second WS's onclose also captured
+    expect(capturedOnCloseHandlers).toHaveLength(2);
 
-    // There should be exactly 1 pending onclose from the OLD WebSocket
-    expect(pendingOnCloseCallbacks).toHaveLength(1);
-
-    // Step 4: NOW fire the stale onclose from the OLD WebSocket.
-    // Bug: The new effect has reset closingRef.current = false, so the stale
-    // onclose handler sees closingRef.current === false and calls
-    // setStatus('reconnecting') even though the new connection is fine.
+    // Step 4: Fire the stale onclose from the OLD WebSocket (captured before cleanup).
+    // The generation counter ensures this is ignored since generationRef.current
+    // was incremented by the new effect run.
     act(() => {
-      const staleOnclose = pendingOnCloseCallbacks[0];
-      if (!staleOnclose) throw new Error('Expected pending onclose callback');
+      const staleOnclose = capturedOnCloseHandlers[0];
+      if (!staleOnclose) throw new Error('Expected captured onclose callback');
       staleOnclose();
     });
+    // Flush microtask queue (onclose is deferred via queueMicrotask)
+    await act(async () => {
+      await Promise.resolve();
+    });
 
-    // The status should still be 'connected' — the stale onclose should be ignored.
-    // With the bug, this will be 'reconnecting' because onclose only checks
-    // closingRef.current (a ref, shared across effect runs) instead of the
-    // closure-local `cancelled` variable.
+    // The status should still be 'connected' — the stale onclose should be ignored
+    // because its captured generation no longer matches generationRef.current.
     expect(result.current.status).toBe('connected');
 
     vi.stubGlobal('WebSocket', OriginalMockWebSocket);
@@ -1043,6 +1076,9 @@ describe('useCollaboration', () => {
         ws1.onclose?.();
       }
     });
+    await act(async () => {
+      await Promise.resolve();
+    });
     expect(result.current.status).toBe('reconnecting');
 
     // Step 3: Reconnect timer fires → connect() creates WS2
@@ -1067,6 +1103,9 @@ describe('useCollaboration', () => {
     if (staleOnclose) {
       act(() => {
         staleOnclose();
+      });
+      await act(async () => {
+        await Promise.resolve();
       });
     }
 
@@ -1145,17 +1184,14 @@ describe('useCollaboration', () => {
     vi.stubGlobal('WebSocket', OriginalMockWebSocket);
   });
 
-  it('safety net: forces disconnect and reports error after >8 rapid status changes in 5s', async () => {
-    vi.useFakeTimers({ now: 1000 });
+  it('reconnect counter is only reset after connection is stable for 5 seconds', async () => {
+    vi.useFakeTimers();
     const OriginalMockWebSocket = MockWebSocket;
 
-    // WebSocket that opens and then closes synchronously when close() is called.
-    // This creates a tight loop: each close fires onclose → safeSetStatus('reconnecting'),
-    // then scheduleReconnect sets a timer. When we advance timers rapidly, many status
-    // changes accumulate within the fake-time 5s window.
+    // WebSocket where we control open/close manually
     vi.stubGlobal(
       'WebSocket',
-      class SyncCloseWebSocket {
+      class ManualWebSocket {
         static CONNECTING = 0;
         static OPEN = 1;
         static CLOSING = 2;
@@ -1167,18 +1203,12 @@ describe('useCollaboration', () => {
         onerror: (() => void) | null = null;
         binaryType = 'blob';
         send = vi.fn();
-        close = vi.fn().mockImplementation(function (this: {
-          readyState: number;
-          onclose: (() => void) | null;
-        }) {
-          this.readyState = 3;
-          this.onclose?.();
-        });
+        close = vi.fn();
         url: string;
         constructor(url: string) {
           this.url = url;
           wsInstances.push(this as unknown as MockWebSocket);
-          // Auto-open in microtask
+          // Auto-open after microtask
           setTimeout(() => {
             this.readyState = 1;
             this.onopen?.();
@@ -1189,62 +1219,92 @@ describe('useCollaboration', () => {
 
     const { result } = renderHook(() => useCollaboration('tmpl-1', testUser));
 
-    // Open initial connection
+    // Step 1: Open initial connection (advance only enough to fire setTimeout(0))
     await act(async () => {
-      await vi.runAllTimersAsync();
+      await vi.advanceTimersByTimeAsync(1);
     });
     expect(result.current.status).toBe('connected');
 
-    // Rapidly cycle through close → reconnect → close → reconnect without advancing
-    // fake time significantly. Since Date.now() stays near t=1000ms, the 5s window
-    // accumulates all status changes quickly.
-    // Each manual close triggers: safeSetStatus('reconnecting') → scheduleReconnect (1000ms timer)
-    // Each reconnect open triggers: safeSetStatus('connecting') + safeSetStatus('connected')
-    // Cycle count: 4 cycles * ~3 status changes = 12 changes within ~0ms fake time window.
-    for (let i = 0; i < 4; i++) {
-      // Trigger close synchronously — fires onclose → safeSetStatus('reconnecting')
-      act(() => {
-        wsRef().onclose?.();
-      });
-      // Advance 100ms (well under the 5s safety window) to trigger reconnect timer
-      // The reconnect timer is 1000ms * 2^i, so advance enough to fire it
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(1000);
-      });
-      // Let the new WebSocket open (setTimeout(..., 0))
-      await act(async () => {
-        await vi.runAllTimersAsync();
-      });
-    }
+    // Step 2: Close the WebSocket (server drop) before 5s stability timer fires
+    act(() => {
+      const ws = wsRef();
+      ws.readyState = 3;
+      ws.onclose?.();
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(result.current.status).toBe('reconnecting');
 
-    // After enough rapid cycles, the safety net should have triggered.
-    // The exact timing depends on when >5 accumulate within the 5s window,
-    // but we verify the invariant: once triggered, status is 'disconnected'
-    // and reportError was called with the render-loop message.
-    // If it has NOT triggered yet (fewer than 5 in the window), we accept
-    // either 'disconnected' (safety triggered) or 'connected'/'reconnecting'
-    // (normal operation, safety not yet triggered but no crash).
-    const finalStatus = result.current.status;
-    if (finalStatus === 'disconnected') {
-      // Safety net triggered — verify error was reported
-      expect(mockReportError).toHaveBeenCalledWith(
-        expect.objectContaining({
-          source: 'websocket',
-          severity: 'error',
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- vitest asymmetric matcher
-          message: expect.stringContaining('Render loop detected'),
-        }),
-      );
-    }
-    // Either way, the hook should not crash
-    expect(['connected', 'connecting', 'reconnecting', 'disconnected']).toContain(finalStatus);
+    // Step 3: Advance past first reconnect delay (1000ms) — reconnect attempt 1
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+    // New WebSocket's setTimeout(onopen, 0) needs to fire
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+    expect(result.current.status).toBe('connected');
+
+    // Step 4: Immediately close again (before 5s stability timer fires)
+    // The reconnect counter should NOT have been reset to 0 yet
+    act(() => {
+      const ws = wsRef();
+      ws.readyState = 3;
+      ws.onclose?.();
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(result.current.status).toBe('reconnecting');
+
+    // Step 5: Next reconnect should use delay index 1 (2000ms), not 0 (1000ms),
+    // proving the counter was not reset prematurely
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+    // After only 1000ms, should still be reconnecting (not connecting)
+    // because the next delay is 2000ms
+    expect(result.current.status).toBe('reconnecting');
+
+    // Advance another 1000ms to reach 2000ms total
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+    expect(result.current.status).toBe('connecting');
+
+    // Step 6: Let this connection open (setTimeout(onopen, 0))
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+    expect(result.current.status).toBe('connected');
+
+    // Advance 5 seconds for stability timer to fire and reset counter
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+
+    // Step 7: Close again — should use delay index 0 (1000ms) since counter was reset
+    act(() => {
+      const ws = wsRef();
+      ws.readyState = 3;
+      ws.onclose?.();
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(result.current.status).toBe('reconnecting');
+
+    // After 1000ms, should be connecting (delay index 0 = 1000ms)
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+    expect(result.current.status).toBe('connecting');
 
     vi.stubGlobal('WebSocket', OriginalMockWebSocket);
   });
 
-  it('safety net: does not trigger during normal reconnect cycle with delays', async () => {
-    // The safety net should NOT fire during normal network drops and reconnects
-    // because the reconnect delays (1s, 2s, 4s...) space out the status changes
+  it('handles normal reconnect cycle without errors', async () => {
     vi.useFakeTimers();
     const { result } = renderHook(() => useCollaboration('tmpl-1', testUser));
 
@@ -1258,6 +1318,9 @@ describe('useCollaboration', () => {
     act(() => {
       wsRef().onclose?.();
     });
+    await act(async () => {
+      await Promise.resolve();
+    });
     expect(result.current.status).toBe('reconnecting');
 
     // Advance through reconnect delay and let new connection open
@@ -1269,7 +1332,6 @@ describe('useCollaboration', () => {
     });
 
     expect(result.current.status).toBe('connected');
-    // Safety net should NOT have fired during normal operation
     expect(mockReportError).not.toHaveBeenCalled();
   });
 
@@ -1287,6 +1349,9 @@ describe('useCollaboration', () => {
     act(() => {
       wsRef().onclose?.();
     });
+    await act(async () => {
+      await Promise.resolve();
+    });
     expect(result.current.status).toBe('reconnecting');
 
     // Capture render count proxy: track status value before second close
@@ -1296,6 +1361,9 @@ describe('useCollaboration', () => {
     // The statusRef guard should prevent a redundant state update and re-render.
     act(() => {
       wsRef().onclose?.();
+    });
+    await act(async () => {
+      await Promise.resolve();
     });
 
     // Status must remain 'reconnecting' — no state change, no redundant transition

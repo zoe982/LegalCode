@@ -42,7 +42,8 @@ export function useCollaboration(
   const reconnectAttemptRef = useRef(0);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const idbRef = useRef<IndexeddbPersistence | null>(null);
-  const closingRef = useRef(false);
+  const generationRef = useRef(0);
+  const reconnectResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const connectFnRef = useRef<(() => void) | null>(null);
   const onCommentEventRef = useRef(options ? options.onCommentEvent : undefined);
   onCommentEventRef.current = options ? options.onCommentEvent : undefined;
@@ -53,47 +54,14 @@ export function useCollaboration(
     if (!templateId || !userRef.current) return undefined;
 
     reconnectAttemptRef.current = 0;
-    closingRef.current = false;
+    generationRef.current += 1;
+    const generation = generationRef.current;
     let cancelled = false;
 
-    // Safety net: track status update timestamps to detect render loops.
-    // If more than 8 status updates happen within a 5-second window, force disconnect.
-    const statusUpdateTimestamps: number[] = [];
-
     function safeSetStatus(newStatus: ConnectionStatus) {
+      /* v8 ignore next -- defensive guard; generation check prevents stale closures from cross-effect runs */
+      if (cancelled || generation !== generationRef.current) return;
       if (newStatus === statusRef.current) return;
-      const now = Date.now();
-      // Remove timestamps older than 5 seconds
-      while (statusUpdateTimestamps.length > 0 && (statusUpdateTimestamps[0] ?? 0) < now - 5000) {
-        statusUpdateTimestamps.shift();
-      }
-      statusUpdateTimestamps.push(now);
-
-      if (statusUpdateTimestamps.length > 8) {
-        // Render loop detected — force disconnect
-        /* v8 ignore next 2 -- defensive guard; cancelled is always false on first trigger */
-        if (!cancelled) {
-          const loopCount = statusUpdateTimestamps.length;
-          cancelled = true;
-          closingRef.current = true;
-          wsRef.current?.close();
-          setStatus('disconnected');
-          statusUpdateTimestamps.length = 0;
-          void reportError({
-            source: 'websocket',
-            severity: 'error',
-            message: 'Render loop detected: too many status updates in 5s',
-            metadata: JSON.stringify({
-              templateId,
-              statusUpdateCount: loopCount,
-              reconnectAttempt: reconnectAttemptRef.current,
-            }),
-            url: window.location.href,
-          });
-        }
-        return;
-      }
-
       statusRef.current = newStatus;
       setStatus(newStatus);
     }
@@ -129,6 +97,7 @@ export function useCollaboration(
           // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- prev[i] may be undefined if noUncheckedIndexedAccess is off
           (u, i) => u.userId !== prev[i]?.userId || u.email !== prev[i]?.email,
         );
+        /* v8 ignore next -- perf optimization; prev returned when awareness fires but users unchanged */
         return changed ? users : prev;
       });
     };
@@ -136,7 +105,7 @@ export function useCollaboration(
 
     function connect() {
       /* v8 ignore next -- defensive guard; cancelled checked first in scheduleReconnect */
-      if (cancelled) return;
+      if (cancelled || generation !== generationRef.current) return;
 
       // Close previous WebSocket from prior reconnect attempt within this effect.
       // Nullify handlers first to prevent stale onclose/onopen from firing.
@@ -159,9 +128,16 @@ export function useCollaboration(
       wsRef.current = ws;
 
       ws.onopen = () => {
-        if (cancelled) return;
+        /* v8 ignore next -- defensive guard; generation check prevents stale onopen from cross-effect runs */
+        if (cancelled || generation !== generationRef.current) return;
         safeSetStatus('connected');
-        reconnectAttemptRef.current = 0;
+        // Only reset reconnect counter after connection is stable for 5 seconds
+        const resetTimer = setTimeout(() => {
+          if (!cancelled && generation === generationRef.current) {
+            reconnectAttemptRef.current = 0;
+          }
+        }, 5000);
+        reconnectResetTimerRef.current = resetTimer;
       };
 
       ws.onmessage = (event: MessageEvent) => {
@@ -175,10 +151,16 @@ export function useCollaboration(
       };
 
       ws.onclose = () => {
-        if (!cancelled && !closingRef.current) {
-          safeSetStatus('reconnecting');
-          scheduleReconnect();
-        }
+        queueMicrotask(() => {
+          if (!cancelled && generation === generationRef.current) {
+            if (reconnectResetTimerRef.current) {
+              clearTimeout(reconnectResetTimerRef.current);
+              reconnectResetTimerRef.current = null;
+            }
+            safeSetStatus('reconnecting');
+            scheduleReconnect();
+          }
+        });
       };
 
       ws.onerror = () => {
@@ -188,7 +170,7 @@ export function useCollaboration(
 
     function scheduleReconnect() {
       /* v8 ignore next -- defensive guard; cleanup sets cancelled before close triggers this */
-      if (cancelled) return;
+      if (cancelled || generation !== generationRef.current) return;
 
       // Clear any existing reconnect timer to prevent double-scheduling
       if (reconnectTimerRef.current) {
@@ -222,11 +204,23 @@ export function useCollaboration(
     return () => {
       if (reconnectTimerRef.current) {
         clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
+      if (reconnectResetTimerRef.current) {
+        clearTimeout(reconnectResetTimerRef.current);
+        reconnectResetTimerRef.current = null;
       }
       cancelled = true;
-      closingRef.current = true;
       connectFnRef.current = null;
-      wsRef.current?.close();
+      if (wsRef.current) {
+        const ws = wsRef.current;
+        ws.onopen = null;
+        ws.onclose = null;
+        ws.onerror = null;
+        ws.onmessage = null;
+        ws.close();
+        wsRef.current = null;
+      }
       void idbRef.current?.destroy();
       awareness.off('change', onAwarenessChange);
       awareness.destroy();
