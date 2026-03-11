@@ -148,6 +148,7 @@ describe('numberingPlugin', () => {
         endPos: 50,
         bodyPreview: 'Intro text',
         number: '1.',
+        isTitle: false,
       },
     ];
     mockExtractHeadingTree.mockReturnValue(entries);
@@ -197,8 +198,24 @@ describe('numberingPlugin', () => {
 
   it('widget decorations are created at entry.pos + 1 for each heading', () => {
     const entries: HeadingEntry[] = [
-      { level: 1, text: 'Intro', pos: 2, endPos: 30, bodyPreview: '', number: '1.' },
-      { level: 2, text: 'Sub', pos: 35, endPos: 60, bodyPreview: '', number: '1.1' },
+      {
+        level: 1,
+        text: 'Intro',
+        pos: 2,
+        endPos: 30,
+        bodyPreview: '',
+        number: '1.',
+        isTitle: false,
+      },
+      {
+        level: 2,
+        text: 'Sub',
+        pos: 35,
+        endPos: 60,
+        bodyPreview: '',
+        number: '1.1',
+        isTitle: false,
+      },
     ];
     mockExtractHeadingTree.mockReturnValue(entries);
     const plugin = createNumberingPlugin();
@@ -212,7 +229,15 @@ describe('numberingPlugin', () => {
 
   it('widget creates a span with class "legal-numbering" and entry.number as text', () => {
     const entries: HeadingEntry[] = [
-      { level: 1, text: 'Article 1', pos: 0, endPos: 40, bodyPreview: '', number: '1.' },
+      {
+        level: 1,
+        text: 'Article 1',
+        pos: 0,
+        endPos: 40,
+        bodyPreview: '',
+        number: '1.',
+        isTitle: false,
+      },
     ];
     mockExtractHeadingTree.mockReturnValue(entries);
     const plugin = createNumberingPlugin();
@@ -231,7 +256,15 @@ describe('numberingPlugin', () => {
 
   it('widget span has contentEditable set to false', () => {
     const entries: HeadingEntry[] = [
-      { level: 2, text: 'Section', pos: 5, endPos: 25, bodyPreview: '', number: '1.1' },
+      {
+        level: 2,
+        text: 'Section',
+        pos: 5,
+        endPos: 25,
+        bodyPreview: '',
+        number: '1.1',
+        isTitle: false,
+      },
     ];
     mockExtractHeadingTree.mockReturnValue(entries);
     const plugin = createNumberingPlugin();
@@ -247,7 +280,15 @@ describe('numberingPlugin', () => {
 
   it('widget options have side: -1', () => {
     const entries: HeadingEntry[] = [
-      { level: 1, text: 'Heading', pos: 0, endPos: 20, bodyPreview: '', number: '1.' },
+      {
+        level: 1,
+        text: 'Heading',
+        pos: 0,
+        endPos: 20,
+        bodyPreview: '',
+        number: '1.',
+        isTitle: false,
+      },
     ];
     mockExtractHeadingTree.mockReturnValue(entries);
     const plugin = createNumberingPlugin();
@@ -273,9 +314,33 @@ describe('numberingPlugin', () => {
 
   it('multiple headings produce correct number of decorations', () => {
     const entries: HeadingEntry[] = [
-      { level: 1, text: 'Chapter 1', pos: 0, endPos: 100, bodyPreview: '', number: '1.' },
-      { level: 2, text: 'Section 1.1', pos: 10, endPos: 50, bodyPreview: '', number: '1.1' },
-      { level: 3, text: 'Subsection 1.1.a', pos: 20, endPos: 40, bodyPreview: '', number: '1.1.a' },
+      {
+        level: 1,
+        text: 'Chapter 1',
+        pos: 0,
+        endPos: 100,
+        bodyPreview: '',
+        number: '1.',
+        isTitle: false,
+      },
+      {
+        level: 2,
+        text: 'Section 1.1',
+        pos: 10,
+        endPos: 50,
+        bodyPreview: '',
+        number: '1.1',
+        isTitle: false,
+      },
+      {
+        level: 3,
+        text: 'Subsection 1.1.1',
+        pos: 20,
+        endPos: 40,
+        bodyPreview: '',
+        number: '1.1.1',
+        isTitle: false,
+      },
     ];
     mockExtractHeadingTree.mockReturnValue(entries);
     const plugin = createNumberingPlugin();
@@ -287,8 +352,8 @@ describe('numberingPlugin', () => {
 
   it('multiple headings have correct numbers in widget text', () => {
     const entries: HeadingEntry[] = [
-      { level: 1, text: 'A', pos: 0, endPos: 50, bodyPreview: '', number: '1.' },
-      { level: 2, text: 'B', pos: 10, endPos: 30, bodyPreview: '', number: '1.1' },
+      { level: 1, text: 'A', pos: 0, endPos: 50, bodyPreview: '', number: '1.', isTitle: false },
+      { level: 2, text: 'B', pos: 10, endPos: 30, bodyPreview: '', number: '1.1', isTitle: false },
     ];
     mockExtractHeadingTree.mockReturnValue(entries);
     const plugin = createNumberingPlugin();
@@ -300,5 +365,48 @@ describe('numberingPlugin', () => {
     const span1 = widgetCalls[1]?.factory();
     expect(span0?.textContent).toBe('1.');
     expect(span1?.textContent).toBe('1.1');
+  });
+
+  // --- Title entry skip ---
+
+  it('skips decoration for title entry (empty number)', () => {
+    const entries: HeadingEntry[] = [
+      {
+        level: 1,
+        text: 'Contract Title',
+        pos: 0,
+        endPos: 20,
+        bodyPreview: '',
+        number: '',
+        isTitle: true,
+      },
+      {
+        level: 1,
+        text: 'Definitions',
+        pos: 20,
+        endPos: 60,
+        bodyPreview: '',
+        number: '1.',
+        isTitle: false,
+      },
+      {
+        level: 2,
+        text: 'Terms',
+        pos: 60,
+        endPos: 100,
+        bodyPreview: '',
+        number: '1.1',
+        isTitle: false,
+      },
+    ];
+    mockExtractHeadingTree.mockReturnValue(entries);
+    const plugin = createNumberingPlugin();
+    const stateSpec = getStateSpec(plugin);
+    const result = stateSpec.init(undefined, { doc: mockDoc }) as { decorations: unknown[] };
+    // Only 2 decorations — title entry (number: '') is skipped
+    expect(result.decorations).toHaveLength(2);
+    expect(widgetCalls).toHaveLength(2);
+    // First widget should be for "1." (pos 20 + 1 = 21)
+    expect(widgetCalls[0]?.pos).toBe(21);
   });
 });

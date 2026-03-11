@@ -11,8 +11,10 @@ export interface HeadingEntry {
   endPos: number;
   /** First ~50 chars of body text below the heading */
   bodyPreview: string;
-  /** Computed hierarchical number, e.g. "1.", "1.1", "1.1.a", "1.1.a.1" */
+  /** Computed hierarchical number, e.g. "1.", "1.1", "1.1.1", "1.1.1.1". Empty string for title entry. */
   number: string;
+  /** True if this heading is the document title (first H1 in the document, gets no number) */
+  isTitle: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -27,6 +29,7 @@ interface RawEntry {
   /** start pos of the first non-heading node after this heading */
   bodyStartPos: number;
   number: string;
+  isTitle: boolean;
 }
 
 /** Minimal shape we access on a doc-like object */
@@ -100,6 +103,9 @@ export function extractHeadingTree(doc: Node): HeadingEntry[] {
 
   const rawEntries: RawEntry[] = [];
 
+  // Track whether we've seen the very first heading in the document
+  let firstHeadingSeen = false;
+
   for (const { node, pos } of topLevel) {
     if (node.type.name !== 'heading') continue;
 
@@ -107,7 +113,26 @@ export function extractHeadingTree(doc: Node): HeadingEntry[] {
     const level = typeof rawLevel === 'number' ? rawLevel : 0;
     if (level < 1 || level > 4) continue;
 
+    // Title detection: if the very first heading in the document is H1, treat it as title
+    if (!firstHeadingSeen) {
+      firstHeadingSeen = true;
+      if (level === 1) {
+        // bodyStartPos: the position immediately after this heading node
+        const bodyStartPos = pos + node.nodeSize;
+        rawEntries.push({
+          level,
+          text: node.textContent,
+          pos,
+          bodyStartPos,
+          number: '',
+          isTitle: true,
+        });
+        continue;
+      }
+    }
+
     // Increment this level's counter and reset all deeper counters
+    // For the first H1 after a title, we still start from 1 (counters unchanged since 0)
     incrementCounters(counters, level as 1 | 2 | 3 | 4);
 
     const number = buildNumber(counters, level as 1 | 2 | 3 | 4);
@@ -115,7 +140,7 @@ export function extractHeadingTree(doc: Node): HeadingEntry[] {
     // bodyStartPos: the position immediately after this heading node
     const bodyStartPos = pos + node.nodeSize;
 
-    rawEntries.push({ level, text: node.textContent, pos, bodyStartPos, number });
+    rawEntries.push({ level, text: node.textContent, pos, bodyStartPos, number, isTitle: false });
   }
 
   // ------------------------------------------------------------------
@@ -154,6 +179,7 @@ export function extractHeadingTree(doc: Node): HeadingEntry[] {
       endPos,
       bodyPreview,
       number: entry.number,
+      isTitle: entry.isTitle,
     };
   });
 
@@ -186,12 +212,11 @@ function incrementCounters(counters: Counters, level: 1 | 2 | 3 | 4): void {
 function buildNumber(counters: Counters, level: 1 | 2 | 3 | 4): string {
   const h1 = String(counters.h1);
   const h2 = String(counters.h2);
-  const h3 = counters.h3;
+  const h3Str = String(counters.h3);
   const h4 = String(counters.h4);
 
   if (level === 1) return `${h1}.`;
   if (level === 2) return `${h1}.${h2}`;
-  const letter = String.fromCharCode(97 + (h3 - 1)); // 'a' = 97
-  if (level === 3) return `${h1}.${h2}.${letter}`;
-  return `${h1}.${h2}.${letter}.${h4}`;
+  if (level === 3) return `${h1}.${h2}.${h3Str}`;
+  return `${h1}.${h2}.${h3Str}.${h4}`;
 }

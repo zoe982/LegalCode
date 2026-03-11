@@ -363,20 +363,22 @@ export function OutlineView({
                       <Box sx={{ width: '20px', flexShrink: 0 }} />
                     )}
 
-                    {/* Number label */}
-                    <Typography
-                      component="span"
-                      sx={{
-                        fontFamily: '"DM Sans", sans-serif',
-                        fontSize: '0.6875rem',
-                        color: 'var(--text-tertiary)',
-                        flexShrink: 0,
-                        minWidth: '32px',
-                        userSelect: 'none',
-                      }}
-                    >
-                      {entry.number}
-                    </Typography>
+                    {/* Number label — omitted for title entries (empty number) */}
+                    {entry.number !== '' && (
+                      <Typography
+                        component="span"
+                        sx={{
+                          fontFamily: '"DM Sans", sans-serif',
+                          fontSize: '0.6875rem',
+                          color: 'var(--text-tertiary)',
+                          flexShrink: 0,
+                          minWidth: '32px',
+                          userSelect: 'none',
+                        }}
+                      >
+                        {entry.number}
+                      </Typography>
+                    )}
 
                     {/* Heading text */}
                     <Typography
@@ -386,9 +388,9 @@ export function OutlineView({
                       }}
                       sx={{
                         fontFamily: '"DM Sans", sans-serif',
-                        fontSize: '0.8125rem',
+                        fontSize: entry.level >= 3 ? '0.75rem' : '0.8125rem',
                         fontWeight: entry.level === 1 ? 600 : 400,
-                        color: 'var(--text-primary)',
+                        color: entry.level >= 3 ? 'var(--text-secondary)' : 'var(--text-primary)',
                         cursor: 'pointer',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',

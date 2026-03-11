@@ -36,8 +36,8 @@
   font-size: var(--editor-h3-size);
   line-height: var(--editor-h3-height);
   font-weight: var(--editor-h3-weight);
-  margin-top: 24px;
-  margin-bottom: 8px;
+  margin-top: 8px;
+  margin-bottom: 4px;
   color: var(--text-primary);
   font-family: var(--editor-font-serif);
 }

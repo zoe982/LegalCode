@@ -27,9 +27,10 @@ export function createNumberingPlugin(): Plugin {
 
 function buildDecorations(doc: Node): DecorationSet {
   const entries = extractHeadingTree(doc);
-  if (entries.length === 0) return DecorationSet.empty;
+  const numbered = entries.filter((e) => e.number !== '');
+  if (numbered.length === 0) return DecorationSet.empty;
 
-  const decorations = entries.map((entry) => {
+  const decorations = numbered.map((entry) => {
     // Widget position: entry.pos + 1 (inside the heading node, before text content)
     return Decoration.widget(
       entry.pos + 1,

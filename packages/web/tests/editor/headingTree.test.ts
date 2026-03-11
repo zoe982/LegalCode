@@ -69,18 +69,19 @@ describe('extractHeadingTree', () => {
     expect(result).toEqual([]);
   });
 
-  // 2. Single H1 heading → number "1."
-  it('single H1 heading → number "1."', () => {
+  // 2. Single H1 heading → treated as title (number "")
+  it('single H1 heading → treated as title with empty number', () => {
     const doc = makeDoc([makeHeading(1, 'Introduction', 20)]);
     const result = extractHeadingTree(doc as unknown as import('@milkdown/kit/prose/model').Node);
     expect(result).toHaveLength(1);
-    expect(result[0]?.number).toBe('1.');
+    expect(result[0]?.number).toBe('');
+    expect(result[0]?.isTitle).toBe(true);
     expect(result[0]?.level).toBe(1);
     expect(result[0]?.text).toBe('Introduction');
   });
 
-  // 3. Multiple H1 headings → sequential "1.", "2.", "3."
-  it('multiple H1 headings → sequential numbering', () => {
+  // 3. Multiple H1 headings → first is title, rest sequential "1.", "2."
+  it('multiple H1 headings → first is title, rest number sequentially', () => {
     const doc = makeDoc([
       makeHeading(1, 'Alpha', 20),
       makeHeading(1, 'Beta', 20),
@@ -88,77 +89,89 @@ describe('extractHeadingTree', () => {
     ]);
     const result = extractHeadingTree(doc as unknown as import('@milkdown/kit/prose/model').Node);
     expect(result).toHaveLength(3);
-    expect(result[0]?.number).toBe('1.');
-    expect(result[1]?.number).toBe('2.');
-    expect(result[2]?.number).toBe('3.');
+    expect(result[0]?.number).toBe('');
+    expect(result[0]?.isTitle).toBe(true);
+    expect(result[1]?.number).toBe('1.');
+    expect(result[2]?.number).toBe('2.');
   });
 
-  // 4. H1 + H2 hierarchy → "1.", "1.1", "1.2"
-  it('H1 + H2 hierarchy produces correct numbers', () => {
+  // 4. H1 + H2 hierarchy → title gets '', second H1 gets "1.", H2s get "1.1", "1.2"
+  it('H1 + H2 hierarchy: first H1 is title, subsequent H1 numbers correctly', () => {
     const doc = makeDoc([
+      makeHeading(1, 'Title', 20),
       makeHeading(1, 'Top', 20),
       makeHeading(2, 'Sub A', 20),
       makeHeading(2, 'Sub B', 20),
     ]);
     const result = extractHeadingTree(doc as unknown as import('@milkdown/kit/prose/model').Node);
-    expect(result).toHaveLength(3);
-    expect(result[0]?.number).toBe('1.');
-    expect(result[1]?.number).toBe('1.1');
-    expect(result[2]?.number).toBe('1.2');
+    expect(result).toHaveLength(4);
+    expect(result[0]?.number).toBe('');
+    expect(result[0]?.isTitle).toBe(true);
+    expect(result[1]?.number).toBe('1.');
+    expect(result[2]?.number).toBe('1.1');
+    expect(result[3]?.number).toBe('1.2');
   });
 
-  // 5. Full H1-H4 hierarchy
+  // 5. Full H1-H4 hierarchy (with title H1 + numbered section H1)
   it('full H1-H4 hierarchy produces correct numbers', () => {
     const doc = makeDoc([
+      makeHeading(1, 'Title', 20),
       makeHeading(1, 'Section', 20),
       makeHeading(2, 'Subsection', 20),
       makeHeading(3, 'Clause', 20),
       makeHeading(4, 'SubClause', 20),
     ]);
     const result = extractHeadingTree(doc as unknown as import('@milkdown/kit/prose/model').Node);
-    expect(result).toHaveLength(4);
-    expect(result[0]?.number).toBe('1.');
-    expect(result[1]?.number).toBe('1.1');
-    expect(result[2]?.number).toBe('1.1.a');
-    expect(result[3]?.number).toBe('1.1.a.1');
+    expect(result).toHaveLength(5);
+    expect(result[0]?.number).toBe('');
+    expect(result[0]?.isTitle).toBe(true);
+    expect(result[1]?.number).toBe('1.');
+    expect(result[2]?.number).toBe('1.1');
+    expect(result[3]?.number).toBe('1.1.1');
+    expect(result[4]?.number).toBe('1.1.1.1');
   });
 
-  // 6. Multiple sections with mixed levels
+  // 6. Multiple sections with mixed levels (title H1 + two numbered H1 sections)
   it('multiple sections with mixed levels', () => {
     const doc = makeDoc([
+      makeHeading(1, 'Title', 20),
       makeHeading(1, 'S1', 20),
       makeHeading(2, 'S1.1', 20),
       makeHeading(2, 'S1.2', 20),
       makeHeading(1, 'S2', 20),
       makeHeading(2, 'S2.1', 20),
-      makeHeading(3, 'S2.1.a', 20),
-      makeHeading(3, 'S2.1.b', 20),
+      makeHeading(3, 'S2.1.1', 20),
+      makeHeading(3, 'S2.1.2', 20),
     ]);
     const result = extractHeadingTree(doc as unknown as import('@milkdown/kit/prose/model').Node);
-    expect(result).toHaveLength(7);
-    expect(result[0]?.number).toBe('1.');
-    expect(result[1]?.number).toBe('1.1');
-    expect(result[2]?.number).toBe('1.2');
-    expect(result[3]?.number).toBe('2.');
-    expect(result[4]?.number).toBe('2.1');
-    expect(result[5]?.number).toBe('2.1.a');
-    expect(result[6]?.number).toBe('2.1.b');
+    expect(result).toHaveLength(8);
+    expect(result[0]?.number).toBe('');
+    expect(result[0]?.isTitle).toBe(true);
+    expect(result[1]?.number).toBe('1.');
+    expect(result[2]?.number).toBe('1.1');
+    expect(result[3]?.number).toBe('1.2');
+    expect(result[4]?.number).toBe('2.');
+    expect(result[5]?.number).toBe('2.1');
+    expect(result[6]?.number).toBe('2.1.1');
+    expect(result[7]?.number).toBe('2.1.2');
   });
 
   // 7. H3 without parent H2 → still numbers correctly using last known parent
   it('H3 without parent H2 still numbers correctly', () => {
     const doc = makeDoc([
+      makeHeading(1, 'Title', 20),
       makeHeading(1, 'Section', 20),
       // No H2 — jump straight to H3
       makeHeading(3, 'Clause', 20),
       makeHeading(3, 'Clause2', 20),
     ]);
     const result = extractHeadingTree(doc as unknown as import('@milkdown/kit/prose/model').Node);
-    expect(result).toHaveLength(3);
-    expect(result[0]?.number).toBe('1.');
+    expect(result).toHaveLength(4);
+    expect(result[0]?.isTitle).toBe(true);
+    expect(result[1]?.number).toBe('1.');
     // H3 counter resets under the current H1, no H2 parent — uses "0" for missing H2
-    expect(result[1]?.number).toBe('1.0.a');
-    expect(result[2]?.number).toBe('1.0.b');
+    expect(result[2]?.number).toBe('1.0.1');
+    expect(result[3]?.number).toBe('1.0.2');
   });
 
   // 8. endPos calculation: section ends at next same-or-higher heading
@@ -263,34 +276,38 @@ describe('extractHeadingTree', () => {
   // Extra: H4 sequential numbering under same H3
   it('multiple H4 entries under same H3 number sequentially', () => {
     const doc = makeDoc([
+      makeHeading(1, 'Title', 20),
       makeHeading(1, 'S1', 20),
       makeHeading(2, 'S1.1', 20),
-      makeHeading(3, 'S1.1.a', 20),
+      makeHeading(3, 'S1.1.1', 20),
       makeHeading(4, 'Sub-clause 1', 20),
       makeHeading(4, 'Sub-clause 2', 20),
       makeHeading(4, 'Sub-clause 3', 20),
     ]);
     const result = extractHeadingTree(doc as unknown as import('@milkdown/kit/prose/model').Node);
-    expect(result[3]?.number).toBe('1.1.a.1');
-    expect(result[4]?.number).toBe('1.1.a.2');
-    expect(result[5]?.number).toBe('1.1.a.3');
+    expect(result[0]?.isTitle).toBe(true);
+    expect(result[4]?.number).toBe('1.1.1.1');
+    expect(result[5]?.number).toBe('1.1.1.2');
+    expect(result[6]?.number).toBe('1.1.1.3');
   });
 
-  // Extra: H3 letters reset when H2 changes
-  it('H3 letter counter resets when parent H2 changes', () => {
+  // Extra: H3 decimal counter resets when H2 changes
+  it('H3 decimal counter resets when parent H2 changes', () => {
     const doc = makeDoc([
+      makeHeading(1, 'Title', 20),
       makeHeading(1, 'S1', 20),
       makeHeading(2, 'S1.1', 20),
-      makeHeading(3, 'Clause a', 20),
-      makeHeading(3, 'Clause b', 20),
+      makeHeading(3, 'Clause 1', 20),
+      makeHeading(3, 'Clause 2', 20),
       makeHeading(2, 'S1.2', 20),
-      makeHeading(3, 'New clause a', 20),
+      makeHeading(3, 'New clause 1', 20),
     ]);
     const result = extractHeadingTree(doc as unknown as import('@milkdown/kit/prose/model').Node);
-    expect(result[2]?.number).toBe('1.1.a');
-    expect(result[3]?.number).toBe('1.1.b');
-    expect(result[4]?.number).toBe('1.2');
-    expect(result[5]?.number).toBe('1.2.a');
+    expect(result[0]?.isTitle).toBe(true);
+    expect(result[3]?.number).toBe('1.1.1');
+    expect(result[4]?.number).toBe('1.1.2');
+    expect(result[5]?.number).toBe('1.2');
+    expect(result[6]?.number).toBe('1.2.1');
   });
 
   // Extra: text field matches the heading's textContent
@@ -313,5 +330,53 @@ describe('extractHeadingTree', () => {
     expect(typeof entry?.endPos).toBe('number');
     expect(typeof entry?.bodyPreview).toBe('string');
     expect(typeof entry?.number).toBe('string');
+    expect(typeof entry?.isTitle).toBe('boolean');
+  });
+
+  // Title skip: first H1 is treated as title
+  it('first H1 is treated as title with empty number and isTitle true', () => {
+    const doc = makeDoc([
+      makeHeading(1, 'My Agreement', 20),
+      makeHeading(1, 'Definitions', 20),
+      makeHeading(2, 'General', 20),
+    ]);
+    const result = extractHeadingTree(doc as unknown as import('@milkdown/kit/prose/model').Node);
+    expect(result).toHaveLength(3);
+    expect(result[0]?.number).toBe('');
+    expect(result[0]?.isTitle).toBe(true);
+    // Second H1 starts numbering from 1.
+    expect(result[1]?.number).toBe('1.');
+    expect(result[1]?.isTitle).toBe(false);
+    expect(result[2]?.number).toBe('1.1');
+    expect(result[2]?.isTitle).toBe(false);
+  });
+
+  // Title skip: subsequent H1s after title still number from 1.
+  it('subsequent H1s after title still number from 1.', () => {
+    const doc = makeDoc([
+      makeHeading(1, 'Contract Title', 20),
+      makeHeading(1, 'Section A', 20),
+      makeHeading(1, 'Section B', 20),
+    ]);
+    const result = extractHeadingTree(doc as unknown as import('@milkdown/kit/prose/model').Node);
+    expect(result).toHaveLength(3);
+    expect(result[0]?.isTitle).toBe(true);
+    expect(result[0]?.number).toBe('');
+    expect(result[1]?.number).toBe('1.');
+    expect(result[2]?.number).toBe('2.');
+  });
+
+  // Title skip: if first heading is H2, no title treatment
+  it('first heading that is H2 (not H1) is NOT treated as title', () => {
+    const doc = makeDoc([
+      makeHeading(2, 'Subsection First', 20),
+      makeHeading(1, 'Main Section', 20),
+    ]);
+    const result = extractHeadingTree(doc as unknown as import('@milkdown/kit/prose/model').Node);
+    expect(result).toHaveLength(2);
+    expect(result[0]?.isTitle).toBe(false);
+    expect(result[0]?.number).toBe('0.1'); // H2 before any H1 → h1=0, h2=1
+    expect(result[1]?.isTitle).toBe(false);
+    expect(result[1]?.number).toBe('1.');
   });
 });

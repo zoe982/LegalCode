@@ -15,6 +15,7 @@ const sampleEntries: HeadingEntry[] = [
     endPos: 100,
     bodyPreview: 'This is the intro body text...',
     number: '1.',
+    isTitle: false,
   },
   {
     level: 2,
@@ -23,6 +24,7 @@ const sampleEntries: HeadingEntry[] = [
     endPos: 160,
     bodyPreview: 'Background context here...',
     number: '1.1',
+    isTitle: false,
   },
   {
     level: 2,
@@ -31,6 +33,7 @@ const sampleEntries: HeadingEntry[] = [
     endPos: 200,
     bodyPreview: 'Scope of work...',
     number: '1.2',
+    isTitle: false,
   },
   {
     level: 1,
@@ -39,6 +42,7 @@ const sampleEntries: HeadingEntry[] = [
     endPos: 400,
     bodyPreview: 'Party obligations...',
     number: '2.',
+    isTitle: false,
   },
   {
     level: 3,
@@ -46,7 +50,8 @@ const sampleEntries: HeadingEntry[] = [
     pos: 400,
     endPos: 500,
     bodyPreview: 'Payment schedule...',
-    number: '2.1.a',
+    number: '2.1.1',
+    isTitle: false,
   },
 ];
 
@@ -161,7 +166,7 @@ describe('OutlineView', () => {
     expect(screen.getByText('1.1')).toBeInTheDocument();
     expect(screen.getByText('1.2')).toBeInTheDocument();
     expect(screen.getByText('2.')).toBeInTheDocument();
-    expect(screen.getByText('2.1.a')).toBeInTheDocument();
+    expect(screen.getByText('2.1.1')).toBeInTheDocument();
   });
 
   it('renders heading text for each visible entry', () => {
@@ -288,7 +293,15 @@ describe('OutlineView', () => {
 
   it('entries with no children do not render a collapse chevron', () => {
     const singleH1: HeadingEntry[] = [
-      { level: 1, text: 'Only Section', pos: 0, endPos: 100, bodyPreview: '', number: '1.' },
+      {
+        level: 1,
+        text: 'Only Section',
+        pos: 0,
+        endPos: 100,
+        bodyPreview: '',
+        number: '1.',
+        isTitle: false,
+      },
     ];
     renderOutlineView({ entries: singleH1 });
     expect(screen.queryByTestId('collapse-toggle-0')).not.toBeInTheDocument();
@@ -336,5 +349,73 @@ describe('OutlineView', () => {
     });
 
     expect(onReorderSection).not.toHaveBeenCalled();
+  });
+
+  it('does not render number label for title entry (empty number)', () => {
+    const entriesWithTitle: HeadingEntry[] = [
+      {
+        level: 1,
+        text: 'My Agreement',
+        pos: 0,
+        endPos: 50,
+        bodyPreview: '',
+        number: '',
+        isTitle: true,
+      },
+      {
+        level: 1,
+        text: 'Definitions',
+        pos: 50,
+        endPos: 100,
+        bodyPreview: '',
+        number: '1.',
+        isTitle: false,
+      },
+    ];
+    renderOutlineView({ entries: entriesWithTitle });
+
+    // The title heading should appear in outline
+    expect(screen.getByText('My Agreement')).toBeInTheDocument();
+    // But no number label Typography for the title entry — empty string should not render
+    // "1." should appear for the second entry
+    expect(screen.getByText('1.')).toBeInTheDocument();
+    // The empty-string number label should NOT appear as a rendered node
+    // We check that there are exactly as many number-label spans as entries with non-empty numbers
+    const numberLabels = screen.queryAllByText('1.');
+    expect(numberLabels).toHaveLength(1);
+  });
+
+  it('renders H3 entries with smaller font and lighter color', () => {
+    const entriesWithH3: HeadingEntry[] = [
+      {
+        level: 1,
+        text: 'Section One',
+        pos: 0,
+        endPos: 100,
+        bodyPreview: '',
+        number: '1.',
+        isTitle: false,
+      },
+      {
+        level: 3,
+        text: 'Deep Clause',
+        pos: 100,
+        endPos: 200,
+        bodyPreview: '',
+        number: '1.0.1',
+        isTitle: false,
+      },
+    ];
+    renderOutlineView({ entries: entriesWithH3 });
+
+    // H1 heading text should have default styling (fontSize 0.8125rem)
+    const h1TextEl = screen.getByText('Section One');
+    expect(h1TextEl).toHaveStyle({ fontSize: '0.8125rem' });
+
+    // H3 heading text should have smaller font and secondary color
+    const h3TextEl = screen.getByText('Deep Clause');
+    expect(h3TextEl).toHaveStyle({ fontSize: '0.75rem' });
+    expect(h3TextEl).toHaveStyle({ color: 'var(--text-secondary)' });
+    expect(h3TextEl).toHaveStyle({ fontWeight: '400' });
   });
 });

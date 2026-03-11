@@ -27,6 +27,7 @@ const sampleEntries: HeadingEntry[] = [
     endPos: 100,
     bodyPreview: 'This is intro...',
     number: '1.',
+    isTitle: false,
   },
   {
     level: 2,
@@ -35,6 +36,7 @@ const sampleEntries: HeadingEntry[] = [
     endPos: 200,
     bodyPreview: 'Background info...',
     number: '1.1',
+    isTitle: false,
   },
   {
     level: 1,
@@ -43,6 +45,7 @@ const sampleEntries: HeadingEntry[] = [
     endPos: 300,
     bodyPreview: 'Final words...',
     number: '2.',
+    isTitle: false,
   },
 ];
 
@@ -104,6 +107,7 @@ describe('useOutlineTree', () => {
         endPos: 50,
         bodyPreview: 'Updated...',
         number: '1.',
+        isTitle: false,
       },
     ];
     const { current: crepeRef, mockAction } = createMockCrepeRef(sampleEntries);
@@ -195,5 +199,29 @@ describe('useOutlineTree', () => {
 
     expect(mockExtractHeadingTree).not.toHaveBeenCalled();
     expect(result.current.entries).toEqual([]);
+  });
+
+  it('picks up entries when crepeRef starts null then becomes available', () => {
+    // Start with null ref
+    const lazyRef: { current: ReturnType<typeof createMockCrepeRef>['current'] | null } = {
+      current: null,
+    };
+
+    const { result } = renderHook(() => useOutlineTree(lazyRef as never));
+
+    // Initially empty because ref is null
+    expect(result.current.entries).toEqual([]);
+    expect(mockExtractHeadingTree).not.toHaveBeenCalled();
+
+    // Populate the ref (simulates editor becoming ready after mount)
+    const { current: mockCrepe } = createMockCrepeRef(sampleEntries);
+    act(() => {
+      lazyRef.current = mockCrepe;
+      vi.advanceTimersByTime(500);
+    });
+
+    // After the interval fires with a valid ref, entries should be populated
+    expect(mockExtractHeadingTree).toHaveBeenCalled();
+    expect(result.current.entries).toEqual(sampleEntries);
   });
 });
