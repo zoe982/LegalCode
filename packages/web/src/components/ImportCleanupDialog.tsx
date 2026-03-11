@@ -67,6 +67,7 @@ export function ImportCleanupDialog({
 
   const handleApply = () => {
     const selected = conversions
+      /* v8 ignore next -- selections always in sync with conversions; ?? false is a noUncheckedIndexedAccess guard */
       .map((conv, i) => ({ ...conv, selected: selections[i] ?? false }))
       .filter((c) => c.selected);
     onApply(selected);
@@ -184,6 +185,7 @@ export function ImportCleanupDialog({
               }}
             >
               <Checkbox
+                /* v8 ignore next -- selections always in sync with conversions; ?? false is a noUncheckedIndexedAccess guard */
                 checked={selections[index] ?? false}
                 onChange={() => {
                   handleToggle(index);

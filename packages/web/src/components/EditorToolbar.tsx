@@ -12,6 +12,7 @@ import HorizontalRuleOutlined from '@mui/icons-material/HorizontalRuleOutlined';
 import AutoFixHighOutlined from '@mui/icons-material/AutoFixHighOutlined';
 import UndoRounded from '@mui/icons-material/UndoRounded';
 import RedoRounded from '@mui/icons-material/RedoRounded';
+import ListAltOutlined from '@mui/icons-material/ListAltOutlined';
 import type { Crepe } from '@milkdown/crepe';
 import {
   toggleStrongCommand,
@@ -35,6 +36,8 @@ interface EditorToolbarProps {
   onUndo?: (() => void) | undefined;
   onRedo?: (() => void) | undefined;
   onImportCleanup?: (() => void) | undefined;
+  outlineMode?: boolean | undefined;
+  onToggleOutline?: (() => void) | undefined;
 }
 
 const helperButtonStyle = {
@@ -59,6 +62,8 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
   onUndo,
   onRedo,
   onImportCleanup,
+  outlineMode,
+  onToggleOutline,
 }) => {
   const showMarkdownHelpers = mode === 'edit' && !readOnly;
 
@@ -97,6 +102,24 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
             onClick={onRedo}
           >
             <RedoRounded sx={{ fontSize: '20px' }} />
+          </IconButton>
+          <Divider
+            orientation="vertical"
+            flexItem
+            sx={{ mx: 0.5, borderColor: 'var(--border-primary)' }}
+          />
+          <IconButton
+            aria-label="Toggle Outline"
+            sx={{
+              ...helperButtonStyle,
+              ...(outlineMode === true && {
+                backgroundColor: 'var(--surface-tertiary)',
+                color: 'var(--text-primary)',
+              }),
+            }}
+            onClick={onToggleOutline}
+          >
+            <ListAltOutlined sx={{ fontSize: '20px' }} />
           </IconButton>
           <Divider
             orientation="vertical"

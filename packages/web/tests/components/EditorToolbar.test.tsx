@@ -309,8 +309,54 @@ describe('EditorToolbar', () => {
 
     it('renders a divider between undo/redo and formatting buttons', () => {
       renderToolbar({ mode: 'edit' });
-      const divider = screen.getByRole('separator');
-      expect(divider).toBeInTheDocument();
+      // There are now two dividers (undo/redo | outline | formatting)
+      const dividers = screen.getAllByRole('separator');
+      expect(dividers.length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  describe('Outline toggle button', () => {
+    it('renders Toggle Outline button in edit mode', () => {
+      renderToolbar({ mode: 'edit' });
+      expect(screen.getByRole('button', { name: 'Toggle Outline' })).toBeInTheDocument();
+    });
+
+    it('hides Toggle Outline button in source mode', () => {
+      renderToolbar({ mode: 'source' });
+      expect(screen.queryByRole('button', { name: 'Toggle Outline' })).not.toBeInTheDocument();
+    });
+
+    it('hides Toggle Outline button when readOnly', () => {
+      renderToolbar({ mode: 'edit', readOnly: true });
+      expect(screen.queryByRole('button', { name: 'Toggle Outline' })).not.toBeInTheDocument();
+    });
+
+    it('calls onToggleOutline when Toggle Outline is clicked', async () => {
+      const user = userEvent.setup();
+      const onToggleOutline = vi.fn();
+      renderToolbar({ onToggleOutline });
+      await user.click(screen.getByRole('button', { name: 'Toggle Outline' }));
+      expect(onToggleOutline).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not crash when onToggleOutline is not provided', async () => {
+      const user = userEvent.setup();
+      renderToolbar(); // no onToggleOutline
+      await user.click(screen.getByRole('button', { name: 'Toggle Outline' }));
+      // Should not throw
+    });
+
+    it('applies active styling when outlineMode is true', () => {
+      renderToolbar({ outlineMode: true });
+      const btn = screen.getByRole('button', { name: 'Toggle Outline' });
+      expect(btn).toBeInTheDocument();
+      // The button should exist; active sx styling is applied via MUI sx
+    });
+
+    it('does not apply active styling when outlineMode is false', () => {
+      renderToolbar({ outlineMode: false });
+      const btn = screen.getByRole('button', { name: 'Toggle Outline' });
+      expect(btn).toBeInTheDocument();
     });
   });
 

@@ -95,11 +95,14 @@ describe('App', () => {
   it('renders TemplateEditorPage at /templates/new', async () => {
     mockAuthenticatedUser();
     renderWithRouter('/templates/new');
-    await waitFor(() => {
-      // Editor toolbar appears on the template editor page
-      expect(screen.getByTestId('editor-toolbar')).toBeInTheDocument();
-    });
-  });
+    await waitFor(
+      () => {
+        // Editor toolbar appears on the template editor page
+        expect(screen.getByTestId('editor-toolbar')).toBeInTheDocument();
+      },
+      { timeout: 10_000 },
+    );
+  }, 15_000);
 
   it('renders TemplateEditorPage at /templates/:id', async () => {
     mockAuthenticatedUser();

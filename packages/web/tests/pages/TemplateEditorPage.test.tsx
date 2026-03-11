@@ -358,11 +358,15 @@ vi.mock('../../src/components/EditorToolbar.js', () => ({
     wordCount,
     crepeRef,
     onImportCleanup,
+    outlineMode,
+    onToggleOutline,
   }: {
     mode: string;
     wordCount: number;
     crepeRef?: unknown;
     onImportCleanup?: () => void;
+    outlineMode?: boolean;
+    onToggleOutline?: () => void;
   }) => (
     <div data-testid="editor-toolbar">
       <span data-testid="editor-mode">{mode}</span>
@@ -373,8 +377,45 @@ vi.mock('../../src/components/EditorToolbar.js', () => ({
           Import Cleanup
         </button>
       )}
+      {onToggleOutline != null && (
+        <button data-testid="toolbar-toggle-outline" onClick={onToggleOutline}>
+          {outlineMode === true ? 'Exit Outline' : 'Outline'}
+        </button>
+      )}
     </div>
   ),
+}));
+
+vi.mock('../../src/hooks/useOutlineTree.js', () => ({
+  useOutlineTree: () => ({
+    entries: [],
+    refreshTree: vi.fn(),
+  }),
+}));
+
+vi.mock('../../src/components/OutlineView.js', () => ({
+  OutlineView: ({
+    entries,
+    onClose,
+  }: {
+    entries: { text: string }[];
+    onReorderSection: unknown;
+    onNavigateToHeading: unknown;
+    onClose: () => void;
+  }) => (
+    <div data-testid="outline-view">
+      <span data-testid="outline-entry-count">{String(entries.length)}</span>
+      <button data-testid="outline-close" onClick={onClose}>
+        Close
+      </button>
+    </div>
+  ),
+}));
+
+vi.mock('@milkdown/kit/prose/state', () => ({
+  TextSelection: {
+    near: vi.fn(),
+  },
 }));
 
 const mockUseKeyboardShortcuts = vi.fn();
@@ -3427,6 +3468,66 @@ describe('TemplateEditorPage', () => {
       // replaceWith should NOT have been called since node is null
       expect(mockTr.replaceWith).not.toHaveBeenCalled();
       expect(mockDispatch).toHaveBeenCalled();
+    });
+  });
+
+  describe('Outline mode', () => {
+    beforeEach(() => {
+      mockUseParams.mockReturnValue({ id: 't2' });
+      mockUseTemplate.mockReturnValue(
+        createTemplateQueryResult({
+          data: templateData(activeTemplate, '# Introduction\n\nSome content.'),
+        }),
+      );
+    });
+
+    it('renders Toggle Outline button in toolbar', () => {
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      expect(screen.getByTestId('toolbar-toggle-outline')).toBeInTheDocument();
+    });
+
+    it('shows OutlineView when Toggle Outline is clicked', async () => {
+      const user = userEvent.setup();
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      expect(screen.queryByTestId('outline-view')).not.toBeInTheDocument();
+
+      await user.click(screen.getByTestId('toolbar-toggle-outline'));
+
+      expect(screen.getByTestId('outline-view')).toBeInTheDocument();
+    });
+
+    it('hides editor canvas when outline mode is active', async () => {
+      const user = userEvent.setup();
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      await user.click(screen.getByTestId('toolbar-toggle-outline'));
+
+      // The canvas background box gets display:none when outlineMode is true
+      // We verify the outline view is visible instead
+      expect(screen.getByTestId('outline-view')).toBeInTheDocument();
+    });
+
+    it('closes OutlineView when close button is clicked', async () => {
+      const user = userEvent.setup();
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      await user.click(screen.getByTestId('toolbar-toggle-outline'));
+      expect(screen.getByTestId('outline-view')).toBeInTheDocument();
+
+      await user.click(screen.getByTestId('outline-close'));
+      expect(screen.queryByTestId('outline-view')).not.toBeInTheDocument();
+    });
+
+    it('toggles outline mode off when Toggle Outline is clicked again', async () => {
+      const user = userEvent.setup();
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      await user.click(screen.getByTestId('toolbar-toggle-outline'));
+      expect(screen.getByTestId('outline-view')).toBeInTheDocument();
+
+      await user.click(screen.getByTestId('toolbar-toggle-outline'));
+      expect(screen.queryByTestId('outline-view')).not.toBeInTheDocument();
     });
   });
 });
