@@ -23,16 +23,12 @@ export function useOutlineTree(crepeRef: React.RefObject<Crepe | null>): {
     }
   }, [crepeRef]);
 
-  // Subscribe to editor updates via polling interval
+  // Subscribe to editor updates via polling interval.
+  // Do NOT bail out when crepeRef.current is null on mount — refreshTree already
+  // handles a null ref gracefully, and the interval must stay alive so it can
+  // pick up the editor once it becomes available.
   useEffect(() => {
-    const crepe = crepeRef.current;
-    if (!crepe) return;
-
-    // Initial extraction
     refreshTree();
-
-    // Poll for doc changes (ProseMirror doesn't expose a simple subscription
-    // API outside of plugins, and we're in React land)
     const interval = setInterval(refreshTree, 500);
     return () => {
       clearInterval(interval);
