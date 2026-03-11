@@ -4,22 +4,27 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ThemeProvider } from '@mui/material/styles';
 import { theme } from '../../src/theme/index.js';
+import type { RegisterSWOptions } from 'virtual:pwa-register/react';
 
 type StateTuple = [boolean, (val: boolean) => void];
 
 const mockUpdateServiceWorker = vi.fn();
 let mockNeedRefresh: StateTuple;
 let mockOfflineReady: StateTuple;
+let capturedOptions: RegisterSWOptions | undefined;
 
 vi.mock('virtual:pwa-register/react', () => ({
-  useRegisterSW: () => ({
-    needRefresh: mockNeedRefresh,
-    offlineReady: mockOfflineReady,
-    updateServiceWorker: mockUpdateServiceWorker,
-  }),
+  useRegisterSW: (options?: RegisterSWOptions) => {
+    capturedOptions = options;
+    return {
+      needRefresh: mockNeedRefresh,
+      offlineReady: mockOfflineReady,
+      updateServiceWorker: mockUpdateServiceWorker,
+    };
+  },
 }));
 
-import { ReloadPrompt } from '../../src/components/ReloadPrompt.js';
+import { ReloadPrompt, SW_UPDATE_INTERVAL } from '../../src/components/ReloadPrompt.js';
 
 function renderReloadPrompt() {
   return render(
@@ -33,6 +38,7 @@ beforeEach(() => {
   mockNeedRefresh = [false, vi.fn()];
   mockOfflineReady = [false, vi.fn()];
   mockUpdateServiceWorker.mockReset();
+  capturedOptions = undefined;
 });
 
 afterEach(() => {
@@ -99,5 +105,58 @@ describe('ReloadPrompt', () => {
     await user.click(closeButton);
 
     expect(setOfflineReady).toHaveBeenCalledWith(false);
+  });
+
+  describe('periodic SW update checking', () => {
+    it('calls useRegisterSW with an onRegistered callback', () => {
+      renderReloadPrompt();
+      expect(capturedOptions).toBeDefined();
+      expect(capturedOptions?.onRegistered).toBeTypeOf('function');
+    });
+
+    it('sets up setInterval with correct interval when registration is provided', () => {
+      vi.useFakeTimers();
+      renderReloadPrompt();
+
+      const mockRegistration = { update: vi.fn().mockResolvedValue(undefined) };
+      capturedOptions?.onRegistered?.(mockRegistration as unknown as ServiceWorkerRegistration);
+
+      expect(vi.getTimerCount()).toBe(1);
+
+      vi.useRealTimers();
+    });
+
+    it('calls registration.update() when the interval fires', () => {
+      vi.useFakeTimers();
+      renderReloadPrompt();
+
+      const mockRegistration = { update: vi.fn().mockResolvedValue(undefined) };
+      capturedOptions?.onRegistered?.(mockRegistration as unknown as ServiceWorkerRegistration);
+
+      expect(mockRegistration.update).not.toHaveBeenCalled();
+
+      vi.advanceTimersByTime(SW_UPDATE_INTERVAL);
+      expect(mockRegistration.update).toHaveBeenCalledTimes(1);
+
+      vi.advanceTimersByTime(SW_UPDATE_INTERVAL);
+      expect(mockRegistration.update).toHaveBeenCalledTimes(2);
+
+      vi.useRealTimers();
+    });
+
+    it('does not set interval when onRegistered fires with undefined', () => {
+      vi.useFakeTimers();
+      renderReloadPrompt();
+
+      capturedOptions?.onRegistered?.(undefined);
+
+      expect(vi.getTimerCount()).toBe(0);
+
+      vi.useRealTimers();
+    });
+
+    it('exports SW_UPDATE_INTERVAL as 60000', () => {
+      expect(SW_UPDATE_INTERVAL).toBe(60_000);
+    });
   });
 });

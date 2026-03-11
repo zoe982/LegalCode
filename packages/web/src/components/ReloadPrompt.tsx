@@ -4,12 +4,22 @@ import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import CloseIcon from '@mui/icons-material/Close';
 
+export const SW_UPDATE_INTERVAL = 60_000; // Check every 60 seconds
+
 export const ReloadPrompt: React.FC = () => {
   const {
     needRefresh: [needRefresh, setNeedRefresh],
     offlineReady: [offlineReady, setOfflineReady],
     updateServiceWorker,
-  } = useRegisterSW();
+  } = useRegisterSW({
+    onRegistered(registration) {
+      if (registration) {
+        setInterval(() => {
+          void registration.update();
+        }, SW_UPDATE_INTERVAL);
+      }
+    },
+  });
 
   if (needRefresh) {
     return (
