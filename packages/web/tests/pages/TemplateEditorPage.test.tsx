@@ -57,6 +57,9 @@ vi.mock('../../src/hooks/useCategories.js', () => ({
   }),
 }));
 
+const mockEditorAction = vi.fn();
+const mockCrepe = { editor: { action: mockEditorAction } };
+
 vi.mock('../../src/components/MarkdownEditor.js', () => ({
   MarkdownEditor: ({
     defaultValue,
@@ -73,7 +76,7 @@ vi.mock('../../src/components/MarkdownEditor.js', () => ({
   }) => {
     // Call onEditorReady with a mock crepe if provided
     if (onEditorReady) {
-      onEditorReady({ editor: { action: vi.fn() } });
+      onEditorReady(mockCrepe);
     }
     return (
       <textarea
@@ -121,6 +124,59 @@ vi.mock('../../src/editor/commentAnchors.js', () => ({
 
 vi.mock('../../src/editor/commentPlugin.js', () => ({
   commentPluginKey: { getState: vi.fn() },
+}));
+
+const mockScanForConversions = vi.fn().mockReturnValue([]);
+vi.mock('../../src/editor/importCleanup.js', () => ({
+  scanForConversions: (...args: unknown[]) => mockScanForConversions(...args) as unknown,
+}));
+
+vi.mock('../../src/components/ImportCleanupDialog.js', () => ({
+  ImportCleanupDialog: ({
+    open,
+    onClose,
+    conversions,
+    onApply,
+  }: {
+    open: boolean;
+    onClose: () => void;
+    conversions: {
+      pos: number;
+      originalText: string;
+      headingLevel: number;
+      cleanedText: string;
+      confidence: string;
+      pattern: string;
+      selected: boolean;
+    }[];
+    onApply: (
+      selected: {
+        pos: number;
+        originalText: string;
+        headingLevel: number;
+        cleanedText: string;
+        confidence: string;
+        pattern: string;
+        selected: boolean;
+      }[],
+    ) => void;
+  }) =>
+    open ? (
+      <div data-testid="import-cleanup-dialog" role="dialog" aria-label="Import Cleanup">
+        <span data-testid="cleanup-count">{String(conversions.length)}</span>
+        <button
+          data-testid="cleanup-apply"
+          onClick={() => {
+            onApply(conversions.filter((c) => c.selected));
+          }}
+        >
+          Apply
+        </button>
+        <button data-testid="cleanup-cancel" onClick={onClose}>
+          Cancel
+        </button>
+      </div>
+    ) : null,
 }));
 
 const mockGetVersion = vi.fn();
@@ -301,15 +357,22 @@ vi.mock('../../src/components/EditorToolbar.js', () => ({
     mode,
     wordCount,
     crepeRef,
+    onImportCleanup,
   }: {
     mode: string;
     wordCount: number;
     crepeRef?: unknown;
+    onImportCleanup?: () => void;
   }) => (
     <div data-testid="editor-toolbar">
       <span data-testid="editor-mode">{mode}</span>
       <span data-testid="word-count">{String(wordCount)} words</span>
       {crepeRef != null && <span data-testid="toolbar-has-crepe-ref" />}
+      {onImportCleanup != null && (
+        <button data-testid="toolbar-import-cleanup" onClick={onImportCleanup}>
+          Import Cleanup
+        </button>
+      )}
     </div>
   ),
 }));
@@ -725,6 +788,7 @@ describe('TemplateEditorPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockReplaceAll.mockImplementation((content: string) => `replaceAll:${content}`);
+    mockScanForConversions.mockReturnValue([]);
     latestAppBarConfig = {};
     latestDocumentHeaderProps = {};
     mockUseAuth.mockReturnValue(editorAuth);
@@ -3007,6 +3071,362 @@ describe('TemplateEditorPage', () => {
       rerender(<TemplateEditorPage />);
 
       expect(screen.getByTestId('margin-thread-count')).toHaveTextContent('1');
+    });
+  });
+
+  describe('Import Cleanup', () => {
+    beforeEach(() => {
+      mockUseParams.mockReturnValue({ id: 't1' });
+      mockUseTemplate.mockReturnValue(
+        createTemplateQueryResult({
+          data: templateData(draftTemplate, '# Draft'),
+        }),
+      );
+    });
+
+    it('passes onImportCleanup prop to EditorToolbar', () => {
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      expect(screen.getByTestId('toolbar-import-cleanup')).toBeInTheDocument();
+    });
+
+    it('shows toast when no conversions are found', () => {
+      // Configure the editor action to invoke the callback with a mock ctx
+      const mockDoc = { forEach: vi.fn() };
+      const mockView = { state: { doc: mockDoc } };
+      const mockCtx = { get: vi.fn().mockReturnValue(mockView) };
+
+      mockEditorAction.mockImplementation((cb: (ctx: unknown) => void) => {
+        cb(mockCtx);
+      });
+      mockScanForConversions.mockReturnValue([]);
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      const cleanupButton = screen.getByTestId('toolbar-import-cleanup');
+      act(() => {
+        cleanupButton.click();
+      });
+
+      expect(mockScanForConversions).toHaveBeenCalledWith(mockDoc);
+      expect(mockShowToast).toHaveBeenCalledWith('No numbered paragraphs detected', 'info');
+      expect(screen.queryByTestId('import-cleanup-dialog')).not.toBeInTheDocument();
+    });
+
+    it('opens cleanup dialog when conversions are found', () => {
+      const mockConversions = [
+        {
+          pos: 0,
+          originalText: '1. Introduction',
+          headingLevel: 1,
+          cleanedText: 'Introduction',
+          confidence: 'high' as const,
+          pattern: 'numbered-h1',
+          selected: true,
+        },
+      ];
+
+      const mockDoc = { forEach: vi.fn() };
+      const mockView = { state: { doc: mockDoc } };
+      const mockCtx = { get: vi.fn().mockReturnValue(mockView) };
+
+      mockEditorAction.mockImplementation((cb: (ctx: unknown) => void) => {
+        cb(mockCtx);
+      });
+      mockScanForConversions.mockReturnValue(mockConversions);
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      const cleanupButton = screen.getByTestId('toolbar-import-cleanup');
+      act(() => {
+        cleanupButton.click();
+      });
+
+      expect(screen.getByTestId('import-cleanup-dialog')).toBeInTheDocument();
+      expect(screen.getByTestId('cleanup-count')).toHaveTextContent('1');
+    });
+
+    it('closes cleanup dialog when cancel is clicked', async () => {
+      const user = userEvent.setup();
+      const mockConversions = [
+        {
+          pos: 0,
+          originalText: '1. Introduction',
+          headingLevel: 1,
+          cleanedText: 'Introduction',
+          confidence: 'high' as const,
+          pattern: 'numbered-h1',
+          selected: true,
+        },
+      ];
+
+      const mockDoc = { forEach: vi.fn() };
+      const mockView = { state: { doc: mockDoc } };
+      const mockCtx = { get: vi.fn().mockReturnValue(mockView) };
+
+      mockEditorAction.mockImplementation((cb: (ctx: unknown) => void) => {
+        cb(mockCtx);
+      });
+      mockScanForConversions.mockReturnValue(mockConversions);
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      const cleanupButton = screen.getByTestId('toolbar-import-cleanup');
+      act(() => {
+        cleanupButton.click();
+      });
+
+      expect(screen.getByTestId('import-cleanup-dialog')).toBeInTheDocument();
+
+      await user.click(screen.getByTestId('cleanup-cancel'));
+
+      await waitFor(() => {
+        expect(screen.queryByTestId('import-cleanup-dialog')).not.toBeInTheDocument();
+      });
+    });
+
+    it('applies selected conversions and dispatches ProseMirror transaction', () => {
+      const mockConversions = [
+        {
+          pos: 10,
+          originalText: '1. Introduction',
+          headingLevel: 1,
+          cleanedText: 'Introduction',
+          confidence: 'high' as const,
+          pattern: 'numbered-h1',
+          selected: true,
+        },
+        {
+          pos: 5,
+          originalText: '2. Background',
+          headingLevel: 1,
+          cleanedText: 'Background',
+          confidence: 'high' as const,
+          pattern: 'numbered-h1',
+          selected: true,
+        },
+      ];
+
+      const mockHeadingNode = { type: 'heading' };
+      const mockHeadingType = {
+        create: vi.fn().mockReturnValue(mockHeadingNode),
+      };
+      const mockParagraphNode = { type: { name: 'paragraph' }, nodeSize: 15 };
+      const mockTr = {
+        doc: { nodeAt: vi.fn().mockReturnValue(mockParagraphNode) },
+        replaceWith: vi.fn().mockReturnThis(),
+      };
+      const mockDispatch = vi.fn();
+      const mockView = {
+        state: {
+          doc: { forEach: vi.fn() },
+          tr: mockTr,
+          schema: {
+            nodes: { heading: mockHeadingType },
+            text: vi.fn((t: string) => ({ text: t })),
+          },
+        },
+        dispatch: mockDispatch,
+      };
+      const mockCtx = { get: vi.fn().mockReturnValue(mockView) };
+
+      // First call: handleImportCleanup (opens dialog)
+      mockEditorAction.mockImplementation((cb: (ctx: unknown) => void) => {
+        cb(mockCtx);
+      });
+      mockScanForConversions.mockReturnValue(mockConversions);
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      // Open the cleanup dialog
+      const cleanupButton = screen.getByTestId('toolbar-import-cleanup');
+      act(() => {
+        cleanupButton.click();
+      });
+
+      expect(screen.getByTestId('import-cleanup-dialog')).toBeInTheDocument();
+
+      // Click apply — our mock dialog sends selected conversions
+      const applyButton = screen.getByTestId('cleanup-apply');
+      act(() => {
+        applyButton.click();
+      });
+
+      // Should have dispatched the transaction
+      expect(mockDispatch).toHaveBeenCalledWith(mockTr);
+      // Should have replaced nodes in reverse order (pos 10 before pos 5)
+      expect(mockTr.doc.nodeAt).toHaveBeenCalledWith(10);
+      expect(mockTr.doc.nodeAt).toHaveBeenCalledWith(5);
+      expect(mockHeadingType.create).toHaveBeenCalledTimes(2);
+      expect(mockTr.replaceWith).toHaveBeenCalledTimes(2);
+
+      // Dialog should close
+      expect(screen.queryByTestId('import-cleanup-dialog')).not.toBeInTheDocument();
+
+      // Should show success toast
+      expect(mockShowToast).toHaveBeenCalledWith('Converted 2 paragraph(s) to headings', 'success');
+    });
+
+    it('skips nodes that are not paragraphs during apply', () => {
+      const mockConversions = [
+        {
+          pos: 5,
+          originalText: '1. Introduction',
+          headingLevel: 1,
+          cleanedText: 'Introduction',
+          confidence: 'high' as const,
+          pattern: 'numbered-h1',
+          selected: true,
+        },
+      ];
+
+      // nodeAt returns a non-paragraph node
+      const mockNonParagraphNode = { type: { name: 'heading' }, nodeSize: 10 };
+      const mockTr = {
+        doc: { nodeAt: vi.fn().mockReturnValue(mockNonParagraphNode) },
+        replaceWith: vi.fn().mockReturnThis(),
+      };
+      const mockDispatch = vi.fn();
+      const mockView = {
+        state: {
+          doc: { forEach: vi.fn() },
+          tr: mockTr,
+          schema: {
+            nodes: { heading: { create: vi.fn() } },
+            text: vi.fn(),
+          },
+        },
+        dispatch: mockDispatch,
+      };
+      const mockCtx = { get: vi.fn().mockReturnValue(mockView) };
+
+      mockEditorAction.mockImplementation((cb: (ctx: unknown) => void) => {
+        cb(mockCtx);
+      });
+      mockScanForConversions.mockReturnValue(mockConversions);
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      // Open dialog
+      act(() => {
+        screen.getByTestId('toolbar-import-cleanup').click();
+      });
+
+      // Apply
+      act(() => {
+        screen.getByTestId('cleanup-apply').click();
+      });
+
+      // replaceWith should NOT have been called since the node is not a paragraph
+      expect(mockTr.replaceWith).not.toHaveBeenCalled();
+      // But dispatch should still be called (empty transaction)
+      expect(mockDispatch).toHaveBeenCalled();
+    });
+
+    it('skips conversion when heading type is not in schema', () => {
+      const mockConversions = [
+        {
+          pos: 5,
+          originalText: '1. Introduction',
+          headingLevel: 1,
+          cleanedText: 'Introduction',
+          confidence: 'high' as const,
+          pattern: 'numbered-h1',
+          selected: true,
+        },
+      ];
+
+      const mockParagraphNode = { type: { name: 'paragraph' }, nodeSize: 15 };
+      const mockTr = {
+        doc: { nodeAt: vi.fn().mockReturnValue(mockParagraphNode) },
+        replaceWith: vi.fn().mockReturnThis(),
+      };
+      const mockDispatch = vi.fn();
+      const mockView = {
+        state: {
+          doc: { forEach: vi.fn() },
+          tr: mockTr,
+          schema: {
+            nodes: { heading: undefined }, // No heading type in schema
+            text: vi.fn(),
+          },
+        },
+        dispatch: mockDispatch,
+      };
+      const mockCtx = { get: vi.fn().mockReturnValue(mockView) };
+
+      mockEditorAction.mockImplementation((cb: (ctx: unknown) => void) => {
+        cb(mockCtx);
+      });
+      mockScanForConversions.mockReturnValue(mockConversions);
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      // Open dialog
+      act(() => {
+        screen.getByTestId('toolbar-import-cleanup').click();
+      });
+
+      // Apply
+      act(() => {
+        screen.getByTestId('cleanup-apply').click();
+      });
+
+      // replaceWith should NOT have been called since heading type is missing
+      expect(mockTr.replaceWith).not.toHaveBeenCalled();
+      expect(mockDispatch).toHaveBeenCalled();
+    });
+
+    it('skips conversion when nodeAt returns null', () => {
+      const mockConversions = [
+        {
+          pos: 5,
+          originalText: '1. Introduction',
+          headingLevel: 1,
+          cleanedText: 'Introduction',
+          confidence: 'high' as const,
+          pattern: 'numbered-h1',
+          selected: true,
+        },
+      ];
+
+      const mockTr = {
+        doc: { nodeAt: vi.fn().mockReturnValue(null) },
+        replaceWith: vi.fn().mockReturnThis(),
+      };
+      const mockDispatch = vi.fn();
+      const mockView = {
+        state: {
+          doc: { forEach: vi.fn() },
+          tr: mockTr,
+          schema: {
+            nodes: { heading: { create: vi.fn() } },
+            text: vi.fn(),
+          },
+        },
+        dispatch: mockDispatch,
+      };
+      const mockCtx = { get: vi.fn().mockReturnValue(mockView) };
+
+      mockEditorAction.mockImplementation((cb: (ctx: unknown) => void) => {
+        cb(mockCtx);
+      });
+      mockScanForConversions.mockReturnValue(mockConversions);
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      // Open dialog
+      act(() => {
+        screen.getByTestId('toolbar-import-cleanup').click();
+      });
+
+      // Apply
+      act(() => {
+        screen.getByTestId('cleanup-apply').click();
+      });
+
+      // replaceWith should NOT have been called since node is null
+      expect(mockTr.replaceWith).not.toHaveBeenCalled();
+      expect(mockDispatch).toHaveBeenCalled();
     });
   });
 });

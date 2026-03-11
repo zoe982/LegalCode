@@ -37,6 +37,11 @@ vi.mock('../../src/editor/commentPlugin.js', () => ({
   createCommentPlugin: (...args: unknown[]) => mockCreateCommentPlugin(...args) as unknown,
 }));
 
+const mockCreateNumberingPlugin = vi.fn().mockReturnValue({ key: 'mock-numbering-plugin' });
+vi.mock('../../src/editor/numberingPlugin.js', () => ({
+  createNumberingPlugin: (...args: unknown[]) => mockCreateNumberingPlugin(...args) as unknown,
+}));
+
 const captured: {
   editorCallback: ((root: HTMLElement) => unknown) | null;
   editorCallbackHistory: ((root: HTMLElement) => unknown)[];
@@ -285,13 +290,18 @@ describe('MarkdownEditor', () => {
     const fakeRoot = document.createElement('div');
     editorCb?.(fakeRoot);
 
+    // Comment plugin is NOT installed without onSelectionChange
     expect(mockCreateCommentPlugin).not.toHaveBeenCalled();
-    expect(mockEditorUse).not.toHaveBeenCalled();
+    // editor.use IS called once for the always-on numbering plugin
+    expect(mockEditorUse).toHaveBeenCalledTimes(1);
+    expect(mockCreateNumberingPlugin).toHaveBeenCalledTimes(1);
   });
 
   it('never installs yUndoPlugin (no collaboration plugin)', () => {
     captured.editorCallback = null;
     mockEditorUse.mockClear();
+    mockCreateNumberingPlugin.mockClear();
+    mockCreateCommentPlugin.mockClear();
 
     render(<MarkdownEditor />);
 
@@ -300,8 +310,10 @@ describe('MarkdownEditor', () => {
     const fakeRoot = document.createElement('div');
     editorCb?.(fakeRoot);
 
-    // Without onSelectionChange, editor.use should not be called at all
-    expect(mockEditorUse).not.toHaveBeenCalled();
+    // Only the numbering plugin is installed (always-on); no comment plugin, no collab plugin
+    expect(mockEditorUse).toHaveBeenCalledTimes(1);
+    expect(mockCreateNumberingPlugin).toHaveBeenCalledTimes(1);
+    expect(mockCreateCommentPlugin).not.toHaveBeenCalled();
   });
 
   it('does not re-create editorCallback when onChange identity changes (stable ref)', () => {

@@ -6,6 +6,9 @@ import { replaceAll } from '@milkdown/kit/utils';
 import { editorViewCtx } from '@milkdown/kit/core';
 import { resolveAnchors } from '../editor/commentAnchors.js';
 import { commentPluginKey } from '../editor/commentPlugin.js';
+import { scanForConversions } from '../editor/importCleanup.js';
+import type { DetectedConversion } from '../editor/importCleanup.js';
+import { ImportCleanupDialog } from '../components/ImportCleanupDialog.js';
 import { MarkdownEditor } from '../components/MarkdownEditor.js';
 import { RawMarkdownEditor } from '../components/RawMarkdownEditor.js';
 import { useAuth } from '../hooks/useAuth.js';
@@ -48,6 +51,12 @@ export function TemplateEditorPage() {
   const templateQuery = useTemplate(id ?? '');
   const templateData = templateQuery.data;
 
+  // Extract primitive deps for setConfig effect to avoid object reference instability
+  const templateCreatedAt = templateData?.template.createdAt;
+  const templateUpdatedAt = templateData?.template.updatedAt;
+  const templateCreatedBy = templateData?.template.createdBy;
+  const templateCurrentVersion = templateData?.template.currentVersion;
+
   const categoriesQuery = useCategories();
   const categories = categoriesQuery.data?.categories ?? [];
 
@@ -64,6 +73,8 @@ export function TemplateEditorPage() {
   const [editorMode, setEditorMode] = useState<'edit' | 'source'>('edit');
   const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [cleanupDialogOpen, setCleanupDialogOpen] = useState(false);
+  const [detectedConversions, setDetectedConversions] = useState<DetectedConversion[]>([]);
 
   const isDirtyRef = useRef(false);
   const [autoCreateState, setAutoCreateState] = useState<'idle' | 'saving'>('idle');
@@ -330,6 +341,51 @@ export function TemplateEditorPage() {
   const handleDeleteClickRef = useRef(handleDeleteClick);
   handleDeleteClickRef.current = handleDeleteClick;
 
+  const handleImportCleanup = useCallback(() => {
+    const crepe = crepeRef.current;
+    /* v8 ignore next -- defensive guard; crepeRef always set by onEditorReady */
+    if (!crepe) return;
+    crepe.editor.action((ctx) => {
+      const view = ctx.get(editorViewCtx);
+      const conversions = scanForConversions(view.state.doc);
+      if (conversions.length === 0) {
+        showToast('No numbered paragraphs detected', 'info');
+        return;
+      }
+      setDetectedConversions(conversions);
+      setCleanupDialogOpen(true);
+    });
+  }, [showToast]);
+
+  const handleApplyCleanup = useCallback(
+    (selected: DetectedConversion[]) => {
+      const crepe = crepeRef.current;
+      /* v8 ignore next -- defensive guard; crepeRef always set by onEditorReady */
+      if (!crepe) return;
+      crepe.editor.action((ctx) => {
+        const view = ctx.get(editorViewCtx);
+        let tr = view.state.tr;
+        // Process in reverse order for stable positions
+        const sorted = [...selected].sort((a, b) => b.pos - a.pos);
+        for (const conv of sorted) {
+          const node = tr.doc.nodeAt(conv.pos);
+          if (node?.type.name !== 'paragraph') continue;
+          const headingType = view.state.schema.nodes.heading;
+          if (!headingType) continue;
+          const headingNode = headingType.create(
+            { level: conv.headingLevel },
+            view.state.schema.text(conv.cleanedText),
+          );
+          tr = tr.replaceWith(conv.pos, conv.pos + node.nodeSize, headingNode);
+        }
+        view.dispatch(tr);
+      });
+      setCleanupDialogOpen(false);
+      showToast(`Converted ${String(selected.length)} paragraph(s) to headings`, 'success');
+    },
+    [showToast],
+  );
+
   const handleDeleteConfirm = useCallback(() => {
     /* v8 ignore next -- defensive guard; id always exists when delete button is visible */
     if (!id) return;
@@ -368,6 +424,13 @@ export function TemplateEditorPage() {
 
   // Sync TopAppBar config for editor view — v4: use DocumentHeader
   const { setConfig, clearConfig } = useTopAppBarSetters();
+
+  // Refs break the render loop (React #185): context setters are NOT deps —
+  // they update via refs, so setConfig doesn't re-trigger itself through context.
+  const setConfigRef = useRef(setConfig);
+  setConfigRef.current = setConfig;
+  const clearConfigRef = useRef(clearConfig);
+  clearConfigRef.current = clearConfig;
 
   // Derive connection status for draft autosave display
   const draftSaveStatus: ConnectionStatusType | null =
@@ -410,7 +473,7 @@ export function TemplateEditorPage() {
   // are NOT deps — they update via refs, and draftSaveStatus covers the only
   // primitive change that requires a context update for the right slot.
   useEffect(() => {
-    setConfig({
+    setConfigRef.current({
       documentHeader: (
         <DocumentHeader
           title={title}
@@ -426,10 +489,10 @@ export function TemplateEditorPage() {
           templateId={id}
           isCreateMode={isCreateMode}
           readOnly={isReadOnly}
-          createdAt={templateData?.template.createdAt}
-          updatedAt={templateData?.template.updatedAt}
-          createdBy={templateData?.template.createdBy}
-          currentVersion={templateData?.template.currentVersion}
+          createdAt={templateCreatedAt}
+          updatedAt={templateUpdatedAt}
+          createdBy={templateCreatedBy}
+          currentVersion={templateCurrentVersion}
           rightSlot={rightSlotRef.current}
           onDelete={
             !isCreateMode && !isReadOnly
@@ -442,11 +505,14 @@ export function TemplateEditorPage() {
       ),
     });
     return () => {
-      clearConfig();
+      clearConfigRef.current();
     };
   }, [
     isCreateMode,
-    templateData,
+    templateCreatedAt,
+    templateUpdatedAt,
+    templateCreatedBy,
+    templateCurrentVersion,
     title,
     category,
     country,
@@ -454,8 +520,6 @@ export function TemplateEditorPage() {
     id,
     isReadOnly,
     draftSaveStatus,
-    setConfig,
-    clearConfig,
   ]);
 
   useEffect(() => {
@@ -659,6 +723,7 @@ export function TemplateEditorPage() {
           canRedo={canRedo}
           onUndo={handleUndo}
           onRedo={handleRedo}
+          onImportCleanup={handleImportCleanup}
         />
 
         {/* Canvas background — grey surface with centered page */}
@@ -789,6 +854,16 @@ export function TemplateEditorPage() {
           onConfirm={handleDeleteConfirm}
           templateTitle={title}
           isDeleting={deleteMutation.isPending}
+        />
+
+        {/* Import Cleanup dialog */}
+        <ImportCleanupDialog
+          open={cleanupDialogOpen}
+          onClose={() => {
+            setCleanupDialogOpen(false);
+          }}
+          conversions={detectedConversions}
+          onApply={handleApplyCleanup}
         />
       </Box>
     </CommentAnchorProvider>

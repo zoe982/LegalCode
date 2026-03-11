@@ -63,6 +63,7 @@ describe('EditorToolbar', () => {
     expect(screen.getByRole('button', { name: 'Table' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Clause Reference' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Variable' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Import Cleanup' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Horizontal Rule' })).toBeInTheDocument();
   });
 
@@ -310,6 +311,38 @@ describe('EditorToolbar', () => {
       renderToolbar({ mode: 'edit' });
       const divider = screen.getByRole('separator');
       expect(divider).toBeInTheDocument();
+    });
+  });
+
+  describe('Import Cleanup button', () => {
+    it('renders Import Cleanup button in edit mode', () => {
+      renderToolbar({ mode: 'edit' });
+      expect(screen.getByRole('button', { name: 'Import Cleanup' })).toBeInTheDocument();
+    });
+
+    it('hides Import Cleanup button in source mode', () => {
+      renderToolbar({ mode: 'source' });
+      expect(screen.queryByRole('button', { name: 'Import Cleanup' })).not.toBeInTheDocument();
+    });
+
+    it('hides Import Cleanup button when readOnly', () => {
+      renderToolbar({ mode: 'edit', readOnly: true });
+      expect(screen.queryByRole('button', { name: 'Import Cleanup' })).not.toBeInTheDocument();
+    });
+
+    it('calls onImportCleanup when Import Cleanup is clicked', async () => {
+      const user = userEvent.setup();
+      const onImportCleanup = vi.fn();
+      renderToolbar({ onImportCleanup });
+      await user.click(screen.getByRole('button', { name: 'Import Cleanup' }));
+      expect(onImportCleanup).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not crash when onImportCleanup is not provided', async () => {
+      const user = userEvent.setup();
+      renderToolbar(); // no onImportCleanup
+      await user.click(screen.getByRole('button', { name: 'Import Cleanup' }));
+      // Should not throw
     });
   });
 });

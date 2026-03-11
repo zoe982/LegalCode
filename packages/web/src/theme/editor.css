@@ -94,3 +94,31 @@
   padding: 0;
   border-radius: 0;
 }
+
+/* Legal auto-numbering */
+.milkdown .ProseMirror .legal-numbering {
+  display: inline;
+  margin-right: 8px;
+  font-family: var(--editor-font-serif);
+  font-weight: 600;
+  color: var(--text-secondary);
+  user-select: none;
+  pointer-events: none;
+}
+
+/* Level-specific sizing — inherit from the heading */
+.milkdown .ProseMirror h1 .legal-numbering {
+  font-size: inherit;
+}
+
+.milkdown .ProseMirror h2 .legal-numbering {
+  font-size: inherit;
+}
+
+.milkdown .ProseMirror h3 .legal-numbering {
+  font-size: inherit;
+}
+
+.milkdown .ProseMirror h4 .legal-numbering {
+  font-size: inherit;
+}

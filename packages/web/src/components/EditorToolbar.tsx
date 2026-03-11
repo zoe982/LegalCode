@@ -9,6 +9,7 @@ import FormatListNumberedOutlined from '@mui/icons-material/FormatListNumberedOu
 import BookmarkBorderOutlined from '@mui/icons-material/BookmarkBorderOutlined';
 import CodeOutlined from '@mui/icons-material/CodeOutlined';
 import HorizontalRuleOutlined from '@mui/icons-material/HorizontalRuleOutlined';
+import AutoFixHighOutlined from '@mui/icons-material/AutoFixHighOutlined';
 import UndoRounded from '@mui/icons-material/UndoRounded';
 import RedoRounded from '@mui/icons-material/RedoRounded';
 import type { Crepe } from '@milkdown/crepe';
@@ -33,6 +34,7 @@ interface EditorToolbarProps {
   canRedo?: boolean | undefined;
   onUndo?: (() => void) | undefined;
   onRedo?: (() => void) | undefined;
+  onImportCleanup?: (() => void) | undefined;
 }
 
 const helperButtonStyle = {
@@ -56,6 +58,7 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
   canRedo,
   onUndo,
   onRedo,
+  onImportCleanup,
 }) => {
   const showMarkdownHelpers = mode === 'edit' && !readOnly;
 
@@ -180,6 +183,9 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
             }}
           >
             <CodeOutlined sx={{ fontSize: '20px' }} />
+          </IconButton>
+          <IconButton aria-label="Import Cleanup" sx={helperButtonStyle} onClick={onImportCleanup}>
+            <AutoFixHighOutlined sx={{ fontSize: '20px' }} />
           </IconButton>
           <IconButton
             aria-label="Horizontal Rule"

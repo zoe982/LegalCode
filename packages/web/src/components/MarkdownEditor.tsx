@@ -5,6 +5,7 @@ import { $prose } from '@milkdown/kit/utils';
 import { Box } from '@mui/material';
 import { createCommentPlugin } from '../editor/commentPlugin.js';
 import type { CommentPluginOptions } from '../editor/commentPlugin.js';
+import { createNumberingPlugin } from '../editor/numberingPlugin.js';
 
 import '@milkdown/crepe/theme/common/style.css';
 import '@milkdown/crepe/theme/frame.css';
@@ -58,6 +59,8 @@ function MilkdownEditor({
     if (readOnlyRef.current === true) {
       crepe.setReadonly(true);
     }
+
+    crepe.editor.use($prose(() => createNumberingPlugin()));
 
     if (onSelectionChangeRef.current) {
       const selectionChangeFn = onSelectionChangeRef.current;
