@@ -607,31 +607,31 @@ describe('VersionHistoryPage', () => {
 
     const { rerender } = render(<VersionHistoryPage />);
 
-    // Simulate TanStack Query returning new reference with same data
-    mockUseTemplate.mockReturnValue(
-      makeTemplateQueryResult({
-        isSuccess: true,
-        isFetched: true,
-        data: {
-          template: { ...mockTemplate }, // new object reference
-          content: mockVersions[2]?.content ?? '',
-          changeSummary: null,
-          tags: [],
-        },
-        status: 'success',
-      }),
-    );
+    // Record call count after initial render
+    const initialCallCount = mockSetConfig.mock.calls.length;
 
-    // Should not throw "Maximum update depth exceeded"
-    expect(() => {
+    // Simulate TanStack Query returning new reference with same data (multiple times)
+    for (let i = 0; i < 5; i++) {
+      mockUseTemplate.mockReturnValue(
+        makeTemplateQueryResult({
+          isSuccess: true,
+          isFetched: true,
+          data: {
+            template: { ...mockTemplate }, // new object reference each time
+            content: mockVersions[2]?.content ?? '',
+            changeSummary: null,
+            tags: [],
+          },
+          status: 'success',
+        }),
+      );
       rerender(<VersionHistoryPage />);
-    }).not.toThrow();
-    expect(() => {
-      rerender(<VersionHistoryPage />);
-    }).not.toThrow();
-    expect(() => {
-      rerender(<VersionHistoryPage />);
-    }).not.toThrow();
+    }
+
+    // setConfig should NOT grow unboundedly — at most 1 extra call (for the
+    // title dep, which is the same primitive value each time, so 0 extra).
+    // In a render-loop scenario this would be 50+ calls.
+    expect(mockSetConfig.mock.calls.length - initialCallCount).toBeLessThanOrEqual(1);
   });
 
   it('does not duplicate fetch when selecting a non-current version', async () => {

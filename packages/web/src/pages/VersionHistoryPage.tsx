@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import {
   Box,
@@ -40,17 +40,25 @@ export function VersionHistoryPage() {
   // Extract primitive deps to avoid object reference instability
   const currentVersionNumber = templateData?.template.currentVersion;
   const currentContent = templateData?.content;
+  const templateTitle = templateData?.template.title;
+
+  // Refs break the render loop (React #185): context setters are NOT deps —
+  // they update via refs, so setConfig doesn't re-trigger itself through context.
+  const setConfigRef = useRef(setConfig);
+  setConfigRef.current = setConfig;
+  const clearConfigRef = useRef(clearConfig);
+  clearConfigRef.current = clearConfig;
 
   // Set app bar config
   useEffect(() => {
-    setConfig({
-      breadcrumbTemplateName: templateData?.template.title,
+    setConfigRef.current({
+      breadcrumbTemplateName: templateTitle,
       breadcrumbPageName: 'Version History',
     });
     return () => {
-      clearConfig();
+      clearConfigRef.current();
     };
-  }, [setConfig, clearConfig, templateData?.template.title]);
+  }, [templateTitle]);
 
   // Auto-select current version and set content on initial load
   useEffect(() => {
