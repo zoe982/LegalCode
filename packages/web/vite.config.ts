@@ -56,6 +56,7 @@ export default defineConfig({
   ],
   define: {
     __BUILD_TIMESTAMP__: JSON.stringify(new Date().toISOString()),
+    __BUILD_HASH__: JSON.stringify(Math.random().toString(36).substring(2, 10)),
   },
   server: {
     port: 5173,

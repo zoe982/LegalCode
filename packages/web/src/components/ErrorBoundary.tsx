@@ -1,7 +1,7 @@
 import { Component } from 'react';
 import type { ReactNode, ErrorInfo } from 'react';
 import { Box, Typography, Button } from '@mui/material';
-import { reportError } from '../services/errorReporter.js';
+import { reportError, collectDiagnostics } from '../services/errorReporter.js';
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -30,7 +30,10 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
         severity: 'critical',
         message: error.message,
         stack: error.stack ?? null,
-        metadata: JSON.stringify({ componentStack: errorInfo.componentStack }),
+        metadata: JSON.stringify({
+          componentStack: errorInfo.componentStack,
+          ...collectDiagnostics(),
+        }),
         url: window.location.href,
       });
     } catch {

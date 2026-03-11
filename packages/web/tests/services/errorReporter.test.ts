@@ -14,7 +14,7 @@ if (typeof PromiseRejectionEvent === 'undefined') {
     };
 }
 
-const { reportError, installGlobalErrorHandlers } =
+const { reportError, installGlobalErrorHandlers, collectDiagnostics } =
   await import('../../src/services/errorReporter.js');
 
 // BUILD_TIMESTAMP resolves to 'dev' in the test environment (no Vite define)
@@ -46,16 +46,24 @@ describe('errorReporter', () => {
         message: 'Test error',
       });
 
-      expect(fetchSpy).toHaveBeenCalledWith('/api/errors/report', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          source: 'frontend',
-          message: 'Test error',
-          buildTimestamp: EXPECTED_BUILD_TIMESTAMP,
+      expect(fetchSpy).toHaveBeenCalledWith(
+        '/api/errors/report',
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
         }),
-      });
+      );
+
+      const body = JSON.parse(fetchSpy.mock.calls[0]?.[1]?.body as string) as Record<
+        string,
+        unknown
+      >;
+      expect(body.source).toBe('frontend');
+      expect(body.message).toBe('Test error');
+      expect(body.buildTimestamp).toBe(EXPECTED_BUILD_TIMESTAMP);
+      // metadata should contain diagnostics even when none was provided
+      expect(body.metadata).toBeDefined();
     });
 
     it('includes buildTimestamp in all error payloads', async () => {
@@ -84,17 +92,24 @@ describe('errorReporter', () => {
       expect(fetchSpy).toHaveBeenCalledWith(
         '/api/errors/report',
         expect.objectContaining({
-          body: JSON.stringify({
-            source: 'functional',
-            severity: 'critical',
-            message: 'Bad thing',
-            stack: 'Error\n  at foo',
-            metadata: '{"key":"val"}',
-            url: 'https://example.com',
-            buildTimestamp: EXPECTED_BUILD_TIMESTAMP,
-          }),
+          method: 'POST',
         }),
       );
+
+      const body = JSON.parse(fetchSpy.mock.calls[0]?.[1]?.body as string) as Record<
+        string,
+        unknown
+      >;
+      expect(body.source).toBe('functional');
+      expect(body.severity).toBe('critical');
+      expect(body.message).toBe('Bad thing');
+      expect(body.stack).toBe('Error\n  at foo');
+      expect(body.url).toBe('https://example.com');
+      expect(body.buildTimestamp).toBe(EXPECTED_BUILD_TIMESTAMP);
+      // metadata now includes diagnostics merged with original
+      const metadata = JSON.parse(body.metadata as string) as Record<string, unknown>;
+      expect(metadata).toHaveProperty('key', 'val');
+      expect(metadata).toHaveProperty('buildHash');
     });
 
     it('warns on non-ok response', async () => {
@@ -328,6 +343,233 @@ describe('errorReporter', () => {
       expect(removeSpy).toHaveBeenCalledWith('unhandledrejection', expect.any(Function));
       removeSpy.mockRestore();
       removeHandlers = undefined;
+    });
+
+    it('includes diagnostics in error event metadata', () => {
+      removeHandlers = installGlobalErrorHandlers();
+
+      const errorEvent = new ErrorEvent('error', {
+        message: 'Diag test',
+        error: new Error('Diag test'),
+      });
+      window.dispatchEvent(errorEvent);
+
+      const body = JSON.parse(fetchSpy.mock.calls[0]?.[1]?.body as string) as Record<
+        string,
+        unknown
+      >;
+      const metadata = JSON.parse(body.metadata as string) as Record<string, unknown>;
+      expect(metadata).toHaveProperty('buildHash');
+      expect(metadata).toHaveProperty('bundleUrl');
+      expect(metadata).toHaveProperty('swControlled');
+    });
+
+    it('includes diagnostics in unhandledrejection event metadata', () => {
+      removeHandlers = installGlobalErrorHandlers();
+
+      const rejectionEvent = new PromiseRejectionEvent('unhandledrejection', {
+        promise: Promise.resolve(),
+        reason: new Error('Diag rejection'),
+      });
+      window.dispatchEvent(rejectionEvent);
+
+      const body = JSON.parse(fetchSpy.mock.calls[0]?.[1]?.body as string) as Record<
+        string,
+        unknown
+      >;
+      const metadata = JSON.parse(body.metadata as string) as Record<string, unknown>;
+      expect(metadata).toHaveProperty('buildHash');
+      expect(metadata).toHaveProperty('bundleUrl');
+      expect(metadata).toHaveProperty('swControlled');
+    });
+  });
+
+  describe('collectDiagnostics', () => {
+    it('returns expected diagnostic fields', () => {
+      const diagnostics = collectDiagnostics();
+      expect(diagnostics).toHaveProperty('buildHash');
+      expect(diagnostics).toHaveProperty('buildTimestamp');
+      expect(diagnostics).toHaveProperty('bundleUrl');
+      expect(diagnostics).toHaveProperty('swControlled');
+      expect(typeof diagnostics.swControlled).toBe('boolean');
+    });
+
+    it('returns buildHash as string', () => {
+      const diagnostics = collectDiagnostics();
+      expect(typeof diagnostics.buildHash).toBe('string');
+    });
+
+    it('returns bundleUrl as string', () => {
+      const diagnostics = collectDiagnostics();
+      expect(typeof diagnostics.bundleUrl).toBe('string');
+    });
+
+    it('returns swControlled false when no service worker controller', () => {
+      const originalSW = navigator.serviceWorker;
+      Object.defineProperty(navigator, 'serviceWorker', {
+        value: { controller: null },
+        writable: true,
+        configurable: true,
+      });
+
+      const diagnostics = collectDiagnostics();
+      expect(diagnostics.swControlled).toBe(false);
+
+      Object.defineProperty(navigator, 'serviceWorker', {
+        value: originalSW,
+        writable: true,
+        configurable: true,
+      });
+    });
+
+    it('returns swControlled true when service worker controller exists', () => {
+      const originalSW = navigator.serviceWorker;
+      Object.defineProperty(navigator, 'serviceWorker', {
+        value: { controller: {} },
+        writable: true,
+        configurable: true,
+      });
+
+      const diagnostics = collectDiagnostics();
+      expect(diagnostics.swControlled).toBe(true);
+
+      Object.defineProperty(navigator, 'serviceWorker', {
+        value: originalSW,
+        writable: true,
+        configurable: true,
+      });
+    });
+
+    it('handles missing navigator.serviceWorker gracefully', () => {
+      const originalSW = navigator.serviceWorker;
+      Object.defineProperty(navigator, 'serviceWorker', {
+        value: undefined,
+        writable: true,
+        configurable: true,
+      });
+
+      const diagnostics = collectDiagnostics();
+      expect(diagnostics.swControlled).toBe(false);
+
+      Object.defineProperty(navigator, 'serviceWorker', {
+        value: originalSW,
+        writable: true,
+        configurable: true,
+      });
+    });
+
+    it('catches when navigator.serviceWorker getter throws', () => {
+      const originalDescriptor = Object.getOwnPropertyDescriptor(navigator, 'serviceWorker');
+      Object.defineProperty(navigator, 'serviceWorker', {
+        get() {
+          throw new Error('SW access denied');
+        },
+        configurable: true,
+      });
+
+      const diagnostics = collectDiagnostics();
+      expect(diagnostics.swControlled).toBe(false);
+
+      if (originalDescriptor) {
+        Object.defineProperty(navigator, 'serviceWorker', originalDescriptor);
+      } else {
+        Object.defineProperty(navigator, 'serviceWorker', {
+          value: undefined,
+          writable: true,
+          configurable: true,
+        });
+      }
+    });
+  });
+
+  describe('reportError with diagnostics', () => {
+    it('includes diagnostics in metadata when metadata is provided', async () => {
+      await reportError({
+        source: 'frontend',
+        message: 'Test with metadata',
+        metadata: JSON.stringify({ custom: 'value' }),
+      });
+
+      const body = JSON.parse(fetchSpy.mock.calls[0]?.[1]?.body as string) as Record<
+        string,
+        unknown
+      >;
+      const metadata = JSON.parse(body.metadata as string) as Record<string, unknown>;
+      expect(metadata).toHaveProperty('custom', 'value');
+      expect(metadata).toHaveProperty('buildHash');
+      expect(metadata).toHaveProperty('buildTimestamp');
+      expect(metadata).toHaveProperty('bundleUrl');
+      expect(metadata).toHaveProperty('swControlled');
+    });
+
+    it('handles invalid JSON metadata gracefully', async () => {
+      await reportError({
+        source: 'frontend',
+        message: 'Test with bad metadata',
+        metadata: 'not valid json{{{',
+      });
+
+      const body = JSON.parse(fetchSpy.mock.calls[0]?.[1]?.body as string) as Record<
+        string,
+        unknown
+      >;
+      // Should fall through to diagnostics-only since JSON.parse fails
+      const metadata = JSON.parse(body.metadata as string) as Record<string, unknown>;
+      expect(metadata).toHaveProperty('buildHash');
+      expect(metadata).toHaveProperty('buildTimestamp');
+      expect(metadata).not.toHaveProperty('not valid json');
+    });
+
+    it('handles non-object JSON metadata (e.g. array)', async () => {
+      await reportError({
+        source: 'frontend',
+        message: 'Test with array metadata',
+        metadata: '[1, 2, 3]',
+      });
+
+      const body = JSON.parse(fetchSpy.mock.calls[0]?.[1]?.body as string) as Record<
+        string,
+        unknown
+      >;
+      // Array is an object but we check typeof === 'object' && not null, arrays pass that.
+      // Actually arrays would pass the check so the spread would work. Let me check...
+      // `typeof [1,2,3]` is 'object' and it's not null, so it'll spread the array indices.
+      // That's fine - the diagnostics will be included.
+      const metadata = JSON.parse(body.metadata as string) as Record<string, unknown>;
+      expect(metadata).toHaveProperty('buildHash');
+    });
+
+    it('handles null JSON metadata', async () => {
+      await reportError({
+        source: 'frontend',
+        message: 'Test with null metadata',
+        metadata: 'null',
+      });
+
+      const body = JSON.parse(fetchSpy.mock.calls[0]?.[1]?.body as string) as Record<
+        string,
+        unknown
+      >;
+      // JSON.parse('null') returns null, which fails the !== null check
+      const metadata = JSON.parse(body.metadata as string) as Record<string, unknown>;
+      expect(metadata).toHaveProperty('buildHash');
+    });
+
+    it('includes diagnostics in metadata when no metadata is provided', async () => {
+      await reportError({
+        source: 'frontend',
+        message: 'Test without metadata',
+      });
+
+      const body = JSON.parse(fetchSpy.mock.calls[0]?.[1]?.body as string) as Record<
+        string,
+        unknown
+      >;
+      const metadata = JSON.parse(body.metadata as string) as Record<string, unknown>;
+      expect(metadata).toHaveProperty('buildHash');
+      expect(metadata).toHaveProperty('buildTimestamp');
+      expect(metadata).toHaveProperty('bundleUrl');
+      expect(metadata).toHaveProperty('swControlled');
     });
   });
 });

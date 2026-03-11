@@ -9,6 +9,12 @@ import { ErrorBoundary } from '../../src/components/ErrorBoundary.js';
 const mockReportError = vi.fn();
 vi.mock('../../src/services/errorReporter.js', () => ({
   reportError: (...args: unknown[]) => mockReportError(...args) as unknown,
+  collectDiagnostics: () => ({
+    buildHash: 'testhash',
+    buildTimestamp: 'dev',
+    bundleUrl: 'http://localhost/test',
+    swControlled: false,
+  }),
 }));
 
 // Suppress console.error from error boundary
@@ -107,6 +113,23 @@ describe('ErrorBoundary', () => {
     expect(call.metadata).toBeDefined();
     const metadata = JSON.parse(call.metadata as string) as Record<string, unknown>;
     expect(metadata.componentStack).toBeDefined();
+  });
+
+  it('includes diagnostics in metadata alongside componentStack', () => {
+    renderWithTheme(
+      <ErrorBoundary>
+        <ThrowingComponent shouldThrow={true} />
+      </ErrorBoundary>,
+    );
+
+    const call = mockReportError.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(call.metadata).toBeDefined();
+    const metadata = JSON.parse(call.metadata as string) as Record<string, unknown>;
+    expect(metadata).toHaveProperty('componentStack');
+    expect(metadata).toHaveProperty('buildHash');
+    expect(metadata).toHaveProperty('buildTimestamp');
+    expect(metadata).toHaveProperty('bundleUrl');
+    expect(metadata).toHaveProperty('swControlled');
   });
 
   it('does not crash when reportError would fail', () => {
