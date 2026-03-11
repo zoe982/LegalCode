@@ -379,4 +379,128 @@ describe('extractHeadingTree', () => {
     expect(result[1]?.isTitle).toBe(false);
     expect(result[1]?.number).toBe('1.');
   });
+
+  // ---------------------------------------------------------------------------
+  // Real document structures — title-aware level shifting
+  // ---------------------------------------------------------------------------
+  describe('real document structures', () => {
+    // 1. Standard contract: title H1, H2 sections, H3 clauses
+    // When a title H1 exists and no further H1s appear, H2s should shift
+    // down and number as H1 (1., 2., 3.) and H3s as H2 (1.1, 1.2, etc.)
+    it('standard contract: title + H2 sections + H3 clauses', () => {
+      const doc = makeDoc([
+        makeHeading(1, 'Master Services Agreement', 20),
+        makeHeading(2, 'Purpose', 20),
+        makeHeading(3, 'Clause A', 20),
+        makeHeading(3, 'Clause B', 20),
+        makeHeading(2, 'Services', 20),
+        makeHeading(3, 'Clause C', 20),
+        makeHeading(3, 'Clause D', 20),
+        makeHeading(2, 'Term', 20),
+      ]);
+      const result = extractHeadingTree(doc as unknown as import('@milkdown/kit/prose/model').Node);
+      expect(result).toHaveLength(8);
+      // Title H1 → no number
+      expect(result[0]?.isTitle).toBe(true);
+      expect(result[0]?.number).toBe('');
+      // H2s shift to act as H1-level numbered sections
+      expect(result[1]?.text).toBe('Purpose');
+      expect(result[1]?.number).toBe('1.');
+      expect(result[2]?.text).toBe('Clause A');
+      expect(result[2]?.number).toBe('1.1');
+      expect(result[3]?.text).toBe('Clause B');
+      expect(result[3]?.number).toBe('1.2');
+      expect(result[4]?.text).toBe('Services');
+      expect(result[4]?.number).toBe('2.');
+      expect(result[5]?.text).toBe('Clause C');
+      expect(result[5]?.number).toBe('2.1');
+      expect(result[6]?.text).toBe('Clause D');
+      expect(result[6]?.number).toBe('2.2');
+      expect(result[7]?.text).toBe('Term');
+      expect(result[7]?.number).toBe('3.');
+    });
+
+    // 2. Deep contract: title + H2 + H3 + H4 sub-clauses
+    // All levels shift down by 1 when a title H1 is present and no further H1s exist
+    it('deep contract: title + H2 + H3 + H4 sub-clauses', () => {
+      const doc = makeDoc([
+        makeHeading(1, 'Engagement Letter', 20),
+        makeHeading(2, 'Definitions', 20),
+        makeHeading(3, 'General Terms', 20),
+        makeHeading(4, 'Interpretation rules', 20),
+        makeHeading(4, 'Currency conventions', 20),
+        makeHeading(3, 'Specific Terms', 20),
+        makeHeading(2, 'Obligations', 20),
+      ]);
+      const result = extractHeadingTree(doc as unknown as import('@milkdown/kit/prose/model').Node);
+      expect(result).toHaveLength(7);
+      // Title H1
+      expect(result[0]?.isTitle).toBe(true);
+      expect(result[0]?.number).toBe('');
+      // H2 → numbers as top-level section
+      expect(result[1]?.text).toBe('Definitions');
+      expect(result[1]?.number).toBe('1.');
+      // H3 → numbers as second-level
+      expect(result[2]?.text).toBe('General Terms');
+      expect(result[2]?.number).toBe('1.1');
+      // H4 → numbers as third-level
+      expect(result[3]?.text).toBe('Interpretation rules');
+      expect(result[3]?.number).toBe('1.1.1');
+      expect(result[4]?.text).toBe('Currency conventions');
+      expect(result[4]?.number).toBe('1.1.2');
+      // H3 sibling
+      expect(result[5]?.text).toBe('Specific Terms');
+      expect(result[5]?.number).toBe('1.2');
+      // Second H2 section
+      expect(result[6]?.text).toBe('Obligations');
+      expect(result[6]?.number).toBe('2.');
+    });
+
+    // 3. No-title doc: H2 sections with no H1 — no shifting, H2s number as subsections
+    // When there is no title H1 at all, H2s behave as before (0.1, 0.2, …)
+    it('no-title doc: H2 sections number as subsections under implicit H1=0', () => {
+      const doc = makeDoc([makeHeading(2, 'Background', 20), makeHeading(2, 'Scope', 20)]);
+      const result = extractHeadingTree(doc as unknown as import('@milkdown/kit/prose/model').Node);
+      expect(result).toHaveLength(2);
+      // No title treatment — first heading is H2, not H1
+      expect(result[0]?.isTitle).toBe(false);
+      expect(result[0]?.number).toBe('0.1');
+      expect(result[1]?.isTitle).toBe(false);
+      expect(result[1]?.number).toBe('0.2');
+    });
+
+    // 4. Mixed: title H1, then H1 sections, then H2 subsections
+    // When subsequent H1s exist after the title, shifting does NOT apply;
+    // H1s number normally (1., 2.) and H2s nest under them (1.1)
+    it('mixed: title + H1 sections + H2 subsections', () => {
+      const doc = makeDoc([
+        makeHeading(1, 'Annual Report', 20),
+        makeHeading(1, 'Part I', 20),
+        makeHeading(2, 'Chapter 1', 20),
+        makeHeading(1, 'Part II', 20),
+      ]);
+      const result = extractHeadingTree(doc as unknown as import('@milkdown/kit/prose/model').Node);
+      expect(result).toHaveLength(4);
+      // Title H1
+      expect(result[0]?.isTitle).toBe(true);
+      expect(result[0]?.number).toBe('');
+      // Subsequent H1s number normally (no shifting — other H1s are present)
+      expect(result[1]?.text).toBe('Part I');
+      expect(result[1]?.number).toBe('1.');
+      expect(result[2]?.text).toBe('Chapter 1');
+      expect(result[2]?.number).toBe('1.1');
+      expect(result[3]?.text).toBe('Part II');
+      expect(result[3]?.number).toBe('2.');
+    });
+
+    // 5. Single title heading: just one H1, no other content
+    // The lone H1 is the title; result has one entry with isTitle=true and number=''
+    it('single title heading: just title, no numbered content', () => {
+      const doc = makeDoc([makeHeading(1, 'Non-Disclosure Agreement', 20)]);
+      const result = extractHeadingTree(doc as unknown as import('@milkdown/kit/prose/model').Node);
+      expect(result).toHaveLength(1);
+      expect(result[0]?.isTitle).toBe(true);
+      expect(result[0]?.number).toBe('');
+    });
+  });
 });

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import {
   Dialog,
   Box,
@@ -38,6 +38,11 @@ export function CreateTemplateDialog({ open, onClose }: CreateTemplateDialogProp
   const [categoryTouched, setCategoryTouched] = useState(false);
   const [showCharCount, setShowCharCount] = useState(false);
 
+  // Store mutation.reset in a ref so resetForm has stable deps (avoids infinite loop:
+  // createMutation is a new object every render → resetForm changes → effect re-runs → loop)
+  const mutationResetRef = useRef(createMutation.reset);
+  mutationResetRef.current = createMutation.reset;
+
   const resetForm = useCallback(() => {
     setTitle('');
     setCategory('');
@@ -47,8 +52,8 @@ export function CreateTemplateDialog({ open, onClose }: CreateTemplateDialogProp
     setTitleTouched(false);
     setCategoryTouched(false);
     setShowCharCount(false);
-    createMutation.reset();
-  }, [createMutation]);
+    mutationResetRef.current();
+  }, []);
 
   // Reset form when dialog closes
   useEffect(() => {

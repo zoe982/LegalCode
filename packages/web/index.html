@@ -19,7 +19,7 @@
     <script>
       // One-time SW cache bust — increment version on breaking deploys
       (function() {
-        var v = '3';
+        var v = '4';
         if (localStorage.getItem('lc-sw-v') !== v && 'serviceWorker' in navigator) {
           localStorage.setItem('lc-sw-v', v);
           navigator.serviceWorker.getRegistrations().then(function(regs) {

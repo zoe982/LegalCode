@@ -103,8 +103,20 @@ export function extractHeadingTree(doc: Node): HeadingEntry[] {
 
   const rawEntries: RawEntry[] = [];
 
+  // Pre-scan: count H1 headings to determine if level shifting is needed.
+  // When there's exactly one H1 (the title) and all other headings are H2+,
+  // we shift levels down by 1 so H2→numbers as H1, H3→H2, etc.
+  let h1Count = 0;
+  for (const { node } of topLevel) {
+    if (node.type.name !== 'heading') continue;
+    const l = (node.attrs as { level?: unknown } | undefined)?.level;
+    if (l === 1) h1Count += 1;
+  }
+
   // Track whether we've seen the very first heading in the document
   let firstHeadingSeen = false;
+  // Only shift levels when there's a title H1 and no other H1s in the doc
+  let shiftLevels = false;
 
   for (const { node, pos } of topLevel) {
     if (node.type.name !== 'heading') continue;
@@ -117,6 +129,8 @@ export function extractHeadingTree(doc: Node): HeadingEntry[] {
     if (!firstHeadingSeen) {
       firstHeadingSeen = true;
       if (level === 1) {
+        // Shift levels only when this is the only H1 (no numbered H1 sections)
+        shiftLevels = h1Count === 1;
         // bodyStartPos: the position immediately after this heading node
         const bodyStartPos = pos + node.nodeSize;
         rawEntries.push({
@@ -131,11 +145,15 @@ export function extractHeadingTree(doc: Node): HeadingEntry[] {
       }
     }
 
+    // When title exists and no other H1s, shift levels: H2→1, H3→2, H4→3
+    const numberLevel =
+      shiftLevels && level > 1 ? ((level - 1) as 1 | 2 | 3 | 4) : (level as 1 | 2 | 3 | 4);
+
     // Increment this level's counter and reset all deeper counters
     // For the first H1 after a title, we still start from 1 (counters unchanged since 0)
-    incrementCounters(counters, level as 1 | 2 | 3 | 4);
+    incrementCounters(counters, numberLevel);
 
-    const number = buildNumber(counters, level as 1 | 2 | 3 | 4);
+    const number = buildNumber(counters, numberLevel);
 
     // bodyStartPos: the position immediately after this heading node
     const bodyStartPos = pos + node.nodeSize;
