@@ -17,12 +17,19 @@
   <body>
     <div id="root"></div>
     <script>
-      // Diagnostic: unregister all service workers to rule out stale SW cache
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.getRegistrations().then(function(regs) {
-          regs.forEach(function(reg) { reg.unregister(); });
-        });
-      }
+      // One-time SW cache bust — increment version on breaking deploys
+      (function() {
+        var v = '2';
+        if (localStorage.getItem('lc-sw-v') !== v && 'serviceWorker' in navigator) {
+          localStorage.setItem('lc-sw-v', v);
+          navigator.serviceWorker.getRegistrations().then(function(regs) {
+            if (regs.length > 0) {
+              regs.forEach(function(r) { r.unregister(); });
+              location.reload();
+            }
+          });
+        }
+      })();
     </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
