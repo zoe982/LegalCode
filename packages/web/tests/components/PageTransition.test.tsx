@@ -13,49 +13,10 @@ describe('PageTransition', () => {
     expect(screen.getByText('Hello Page')).toBeInTheDocument();
   });
 
-  it('container has animation style', () => {
-    render(
-      <PageTransition>
-        <div>Animated</div>
-      </PageTransition>,
-    );
-    const container = screen.getByText('Animated').parentElement;
-    expect(container).not.toBeNull();
-    // MUI keyframes generates a class-based animation applied via the sx prop.
-    // In jsdom, getComputedStyle doesn't resolve MUI's runtime CSS-in-JS.
-    // Verify the container has a class applied by MUI's Box component (sx animation).
-    if (container) {
-      expect(container.className).toBeTruthy();
-      // The MUI Box with sx prop applies a generated CSS class
-      expect(container.classList.length).toBeGreaterThan(0);
-    }
-  });
-
-  it('uses opacity + translateY animation (not scale)', () => {
+  it('has data-testid for integration tests', () => {
     render(
       <PageTransition>
         <div>Test</div>
-      </PageTransition>,
-    );
-    const container = screen.getByTestId('page-transition');
-    expect(container).toBeInTheDocument();
-    expect(container.className).toBeTruthy();
-  });
-
-  it('does not use animation-fill-mode both (prevents fixed positioning bugs)', () => {
-    render(
-      <PageTransition>
-        <div>Test</div>
-      </PageTransition>,
-    );
-    const container = screen.getByTestId('page-transition');
-    expect(container).toBeInTheDocument();
-  });
-
-  it('respects prefers-reduced-motion', () => {
-    render(
-      <PageTransition>
-        <div>Accessible</div>
       </PageTransition>,
     );
     const container = screen.getByTestId('page-transition');
@@ -70,5 +31,37 @@ describe('PageTransition', () => {
     );
     const container = screen.getByTestId('page-transition');
     expect(container).toHaveStyle({ height: '100%' });
+  });
+
+  it('renders multiple children', () => {
+    render(
+      <PageTransition>
+        <div>First</div>
+        <div>Second</div>
+      </PageTransition>,
+    );
+    expect(screen.getByText('First')).toBeInTheDocument();
+    expect(screen.getByText('Second')).toBeInTheDocument();
+  });
+
+  it('wraps children in a Box container', () => {
+    render(
+      <PageTransition>
+        <div>Content</div>
+      </PageTransition>,
+    );
+    const container = screen.getByTestId('page-transition');
+    expect(container.tagName).toBe('DIV');
+    expect(container).toContainElement(screen.getByText('Content'));
+  });
+
+  it('applies MUI Box className via sx prop', () => {
+    render(
+      <PageTransition>
+        <div>Styled</div>
+      </PageTransition>,
+    );
+    const container = screen.getByTestId('page-transition');
+    expect(container.classList.length).toBeGreaterThan(0);
   });
 });

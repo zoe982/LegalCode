@@ -1,16 +1,5 @@
-import { Box, keyframes } from '@mui/material';
+import { Box } from '@mui/material';
 import type { ReactNode } from 'react';
-
-const pageIn = keyframes`
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-`;
 
 interface PageTransitionProps {
   children: ReactNode;
@@ -18,16 +7,7 @@ interface PageTransitionProps {
 
 export function PageTransition({ children }: PageTransitionProps) {
   return (
-    <Box
-      data-testid="page-transition"
-      sx={{
-        height: '100%',
-        animation: `${pageIn} 200ms ease-out backwards`,
-        '@media (prefers-reduced-motion: reduce)': {
-          animation: 'none',
-        },
-      }}
-    >
+    <Box data-testid="page-transition" sx={{ height: '100%' }}>
       {children}
     </Box>
   );
