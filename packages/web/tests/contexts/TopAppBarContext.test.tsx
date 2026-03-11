@@ -1,7 +1,11 @@
 /// <reference types="@testing-library/jest-dom/vitest" />
 import { describe, it, expect } from 'vitest';
-import { render, screen, act } from '@testing-library/react';
-import { TopAppBarProvider, useTopAppBarConfig } from '../../src/contexts/TopAppBarContext.js';
+import { render, screen, act, renderHook } from '@testing-library/react';
+import {
+  TopAppBarProvider,
+  useTopAppBarConfig,
+  useTopAppBarSetters,
+} from '../../src/contexts/TopAppBarContext.js';
 
 function TestConsumer() {
   const { config, setConfig, clearConfig } = useTopAppBarConfig();
@@ -87,5 +91,107 @@ describe('TopAppBarContext', () => {
       screen.getByRole('button', { name: 'Clear' }).click();
     });
     expect(screen.getByTestId('template-name')).toHaveTextContent('none');
+  });
+
+  it("setter-only consumers don't re-render when config changes", () => {
+    let setterOnlyRenderCount = 0;
+
+    function SetterOnlyConsumer() {
+      setterOnlyRenderCount++;
+      useTopAppBarSetters();
+      return <div data-testid="setter-only" />;
+    }
+
+    function ConfigChangingConsumer() {
+      const { setConfig } = useTopAppBarSetters();
+      return (
+        <button
+          onClick={() => {
+            setConfig({ breadcrumbTemplateName: 'New Name' });
+          }}
+        >
+          Change Config
+        </button>
+      );
+    }
+
+    render(
+      <TopAppBarProvider>
+        <SetterOnlyConsumer />
+        <ConfigChangingConsumer />
+      </TopAppBarProvider>,
+    );
+
+    const renderCountAfterMount = setterOnlyRenderCount;
+
+    act(() => {
+      screen.getByRole('button', { name: 'Change Config' }).click();
+    });
+
+    act(() => {
+      screen.getByRole('button', { name: 'Change Config' }).click();
+    });
+
+    // SetterOnlyConsumer should not re-render when config state changes
+    expect(setterOnlyRenderCount).toBe(renderCountAfterMount);
+  });
+
+  it('useTopAppBarSetters returns stable references across config changes', () => {
+    let capturedSetConfig: ReturnType<typeof useTopAppBarSetters>['setConfig'] | null = null;
+    let capturedClearConfig: ReturnType<typeof useTopAppBarSetters>['clearConfig'] | null = null;
+
+    function SetterCapture() {
+      const { setConfig, clearConfig } = useTopAppBarSetters();
+      capturedSetConfig = setConfig;
+      capturedClearConfig = clearConfig;
+      return null;
+    }
+
+    function ConfigTrigger() {
+      const { setConfig } = useTopAppBarConfig();
+      return (
+        <button
+          onClick={() => {
+            setConfig({ breadcrumbTemplateName: 'Stable Test' });
+          }}
+        >
+          Trigger Change
+        </button>
+      );
+    }
+
+    render(
+      <TopAppBarProvider>
+        <SetterCapture />
+        <ConfigTrigger />
+      </TopAppBarProvider>,
+    );
+
+    const setConfigBefore = capturedSetConfig;
+    const clearConfigBefore = capturedClearConfig;
+
+    act(() => {
+      screen.getByRole('button', { name: 'Trigger Change' }).click();
+    });
+
+    // References must be referentially stable (same function identity) across config changes
+    expect(capturedSetConfig).toBe(setConfigBefore);
+    expect(capturedClearConfig).toBe(clearConfigBefore);
+  });
+
+  it('useTopAppBarSetters returns noop fallbacks outside provider', () => {
+    const { result } = renderHook(() => useTopAppBarSetters());
+
+    expect(typeof result.current.setConfig).toBe('function');
+    expect(typeof result.current.clearConfig).toBe('function');
+
+    // Neither should throw when called outside the provider
+    expect(() => {
+      result.current.setConfig({ breadcrumbTemplateName: 'Outside Provider' });
+    }).not.toThrow();
+
+    expect(() => {
+      result.current.clearConfig();
+    }).not.toThrow();
   });
 });

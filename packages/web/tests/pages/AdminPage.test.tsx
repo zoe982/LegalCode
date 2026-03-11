@@ -75,6 +75,10 @@ vi.mock('../../src/contexts/TopAppBarContext.js', () => ({
     setConfig: mockSetConfig,
     clearConfig: mockClearConfig,
   }),
+  useTopAppBarSetters: () => ({
+    setConfig: mockSetConfig,
+    clearConfig: mockClearConfig,
+  }),
 }));
 
 const { AdminPage } = await import('../../src/pages/AdminPage.js');

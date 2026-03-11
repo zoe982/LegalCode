@@ -15,7 +15,7 @@ import { useTemplateVersions } from '../hooks/useTemplates.js';
 import { templateService } from '../services/templates.js';
 import { computeDiff, type DiffLine } from '../utils/diff.js';
 import type { TemplateVersion } from '@legalcode/shared';
-import { useTopAppBarConfig } from '../contexts/TopAppBarContext.js';
+import { useTopAppBarSetters } from '../contexts/TopAppBarContext.js';
 
 type DiffMode = 'unified' | 'side-by-side';
 
@@ -35,7 +35,7 @@ export function DiffViewPage() {
     v2: string;
   }>();
   const navigate = useNavigate();
-  const { setConfig, clearConfig } = useTopAppBarConfig();
+  const { setConfig, clearConfig } = useTopAppBarSetters();
 
   const templateId = id ?? '';
   const [leftVersion, setLeftVersion] = useState(Number(v1Param ?? '1'));

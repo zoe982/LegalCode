@@ -41,6 +41,10 @@ vi.mock('../../src/contexts/TopAppBarContext.js', () => ({
     setConfig: vi.fn(),
     clearConfig: vi.fn(),
   }),
+  useTopAppBarSetters: () => ({
+    setConfig: vi.fn(),
+    clearConfig: vi.fn(),
+  }),
 }));
 
 // ── Helpers ──────────────────────────────────────────────────────────

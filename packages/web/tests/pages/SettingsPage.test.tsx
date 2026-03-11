@@ -15,6 +15,10 @@ vi.mock('../../src/contexts/TopAppBarContext.js', () => ({
     setConfig: mockSetConfig,
     clearConfig: mockClearConfig,
   }),
+  useTopAppBarSetters: () => ({
+    setConfig: mockSetConfig,
+    clearConfig: mockClearConfig,
+  }),
 }));
 
 const mockLogout = vi.fn();

@@ -14,7 +14,7 @@ import {
 } from '@mui/material';
 import { useTemplate, useTemplateVersions } from '../hooks/useTemplates.js';
 import { templateService } from '../services/templates.js';
-import { useTopAppBarConfig } from '../contexts/TopAppBarContext.js';
+import { useTopAppBarSetters } from '../contexts/TopAppBarContext.js';
 import { markdownToHtml } from '../utils/markdownToHtml.js';
 import { relativeTime } from '../utils/relativeTime.js';
 import { computeDiff } from '../utils/diff.js';
@@ -35,7 +35,7 @@ export function VersionHistoryPage() {
   const [showDiff, setShowDiff] = useState(false);
   const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
 
-  const { setConfig, clearConfig } = useTopAppBarConfig();
+  const { setConfig, clearConfig } = useTopAppBarSetters();
 
   // Extract primitive deps to avoid object reference instability
   const currentVersionNumber = templateData?.template.currentVersion;

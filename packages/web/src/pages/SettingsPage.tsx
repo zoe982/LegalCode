@@ -13,7 +13,7 @@ import {
 import { useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth.js';
 import { usePreferences } from '../hooks/usePreferences.js';
-import { useTopAppBarConfig } from '../contexts/TopAppBarContext.js';
+import { useTopAppBarSetters } from '../contexts/TopAppBarContext.js';
 
 /* v8 ignore start -- defensive fallbacks for strict index access */
 function getInitials(name: string, email: string): string {
@@ -130,7 +130,7 @@ function getRoleChipProps(role: string): {
 export function SettingsPage() {
   const { user, isLoading, logout, isLoggingOut } = useAuth();
   const { editorMode, setEditorMode } = usePreferences();
-  const { setConfig, clearConfig } = useTopAppBarConfig();
+  const { setConfig, clearConfig } = useTopAppBarSetters();
 
   useEffect(() => {
     setConfig({ breadcrumbPageName: 'Settings' });

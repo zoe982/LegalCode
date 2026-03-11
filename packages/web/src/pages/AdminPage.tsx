@@ -5,10 +5,10 @@ import { UsersTab } from '../components/UsersTab.js';
 import { CategoryManager } from '../components/CategoryManager.js';
 import { CountryManager } from '../components/CountryManager.js';
 import { TrashManager } from '../components/TrashManager.js';
-import { useTopAppBarConfig } from '../contexts/TopAppBarContext.js';
+import { useTopAppBarSetters } from '../contexts/TopAppBarContext.js';
 
 export function AdminPage() {
-  const { setConfig, clearConfig } = useTopAppBarConfig();
+  const { setConfig, clearConfig } = useTopAppBarSetters();
 
   useEffect(() => {
     setConfig({ breadcrumbPageName: 'Admin' });

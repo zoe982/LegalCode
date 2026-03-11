@@ -31,7 +31,7 @@ import { useComments } from '../hooks/useComments.js';
 import { MarginCommentTrigger } from '../components/MarginCommentTrigger.js';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Template } from '@legalcode/shared';
-import { useTopAppBarConfig } from '../contexts/TopAppBarContext.js';
+import { useTopAppBarSetters } from '../contexts/TopAppBarContext.js';
 import { CommentAnchorProvider } from '../contexts/CommentAnchorContext.js';
 import { DocumentHeader } from '../components/DocumentHeader.js';
 import { DeleteTemplateDialog } from '../components/DeleteTemplateDialog.js';
@@ -367,7 +367,7 @@ export function TemplateEditorPage() {
   }, [id, deleteMutation, navigate, restoreMutation, showToast]);
 
   // Sync TopAppBar config for editor view — v4: use DocumentHeader
-  const { setConfig, clearConfig } = useTopAppBarConfig();
+  const { setConfig, clearConfig } = useTopAppBarSetters();
 
   // Derive connection status for draft autosave display
   const draftSaveStatus: ConnectionStatusType | null =

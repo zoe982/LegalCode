@@ -34,6 +34,7 @@ export function useCollaboration(
   options?: CollaborationOptions,
 ): UseCollaborationReturn {
   const [status, setStatus] = useState<ConnectionStatus>('disconnected');
+  const statusRef = useRef<ConnectionStatus>('disconnected');
   const [connectedUsers, setConnectedUsers] = useState<CollaborationUser[]>([]);
   const ydocRef = useRef<Y.Doc | null>(null);
   const awarenessRef = useRef<Awareness | null>(null);
@@ -56,10 +57,11 @@ export function useCollaboration(
     let cancelled = false;
 
     // Safety net: track status update timestamps to detect render loops.
-    // If more than 10 status updates happen within a 5-second window, force disconnect.
+    // If more than 8 status updates happen within a 5-second window, force disconnect.
     const statusUpdateTimestamps: number[] = [];
 
     function safeSetStatus(newStatus: ConnectionStatus) {
+      if (newStatus === statusRef.current) return;
       const now = Date.now();
       // Remove timestamps older than 5 seconds
       while (statusUpdateTimestamps.length > 0 && (statusUpdateTimestamps[0] ?? 0) < now - 5000) {
@@ -67,7 +69,7 @@ export function useCollaboration(
       }
       statusUpdateTimestamps.push(now);
 
-      if (statusUpdateTimestamps.length > 10) {
+      if (statusUpdateTimestamps.length > 8) {
         // Render loop detected — force disconnect
         /* v8 ignore next 2 -- defensive guard; cancelled is always false on first trigger */
         if (!cancelled) {
@@ -92,6 +94,7 @@ export function useCollaboration(
         return;
       }
 
+      statusRef.current = newStatus;
       setStatus(newStatus);
     }
 

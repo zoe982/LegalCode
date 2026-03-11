@@ -565,6 +565,16 @@ vi.mock('../../src/contexts/TopAppBarContext.js', () => ({
       mockClearConfig();
     },
   }),
+  useTopAppBarSetters: () => ({
+    setConfig: (config: Record<string, unknown>) => {
+      latestAppBarConfig = config;
+      mockSetConfig(config);
+    },
+    clearConfig: () => {
+      latestAppBarConfig = {};
+      mockClearConfig();
+    },
+  }),
 }));
 
 const mockShowToast = vi.fn();

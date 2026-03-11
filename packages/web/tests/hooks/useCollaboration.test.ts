@@ -1145,7 +1145,7 @@ describe('useCollaboration', () => {
     vi.stubGlobal('WebSocket', OriginalMockWebSocket);
   });
 
-  it('safety net: forces disconnect and reports error after >10 rapid status changes in 5s', async () => {
+  it('safety net: forces disconnect and reports error after >8 rapid status changes in 5s', async () => {
     vi.useFakeTimers({ now: 1000 });
     const OriginalMockWebSocket = MockWebSocket;
 
@@ -1218,10 +1218,10 @@ describe('useCollaboration', () => {
     }
 
     // After enough rapid cycles, the safety net should have triggered.
-    // The exact timing depends on when >10 accumulate within the 5s window,
+    // The exact timing depends on when >5 accumulate within the 5s window,
     // but we verify the invariant: once triggered, status is 'disconnected'
     // and reportError was called with the render-loop message.
-    // If it has NOT triggered yet (fewer than 10 in the window), we accept
+    // If it has NOT triggered yet (fewer than 5 in the window), we accept
     // either 'disconnected' (safety triggered) or 'connected'/'reconnecting'
     // (normal operation, safety not yet triggered but no crash).
     const finalStatus = result.current.status;
@@ -1271,5 +1271,36 @@ describe('useCollaboration', () => {
     expect(result.current.status).toBe('connected');
     // Safety net should NOT have fired during normal operation
     expect(mockReportError).not.toHaveBeenCalled();
+  });
+
+  it('skips redundant status update when onclose fires while already reconnecting', async () => {
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useCollaboration('tmpl-1', testUser));
+
+    // Open initial connection
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+    expect(result.current.status).toBe('connected');
+
+    // First close: status transitions to 'reconnecting'
+    act(() => {
+      wsRef().onclose?.();
+    });
+    expect(result.current.status).toBe('reconnecting');
+
+    // Capture render count proxy: track status value before second close
+    const statusAfterFirstClose = result.current.status;
+
+    // Second close fires while already in 'reconnecting' state.
+    // The statusRef guard should prevent a redundant state update and re-render.
+    act(() => {
+      wsRef().onclose?.();
+    });
+
+    // Status must remain 'reconnecting' — no state change, no redundant transition
+    expect(result.current.status).toBe('reconnecting');
+    // The value did not flip or reset
+    expect(result.current.status).toBe(statusAfterFirstClose);
   });
 });

@@ -10,13 +10,19 @@ interface TopAppBarConfig {
   documentHeader?: ReactNode | undefined;
 }
 
-interface TopAppBarContextValue {
+interface TopAppBarConfigContextValue {
   config: TopAppBarConfig;
+}
+
+interface TopAppBarSetterContextValue {
   setConfig: (config: TopAppBarConfig) => void;
   clearConfig: () => void;
 }
 
-const TopAppBarContext = createContext<TopAppBarContextValue | null>(null);
+interface TopAppBarContextValue extends TopAppBarConfigContextValue, TopAppBarSetterContextValue {}
+
+const TopAppBarConfigContext = createContext<TopAppBarConfigContextValue | null>(null);
+const TopAppBarSetterContext = createContext<TopAppBarSetterContextValue | null>(null);
 
 export function TopAppBarProvider({ children }: { children: ReactNode }) {
   const [config, setConfigState] = useState<TopAppBarConfig>({});
@@ -29,19 +35,23 @@ export function TopAppBarProvider({ children }: { children: ReactNode }) {
     setConfigState({});
   }, []);
 
-  const value = useMemo(
-    () => ({ config, setConfig, clearConfig }),
-    [config, setConfig, clearConfig],
-  );
+  const setterValue = useMemo(() => ({ setConfig, clearConfig }), [setConfig, clearConfig]);
 
-  return <TopAppBarContext.Provider value={value}>{children}</TopAppBarContext.Provider>;
+  const configValue = useMemo(() => ({ config }), [config]);
+
+  return (
+    <TopAppBarSetterContext.Provider value={setterValue}>
+      <TopAppBarConfigContext.Provider value={configValue}>
+        {children}
+      </TopAppBarConfigContext.Provider>
+    </TopAppBarSetterContext.Provider>
+  );
 }
 
-export function useTopAppBarConfig(): TopAppBarContextValue {
-  const ctx = useContext(TopAppBarContext);
+export function useTopAppBarSetters(): TopAppBarSetterContextValue {
+  const ctx = useContext(TopAppBarSetterContext);
   if (!ctx) {
     return {
-      config: {},
       setConfig: () => {
         /* noop */
       },
@@ -51,4 +61,23 @@ export function useTopAppBarConfig(): TopAppBarContextValue {
     };
   }
   return ctx;
+}
+
+export function useTopAppBarConfig(): TopAppBarContextValue {
+  const configCtx = useContext(TopAppBarConfigContext);
+  const setterCtx = useContext(TopAppBarSetterContext);
+
+  const config = configCtx?.config ?? {};
+  const setConfig =
+    setterCtx?.setConfig ??
+    (() => {
+      /* noop */
+    });
+  const clearConfig =
+    setterCtx?.clearConfig ??
+    (() => {
+      /* noop */
+    });
+
+  return { config, setConfig, clearConfig };
 }

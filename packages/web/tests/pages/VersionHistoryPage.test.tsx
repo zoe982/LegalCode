@@ -50,6 +50,10 @@ vi.mock('../../src/contexts/TopAppBarContext.js', () => ({
     setConfig: mockSetConfig,
     clearConfig: mockClearConfig,
   }),
+  useTopAppBarSetters: () => ({
+    setConfig: mockSetConfig,
+    clearConfig: mockClearConfig,
+  }),
 }));
 
 vi.mock('../../src/utils/markdownToHtml.js', () => ({
