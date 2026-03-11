@@ -108,7 +108,7 @@ describe('useCommentPositions', () => {
     document.body.removeChild(container);
   });
 
-  it('resolves collisions by pushing overlapping cards down with 12px gap and 200px fallback height', () => {
+  it('resolves collisions by pushing overlapping cards down with 12px gap and 320px fallback height', () => {
     const container = createContainerWithMarks([
       { id: 'c1', top: 100 },
       { id: 'c2', top: 105 },
@@ -117,9 +117,9 @@ describe('useCommentPositions', () => {
 
     const { result } = renderHook(() => useCommentPositions(ref, ['c1', 'c2'], new Map()));
 
-    // First card stays at 100, second should be pushed to 100 + 200 (CARD_MIN_HEIGHT fallback) + 12 (GAP) = 312
+    // First card stays at 100, second should be pushed to 100 + 320 (CARD_MIN_HEIGHT fallback) + 12 (GAP) = 432
     expect(result.current[0]).toEqual({ commentId: 'c1', top: 100 });
-    expect(result.current[1]?.top).toBe(312);
+    expect(result.current[1]?.top).toBe(432);
 
     document.body.removeChild(container);
   });
@@ -148,7 +148,7 @@ describe('useCommentPositions', () => {
       { id: 'c3', top: 110 },
     ]);
     const ref = createMockRef(container);
-    // Only c1 has a measured height; c2 will use fallback (200)
+    // Only c1 has a measured height; c2 will use fallback (320)
     const cardHeights = new Map([['c1', 50]]);
 
     const { result } = renderHook(() => useCommentPositions(ref, ['c1', 'c2', 'c3'], cardHeights));
@@ -157,8 +157,8 @@ describe('useCommentPositions', () => {
     expect(result.current[0]).toEqual({ commentId: 'c1', top: 100 });
     // c2 pushed to 100 + 50 (c1 measured) + 12 = 162
     expect(result.current[1]?.top).toBe(162);
-    // c3 pushed to 162 + 200 (c2 fallback) + 12 = 374
-    expect(result.current[2]?.top).toBe(374);
+    // c3 pushed to 162 + 320 (c2 fallback) + 12 = 494
+    expect(result.current[2]?.top).toBe(494);
 
     document.body.removeChild(container);
   });
@@ -254,7 +254,7 @@ describe('useCommentPositions', () => {
     rerender({ ids: ['c1', 'c2'] });
 
     expect(result.current).toHaveLength(2);
-    expect(result.current[1]).toEqual({ commentId: 'c2', top: 312 });
+    expect(result.current[1]).toEqual({ commentId: 'c2', top: 432 });
 
     document.body.removeChild(container);
   });

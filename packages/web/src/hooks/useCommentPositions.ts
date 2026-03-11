@@ -5,7 +5,7 @@ export interface CommentPosition {
   top: number;
 }
 
-const CARD_MIN_HEIGHT = 200;
+const CARD_MIN_HEIGHT = 320;
 const CARD_GAP = 12;
 
 export function useCommentPositions(

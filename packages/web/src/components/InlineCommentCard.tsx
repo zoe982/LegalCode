@@ -192,7 +192,7 @@ export function InlineCommentCard({
       sx={{
         p: '14px 16px',
         borderRadius: '10px',
-        backgroundColor: isActive === true ? 'rgba(128, 39, 255, 0.03)' : '#FFFFFF',
+        backgroundColor: isActive === true ? '#FEFCFF' : '#FFFFFF',
         border: isActive === true ? '1px solid #8027FF' : '1px solid #E4E5ED',
         boxShadow:
           isActive === true
