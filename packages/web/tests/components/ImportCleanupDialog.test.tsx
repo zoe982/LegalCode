@@ -21,6 +21,7 @@ function makeConversion(
     confidence: 'high',
     pattern: 'numbered-h1',
     selected: true,
+    sourceType: 'paragraph',
     ...overrides,
   };
 }

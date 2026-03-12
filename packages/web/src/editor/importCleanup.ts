@@ -17,6 +17,8 @@ export interface DetectedConversion {
   pattern: string;
   /** Whether this conversion is selected (default: high/medium = true, low = false) */
   selected: boolean;
+  /** Whether the source node was a paragraph or an existing heading */
+  sourceType: 'paragraph' | 'heading';
 }
 
 // ---------------------------------------------------------------------------
@@ -27,6 +29,7 @@ interface NodeLike {
   type: { name: string };
   textContent: string;
   nodeSize: number;
+  attrs?: Record<string, unknown>;
 }
 
 interface DocLike {
@@ -157,7 +160,10 @@ export function detectNumberingPattern(text: string): {
 }
 
 /**
- * Scans a ProseMirror doc for paragraphs that look like legal headings.
+ * Scans a ProseMirror doc for paragraphs and headings that contain legal
+ * numbering patterns. For paragraph nodes the result uses the pattern-inferred
+ * heading level; for heading nodes the existing heading level from the node
+ * attrs is preserved instead.
  * Returns detected conversions sorted by position.
  */
 export function scanForConversions(doc: Node): DetectedConversion[] {
@@ -165,20 +171,28 @@ export function scanForConversions(doc: Node): DetectedConversion[] {
   const results: DetectedConversion[] = [];
 
   docLike.forEach((node, offset) => {
-    if (node.type.name !== 'paragraph') return;
+    const isParagraph = node.type.name === 'paragraph';
+    const isHeading = node.type.name === 'heading';
+    if (!isParagraph && !isHeading) return;
 
     const text = node.textContent;
     const detected = detectNumberingPattern(text);
     if (detected === null) return;
 
+    // For existing heading nodes, preserve the node's heading level rather
+    // than using the pattern-inferred level.
+    const headingLevel =
+      isHeading && typeof node.attrs?.level === 'number' ? node.attrs.level : detected.headingLevel;
+
     results.push({
       pos: offset,
       originalText: text,
-      headingLevel: detected.headingLevel,
+      headingLevel,
       cleanedText: detected.cleanedText,
       confidence: detected.confidence,
       pattern: detected.pattern,
       selected: detected.confidence !== 'low',
+      sourceType: isParagraph ? 'paragraph' : 'heading',
     });
   });
 

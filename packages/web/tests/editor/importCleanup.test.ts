@@ -10,6 +10,7 @@ interface MockNode {
   type: { name: string };
   textContent: string;
   nodeSize: number;
+  attrs?: Record<string, unknown>;
 }
 
 interface MockDoc {
@@ -25,11 +26,12 @@ function makeParagraph(text: string, nodeSize = 25): MockNode {
   };
 }
 
-function makeHeading(text: string, nodeSize = 20): MockNode {
+function makeHeading(text: string, nodeSize = 20, level = 2): MockNode {
   return {
     type: { name: 'heading' },
     textContent: text,
     nodeSize,
+    attrs: { level },
   };
 }
 
@@ -275,19 +277,27 @@ describe('scanForConversions', () => {
     expect(result).toHaveLength(2);
     expect(result[0]?.originalText).toBe('1. Introduction');
     expect(result[0]?.headingLevel).toBe(1);
+    expect(result[0]?.sourceType).toBe('paragraph');
     expect(result[1]?.originalText).toBe('1.1 Definitions');
     expect(result[1]?.headingLevel).toBe(2);
+    expect(result[1]?.sourceType).toBe('paragraph');
   });
 
-  it('skips non-paragraph nodes (headings, etc.)', () => {
+  it('detects numbering prefixes in existing headings', () => {
     const doc = makeDoc([
-      makeHeading('Article I Preamble', 20),
+      makeHeading('Article I Preamble', 20, 1),
       makeParagraph('1. Introduction', 20),
     ]);
     const result = scanForConversions(doc as unknown as import('@milkdown/kit/prose/model').Node);
-    // Only the paragraph should be detected, not the heading node
-    expect(result).toHaveLength(1);
-    expect(result[0]?.originalText).toBe('1. Introduction');
+    // Both the heading and the paragraph should be detected
+    expect(result).toHaveLength(2);
+    const headingResult = result.find((r) => r.originalText === 'Article I Preamble');
+    expect(headingResult).toBeDefined();
+    expect(headingResult?.sourceType).toBe('heading');
+    expect(headingResult?.headingLevel).toBe(1);
+    const paragraphResult = result.find((r) => r.originalText === '1. Introduction');
+    expect(paragraphResult).toBeDefined();
+    expect(paragraphResult?.sourceType).toBe('paragraph');
   });
 
   it('results are sorted by position (ascending)', () => {
@@ -350,5 +360,89 @@ describe('scanForConversions', () => {
     expect(typeof entry?.confidence).toBe('string');
     expect(typeof entry?.pattern).toBe('string');
     expect(typeof entry?.selected).toBe('boolean');
+    expect(typeof entry?.sourceType).toBe('string');
+  });
+
+  describe('heading numbering detection', () => {
+    it('detects "5. Fees and Payment" in H2 heading and preserves H2 level', () => {
+      const doc = makeDoc([makeHeading('5. Fees and Payment', 25, 2)]);
+      const result = scanForConversions(doc as unknown as import('@milkdown/kit/prose/model').Node);
+      expect(result).toHaveLength(1);
+      expect(result[0]?.sourceType).toBe('heading');
+      expect(result[0]?.headingLevel).toBe(2);
+      expect(result[0]?.originalText).toBe('5. Fees and Payment');
+      expect(result[0]?.cleanedText).toBe('Fees and Payment');
+    });
+
+    it('detects "1.1 Definitions" in H2 heading and keeps H2 level (not pattern-suggested level)', () => {
+      // Pattern "numbered-h2" coincidentally also suggests H2, but the heading level should come from the node attrs
+      const doc = makeDoc([makeHeading('1.1 Definitions', 20, 2)]);
+      const result = scanForConversions(doc as unknown as import('@milkdown/kit/prose/model').Node);
+      expect(result).toHaveLength(1);
+      expect(result[0]?.sourceType).toBe('heading');
+      expect(result[0]?.headingLevel).toBe(2);
+      expect(result[0]?.originalText).toBe('1.1 Definitions');
+    });
+
+    it('does not detect headings without numbering prefixes', () => {
+      const doc = makeDoc([makeHeading('Fees and Payment', 20, 2)]);
+      const result = scanForConversions(doc as unknown as import('@milkdown/kit/prose/model').Node);
+      expect(result).toHaveLength(0);
+    });
+  });
+
+  describe('real-world legal document scenarios', () => {
+    it('detects mixed numbered paragraphs and numbered headings in imported contract', () => {
+      const doc = makeDoc([
+        makeParagraph('1. Introduction', 20),
+        makeHeading('5. Fees and Payment', 25, 2),
+        makeParagraph('2. Scope', 15),
+      ]);
+      const result = scanForConversions(doc as unknown as import('@milkdown/kit/prose/model').Node);
+      expect(result).toHaveLength(3);
+      const introResult = result.find((r) => r.originalText === '1. Introduction');
+      expect(introResult?.sourceType).toBe('paragraph');
+      const feesResult = result.find((r) => r.originalText === '5. Fees and Payment');
+      expect(feesResult?.sourceType).toBe('heading');
+      expect(feesResult?.headingLevel).toBe(2);
+      const scopeResult = result.find((r) => r.originalText === '2. Scope');
+      expect(scopeResult?.sourceType).toBe('paragraph');
+    });
+
+    it('detects numbering in headings when all content is already properly headed', () => {
+      const doc = makeDoc([
+        makeHeading('1. Introduction', 20, 1),
+        makeHeading('1.1 Definitions', 20, 2),
+        makeHeading('1.2 Scope', 18, 2),
+      ]);
+      const result = scanForConversions(doc as unknown as import('@milkdown/kit/prose/model').Node);
+      expect(result).toHaveLength(3);
+      const introResult = result.find((r) => r.originalText === '1. Introduction');
+      expect(introResult?.sourceType).toBe('heading');
+      expect(introResult?.headingLevel).toBe(1);
+      const defsResult = result.find((r) => r.originalText === '1.1 Definitions');
+      expect(defsResult?.sourceType).toBe('heading');
+      expect(defsResult?.headingLevel).toBe(2);
+      const scopeResult = result.find((r) => r.originalText === '1.2 Scope');
+      expect(scopeResult?.sourceType).toBe('heading');
+      expect(scopeResult?.headingLevel).toBe(2);
+    });
+
+    it('handles document with clean headings and numbered paragraphs', () => {
+      const doc = makeDoc([
+        makeHeading('Introduction', 20, 2),
+        makeParagraph('1. Definitions', 20),
+        makeParagraph('2. Scope', 15),
+      ]);
+      const result = scanForConversions(doc as unknown as import('@milkdown/kit/prose/model').Node);
+      // Clean heading has no numbering prefix, so only the 2 paragraphs are detected
+      expect(result).toHaveLength(2);
+      const defsResult = result.find((r) => r.originalText === '1. Definitions');
+      expect(defsResult?.sourceType).toBe('paragraph');
+      const scopeResult = result.find((r) => r.originalText === '2. Scope');
+      expect(scopeResult?.sourceType).toBe('paragraph');
+      // The heading without a numbering prefix should NOT appear in results
+      expect(result.find((r) => r.originalText === 'Introduction')).toBeUndefined();
+    });
   });
 });
