@@ -217,6 +217,9 @@ export function TemplateEditorPage() {
       if (newMode === 'edit' && editorMode === 'source') {
         crepeRef.current?.editor.action(replaceAll(content));
       }
+      if (newMode === 'source') {
+        setOutlineMode(false);
+      }
       setEditorMode(newMode);
     },
     [editorMode, content],

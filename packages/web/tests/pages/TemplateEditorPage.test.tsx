@@ -3540,5 +3540,20 @@ describe('TemplateEditorPage', () => {
       await user.click(screen.getByTestId('toolbar-toggle-outline'));
       expect(screen.queryByTestId('outline-view')).not.toBeInTheDocument();
     });
+
+    it('exits outline mode when switching to source mode', async () => {
+      const user = userEvent.setup();
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      await user.click(screen.getByTestId('toolbar-toggle-outline'));
+      expect(screen.getByTestId('outline-view')).toBeInTheDocument();
+
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('source');
+      });
+
+      expect(screen.queryByTestId('outline-view')).not.toBeInTheDocument();
+    });
   });
 });
