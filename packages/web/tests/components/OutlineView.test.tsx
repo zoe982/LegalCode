@@ -122,19 +122,19 @@ describe('OutlineView', () => {
     expect(screen.queryByText('Payment Terms')).not.toBeInTheDocument();
   });
 
-  it('clicking "Subsections" chip filters to H1+H2 entries', async () => {
+  it('clicking "Subsections" chip filters to H1+H2+H3 entries', async () => {
     const user = userEvent.setup();
     renderOutlineView();
 
     await user.click(screen.getByRole('button', { name: 'Subsections' }));
 
-    // H1 and H2 entries should be visible
+    // H1, H2, and H3 entries should be visible
     expect(screen.getByText('Introduction')).toBeInTheDocument();
     expect(screen.getByText('Background')).toBeInTheDocument();
     expect(screen.getByText('Scope')).toBeInTheDocument();
     expect(screen.getByText('Obligations')).toBeInTheDocument();
-    // H3 entries should NOT be visible
-    expect(screen.queryByText('Payment Terms')).not.toBeInTheDocument();
+    // H3 entries should also be visible (subsections now covers depth 1–2, i.e. levels 1–3)
+    expect(screen.getByText('Payment Terms')).toBeInTheDocument();
   });
 
   it('clicking "All levels" chip restores all entries', async () => {
@@ -288,12 +288,12 @@ describe('OutlineView', () => {
     expect(onReorderSection).toHaveBeenCalledWith(0, 100, 200);
   });
 
-  it('renders H3 entry with 48px indentation', () => {
+  it('renders H3 entry with 24px indentation (same depth as H2)', () => {
     renderOutlineView();
-    // Payment Terms is H3
+    // Payment Terms is H3 — depth 2, same as H2 → 24px
     const h3Entry = screen.getByTestId('outline-entry-4');
     const h3Content = within(h3Entry).getByTestId('outline-entry-content');
-    expect(h3Content).toHaveStyle({ paddingLeft: '48px' });
+    expect(h3Content).toHaveStyle({ paddingLeft: '24px' });
   });
 
   it('entries with no children do not render a collapse chevron', () => {
@@ -426,10 +426,11 @@ describe('OutlineView', () => {
     const h3TextEl = screen.getByText('Deep Clause');
     expect(h3TextEl).toHaveStyle({ fontSize: '0.75rem' });
     expect(h3TextEl).toHaveStyle({ color: 'var(--text-secondary)' });
-    expect(h3TextEl).toHaveStyle({ fontWeight: '400' });
+    // H3 is an odd level (3 % 2 === 1) → fontWeight 600
+    expect(h3TextEl).toHaveStyle({ fontWeight: '600' });
   });
 
-  it('uses entry.hasChildren for font weight: parent bold, leaf normal', () => {
+  it('uses level parity for font weight: odd levels bold, even levels normal', () => {
     const entriesWithH1Parent: HeadingEntry[] = [
       {
         level: 1,
@@ -442,25 +443,39 @@ describe('OutlineView', () => {
         hasChildren: true,
       },
       {
-        level: 3,
-        text: 'Leaf Clause',
+        level: 2,
+        text: 'Even Clause',
         pos: 100,
+        endPos: 150,
+        bodyPreview: '',
+        number: '1.1',
+        isTitle: false,
+        hasChildren: false,
+      },
+      {
+        level: 3,
+        text: 'Odd Clause',
+        pos: 150,
         endPos: 200,
         bodyPreview: '',
-        number: '1.0.1',
+        number: '1.1.1',
         isTitle: false,
         hasChildren: false,
       },
     ];
     renderOutlineView({ entries: entriesWithH1Parent });
 
-    // H1 with hasChildren: true → fontWeight 600
+    // H1 (odd level: 1 % 2 === 1) → fontWeight 600
     const h1TextEl = screen.getByText('Parent Section');
     expect(h1TextEl).toHaveStyle({ fontWeight: '600' });
 
-    // H3 with hasChildren: false → fontWeight 400
-    const h3TextEl = screen.getByText('Leaf Clause');
-    expect(h3TextEl).toHaveStyle({ fontWeight: '400' });
+    // H2 (even level: 2 % 2 === 0) → fontWeight 400
+    const h2TextEl = screen.getByText('Even Clause');
+    expect(h2TextEl).toHaveStyle({ fontWeight: '400' });
+
+    // H3 (odd level: 3 % 2 === 1) → fontWeight 600
+    const h3TextEl = screen.getByText('Odd Clause');
+    expect(h3TextEl).toHaveStyle({ fontWeight: '600' });
   });
 
   it('renders title entry with accent border and bold weight', () => {
@@ -559,7 +574,7 @@ describe('OutlineView', () => {
     expect(h4Text).toHaveStyle({ fontSize: '0.75rem' });
   });
 
-  it('renders H5 with 96px indentation and H6 with 120px indentation', () => {
+  it('renders H5 with 48px indentation and H6 with 72px indentation', () => {
     const deepEntries: HeadingEntry[] = [
       {
         level: 1,
@@ -600,9 +615,157 @@ describe('OutlineView', () => {
     const h5Content = within(h5Entry).getByTestId('outline-entry-content');
     const h6Content = within(h6Entry).getByTestId('outline-entry-content');
 
-    // H5: (5-1) * 24 = 96px, H6: (6-1) * 24 = 120px
-    expect(h5Content).toHaveStyle({ paddingLeft: '96px' });
-    expect(h6Content).toHaveStyle({ paddingLeft: '120px' });
+    // H5: depth 3, (3-1) * 24 = 48px; H6: depth 4, (4-1) * 24 = 72px
+    expect(h5Content).toHaveStyle({ paddingLeft: '48px' });
+    expect(h6Content).toHaveStyle({ paddingLeft: '72px' });
+  });
+
+  it('H2 and H3 share the same indentation (depth 2 → 24px)', () => {
+    const entriesH2H3: HeadingEntry[] = [
+      {
+        level: 1,
+        text: 'Top',
+        pos: 0,
+        endPos: 300,
+        bodyPreview: '',
+        number: '1',
+        isTitle: false,
+        hasChildren: true,
+      },
+      {
+        level: 2,
+        text: 'Second Level',
+        pos: 100,
+        endPos: 200,
+        bodyPreview: '',
+        number: '1.1',
+        isTitle: false,
+        hasChildren: false,
+      },
+      {
+        level: 3,
+        text: 'Third Level',
+        pos: 200,
+        endPos: 300,
+        bodyPreview: '',
+        number: '1.1.1',
+        isTitle: false,
+        hasChildren: false,
+      },
+    ];
+    renderOutlineView({ entries: entriesH2H3 });
+
+    const h2Entry = screen.getByTestId('outline-entry-1');
+    const h3Entry = screen.getByTestId('outline-entry-2');
+
+    const h2Content = within(h2Entry).getByTestId('outline-entry-content');
+    const h3Content = within(h3Entry).getByTestId('outline-entry-content');
+
+    // Both H2 and H3 map to depth 2 → (2-1) * 24 = 24px
+    expect(h2Content).toHaveStyle({ paddingLeft: '24px' });
+    expect(h3Content).toHaveStyle({ paddingLeft: '24px' });
+  });
+
+  it('H4 and H5 share the same indentation (depth 3 → 48px)', () => {
+    const entriesH4H5: HeadingEntry[] = [
+      {
+        level: 1,
+        text: 'Top',
+        pos: 0,
+        endPos: 300,
+        bodyPreview: '',
+        number: '1',
+        isTitle: false,
+        hasChildren: true,
+      },
+      {
+        level: 4,
+        text: 'Fourth Level',
+        pos: 100,
+        endPos: 200,
+        bodyPreview: '',
+        number: '1.0.0.1',
+        isTitle: false,
+        hasChildren: false,
+      },
+      {
+        level: 5,
+        text: 'Fifth Level',
+        pos: 200,
+        endPos: 300,
+        bodyPreview: '',
+        number: '1.0.0.0.1',
+        isTitle: false,
+        hasChildren: false,
+      },
+    ];
+    renderOutlineView({ entries: entriesH4H5 });
+
+    const h4Entry = screen.getByTestId('outline-entry-1');
+    const h5Entry = screen.getByTestId('outline-entry-2');
+
+    const h4Content = within(h4Entry).getByTestId('outline-entry-content');
+    const h5Content = within(h5Entry).getByTestId('outline-entry-content');
+
+    // Both H4 and H5 map to depth 3 → (3-1) * 24 = 48px
+    expect(h4Content).toHaveStyle({ paddingLeft: '48px' });
+    expect(h5Content).toHaveStyle({ paddingLeft: '48px' });
+  });
+
+  it('Subsections filter includes H3 entries', async () => {
+    const user = userEvent.setup();
+    const entriesWithH3: HeadingEntry[] = [
+      {
+        level: 1,
+        text: 'Article One',
+        pos: 0,
+        endPos: 300,
+        bodyPreview: '',
+        number: '1',
+        isTitle: false,
+        hasChildren: true,
+      },
+      {
+        level: 2,
+        text: 'Section A',
+        pos: 100,
+        endPos: 200,
+        bodyPreview: '',
+        number: '1.1',
+        isTitle: false,
+        hasChildren: false,
+      },
+      {
+        level: 3,
+        text: 'Clause I',
+        pos: 200,
+        endPos: 300,
+        bodyPreview: '',
+        number: '1.1.1',
+        isTitle: false,
+        hasChildren: false,
+      },
+      {
+        level: 4,
+        text: 'Sub-clause i',
+        pos: 250,
+        endPos: 300,
+        bodyPreview: '',
+        number: '1.1.1.1',
+        isTitle: false,
+        hasChildren: false,
+      },
+    ];
+    renderOutlineView({ entries: entriesWithH3 });
+
+    await user.click(screen.getByRole('button', { name: 'Subsections' }));
+
+    // H1, H2, H3 should all be visible
+    expect(screen.getByText('Article One')).toBeInTheDocument();
+    expect(screen.getByText('Section A')).toBeInTheDocument();
+    expect(screen.getByText('Clause I')).toBeInTheDocument();
+    // H4 should NOT be visible (level 4 > maxDepth 3)
+    expect(screen.queryByText('Sub-clause i')).not.toBeInTheDocument();
   });
 
   it('"All levels" filter shows entries up to level 6', () => {

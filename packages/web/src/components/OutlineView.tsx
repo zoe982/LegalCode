@@ -5,6 +5,7 @@ import DragIndicatorRounded from '@mui/icons-material/DragIndicatorRounded';
 import ExpandMoreRounded from '@mui/icons-material/ExpandMoreRounded';
 import ChevronRightRounded from '@mui/icons-material/ChevronRightRounded';
 import type { HeadingEntry } from '../editor/headingTree.js';
+import { LEVEL_TO_DEPTH } from '../editor/headingTree.js';
 
 type DepthFilter = 'sections' | 'subsections' | 'all';
 
@@ -18,12 +19,13 @@ interface OutlineViewProps {
 const INDENT_PER_LEVEL = 24; // px per heading level beyond H1
 
 function getIndent(level: number): number {
-  return (level - 1) * INDENT_PER_LEVEL;
+  const depth = level === 0 ? 0 : (LEVEL_TO_DEPTH[level] ?? level);
+  return (depth - 1) * INDENT_PER_LEVEL;
 }
 
 function maxDepthForFilter(filter: DepthFilter): number {
   if (filter === 'sections') return 1;
-  if (filter === 'subsections') return 2;
+  if (filter === 'subsections') return 3; // H1-H3, covering depths 1-2
   return 6;
 }
 
@@ -374,7 +376,7 @@ export function OutlineView({
                             : entry.level >= 3
                               ? '0.75rem'
                               : '0.8125rem',
-                        fontWeight: entry.hasChildren ? 600 : 400,
+                        fontWeight: entry.level % 2 === 1 ? 600 : 400,
                         color: entry.level >= 3 ? 'var(--text-secondary)' : 'var(--text-primary)',
                         cursor: 'pointer',
                         overflow: 'hidden',
