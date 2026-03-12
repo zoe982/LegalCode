@@ -5,6 +5,8 @@ import { useCommentPositions } from '../hooks/useCommentPositions.js';
 import { InlineCommentCard } from './InlineCommentCard.js';
 import { NewCommentCard } from './NewCommentCard.js';
 
+const PENDING_COMMENT_ID = '__pending__';
+
 export interface InlineCommentMarginProps {
   threads: CommentThread[];
   contentRef: React.RefObject<HTMLElement | null>;
@@ -52,9 +54,17 @@ export function InlineCommentMargin({
     [threads, showResolved],
   );
 
-  const commentIds = useMemo(() => visibleThreads.map((t) => t.comment.id), [visibleThreads]);
+  const commentIds = useMemo(() => {
+    const ids = visibleThreads.map((t) => t.comment.id);
+    if (pendingAnchor != null) ids.push(PENDING_COMMENT_ID);
+    return ids;
+  }, [visibleThreads, pendingAnchor]);
 
-  const positions = useCommentPositions(contentRef, commentIds, cardHeights);
+  const pendingPos =
+    pendingAnchor != null && pendingCommentTop != null
+      ? { id: PENDING_COMMENT_ID, top: pendingCommentTop }
+      : null;
+  const positions = useCommentPositions(contentRef, commentIds, cardHeights, pendingPos);
 
   // Measure card heights after render (initial synchronous measurement)
   useLayoutEffect(() => {
@@ -169,22 +179,37 @@ export function InlineCommentMargin({
             </Box>
           );
         })}
-      </Box>
 
-      {/* New comment card */}
-      {pendingAnchor != null && onSubmitComment != null && onCancelComment != null && (
-        <Box sx={{ position: 'relative' }}>
-          <NewCommentCard
-            anchorText={pendingAnchor.anchorText}
-            onSubmit={onSubmitComment}
-            onCancel={onCancelComment}
-            top={pendingCommentTop ?? 0}
-            authorName={authorName}
-            authorEmail={authorEmail}
-            isCreating={isCreating}
-          />
-        </Box>
-      )}
+        {/* New comment card — inside same container for collision resolution */}
+        {pendingAnchor != null &&
+          onSubmitComment != null &&
+          onCancelComment != null &&
+          (() => {
+            const pos = positions.find((p) => p.commentId === PENDING_COMMENT_ID);
+            const top = pos?.top ?? pendingCommentTop ?? 0;
+            return (
+              <Box
+                key={PENDING_COMMENT_ID}
+                ref={(el: HTMLElement | null) => {
+                  setCardRef(PENDING_COMMENT_ID, el);
+                }}
+                style={{ position: 'absolute', top, left: 0, right: 0 }}
+                sx={{
+                  transition: 'top 250ms cubic-bezier(0.4, 0, 0.2, 1)',
+                }}
+              >
+                <NewCommentCard
+                  anchorText={pendingAnchor.anchorText}
+                  onSubmit={onSubmitComment}
+                  onCancel={onCancelComment}
+                  authorName={authorName}
+                  authorEmail={authorEmail}
+                  isCreating={isCreating}
+                />
+              </Box>
+            );
+          })()}
+      </Box>
 
       {/* Show resolved toggle */}
       {resolvedCount > 0 && (

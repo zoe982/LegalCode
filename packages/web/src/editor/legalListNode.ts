@@ -133,6 +133,90 @@ function stripLabel(node: MdastNode): void {
 }
 
 /**
+ * Try to convert a single paragraph node whose sole text child contains
+ * newline-separated legal list items into a `legalList` mdast node.
+ *
+ * Returns the new `legalList` node when the paragraph qualifies, or `null`
+ * when it should be handled by the existing consecutive-paragraph logic.
+ *
+ * Rules:
+ * - The paragraph must have exactly one child, and that child must be a plain
+ *   `text` node (no inline formatting).  Paragraphs with multiple children
+ *   (e.g. bold spans) are skipped so we don't destroy inline structure.
+ * - The first text child's value must contain at least one `\n`.
+ * - After splitting on `\n`, the first **two** lines must both match
+ *   `LEGAL_LIST_ITEM_REGEX`.  A single matching line is already handled by
+ *   the existing single-paragraph logic.
+ * - Lines beyond the first two that do NOT match the regex are appended
+ *   (joined with `\n`) to the last matching list item's text rather than
+ *   being dropped.
+ */
+function trySplitMultiLineParagraph(node: MdastNode): MdastNode | null {
+  // Only handle paragraphs with exactly one plain-text child.
+  if (node.children?.length !== 1) return null;
+  const onlyChild = node.children[0] as MdastTextNode | undefined;
+  if (onlyChild?.type !== 'text' || typeof onlyChild.value !== 'string') return null;
+
+  const raw = onlyChild.value;
+  if (!raw.includes('\n')) return null;
+
+  const lines = raw.split('\n');
+
+  // Need at least two lines; require both the first and second to be list items
+  // so we can reliably call detectListType with a concrete second label.
+  /* v8 ignore next -- lines[0] is always defined after split */
+  const firstLine = lines[0] ?? '';
+  /* v8 ignore next -- split on '\n' always yields ≥2 elements after includes('\n') guard */
+  const secondLine = lines[1] ?? '';
+
+  const firstMatch = LEGAL_LIST_ITEM_REGEX.exec(firstLine);
+  const secondMatch = LEGAL_LIST_ITEM_REGEX.exec(secondLine);
+
+  if (!firstMatch || !secondMatch) return null;
+
+  /* v8 ignore next -- regex group 1 is always present when exec returns non-null */
+  const firstLabel = firstMatch[1] ?? '';
+  /* v8 ignore next -- regex group 1 is always present when exec returns non-null */
+  const secondLabel = secondMatch[1] ?? '';
+
+  const listType = detectListType(firstLabel, secondLabel);
+  if (listType === null) return null;
+
+  // Collect matching lines into list items.  Trailing non-matching lines are
+  // appended to the last matched item.
+  const itemTexts: string[] = [];
+  for (const line of lines) {
+    const m = LEGAL_LIST_ITEM_REGEX.exec(line);
+    if (m) {
+      // Start a new item with the label stripped.
+      itemTexts.push(line.slice(m[0].length));
+    } else {
+      // Append to the previous item (trailing text after the last label).
+      if (itemTexts.length > 0) {
+        const last = itemTexts[itemTexts.length - 1] /* v8 ignore next -- always defined */ ?? '';
+        itemTexts[itemTexts.length - 1] = last + '\n' + line;
+      }
+    }
+  }
+
+  const listItems: MdastNode[] = itemTexts.map((text) => ({
+    type: 'listItem',
+    children: [
+      {
+        type: 'paragraph',
+        children: [{ type: 'text', value: text }],
+      },
+    ],
+  }));
+
+  return {
+    type: 'legalList',
+    listType,
+    children: listItems,
+  };
+}
+
+/**
  * Remark plugin that groups consecutive paragraphs whose first text child
  * matches `LEGAL_LIST_ITEM_REGEX` (e.g. `a. `, `ii. `, `A. `) into a single
  * `legalList` mdast node.
@@ -161,6 +245,17 @@ export const remarkLegalListPlugin = $remark('legalListSyntax', () => () => (tre
     // Only consider paragraph nodes with a legal list label prefix.
     if (node.type !== 'paragraph') {
       output.push(node);
+      i++;
+      continue;
+    }
+
+    // --- Multi-line paragraph (items joined by \n without blank lines) -------
+    // CommonMark collapses consecutive lines without blank separators into a
+    // single paragraph node.  Try to split it before falling through to the
+    // normal consecutive-paragraph grouping logic.
+    const multiLineResult = trySplitMultiLineParagraph(node);
+    if (multiLineResult !== null) {
+      output.push(multiLineResult);
       i++;
       continue;
     }

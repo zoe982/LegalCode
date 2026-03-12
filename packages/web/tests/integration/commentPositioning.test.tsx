@@ -358,4 +358,118 @@ describe('Comment Positioning Integration', () => {
 
     document.body.removeChild(container);
   });
+
+  it('NewCommentCard renders inside the same container as existing cards (not a sibling)', () => {
+    const container = createContainerWithAnchors([
+      { id: 'c1', top: 100 },
+      { id: 'c2', top: 200 },
+      { id: 'c3', top: 300 },
+    ]);
+    const contentRef = { current: container };
+
+    const threads = [
+      createThread('c1', 'Comment 1', 100),
+      createThread('c2', 'Comment 2', 200),
+      createThread('c3', 'Comment 3', 300),
+    ];
+
+    render(
+      <InlineCommentMargin
+        threads={threads}
+        contentRef={contentRef}
+        {...defaultProps}
+        pendingAnchor={{ anchorText: 'selected text' }}
+        onSubmitComment={vi.fn()}
+        onCancelComment={vi.fn()}
+        pendingCommentTop={200}
+      />,
+      { wrapper: Wrapper },
+    );
+
+    const newCard = screen.getByTestId('new-comment-card');
+    // The NewCommentCard's positioned wrapper should share the same parent as the existing cards
+    const existingCard = screen.getByTestId('inline-card-c1');
+    const existingCardContainer = existingCard.parentElement?.parentElement;
+    const newCardContainer = newCard.parentElement?.parentElement;
+    expect(newCardContainer).toBe(existingCardContainer);
+
+    document.body.removeChild(container);
+  });
+
+  it('NewCommentCard renders near the pendingCommentTop position', () => {
+    const container = createContainerWithAnchors([]);
+    const contentRef = { current: container };
+
+    render(
+      <InlineCommentMargin
+        threads={[]}
+        contentRef={contentRef}
+        {...defaultProps}
+        pendingAnchor={{ anchorText: 'selected text' }}
+        onSubmitComment={vi.fn()}
+        onCancelComment={vi.fn()}
+        pendingCommentTop={500}
+      />,
+      { wrapper: Wrapper },
+    );
+
+    const newCard = screen.getByTestId('new-comment-card');
+    // The wrapper around NewCommentCard should have top position near 500, not near 0
+    const wrapper = newCard.parentElement;
+    const topStyle = wrapper?.style.top ?? '';
+    const topValue = parseFloat(topStyle);
+    // Should be close to 500 (within collision resolution range), definitely not near 0
+    expect(topValue).toBeGreaterThanOrEqual(400);
+
+    document.body.removeChild(container);
+  });
+
+  it('clicking a card calls onCommentClick with the comment id', async () => {
+    const user = userEvent.setup();
+    const container = createContainerWithAnchors([{ id: 'c1', top: 100 }]);
+    const contentRef = { current: container };
+
+    const threads = [createThread('c1', 'Comment 1', 100)];
+    const onCommentClick = vi.fn();
+
+    render(
+      <InlineCommentMargin
+        threads={threads}
+        contentRef={contentRef}
+        {...defaultProps}
+        activeCommentId="c1"
+        onCommentClick={onCommentClick}
+      />,
+      { wrapper: Wrapper },
+    );
+
+    const card = screen.getByTestId('inline-card-c1');
+    await user.click(card);
+    expect(onCommentClick).toHaveBeenCalledWith('c1');
+
+    document.body.removeChild(container);
+  });
+
+  it('transitioning from threads to empty threads renders zero cards', () => {
+    const container = createContainerWithAnchors([]);
+    const contentRef = { current: container };
+
+    const { rerender } = render(
+      <InlineCommentMargin
+        threads={[createThread('c1', 'Comment 1', 100)]}
+        contentRef={contentRef}
+        {...defaultProps}
+      />,
+      { wrapper: Wrapper },
+    );
+
+    // Re-render with empty threads
+    rerender(
+      <ThemeProvider theme={theme}>
+        <InlineCommentMargin threads={[]} contentRef={contentRef} {...defaultProps} />
+      </ThemeProvider>,
+    );
+
+    expect(screen.queryByTestId('inline-card-c1')).not.toBeInTheDocument();
+  });
 });

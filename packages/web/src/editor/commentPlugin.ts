@@ -49,7 +49,8 @@ export function createCommentPlugin(options: CommentPluginOptions = {}): Plugin 
           return {
             ...prev,
             anchors: meta.anchors ?? prev.anchors,
-            activeCommentId: meta.activeCommentId ?? prev.activeCommentId,
+            activeCommentId:
+              'activeCommentId' in meta ? meta.activeCommentId : prev.activeCommentId,
           };
         }
         return prev;

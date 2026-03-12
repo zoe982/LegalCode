@@ -132,6 +132,22 @@ describe('commentPlugin', () => {
     expect(result.activeCommentId).toBe('c1');
   });
 
+  it('plugin state apply with activeCommentId: null clears activeCommentId', () => {
+    const plugin = createCommentPlugin();
+    const stateSpec = getStateSpec(plugin);
+    const prev = stateSpec.init();
+
+    // First set activeCommentId to 'c1'
+    const setTr = { getMeta: () => ({ activeCommentId: 'c1' }) };
+    const withActive = stateSpec.apply(setTr, prev) as { activeCommentId: string | null };
+    expect(withActive.activeCommentId).toBe('c1');
+
+    // Now explicitly set to null — should clear it
+    const clearTr = { getMeta: () => ({ activeCommentId: null }) };
+    const cleared = stateSpec.apply(clearTr, withActive) as { activeCommentId: string | null };
+    expect(cleared.activeCommentId).toBeNull();
+  });
+
   it('plugin state apply without meta returns previous state', () => {
     const plugin = createCommentPlugin();
     const stateSpec = getStateSpec(plugin);

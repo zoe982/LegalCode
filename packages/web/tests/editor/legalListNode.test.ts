@@ -604,4 +604,239 @@ describe('remarkLegalListPlugin', () => {
     expect(list.listType).toBe('lower-alpha');
     expect(list.children).toHaveLength(2);
   });
+
+  // ---------------------------------------------------------------------------
+  // Multi-line paragraph (newline-separated items in a single paragraph node)
+  // ---------------------------------------------------------------------------
+
+  it('transforms single paragraph with newline-separated "a. text\\nb. text\\nc. text" into legalList', () => {
+    const tree = {
+      type: 'root',
+      children: [
+        {
+          type: 'paragraph',
+          children: [{ type: 'text', value: 'a. first\nb. second\nc. third' }],
+        },
+      ],
+    };
+
+    runPlugin(tree);
+
+    expect(tree.children).toHaveLength(1);
+    const list = tree.children[0] as unknown as {
+      type: string;
+      listType: string;
+      children: {
+        type: string;
+        children: { type: string; children: { type: string; value: string }[] }[];
+      }[];
+    };
+    expect(list.type).toBe('legalList');
+    expect(list.listType).toBe('lower-alpha');
+    expect(list.children).toHaveLength(3);
+    expect(list.children[0]?.children[0]?.children[0]?.value).toBe('first');
+    expect(list.children[1]?.children[0]?.children[0]?.value).toBe('second');
+    expect(list.children[2]?.children[0]?.children[0]?.value).toBe('third');
+  });
+
+  it('transforms single paragraph with uppercase alpha lines "A. text\\nB. text" into legalList', () => {
+    const tree = {
+      type: 'root',
+      children: [
+        {
+          type: 'paragraph',
+          children: [{ type: 'text', value: 'A. first\nB. second' }],
+        },
+      ],
+    };
+
+    runPlugin(tree);
+
+    expect(tree.children).toHaveLength(1);
+    const list = tree.children[0] as unknown as {
+      type: string;
+      listType: string;
+      children: unknown[];
+    };
+    expect(list.type).toBe('legalList');
+    expect(list.listType).toBe('upper-alpha');
+    expect(list.children).toHaveLength(2);
+  });
+
+  it('transforms single paragraph with roman numeral lines "i. text\\nii. text" into lower-roman legalList', () => {
+    const tree = {
+      type: 'root',
+      children: [
+        {
+          type: 'paragraph',
+          children: [{ type: 'text', value: 'i. first\nii. second' }],
+        },
+      ],
+    };
+
+    runPlugin(tree);
+
+    expect(tree.children).toHaveLength(1);
+    const list = tree.children[0] as unknown as {
+      type: string;
+      listType: string;
+      children: unknown[];
+    };
+    expect(list.type).toBe('legalList');
+    expect(list.listType).toBe('lower-roman');
+    expect(list.children).toHaveLength(2);
+  });
+
+  it('does NOT split single paragraph with only one line (falls through to existing logic)', () => {
+    const tree = {
+      type: 'root',
+      children: [
+        {
+          type: 'paragraph',
+          children: [{ type: 'text', value: 'a. only line' }],
+        },
+      ],
+    };
+
+    runPlugin(tree);
+
+    // Single-line paragraph with a valid label still becomes a legalList via the existing path
+    expect(tree.children).toHaveLength(1);
+    const node = tree.children[0] as unknown as { type: string; listType: string };
+    expect(node.type).toBe('legalList');
+    expect(node.listType).toBe('lower-alpha');
+  });
+
+  it('does NOT split single paragraph where second line does not match regex', () => {
+    const tree = {
+      type: 'root',
+      children: [
+        {
+          type: 'paragraph',
+          children: [{ type: 'text', value: 'a. first\nNot a list item' }],
+        },
+      ],
+    };
+
+    runPlugin(tree);
+
+    // Second line doesn't match LEGAL_LIST_ITEM_REGEX → trySplitMultiLineParagraph
+    // returns null and falls through to the existing consecutive-paragraph logic.
+    // The existing logic still sees "a. first\nNot a list item" as a label-prefixed
+    // paragraph (the regex matches at the start), so it becomes a 1-item legalList
+    // with the full text after the label stripped: "first\nNot a list item".
+    // The key assertion: it is NOT split into 2 items — only 1 child in the list.
+    expect(tree.children).toHaveLength(1);
+    const list = tree.children[0] as unknown as {
+      type: string;
+      listType: string;
+      children: {
+        type: string;
+        children: { type: string; children: { type: string; value: string }[] }[];
+      }[];
+    };
+    expect(list.type).toBe('legalList');
+    expect(list.children).toHaveLength(1);
+    // The full value after stripping "a. " — includes the trailing non-list line
+    expect(list.children[0]?.children[0]?.children[0]?.value).toBe('first\nNot a list item');
+  });
+
+  it('handles mixed: preceding text paragraph, multi-line legal list paragraph, trailing text paragraph', () => {
+    const tree = {
+      type: 'root',
+      children: [
+        makeParagraph('Introduction text'),
+        {
+          type: 'paragraph',
+          children: [
+            {
+              type: 'text',
+              value: 'a. first obligation\nb. second obligation\nc. third obligation',
+            },
+          ],
+        },
+        makeParagraph('Conclusion text'),
+      ],
+    };
+
+    runPlugin(tree);
+
+    expect(tree.children).toHaveLength(3);
+    expect((tree.children[0] as { type: string }).type).toBe('paragraph');
+    expect((tree.children[1] as { type: string }).type).toBe('legalList');
+    expect((tree.children[2] as { type: string }).type).toBe('paragraph');
+
+    const list = tree.children[1] as unknown as {
+      listType: string;
+      children: {
+        type: string;
+        children: { type: string; children: { type: string; value: string }[] }[];
+      }[];
+    };
+    expect(list.listType).toBe('lower-alpha');
+    expect(list.children).toHaveLength(3);
+    expect(list.children[0]?.children[0]?.children[0]?.value).toBe('first obligation');
+    expect(list.children[1]?.children[0]?.children[0]?.value).toBe('second obligation');
+    expect(list.children[2]?.children[0]?.children[0]?.value).toBe('third obligation');
+  });
+
+  it('handles paragraph where text has trailing non-matching line after matching lines', () => {
+    const tree = {
+      type: 'root',
+      children: [
+        {
+          type: 'paragraph',
+          children: [{ type: 'text', value: 'a. first\nb. second\nSome trailing text' }],
+        },
+      ],
+    };
+
+    runPlugin(tree);
+
+    expect(tree.children).toHaveLength(1);
+    const list = tree.children[0] as unknown as {
+      type: string;
+      listType: string;
+      children: {
+        type: string;
+        children: { type: string; children: { type: string; value: string }[] }[];
+      }[];
+    };
+    expect(list.type).toBe('legalList');
+    expect(list.listType).toBe('lower-alpha');
+    // The trailing non-matching line is appended to the last list item's text
+    expect(list.children).toHaveLength(2);
+    expect(list.children[0]?.children[0]?.children[0]?.value).toBe('first');
+    // Last item gets the trailing text appended
+    expect(list.children[1]?.children[0]?.children[0]?.value).toBe('second\nSome trailing text');
+  });
+
+  it('does NOT split multi-line paragraph when both lines match regex but detectListType returns null (sequence mismatch)', () => {
+    // "ii." followed by "iv." both match LEGAL_LIST_ITEM_REGEX, but detectListType
+    // returns null because ii→iv skips iii (b !== a+1), so trySplitMultiLineParagraph
+    // returns null and the paragraph falls through to consecutive-paragraph logic.
+    const tree = {
+      type: 'root',
+      children: [
+        {
+          type: 'paragraph',
+          children: [{ type: 'text', value: 'ii. second\niv. fourth' }],
+        },
+      ],
+    };
+
+    runPlugin(tree);
+
+    // trySplitMultiLineParagraph returns null → falls through to consecutive-paragraph
+    // logic which sees "ii. second\niv. fourth" as a valid lower-roman label prefix.
+    // It creates a single-item legalList with the full text after stripping "ii. ".
+    expect(tree.children).toHaveLength(1);
+    const node = tree.children[0] as unknown as { type: string };
+    // Either stays as paragraph or becomes 1-item list — the key is it is NOT
+    // split into 2 separate items by trySplitMultiLineParagraph.
+    // The consecutive-paragraph path sees "ii" as lower-roman → 1-item legalList.
+    expect(node.type).toBe('legalList');
+    const list = node as unknown as { children: unknown[] };
+    expect(list.children).toHaveLength(1);
+  });
 });

@@ -12,6 +12,7 @@ export function useCommentPositions(
   containerRef: React.RefObject<HTMLElement | null>,
   commentIds: string[],
   cardHeights: Map<string, number>,
+  pendingPosition?: { id: string; top: number } | null,
 ): CommentPosition[] {
   const [positions, setPositions] = useState<CommentPosition[]>([]);
 
@@ -26,6 +27,12 @@ export function useCommentPositions(
     .join(',');
   const stableCardHeights = useRef(cardHeights);
   stableCardHeights.current = cardHeights;
+
+  const pendingPositionKey = pendingPosition
+    ? `${pendingPosition.id}:${String(pendingPosition.top)}`
+    : '';
+  const stablePendingPosition = useRef(pendingPosition);
+  stablePendingPosition.current = pendingPosition;
 
   const calculate = useCallback(() => {
     const container = containerRef.current;
@@ -56,6 +63,15 @@ export function useCommentPositions(
       });
     }
 
+    // Include pending comment position if provided
+    const pending = stablePendingPosition.current;
+    if (pending) {
+      rawPositions.push({
+        commentId: pending.id,
+        top: pending.top,
+      });
+    }
+
     // Sort by top position
     rawPositions.sort((a, b) => a.top - b.top);
 
@@ -77,7 +93,7 @@ export function useCommentPositions(
     }
 
     setPositions(resolved);
-  }, [containerRef, commentIdsKey, cardHeightsKey]);
+  }, [containerRef, commentIdsKey, cardHeightsKey, pendingPositionKey]);
 
   useLayoutEffect(() => {
     calculate();

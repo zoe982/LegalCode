@@ -150,7 +150,20 @@ export function TemplateEditorPage() {
   // Sync comment anchors to ProseMirror decorations
   useEffect(() => {
     const crepe = crepeRef.current;
-    if (!crepe || threads.length === 0) return;
+    if (!crepe) return;
+
+    if (threads.length === 0) {
+      try {
+        crepe.editor.action((ctx) => {
+          const view = ctx.get(editorViewCtx);
+          const tr = view.state.tr.setMeta(commentPluginKey, { anchors: [] });
+          view.dispatch(tr);
+        });
+      } catch {
+        // Editor may not be ready yet
+      }
+      return;
+    }
 
     try {
       crepe.editor.action((ctx) => {
@@ -167,6 +180,23 @@ export function TemplateEditorPage() {
       // Editor may not be ready yet
     }
   }, [threads]);
+
+  const [activeCommentId, setActiveCommentId] = useState<string | null>(null);
+
+  // Sync activeCommentId to ProseMirror decorations
+  useEffect(() => {
+    const crepe = crepeRef.current;
+    if (!crepe) return;
+    try {
+      crepe.editor.action((ctx) => {
+        const view = ctx.get(editorViewCtx);
+        const tr = view.state.tr.setMeta(commentPluginKey, { activeCommentId });
+        view.dispatch(tr);
+      });
+    } catch {
+      // Editor may not be ready yet
+    }
+  }, [activeCommentId]);
 
   // Outline tree hook
   const { entries: outlineEntries, refreshTree } = useOutlineTree(crepeRef);
@@ -214,12 +244,15 @@ export function TemplateEditorPage() {
   // Edit mode comment margin ref
   const sourceContentRef = useRef<HTMLDivElement>(null);
 
-  const [activeCommentId, setActiveCommentId] = useState<string | null>(null);
-
   /* v8 ignore next 3 -- callback passed to InlineCommentMargin, invoked by DOM event handler */
   const handleCommentClick = useCallback((commentId: string) => {
     setActiveCommentId(commentId);
   }, []);
+
+  /* v8 ignore next 3 -- click handler on editor surface, tested via integration */
+  const handleEditorSurfaceClick = useCallback(() => {
+    if (activeCommentId != null) setActiveCommentId(null);
+  }, [activeCommentId]);
 
   // Sync content back to Milkdown when switching from source to edit mode
   const handleModeChange = useCallback(
@@ -911,6 +944,7 @@ export function TemplateEditorPage() {
                 <Box
                   ref={sourceContentRef}
                   data-testid="edit-editor-surface"
+                  onClick={handleEditorSurfaceClick}
                   sx={{
                     position: 'relative',
                   }}
