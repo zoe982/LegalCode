@@ -17,6 +17,7 @@ import RedoRounded from '@mui/icons-material/RedoRounded';
 import ListAltOutlined from '@mui/icons-material/ListAltOutlined';
 import FormatIndentIncreaseOutlined from '@mui/icons-material/FormatIndentIncreaseOutlined';
 import FormatIndentDecreaseOutlined from '@mui/icons-material/FormatIndentDecreaseOutlined';
+import SortByAlphaOutlined from '@mui/icons-material/SortByAlphaOutlined';
 import type { Crepe } from '@milkdown/crepe';
 import {
   toggleStrongCommand,
@@ -48,6 +49,7 @@ interface EditorToolbarProps {
   onSourceWrap?: ((prefix: string, suffix?: string) => void) | undefined;
   onSourceLinePrefix?: ((prefix: string) => void) | undefined;
   onSourceBlock?: ((text: string) => void) | undefined;
+  onLegalList?: ((listType: string) => void) | undefined;
 }
 
 const helperButtonStyle = {
@@ -96,9 +98,11 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
   onSourceWrap,
   onSourceLinePrefix,
   onSourceBlock,
+  onLegalList,
 }) => {
   const showMarkdownHelpers = !readOnly;
   const [headingMenuAnchor, setHeadingMenuAnchor] = useState<HTMLElement | null>(null);
+  const [legalListMenuAnchor, setLegalListMenuAnchor] = useState<HTMLElement | null>(null);
 
   const executeCommand = (commandFn: ReturnType<typeof callCommand>) => {
     crepeRef?.current?.editor.action(commandFn);
@@ -110,6 +114,29 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
 
   const handleHeadingMenuClose = () => {
     setHeadingMenuAnchor(null);
+  };
+
+  const legalListMenuItems = [
+    { label: 'a, b, c', type: 'lower-alpha' },
+    { label: 'A, B, C', type: 'upper-alpha' },
+    { label: 'i, ii, iii', type: 'lower-roman' },
+    { label: 'I, II, III', type: 'upper-roman' },
+  ] as const;
+
+  const handleLegalListButtonClick = (event: React.MouseEvent<HTMLElement>) => {
+    setLegalListMenuAnchor(event.currentTarget);
+  };
+
+  const handleLegalListMenuClose = () => {
+    setLegalListMenuAnchor(null);
+  };
+
+  const handleLegalListMenuItemClick = (listType: string) => {
+    if (mode === 'source') {
+      onLegalList?.(listType);
+    }
+    // Edit mode: no-op for now (command integration requires Milkdown command registration)
+    handleLegalListMenuClose();
   };
 
   const handleHeadingMenuItemClick = (level: 0 | 1 | 2 | 3 | 4 | 5 | 6, isTitle: boolean) => {
@@ -296,6 +323,51 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
           >
             <FormatListNumberedOutlined sx={{ fontSize: '20px' }} />
           </IconButton>
+          {/* Legal List dropdown button */}
+          <Button
+            aria-label="Legal List"
+            aria-haspopup="true"
+            aria-expanded={legalListMenuAnchor !== null ? 'true' : undefined}
+            onClick={handleLegalListButtonClick}
+            sx={{
+              ...helperButtonStyle,
+              width: 'auto',
+              minWidth: 'unset',
+              px: '6px',
+              textTransform: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '2px',
+            }}
+          >
+            <SortByAlphaOutlined sx={{ fontSize: '20px' }} />
+            <KeyboardArrowDownRounded sx={{ fontSize: '14px' }} />
+          </Button>
+          <Menu
+            anchorEl={legalListMenuAnchor}
+            open={legalListMenuAnchor !== null}
+            onClose={handleLegalListMenuClose}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+            transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+          >
+            {legalListMenuItems.map((item) => (
+              <MenuItem
+                key={item.type}
+                onClick={() => {
+                  handleLegalListMenuItemClick(item.type);
+                }}
+                sx={{
+                  fontFamily: '"DM Sans", sans-serif',
+                  fontSize: '0.8125rem',
+                  py: 0.75,
+                  px: 2,
+                }}
+              >
+                {item.label}
+              </MenuItem>
+            ))}
+          </Menu>
+
           <IconButton
             aria-label="List"
             sx={helperButtonStyle}

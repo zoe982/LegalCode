@@ -6,6 +6,8 @@ import type { EditorView } from '@codemirror/view';
 import { replaceAll } from '@milkdown/kit/utils';
 import { editorViewCtx } from '@milkdown/kit/core';
 import { TextSelection } from '@milkdown/kit/prose/state';
+import { indexToLabel } from '../editor/legalListUtils.js';
+import type { LegalListType } from '../editor/legalListUtils.js';
 import { resolveAnchors } from '../editor/commentAnchors.js';
 import { commentPluginKey } from '../editor/commentPlugin.js';
 import { scanForConversions } from '../editor/importCleanup.js';
@@ -281,6 +283,14 @@ export function TemplateEditorPage() {
   const { handleIndent, handleOutdent } = useHeadingLevel(crepeRef);
 
   const sourceCommands = useSourceEditorCommands(cmViewRef);
+
+  const handleLegalList = useCallback(
+    (listType: string) => {
+      const firstLabel = indexToLabel(0, listType as LegalListType);
+      sourceCommands.insertLinePrefix(firstLabel + '. ');
+    },
+    [sourceCommands],
+  );
 
   const autosave = useAutosave({
     templateId: id,
@@ -833,6 +843,7 @@ export function TemplateEditorPage() {
           onSourceWrap={sourceCommands.wrapSelection}
           onSourceLinePrefix={sourceCommands.insertLinePrefix}
           onSourceBlock={sourceCommands.insertBlock}
+          onLegalList={editorMode === 'source' ? handleLegalList : undefined}
         />
 
         {/* Outline view — full replacement for editor canvas when active */}

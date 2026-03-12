@@ -64,6 +64,7 @@ describe('EditorToolbar', () => {
     expect(screen.getByRole('button', { name: 'Link' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'List' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Ordered List' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Legal List' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Table' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Clause Reference' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Variable' })).toBeInTheDocument();
@@ -79,6 +80,7 @@ describe('EditorToolbar', () => {
     expect(screen.getByRole('button', { name: 'Link' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Ordered List' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'List' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Legal List' })).toBeInTheDocument();
   });
 
   it('hides edit-only buttons in source mode (Toggle Outline, Import Cleanup, Indent, Outdent)', () => {
@@ -776,6 +778,84 @@ describe('EditorToolbar', () => {
       expect(onSourceLinePrefix).not.toHaveBeenCalled();
       // Menu should close
       expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('Legal List dropdown', () => {
+    it('renders Legal List button in edit mode', () => {
+      renderToolbar({ mode: 'edit' });
+      expect(screen.getByRole('button', { name: 'Legal List' })).toBeInTheDocument();
+    });
+
+    it('renders Legal List button in source mode', () => {
+      renderToolbar({ mode: 'source' });
+      expect(screen.getByRole('button', { name: 'Legal List' })).toBeInTheDocument();
+    });
+
+    it('hides Legal List button when readOnly', () => {
+      renderToolbar({ mode: 'edit', readOnly: true });
+      expect(screen.queryByRole('button', { name: 'Legal List' })).not.toBeInTheDocument();
+    });
+
+    it('opens legal list dropdown menu when Legal List button is clicked', async () => {
+      const user = userEvent.setup();
+      renderToolbar({ mode: 'edit' });
+      await user.click(screen.getByRole('button', { name: 'Legal List' }));
+      expect(screen.getByRole('menu')).toBeInTheDocument();
+    });
+
+    it('shows all list type options in the dropdown menu', async () => {
+      const user = userEvent.setup();
+      renderToolbar({ mode: 'edit' });
+      await user.click(screen.getByRole('button', { name: 'Legal List' }));
+      expect(screen.getByRole('menuitem', { name: 'a, b, c' })).toBeInTheDocument();
+      expect(screen.getByRole('menuitem', { name: 'A, B, C' })).toBeInTheDocument();
+      expect(screen.getByRole('menuitem', { name: 'i, ii, iii' })).toBeInTheDocument();
+      expect(screen.getByRole('menuitem', { name: 'I, II, III' })).toBeInTheDocument();
+    });
+
+    it('clicking a list type calls onLegalList in source mode', async () => {
+      const user = userEvent.setup();
+      const onLegalList = vi.fn();
+      renderToolbar({ mode: 'source', onLegalList });
+      await user.click(screen.getByRole('button', { name: 'Legal List' }));
+      await user.click(screen.getByRole('menuitem', { name: 'a, b, c' }));
+      expect(onLegalList).toHaveBeenCalledWith('lower-alpha');
+    });
+
+    it('does not call onLegalList in edit mode', async () => {
+      const user = userEvent.setup();
+      const onLegalList = vi.fn();
+      renderToolbar({ mode: 'edit', onLegalList });
+      await user.click(screen.getByRole('button', { name: 'Legal List' }));
+      await user.click(screen.getByRole('menuitem', { name: 'a, b, c' }));
+      expect(onLegalList).not.toHaveBeenCalled();
+    });
+
+    it('legal list dropdown menu closes after item click', async () => {
+      const user = userEvent.setup();
+      renderToolbar({ mode: 'source' });
+      await user.click(screen.getByRole('button', { name: 'Legal List' }));
+      expect(screen.getByRole('menu')).toBeInTheDocument();
+      await user.click(screen.getByRole('menuitem', { name: 'A, B, C' }));
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    });
+
+    it('legal list dropdown menu closes when pressing Escape', async () => {
+      const user = userEvent.setup();
+      renderToolbar({ mode: 'edit' });
+      await user.click(screen.getByRole('button', { name: 'Legal List' }));
+      expect(screen.getByRole('menu')).toBeInTheDocument();
+      await user.keyboard('{Escape}');
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    });
+
+    it('does not crash when onLegalList is not provided', async () => {
+      const user = userEvent.setup();
+      renderToolbar({ mode: 'source' }); // no onLegalList
+      await user.click(screen.getByRole('button', { name: 'Legal List' }));
+      await user.click(screen.getByRole('menuitem', { name: 'i, ii, iii' }));
+      // Should not throw
     });
   });
 });

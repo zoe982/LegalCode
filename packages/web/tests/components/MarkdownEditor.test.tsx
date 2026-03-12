@@ -49,6 +49,11 @@ vi.mock('../../src/editor/titleNode.js', () => ({
   remarkTitlePlugin: { id: 'titleSyntax', type: '$remark' },
 }));
 
+vi.mock('../../src/editor/legalListNode.js', () => ({
+  legalListSchemaPlugin: { id: 'legal_list', type: '$node' },
+  remarkLegalListPlugin: { id: 'legalListSyntax', type: '$remark' },
+}));
+
 const captured: {
   editorCallback: ((root: HTMLElement) => unknown) | null;
   editorCallbackHistory: ((root: HTMLElement) => unknown)[];
@@ -299,8 +304,8 @@ describe('MarkdownEditor', () => {
 
     // Comment plugin is NOT installed without onSelectionChange
     expect(mockCreateCommentPlugin).not.toHaveBeenCalled();
-    // editor.use IS called 4 times: titleSchemaPlugin, remarkTitlePlugin, title decoration plugin, numbering plugin
-    expect(mockEditorUse).toHaveBeenCalledTimes(4);
+    // editor.use IS called 6 times: titleSchemaPlugin, remarkTitlePlugin, legalListSchemaPlugin, remarkLegalListPlugin, title decoration plugin, numbering plugin
+    expect(mockEditorUse).toHaveBeenCalledTimes(6);
     expect(mockCreateTitlePlugin).toHaveBeenCalledTimes(1);
     expect(mockCreateNumberingPlugin).toHaveBeenCalledTimes(1);
   });
@@ -318,8 +323,8 @@ describe('MarkdownEditor', () => {
     const fakeRoot = document.createElement('div');
     editorCb?.(fakeRoot);
 
-    // Only the always-on plugins: titleSchema, remarkTitle, title decoration, numbering; no comment plugin, no collab plugin
-    expect(mockEditorUse).toHaveBeenCalledTimes(4);
+    // Only the always-on plugins: titleSchema, remarkTitle, legalListSchema, remarkLegalList, title decoration, numbering; no comment plugin, no collab plugin
+    expect(mockEditorUse).toHaveBeenCalledTimes(6);
     expect(mockCreateTitlePlugin).toHaveBeenCalledTimes(1);
     expect(mockCreateNumberingPlugin).toHaveBeenCalledTimes(1);
     expect(mockCreateCommentPlugin).not.toHaveBeenCalled();
