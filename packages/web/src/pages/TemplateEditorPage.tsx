@@ -27,6 +27,7 @@ import { useAutosave } from '../hooks/useAutosave.js';
 import type { AutosaveState } from '../hooks/useAutosave.js';
 import { EditorToolbar } from '../components/EditorToolbar.js';
 import { useEditorHistory } from '../hooks/useEditorHistory.js';
+import { useHeadingLevel } from '../hooks/useHeadingLevel.js';
 import { KeyboardShortcutHelp } from '../components/KeyboardShortcutHelp.js';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts.js';
 import { useToast } from '../components/Toast.js';
@@ -264,6 +265,8 @@ export function TemplateEditorPage() {
   const { canUndo, canRedo, handleUndo, handleRedo } = useEditorHistory({
     crepeRef,
   });
+
+  const { handleIndent, handleOutdent } = useHeadingLevel(crepeRef);
 
   const autosave = useAutosave({
     templateId: id,
@@ -804,6 +807,8 @@ export function TemplateEditorPage() {
           onToggleOutline={() => {
             setOutlineMode((prev) => !prev);
           }}
+          onIndentHeading={handleIndent}
+          onOutdentHeading={handleOutdent}
         />
 
         {/* Outline view — full replacement for editor canvas when active */}
