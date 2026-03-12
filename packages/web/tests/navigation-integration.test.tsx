@@ -1,23 +1,27 @@
 /// <reference types="@testing-library/jest-dom/vitest" />
 import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
-import { render, screen, waitFor, cleanup } from '@testing-library/react';
+import { screen, waitFor, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Routes, Route, Link } from 'react-router';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ThemeProvider, CssBaseline } from '@mui/material';
-import { theme } from '../src/theme/index.js';
+import { Routes, Route, Link } from 'react-router';
 import { AuthGuard } from '../src/components/AuthGuard.js';
 import { AppShell } from '../src/components/AppShell.js';
-import { ToastProvider } from '../src/components/Toast.js';
 import { TemplateListPage } from '../src/pages/TemplateListPage.js';
 import { AdminPage } from '../src/pages/AdminPage.js';
 import { SettingsPage } from '../src/pages/SettingsPage.js';
 import { server } from '../src/mocks/node.js';
 import { http, HttpResponse } from 'msw';
+import { renderWithProviders } from './test-utils.js';
+import { withRenderLoopDetection } from './test-utils-render-loop.js';
 
 vi.mock('@mui/material/useMediaQuery', () => ({
   default: () => true,
 }));
+
+const SafeTemplateListPage = withRenderLoopDetection(TemplateListPage, {
+  label: 'TemplateListPage',
+});
+const SafeAdminPage = withRenderLoopDetection(AdminPage, { label: 'AdminPage' });
+const SafeSettingsPage = withRenderLoopDetection(SettingsPage, { label: 'SettingsPage' });
 
 beforeAll(() => {
   server.listen();
@@ -64,42 +68,33 @@ function WithNav({
   );
 }
 
-describe('Navigation loop debug', () => {
+describe('Navigation integration', () => {
   // A: TemplateListPage -> simple div (is unmount the problem?)
   it('TemplateListPage -> simple div via Link', async () => {
     const user = userEvent.setup();
     mockAll();
-    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(
-      <QueryClientProvider client={qc}>
-        <ThemeProvider theme={theme}>
-          <CssBaseline />
-          <ToastProvider>
-            <MemoryRouter initialEntries={['/templates']}>
-              <Routes>
-                <Route
-                  path="/"
-                  element={
-                    <AuthGuard>
-                      <AppShell />
-                    </AuthGuard>
-                  }
-                >
-                  <Route
-                    path="templates"
-                    element={
-                      <WithNav to="/dest" label="go-dest">
-                        <TemplateListPage />
-                      </WithNav>
-                    }
-                  />
-                  <Route path="dest" element={<div data-testid="dest">Dest</div>} />
-                </Route>
-              </Routes>
-            </MemoryRouter>
-          </ToastProvider>
-        </ThemeProvider>
-      </QueryClientProvider>,
+    renderWithProviders(
+      <Routes>
+        <Route
+          path="/"
+          element={
+            <AuthGuard>
+              <AppShell />
+            </AuthGuard>
+          }
+        >
+          <Route
+            path="templates"
+            element={
+              <WithNav to="/dest" label="go-dest">
+                <SafeTemplateListPage />
+              </WithNav>
+            }
+          />
+          <Route path="dest" element={<div data-testid="dest">Dest</div>} />
+        </Route>
+      </Routes>,
+      { initialEntries: ['/templates'] },
     );
     await waitFor(
       () => {
@@ -120,39 +115,30 @@ describe('Navigation loop debug', () => {
   it('simple div -> AdminPage via Link', async () => {
     const user = userEvent.setup();
     mockAll();
-    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(
-      <QueryClientProvider client={qc}>
-        <ThemeProvider theme={theme}>
-          <CssBaseline />
-          <ToastProvider>
-            <MemoryRouter initialEntries={['/start']}>
-              <Routes>
-                <Route
-                  path="/"
-                  element={
-                    <AuthGuard>
-                      <AppShell />
-                    </AuthGuard>
-                  }
-                >
-                  <Route
-                    path="start"
-                    element={
-                      <div>
-                        <Link to="/admin" data-testid="go-admin">
-                          Go Admin
-                        </Link>
-                      </div>
-                    }
-                  />
-                  <Route path="admin" element={<AdminPage />} />
-                </Route>
-              </Routes>
-            </MemoryRouter>
-          </ToastProvider>
-        </ThemeProvider>
-      </QueryClientProvider>,
+    renderWithProviders(
+      <Routes>
+        <Route
+          path="/"
+          element={
+            <AuthGuard>
+              <AppShell />
+            </AuthGuard>
+          }
+        >
+          <Route
+            path="start"
+            element={
+              <div>
+                <Link to="/admin" data-testid="go-admin">
+                  Go Admin
+                </Link>
+              </div>
+            }
+          />
+          <Route path="admin" element={<SafeAdminPage />} />
+        </Route>
+      </Routes>,
+      { initialEntries: ['/start'] },
     );
     await waitFor(
       () => {
@@ -173,37 +159,28 @@ describe('Navigation loop debug', () => {
   it('TemplateListPage -> AdminPage via Link', async () => {
     const user = userEvent.setup();
     mockAll();
-    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(
-      <QueryClientProvider client={qc}>
-        <ThemeProvider theme={theme}>
-          <CssBaseline />
-          <ToastProvider>
-            <MemoryRouter initialEntries={['/templates']}>
-              <Routes>
-                <Route
-                  path="/"
-                  element={
-                    <AuthGuard>
-                      <AppShell />
-                    </AuthGuard>
-                  }
-                >
-                  <Route
-                    path="templates"
-                    element={
-                      <WithNav to="/admin" label="go-admin">
-                        <TemplateListPage />
-                      </WithNav>
-                    }
-                  />
-                  <Route path="admin" element={<AdminPage />} />
-                </Route>
-              </Routes>
-            </MemoryRouter>
-          </ToastProvider>
-        </ThemeProvider>
-      </QueryClientProvider>,
+    renderWithProviders(
+      <Routes>
+        <Route
+          path="/"
+          element={
+            <AuthGuard>
+              <AppShell />
+            </AuthGuard>
+          }
+        >
+          <Route
+            path="templates"
+            element={
+              <WithNav to="/admin" label="go-admin">
+                <SafeTemplateListPage />
+              </WithNav>
+            }
+          />
+          <Route path="admin" element={<SafeAdminPage />} />
+        </Route>
+      </Routes>,
+      { initialEntries: ['/templates'] },
     );
     await waitFor(
       () => {
@@ -224,37 +201,28 @@ describe('Navigation loop debug', () => {
   it('TemplateListPage -> SettingsPage via Link', async () => {
     const user = userEvent.setup();
     mockAll();
-    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(
-      <QueryClientProvider client={qc}>
-        <ThemeProvider theme={theme}>
-          <CssBaseline />
-          <ToastProvider>
-            <MemoryRouter initialEntries={['/templates']}>
-              <Routes>
-                <Route
-                  path="/"
-                  element={
-                    <AuthGuard>
-                      <AppShell />
-                    </AuthGuard>
-                  }
-                >
-                  <Route
-                    path="templates"
-                    element={
-                      <WithNav to="/settings" label="go-settings">
-                        <TemplateListPage />
-                      </WithNav>
-                    }
-                  />
-                  <Route path="settings" element={<SettingsPage />} />
-                </Route>
-              </Routes>
-            </MemoryRouter>
-          </ToastProvider>
-        </ThemeProvider>
-      </QueryClientProvider>,
+    renderWithProviders(
+      <Routes>
+        <Route
+          path="/"
+          element={
+            <AuthGuard>
+              <AppShell />
+            </AuthGuard>
+          }
+        >
+          <Route
+            path="templates"
+            element={
+              <WithNav to="/settings" label="go-settings">
+                <SafeTemplateListPage />
+              </WithNav>
+            }
+          />
+          <Route path="settings" element={<SafeSettingsPage />} />
+        </Route>
+      </Routes>,
+      { initialEntries: ['/templates'] },
     );
     await waitFor(
       () => {
@@ -266,6 +234,90 @@ describe('Navigation loop debug', () => {
     await waitFor(
       () => {
         expect(screen.getByRole('heading', { level: 1, name: /settings/i })).toBeInTheDocument();
+      },
+      { timeout: 5000 },
+    );
+  }, 10000);
+
+  // E: AdminPage -> TemplateListPage via Link (reverse navigation)
+  it('AdminPage -> TemplateListPage via Link', async () => {
+    const user = userEvent.setup();
+    mockAll();
+    renderWithProviders(
+      <Routes>
+        <Route
+          path="/"
+          element={
+            <AuthGuard>
+              <AppShell />
+            </AuthGuard>
+          }
+        >
+          <Route
+            path="admin"
+            element={
+              <WithNav to="/templates" label="go-templates">
+                <SafeAdminPage />
+              </WithNav>
+            }
+          />
+          <Route path="templates" element={<SafeTemplateListPage />} />
+        </Route>
+      </Routes>,
+      { initialEntries: ['/admin'] },
+    );
+    await waitFor(
+      () => {
+        expect(screen.getByRole('heading', { level: 2, name: /users/i })).toBeInTheDocument();
+      },
+      { timeout: 5000 },
+    );
+    await user.click(screen.getByTestId('nav-go-templates'));
+    await waitFor(
+      () => {
+        expect(screen.getByPlaceholderText('Search templates...')).toBeInTheDocument();
+      },
+      { timeout: 5000 },
+    );
+  }, 10000);
+
+  // F: SettingsPage -> AdminPage via Link (reverse navigation)
+  it('SettingsPage -> AdminPage via Link', async () => {
+    const user = userEvent.setup();
+    mockAll();
+    renderWithProviders(
+      <Routes>
+        <Route
+          path="/"
+          element={
+            <AuthGuard>
+              <AppShell />
+            </AuthGuard>
+          }
+        >
+          <Route
+            path="settings"
+            element={
+              <WithNav to="/admin" label="go-admin">
+                <SafeSettingsPage />
+              </WithNav>
+            }
+          />
+          <Route path="admin" element={<SafeAdminPage />} />
+        </Route>
+      </Routes>,
+      { initialEntries: ['/settings'] },
+    );
+    await waitFor(
+      () => {
+        expect(screen.getByRole('heading', { level: 1, name: /settings/i })).toBeInTheDocument();
+      },
+      { timeout: 5000 },
+    );
+    await user.click(screen.getByTestId('nav-go-admin'));
+    await waitFor(
+      () => {
+        expect(screen.getByRole('heading', { level: 2, name: /users/i })).toBeInTheDocument();
       },
       { timeout: 5000 },
     );
