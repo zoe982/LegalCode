@@ -92,10 +92,16 @@ describe('MarginCommentTrigger', () => {
     expect(svg).toBeInTheDocument();
   });
 
-  it('is positioned to the right of its container (left: calc(100% + 16px))', () => {
+  it('is positioned to the right of its container (right: -18px)', () => {
     renderTrigger();
     const trigger = screen.getByTestId('margin-comment-trigger');
-    expect(trigger).toHaveStyle({ left: 'calc(100% + 16px)' });
+    expect(trigger).toHaveStyle({ right: '-18px' });
+  });
+
+  it('renders with z-index 10', () => {
+    renderTrigger();
+    const trigger = screen.getByTestId('margin-comment-trigger');
+    expect(trigger).toHaveStyle({ zIndex: 10 });
   });
 
   it('has white background color', () => {

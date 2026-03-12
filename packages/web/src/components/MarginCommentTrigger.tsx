@@ -27,8 +27,9 @@ export function MarginCommentTrigger({ top, visible, onClick }: MarginCommentTri
       sx={{
         position: 'absolute',
         top: `${String(top)}px`,
-        left: 'calc(100% + 16px)',
+        right: '-18px',
         transform: 'translateY(-50%)',
+        zIndex: 10,
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
