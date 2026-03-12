@@ -7,7 +7,7 @@ export interface DetectedConversion {
   pos: number;
   /** Original paragraph text */
   originalText: string;
-  /** Proposed heading level (1-4) */
+  /** Proposed heading level (1-6) */
   headingLevel: number;
   /** Text after stripping the number prefix */
   cleanedText: string;
@@ -75,7 +75,31 @@ const PATTERNS: PatternDef[] = [
       return remaining.length > 0 ? remaining : text.trim();
     },
   },
-  // 3. \d+\.\d+\.\d+\s — must come before h2 to avoid false match
+  // 3. \d+\.\d+\.\d+\.\d+\.\d+\.\d+\s — H6, must come before H5 to avoid false match
+  {
+    regex: /^\d+\.\d+\.\d+\.\d+\.\d+\.\d+\s/,
+    headingLevel: 6,
+    confidence: 'high',
+    pattern: 'numbered-h6',
+    clean: (text, match) => text.slice(match[0].length),
+  },
+  // 4. \d+\.\d+\.\d+\.\d+\.\d+\s — H5, must come before H4 to avoid false match
+  {
+    regex: /^\d+\.\d+\.\d+\.\d+\.\d+\s/,
+    headingLevel: 5,
+    confidence: 'high',
+    pattern: 'numbered-h5',
+    clean: (text, match) => text.slice(match[0].length),
+  },
+  // 5. \d+\.\d+\.\d+\.\d+\s — H4, must come before H3 to avoid false match
+  {
+    regex: /^\d+\.\d+\.\d+\.\d+\s/,
+    headingLevel: 4,
+    confidence: 'high',
+    pattern: 'numbered-h4',
+    clean: (text, match) => text.slice(match[0].length),
+  },
+  // 6. \d+\.\d+\.\d+\s — must come before h2 to avoid false match
   {
     regex: /^\d+\.\d+\.\d+\s/,
     headingLevel: 3,
@@ -83,7 +107,7 @@ const PATTERNS: PatternDef[] = [
     pattern: 'numbered-h3',
     clean: (text, match) => text.slice(match[0].length),
   },
-  // 4. \d+\.\d+\s
+  // 7. \d+\.\d+\s
   {
     regex: /^\d+\.\d+\s/,
     headingLevel: 2,
@@ -91,7 +115,7 @@ const PATTERNS: PatternDef[] = [
     pattern: 'numbered-h2',
     clean: (text, match) => text.slice(match[0].length),
   },
-  // 5. ^\d+\.\s
+  // 8. ^\d+\.\s
   {
     regex: /^\d+\.\s/,
     headingLevel: 1,
@@ -99,7 +123,7 @@ const PATTERNS: PatternDef[] = [
     pattern: 'numbered-h1',
     clean: (text, match) => text.slice(match[0].length),
   },
-  // 6. ^\([a-z]\)\s
+  // 9. ^\([a-z]\)\s
   {
     regex: /^\([a-z]\)\s/,
     headingLevel: 3,
@@ -107,7 +131,7 @@ const PATTERNS: PatternDef[] = [
     pattern: 'letter-paren',
     clean: (text, match) => text.slice(match[0].length),
   },
-  // 7. ^[a-z]\.\s
+  // 10. ^[a-z]\.\s
   {
     regex: /^[a-z]\.\s/,
     headingLevel: 3,

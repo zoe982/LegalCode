@@ -149,6 +149,7 @@ describe('numberingPlugin', () => {
         bodyPreview: 'Intro text',
         number: '1.',
         isTitle: false,
+        hasChildren: false,
       },
     ];
     mockExtractHeadingTree.mockReturnValue(entries);
@@ -206,6 +207,7 @@ describe('numberingPlugin', () => {
         bodyPreview: '',
         number: '1.',
         isTitle: false,
+        hasChildren: true,
       },
       {
         level: 2,
@@ -215,6 +217,7 @@ describe('numberingPlugin', () => {
         bodyPreview: '',
         number: '1.1',
         isTitle: false,
+        hasChildren: false,
       },
     ];
     mockExtractHeadingTree.mockReturnValue(entries);
@@ -237,6 +240,7 @@ describe('numberingPlugin', () => {
         bodyPreview: '',
         number: '1.',
         isTitle: false,
+        hasChildren: false,
       },
     ];
     mockExtractHeadingTree.mockReturnValue(entries);
@@ -264,6 +268,7 @@ describe('numberingPlugin', () => {
         bodyPreview: '',
         number: '1.1',
         isTitle: false,
+        hasChildren: false,
       },
     ];
     mockExtractHeadingTree.mockReturnValue(entries);
@@ -288,6 +293,7 @@ describe('numberingPlugin', () => {
         bodyPreview: '',
         number: '1.',
         isTitle: false,
+        hasChildren: false,
       },
     ];
     mockExtractHeadingTree.mockReturnValue(entries);
@@ -322,6 +328,7 @@ describe('numberingPlugin', () => {
         bodyPreview: '',
         number: '1.',
         isTitle: false,
+        hasChildren: true,
       },
       {
         level: 2,
@@ -331,6 +338,7 @@ describe('numberingPlugin', () => {
         bodyPreview: '',
         number: '1.1',
         isTitle: false,
+        hasChildren: true,
       },
       {
         level: 3,
@@ -340,6 +348,7 @@ describe('numberingPlugin', () => {
         bodyPreview: '',
         number: '1.1.1',
         isTitle: false,
+        hasChildren: false,
       },
     ];
     mockExtractHeadingTree.mockReturnValue(entries);
@@ -352,8 +361,26 @@ describe('numberingPlugin', () => {
 
   it('multiple headings have correct numbers in widget text', () => {
     const entries: HeadingEntry[] = [
-      { level: 1, text: 'A', pos: 0, endPos: 50, bodyPreview: '', number: '1.', isTitle: false },
-      { level: 2, text: 'B', pos: 10, endPos: 30, bodyPreview: '', number: '1.1', isTitle: false },
+      {
+        level: 1,
+        text: 'A',
+        pos: 0,
+        endPos: 50,
+        bodyPreview: '',
+        number: '1.',
+        isTitle: false,
+        hasChildren: true,
+      },
+      {
+        level: 2,
+        text: 'B',
+        pos: 10,
+        endPos: 30,
+        bodyPreview: '',
+        number: '1.1',
+        isTitle: false,
+        hasChildren: false,
+      },
     ];
     mockExtractHeadingTree.mockReturnValue(entries);
     const plugin = createNumberingPlugin();
@@ -379,6 +406,7 @@ describe('numberingPlugin', () => {
         bodyPreview: '',
         number: '',
         isTitle: true,
+        hasChildren: true,
       },
       {
         level: 1,
@@ -388,6 +416,7 @@ describe('numberingPlugin', () => {
         bodyPreview: '',
         number: '1.',
         isTitle: false,
+        hasChildren: true,
       },
       {
         level: 2,
@@ -397,6 +426,7 @@ describe('numberingPlugin', () => {
         bodyPreview: '',
         number: '1.1',
         isTitle: false,
+        hasChildren: false,
       },
     ];
     mockExtractHeadingTree.mockReturnValue(entries);

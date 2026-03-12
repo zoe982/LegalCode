@@ -1,7 +1,7 @@
 import type { Node } from '@milkdown/kit/prose/model';
 
 export interface HeadingEntry {
-  /** Heading depth 1-4 */
+  /** Heading depth 1-6, or 0 for title nodes */
   level: number;
   /** Raw text content of the heading node */
   text: string;
@@ -13,15 +13,17 @@ export interface HeadingEntry {
   bodyPreview: string;
   /** Computed hierarchical number, e.g. "1.", "1.1", "1.1.1", "1.1.1.1". Empty string for title entry. */
   number: string;
-  /** True if this heading is the document title (first H1 in the document, gets no number) */
+  /** True if this heading is the document title (node.type.name === 'title') */
   isTitle: boolean;
+  /** True if any entry with a greater level follows before the next same-or-higher-level entry */
+  hasChildren: boolean;
 }
 
 // ---------------------------------------------------------------------------
 // Internal types
 // ---------------------------------------------------------------------------
 
-/** Raw entry before endPos / bodyPreview are resolved */
+/** Raw entry before endPos / bodyPreview / hasChildren are resolved */
 interface RawEntry {
   level: number;
   text: string;
@@ -50,14 +52,6 @@ interface TopLevelNode {
   pos: number;
 }
 
-/** Named counter state — avoids unsafe indexed-tuple access under noUncheckedIndexedAccess */
-interface Counters {
-  h1: number;
-  h2: number;
-  h3: number;
-  h4: number;
-}
-
 // ---------------------------------------------------------------------------
 // Memoisation cache (WeakMap — keyed by doc identity, GC-friendly)
 // ---------------------------------------------------------------------------
@@ -74,6 +68,10 @@ const cache = new WeakMap<object, HeadingEntry[]>();
  *
  * The function is pure and deterministic. Results are memoised by document
  * object identity so repeated calls with the same (immutable) doc are free.
+ *
+ * Title detection: a node with `type.name === 'title'` is treated as the document
+ * title — it gets `isTitle: true`, `number: ''`, and `level: 0`. No level-shifting
+ * is applied; all heading levels are used directly.
  */
 export function extractHeadingTree(doc: Node): HeadingEntry[] {
   const docObj = doc as unknown as object;
@@ -99,61 +97,36 @@ export function extractHeadingTree(doc: Node): HeadingEntry[] {
   // Pass 2: build raw entries with numbering
   // ------------------------------------------------------------------
 
-  const counters: Counters = { h1: 0, h2: 0, h3: 0, h4: 0 };
+  // counters[0] = h1, counters[1] = h2, ..., counters[5] = h6
+  const counters: number[] = [0, 0, 0, 0, 0, 0];
 
   const rawEntries: RawEntry[] = [];
 
-  // Pre-scan: count H1 headings to determine if level shifting is needed.
-  // When there's exactly one H1 (the title) and all other headings are H2+,
-  // we shift levels down by 1 so H2→numbers as H1, H3→H2, etc.
-  let h1Count = 0;
-  for (const { node } of topLevel) {
-    if (node.type.name !== 'heading') continue;
-    const l = (node.attrs as { level?: unknown } | undefined)?.level;
-    if (l === 1) h1Count += 1;
-  }
-
-  // Track whether we've seen the very first heading in the document
-  let firstHeadingSeen = false;
-  // Only shift levels when there's a title H1 and no other H1s in the doc
-  let shiftLevels = false;
-
   for (const { node, pos } of topLevel) {
+    // Handle title nodes
+    if (node.type.name === 'title') {
+      const bodyStartPos = pos + node.nodeSize;
+      rawEntries.push({
+        level: 0,
+        text: node.textContent,
+        pos,
+        bodyStartPos,
+        number: '',
+        isTitle: true,
+      });
+      continue;
+    }
+
     if (node.type.name !== 'heading') continue;
 
     const rawLevel = (node.attrs as { level?: unknown } | undefined)?.level;
     const level = typeof rawLevel === 'number' ? rawLevel : 0;
-    if (level < 1 || level > 4) continue;
-
-    // Title detection: if the very first heading in the document is H1, treat it as title
-    if (!firstHeadingSeen) {
-      firstHeadingSeen = true;
-      if (level === 1) {
-        // Shift levels only when this is the only H1 (no numbered H1 sections)
-        shiftLevels = h1Count === 1;
-        // bodyStartPos: the position immediately after this heading node
-        const bodyStartPos = pos + node.nodeSize;
-        rawEntries.push({
-          level,
-          text: node.textContent,
-          pos,
-          bodyStartPos,
-          number: '',
-          isTitle: true,
-        });
-        continue;
-      }
-    }
-
-    // When title exists and no other H1s, shift levels: H2→1, H3→2, H4→3
-    const numberLevel =
-      shiftLevels && level > 1 ? ((level - 1) as 1 | 2 | 3 | 4) : (level as 1 | 2 | 3 | 4);
+    if (level < 1 || level > 6) continue;
 
     // Increment this level's counter and reset all deeper counters
-    // For the first H1 after a title, we still start from 1 (counters unchanged since 0)
-    incrementCounters(counters, numberLevel);
+    incrementCounters(counters, level);
 
-    const number = buildNumber(counters, numberLevel);
+    const number = buildNumber(counters, level);
 
     // bodyStartPos: the position immediately after this heading node
     const bodyStartPos = pos + node.nodeSize;
@@ -168,7 +141,8 @@ export function extractHeadingTree(doc: Node): HeadingEntry[] {
   const docEnd = docLike.nodeSize - 1;
 
   const entries: HeadingEntry[] = rawEntries.map((entry, idx) => {
-    // Find the next heading at the same or higher (lower number) level
+    // Find the next heading at the same or higher (lower number) level.
+    // Title nodes use level 0; any heading (level >= 1) is "deeper" than a title.
     let endPos = docEnd;
     for (let j = idx + 1; j < rawEntries.length; j++) {
       const next = rawEntries[j];
@@ -181,7 +155,7 @@ export function extractHeadingTree(doc: Node): HeadingEntry[] {
     // Collect body text from top-level nodes between this heading end and section end
     const bodyText = topLevel
       .filter(({ node, pos }) => {
-        if (node.type.name === 'heading') return false;
+        if (node.type.name === 'heading' || node.type.name === 'title') return false;
         return pos >= entry.bodyStartPos && pos < endPos;
       })
       .map(({ node }) => node.textContent)
@@ -189,6 +163,19 @@ export function extractHeadingTree(doc: Node): HeadingEntry[] {
       .trim();
 
     const bodyPreview = bodyText.length > 50 ? bodyText.slice(0, 50) + '...' : bodyText;
+
+    // hasChildren: true if any immediately-following entry has level > this entry's level
+    // before we encounter an entry with level <= this entry's level
+    let hasChildren = false;
+    for (let j = idx + 1; j < rawEntries.length; j++) {
+      const next = rawEntries[j];
+      /* v8 ignore next */
+      if (next === undefined) break;
+      if (next.level <= entry.level) break;
+      // next.level > entry.level → this is a child
+      hasChildren = true;
+      break;
+    }
 
     return {
       level: entry.level,
@@ -198,6 +185,7 @@ export function extractHeadingTree(doc: Node): HeadingEntry[] {
       bodyPreview,
       number: entry.number,
       isTitle: entry.isTitle,
+      hasChildren,
     };
   });
 
@@ -209,32 +197,45 @@ export function extractHeadingTree(doc: Node): HeadingEntry[] {
 // Counter helpers
 // ---------------------------------------------------------------------------
 
-function incrementCounters(counters: Counters, level: 1 | 2 | 3 | 4): void {
-  if (level === 1) {
-    counters.h1 += 1;
-    counters.h2 = 0;
-    counters.h3 = 0;
-    counters.h4 = 0;
-  } else if (level === 2) {
-    counters.h2 += 1;
-    counters.h3 = 0;
-    counters.h4 = 0;
-  } else if (level === 3) {
-    counters.h3 += 1;
-    counters.h4 = 0;
-  } else {
-    counters.h4 += 1;
+/**
+ * Increment the counter for the given level (1-6) and reset all deeper counters.
+ * Uses explicit bounds checking for noUncheckedIndexedAccess compatibility.
+ */
+function incrementCounters(counters: number[], level: number): void {
+  // level is 1-indexed; counters is 0-indexed
+  const idx = level - 1;
+  /* v8 ignore next */
+  if (idx < 0 || idx >= counters.length) return;
+
+  const current = counters[idx];
+  if (current !== undefined) {
+    counters[idx] = current + 1;
+  }
+
+  // Reset all deeper counters
+  for (let i = idx + 1; i < counters.length; i++) {
+    counters[i] = 0;
   }
 }
 
-function buildNumber(counters: Counters, level: 1 | 2 | 3 | 4): string {
-  const h1 = String(counters.h1);
-  const h2 = String(counters.h2);
-  const h3Str = String(counters.h3);
-  const h4 = String(counters.h4);
+/**
+ * Build the dotted number string for a heading at the given level (1-6).
+ * e.g. level=1 → "1.", level=2 → "1.2", level=3 → "1.2.3", etc.
+ */
+function buildNumber(counters: number[], level: number): string {
+  const parts: string[] = [];
+  for (let i = 0; i < level; i++) {
+    const val = counters[i];
+    /* v8 ignore next */
+    parts.push(String(val ?? 0));
+  }
 
-  if (level === 1) return `${h1}.`;
-  if (level === 2) return `${h1}.${h2}`;
-  if (level === 3) return `${h1}.${h2}.${h3Str}`;
-  return `${h1}.${h2}.${h3Str}.${h4}`;
+  if (level === 1) {
+    // Top-level section: "1."
+    /* v8 ignore next */
+    return (parts[0] ?? '0') + '.';
+  }
+
+  // Multi-level: join all parts with dots
+  return parts.join('.');
 }

@@ -16,6 +16,7 @@ const sampleEntries: HeadingEntry[] = [
     bodyPreview: 'This is the intro body text...',
     number: '1.',
     isTitle: false,
+    hasChildren: true,
   },
   {
     level: 2,
@@ -25,6 +26,7 @@ const sampleEntries: HeadingEntry[] = [
     bodyPreview: 'Background context here...',
     number: '1.1',
     isTitle: false,
+    hasChildren: false,
   },
   {
     level: 2,
@@ -34,6 +36,7 @@ const sampleEntries: HeadingEntry[] = [
     bodyPreview: 'Scope of work...',
     number: '1.2',
     isTitle: false,
+    hasChildren: false,
   },
   {
     level: 1,
@@ -43,6 +46,7 @@ const sampleEntries: HeadingEntry[] = [
     bodyPreview: 'Party obligations...',
     number: '2.',
     isTitle: false,
+    hasChildren: true,
   },
   {
     level: 3,
@@ -52,6 +56,7 @@ const sampleEntries: HeadingEntry[] = [
     bodyPreview: 'Payment schedule...',
     number: '2.1.1',
     isTitle: false,
+    hasChildren: false,
   },
 ];
 
@@ -301,6 +306,7 @@ describe('OutlineView', () => {
         bodyPreview: '',
         number: '1.',
         isTitle: false,
+        hasChildren: false,
       },
     ];
     renderOutlineView({ entries: singleH1 });
@@ -361,6 +367,7 @@ describe('OutlineView', () => {
         bodyPreview: '',
         number: '',
         isTitle: true,
+        hasChildren: true,
       },
       {
         level: 1,
@@ -370,6 +377,7 @@ describe('OutlineView', () => {
         bodyPreview: '',
         number: '1.',
         isTitle: false,
+        hasChildren: false,
       },
     ];
     renderOutlineView({ entries: entriesWithTitle });
@@ -395,6 +403,7 @@ describe('OutlineView', () => {
         bodyPreview: '',
         number: '1.',
         isTitle: false,
+        hasChildren: true,
       },
       {
         level: 3,
@@ -404,6 +413,7 @@ describe('OutlineView', () => {
         bodyPreview: '',
         number: '1.0.1',
         isTitle: false,
+        hasChildren: false,
       },
     ];
     renderOutlineView({ entries: entriesWithH3 });

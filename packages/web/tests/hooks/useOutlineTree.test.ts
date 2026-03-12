@@ -28,6 +28,7 @@ const sampleEntries: HeadingEntry[] = [
     bodyPreview: 'This is intro...',
     number: '1.',
     isTitle: false,
+    hasChildren: true,
   },
   {
     level: 2,
@@ -37,6 +38,7 @@ const sampleEntries: HeadingEntry[] = [
     bodyPreview: 'Background info...',
     number: '1.1',
     isTitle: false,
+    hasChildren: false,
   },
   {
     level: 1,
@@ -46,6 +48,7 @@ const sampleEntries: HeadingEntry[] = [
     bodyPreview: 'Final words...',
     number: '2.',
     isTitle: false,
+    hasChildren: false,
   },
 ];
 
@@ -108,6 +111,7 @@ describe('useOutlineTree', () => {
         bodyPreview: 'Updated...',
         number: '1.',
         isTitle: false,
+        hasChildren: false,
       },
     ];
     const { current: crepeRef, mockAction } = createMockCrepeRef(sampleEntries);

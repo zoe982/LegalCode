@@ -204,6 +204,51 @@ describe('detectNumberingPattern', () => {
     expect(result?.confidence).toBe('low');
   });
 
+  it('detects "1.1.1.1 Sub-clause" → H4, high confidence, pattern "numbered-h4"', () => {
+    const result = detectNumberingPattern('1.1.1.1 Sub-clause');
+    expect(result).not.toBeNull();
+    expect(result?.headingLevel).toBe(4);
+    expect(result?.confidence).toBe('high');
+    expect(result?.pattern).toBe('numbered-h4');
+  });
+
+  it('detects "1.1.1.1.1 Paragraph text" → H5, high confidence, pattern "numbered-h5"', () => {
+    const result = detectNumberingPattern('1.1.1.1.1 Paragraph text');
+    expect(result).not.toBeNull();
+    expect(result?.headingLevel).toBe(5);
+    expect(result?.confidence).toBe('high');
+    expect(result?.pattern).toBe('numbered-h5');
+  });
+
+  it('detects "1.1.1.1.1.1 Sub-paragraph" → H6, high confidence, pattern "numbered-h6"', () => {
+    const result = detectNumberingPattern('1.1.1.1.1.1 Sub-paragraph');
+    expect(result).not.toBeNull();
+    expect(result?.headingLevel).toBe(6);
+    expect(result?.confidence).toBe('high');
+    expect(result?.pattern).toBe('numbered-h6');
+  });
+
+  it('does not falsely match H6 pattern as H3', () => {
+    const result = detectNumberingPattern('1.2.3.4.5.6 Deep section');
+    expect(result?.headingLevel).toBe(6);
+    expect(result?.pattern).toBe('numbered-h6');
+  });
+
+  it('strips "1.1.1.1 " prefix from H4 text', () => {
+    const result = detectNumberingPattern('1.1.1.1 Sub-clause content');
+    expect(result?.cleanedText).toBe('Sub-clause content');
+  });
+
+  it('strips "1.1.1.1.1 " prefix from H5 text', () => {
+    const result = detectNumberingPattern('1.1.1.1.1 Paragraph content');
+    expect(result?.cleanedText).toBe('Paragraph content');
+  });
+
+  it('strips "1.1.1.1.1.1 " prefix from H6 text', () => {
+    const result = detectNumberingPattern('1.1.1.1.1.1 Sub-paragraph content');
+    expect(result?.cleanedText).toBe('Sub-paragraph content');
+  });
+
   describe('cleanedText strips prefix correctly', () => {
     it('strips "Article I" prefix → empty string (Article with no following text)', () => {
       const result = detectNumberingPattern('Article I');
@@ -389,6 +434,19 @@ describe('scanForConversions', () => {
       const result = scanForConversions(doc as unknown as import('@milkdown/kit/prose/model').Node);
       expect(result).toHaveLength(0);
     });
+  });
+
+  it('detects H4-H6 numbered paragraphs in document scan', () => {
+    const doc = makeDoc([
+      makeParagraph('1.1.1.1 Sub-clause', 25),
+      makeParagraph('1.1.1.1.1 Paragraph', 25),
+      makeParagraph('1.1.1.1.1.1 Sub-paragraph', 30),
+    ]);
+    const result = scanForConversions(doc as unknown as import('@milkdown/kit/prose/model').Node);
+    expect(result).toHaveLength(3);
+    expect(result[0]?.headingLevel).toBe(4);
+    expect(result[1]?.headingLevel).toBe(5);
+    expect(result[2]?.headingLevel).toBe(6);
   });
 
   describe('real-world legal document scenarios', () => {
