@@ -43,23 +43,3 @@ export function renderWithProviders(
 
   return { ...result, queryClient };
 }
-
-export function createTestWrapper(options: Pick<WrapperOptions, 'initialEntries'> = {}) {
-  const { initialEntries = ['/'] } = options;
-  const queryClient = createQueryClient();
-
-  function TestWrapper({ children }: { children: ReactNode }) {
-    return (
-      <QueryClientProvider client={queryClient}>
-        <ThemeProvider theme={theme}>
-          <CssBaseline />
-          <ToastProvider>
-            <MemoryRouter initialEntries={initialEntries}>{children}</MemoryRouter>
-          </ToastProvider>
-        </ThemeProvider>
-      </QueryClientProvider>
-    );
-  }
-
-  return { wrapper: TestWrapper, queryClient };
-}
