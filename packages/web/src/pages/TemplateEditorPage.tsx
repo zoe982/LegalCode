@@ -396,7 +396,7 @@ export function TemplateEditorPage() {
       const view = ctx.get(editorViewCtx);
       const conversions = scanForConversions(view.state.doc);
       if (conversions.length === 0) {
-        showToast('No numbered paragraphs detected', 'info');
+        showToast('No numbering detected', 'info');
         return;
       }
       setDetectedConversions(conversions);
@@ -416,19 +416,47 @@ export function TemplateEditorPage() {
         const sorted = [...selected].sort((a, b) => b.pos - a.pos);
         for (const conv of sorted) {
           const node = tr.doc.nodeAt(conv.pos);
-          if (node?.type.name !== 'paragraph') continue;
+          if (!node) continue;
           const headingType = view.state.schema.nodes.heading;
           if (!headingType) continue;
-          const headingNode = headingType.create(
-            { level: conv.headingLevel },
-            view.state.schema.text(conv.cleanedText),
-          );
-          tr = tr.replaceWith(conv.pos, conv.pos + node.nodeSize, headingNode);
+          if (node.type.name === 'heading') {
+            // Replace heading content with cleaned text, keeping same heading level
+            const level =
+              typeof node.attrs.level === 'number' ? node.attrs.level : conv.headingLevel;
+            const headingNode = headingType.create(
+              { level },
+              view.state.schema.text(conv.cleanedText),
+            );
+            tr = tr.replaceWith(conv.pos, conv.pos + node.nodeSize, headingNode);
+          } else if (node.type.name === 'paragraph') {
+            // Convert paragraph to heading
+            const headingNode = headingType.create(
+              { level: conv.headingLevel },
+              view.state.schema.text(conv.cleanedText),
+            );
+            tr = tr.replaceWith(conv.pos, conv.pos + node.nodeSize, headingNode);
+          }
         }
         view.dispatch(tr);
       });
       setCleanupDialogOpen(false);
-      showToast(`Converted ${String(selected.length)} paragraph(s) to headings`, 'success');
+      const paragraphCount = selected.filter((c) => c.sourceType === 'paragraph').length;
+      const headingCount = selected.filter((c) => c.sourceType === 'heading').length;
+      const parts: string[] = [];
+      if (paragraphCount > 0) {
+        parts.push(
+          `converted ${String(paragraphCount)} paragraph${paragraphCount === 1 ? '' : 's'} to headings`,
+        );
+      }
+      if (headingCount > 0) {
+        parts.push(`cleaned ${String(headingCount)} heading${headingCount === 1 ? '' : 's'}`);
+      }
+      const message =
+        parts.length > 0
+          ? parts.join(', ')
+          : `Applied ${String(selected.length)} cleanup${selected.length === 1 ? '' : 's'}`;
+      // Capitalize first letter
+      showToast(message.charAt(0).toUpperCase() + message.slice(1), 'success');
     },
     [showToast],
   );

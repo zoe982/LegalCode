@@ -3149,7 +3149,7 @@ describe('TemplateEditorPage', () => {
       });
 
       expect(mockScanForConversions).toHaveBeenCalledWith(mockDoc);
-      expect(mockShowToast).toHaveBeenCalledWith('No numbered paragraphs detected', 'info');
+      expect(mockShowToast).toHaveBeenCalledWith('No numbering detected', 'info');
       expect(screen.queryByTestId('import-cleanup-dialog')).not.toBeInTheDocument();
     });
 
@@ -3234,6 +3234,7 @@ describe('TemplateEditorPage', () => {
           cleanedText: 'Introduction',
           confidence: 'high' as const,
           pattern: 'numbered-h1',
+          sourceType: 'paragraph' as const,
           selected: true,
         },
         {
@@ -3243,6 +3244,7 @@ describe('TemplateEditorPage', () => {
           cleanedText: 'Background',
           confidence: 'high' as const,
           pattern: 'numbered-h1',
+          sourceType: 'paragraph' as const,
           selected: true,
         },
       ];
@@ -3304,10 +3306,10 @@ describe('TemplateEditorPage', () => {
       expect(screen.queryByTestId('import-cleanup-dialog')).not.toBeInTheDocument();
 
       // Should show success toast
-      expect(mockShowToast).toHaveBeenCalledWith('Converted 2 paragraph(s) to headings', 'success');
+      expect(mockShowToast).toHaveBeenCalledWith('Converted 2 paragraphs to headings', 'success');
     });
 
-    it('skips nodes that are not paragraphs during apply', () => {
+    it('skips nodes that are neither paragraphs nor headings during apply', () => {
       const mockConversions = [
         {
           pos: 5,
@@ -3316,14 +3318,15 @@ describe('TemplateEditorPage', () => {
           cleanedText: 'Introduction',
           confidence: 'high' as const,
           pattern: 'numbered-h1',
+          sourceType: 'paragraph' as const,
           selected: true,
         },
       ];
 
-      // nodeAt returns a non-paragraph node
-      const mockNonParagraphNode = { type: { name: 'heading' }, nodeSize: 10 };
+      // nodeAt returns an unhandled node type (e.g. blockquote)
+      const mockBlockquoteNode = { type: { name: 'blockquote' }, nodeSize: 10 };
       const mockTr = {
-        doc: { nodeAt: vi.fn().mockReturnValue(mockNonParagraphNode) },
+        doc: { nodeAt: vi.fn().mockReturnValue(mockBlockquoteNode) },
         replaceWith: vi.fn().mockReturnThis(),
       };
       const mockDispatch = vi.fn();
@@ -3357,7 +3360,7 @@ describe('TemplateEditorPage', () => {
         screen.getByTestId('cleanup-apply').click();
       });
 
-      // replaceWith should NOT have been called since the node is not a paragraph
+      // replaceWith should NOT have been called since the node type is unhandled
       expect(mockTr.replaceWith).not.toHaveBeenCalled();
       // But dispatch should still be called (empty transaction)
       expect(mockDispatch).toHaveBeenCalled();

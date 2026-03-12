@@ -74,9 +74,7 @@ export function ImportCleanupDialog({
   };
 
   const subtitleText =
-    totalCount === 1
-      ? '1 numbered paragraph detected'
-      : `${String(totalCount)} numbered paragraphs detected`;
+    totalCount === 1 ? '1 item detected' : `${String(totalCount)} items detected`;
 
   const applyLabel = `Apply ${String(selectedCount)} conversion${selectedCount === 1 ? '' : 's'}`;
 

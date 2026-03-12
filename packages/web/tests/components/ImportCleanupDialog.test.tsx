@@ -100,16 +100,16 @@ describe('ImportCleanupDialog', () => {
   });
 
   // 3. Shows correct count in subtitle
-  it('shows "4 numbered paragraphs detected" subtitle', () => {
+  it('shows "4 items detected" subtitle', () => {
     renderDialog({ conversions: defaultConversions });
-    expect(screen.getByText('4 numbered paragraphs detected')).toBeInTheDocument();
+    expect(screen.getByText('4 items detected')).toBeInTheDocument();
   });
 
-  it('shows "1 numbered paragraph detected" for single conversion', () => {
+  it('shows "1 item detected" for single conversion', () => {
     const first = defaultConversions[0];
     if (!first) throw new Error('defaultConversions must not be empty');
     renderDialog({ conversions: [first] });
-    expect(screen.getByText('1 numbered paragraph detected')).toBeInTheDocument();
+    expect(screen.getByText('1 item detected')).toBeInTheDocument();
   });
 
   // 4. Renders each conversion with checkbox and text
