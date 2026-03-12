@@ -11,13 +11,41 @@ export interface HeadingEntry {
   endPos: number;
   /** First ~50 chars of body text below the heading */
   bodyPreview: string;
-  /** Computed hierarchical number, e.g. "1.", "1.1", "1.1.1", "1.1.1.1". Empty string for title entry. */
+  /**
+   * Computed hierarchical legal number using alternating depth pattern.
+   * H1→depth1 ("1"), H2/H3→depth2 ("1.1"), H4/H5→depth3 ("1.1.1"), H6→depth4 ("1.1.1.1").
+   * Empty string for title entry.
+   */
   number: string;
   /** True if this heading is the document title (node.type.name === 'title') */
   isTitle: boolean;
   /** True if any entry with a greater level follows before the next same-or-higher-level entry */
   hasChildren: boolean;
 }
+
+// ---------------------------------------------------------------------------
+// Alternating depth map
+// ---------------------------------------------------------------------------
+
+/**
+ * Maps HTML heading level (1-6) to a logical numbering depth (1-4).
+ *
+ * H1 and H2 each own a unique depth, while H3 shares depth 2 with H2,
+ * H5 shares depth 3 with H4, and H6 occupies depth 4 alone.
+ *
+ * ```
+ * Level: 1  2  3  4  5  6
+ * Depth: 1  2  2  3  3  4
+ * ```
+ */
+export const LEVEL_TO_DEPTH: Record<number, number> = {
+  1: 1,
+  2: 2,
+  3: 2,
+  4: 3,
+  5: 3,
+  6: 4,
+};
 
 // ---------------------------------------------------------------------------
 // Internal types
@@ -64,7 +92,13 @@ const cache = new WeakMap<object, HeadingEntry[]>();
 
 /**
  * Walk a ProseMirror document and return an array of {@link HeadingEntry} objects
- * with computed hierarchical legal numbering.
+ * with computed hierarchical legal numbering using an alternating depth pattern.
+ *
+ * Heading levels are grouped in pairs that share the same numbering depth:
+ * - H1 → depth 1 (e.g. "1", "2", "3")
+ * - H2 and H3 → depth 2 (e.g. "1.1", "1.2", "1.3" — both advance the same counter)
+ * - H4 and H5 → depth 3 (e.g. "1.3.1", "1.3.2", "1.3.3")
+ * - H6 → depth 4 (e.g. "1.3.3.1")
  *
  * The function is pure and deterministic. Results are memoised by document
  * object identity so repeated calls with the same (immutable) doc are free.
@@ -97,8 +131,8 @@ export function extractHeadingTree(doc: Node): HeadingEntry[] {
   // Pass 2: build raw entries with numbering
   // ------------------------------------------------------------------
 
-  // counters[0] = h1, counters[1] = h2, ..., counters[5] = h6
-  const counters: number[] = [0, 0, 0, 0, 0, 0];
+  // 4 counters for the 4 logical depths (index 0 = depth 1, index 3 = depth 4)
+  const counters: number[] = [0, 0, 0, 0];
 
   const rawEntries: RawEntry[] = [];
 
@@ -123,7 +157,7 @@ export function extractHeadingTree(doc: Node): HeadingEntry[] {
     const level = typeof rawLevel === 'number' ? rawLevel : 0;
     if (level < 1 || level > 6) continue;
 
-    // Increment this level's counter and reset all deeper counters
+    // Increment this depth's counter and reset all deeper depth counters
     incrementCounters(counters, level);
 
     const number = buildNumber(counters, level);
@@ -198,12 +232,17 @@ export function extractHeadingTree(doc: Node): HeadingEntry[] {
 // ---------------------------------------------------------------------------
 
 /**
- * Increment the counter for the given level (1-6) and reset all deeper counters.
- * Uses explicit bounds checking for noUncheckedIndexedAccess compatibility.
+ * Increment the counter for the given heading level and reset all deeper depth counters.
+ *
+ * Uses `LEVEL_TO_DEPTH` to map the heading level to a 0-indexed counter slot.
+ * H2 and H3 both map to depth 2 (slot 1), so they share and advance the same counter.
+ * H4 and H5 both map to depth 3 (slot 2). H6 maps to depth 4 (slot 3).
  */
 function incrementCounters(counters: number[], level: number): void {
-  // level is 1-indexed; counters is 0-indexed
-  const idx = level - 1;
+  const depth = LEVEL_TO_DEPTH[level];
+  /* v8 ignore next */
+  if (depth === undefined) return;
+  const idx = depth - 1;
   /* v8 ignore next */
   if (idx < 0 || idx >= counters.length) return;
 
@@ -212,7 +251,7 @@ function incrementCounters(counters: number[], level: number): void {
     counters[idx] = current + 1;
   }
 
-  // Reset all deeper counters
+  // Reset all deeper depth counters
   for (let i = idx + 1; i < counters.length; i++) {
     counters[i] = 0;
   }
@@ -220,22 +259,34 @@ function incrementCounters(counters: number[], level: number): void {
 
 /**
  * Build the dotted number string for a heading at the given level (1-6).
- * e.g. level=1 → "1.", level=2 → "1.2", level=3 → "1.2.3", etc.
+ *
+ * Iterates over the depth slots 0..depth-1 and joins them with dots.
+ * For H1 (depth 1), returns just the number string without any trailing dot.
+ *
+ * Examples:
+ * - H1 with counters=[1,0,0,0] → "1"
+ * - H2 with counters=[1,2,0,0] → "1.2"
+ * - H4 with counters=[1,2,3,0] → "1.2.3"
+ * - H6 with counters=[1,2,3,4] → "1.2.3.4"
  */
 function buildNumber(counters: number[], level: number): string {
+  const depth = LEVEL_TO_DEPTH[level];
+  /* v8 ignore next */
+  if (depth === undefined) return '';
+
   const parts: string[] = [];
-  for (let i = 0; i < level; i++) {
+  for (let i = 0; i < depth; i++) {
     const val = counters[i];
     /* v8 ignore next */
     parts.push(String(val ?? 0));
   }
 
-  if (level === 1) {
-    // Top-level section: "1."
+  // depth 1 (H1): return just the number, no trailing dot
+  if (depth === 1) {
     /* v8 ignore next */
-    return (parts[0] ?? '0') + '.';
+    return parts[0] ?? '0';
   }
 
-  // Multi-level: join all parts with dots
+  // Multi-depth: join all parts with dots
   return parts.join('.');
 }

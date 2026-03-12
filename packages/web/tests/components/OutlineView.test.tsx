@@ -14,7 +14,7 @@ const sampleEntries: HeadingEntry[] = [
     pos: 0,
     endPos: 100,
     bodyPreview: 'This is the intro body text...',
-    number: '1.',
+    number: '1',
     isTitle: false,
     hasChildren: true,
   },
@@ -44,7 +44,7 @@ const sampleEntries: HeadingEntry[] = [
     pos: 200,
     endPos: 400,
     bodyPreview: 'Party obligations...',
-    number: '2.',
+    number: '2',
     isTitle: false,
     hasChildren: true,
   },
@@ -167,10 +167,10 @@ describe('OutlineView', () => {
 
   it('renders number labels for each entry', () => {
     renderOutlineView();
-    expect(screen.getByText('1.')).toBeInTheDocument();
+    expect(screen.getByText('1')).toBeInTheDocument();
     expect(screen.getByText('1.1')).toBeInTheDocument();
     expect(screen.getByText('1.2')).toBeInTheDocument();
-    expect(screen.getByText('2.')).toBeInTheDocument();
+    expect(screen.getByText('2')).toBeInTheDocument();
     expect(screen.getByText('2.1.1')).toBeInTheDocument();
   });
 
@@ -304,7 +304,7 @@ describe('OutlineView', () => {
         pos: 0,
         endPos: 100,
         bodyPreview: '',
-        number: '1.',
+        number: '1',
         isTitle: false,
         hasChildren: false,
       },
@@ -375,7 +375,7 @@ describe('OutlineView', () => {
         pos: 50,
         endPos: 100,
         bodyPreview: '',
-        number: '1.',
+        number: '1',
         isTitle: false,
         hasChildren: false,
       },
@@ -385,11 +385,11 @@ describe('OutlineView', () => {
     // The title heading should appear in outline
     expect(screen.getByText('My Agreement')).toBeInTheDocument();
     // But no number label Typography for the title entry — empty string should not render
-    // "1." should appear for the second entry
-    expect(screen.getByText('1.')).toBeInTheDocument();
+    // "1" should appear for the second entry
+    expect(screen.getByText('1')).toBeInTheDocument();
     // The empty-string number label should NOT appear as a rendered node
     // We check that there are exactly as many number-label spans as entries with non-empty numbers
-    const numberLabels = screen.queryAllByText('1.');
+    const numberLabels = screen.queryAllByText('1');
     expect(numberLabels).toHaveLength(1);
   });
 
@@ -401,7 +401,7 @@ describe('OutlineView', () => {
         pos: 0,
         endPos: 100,
         bodyPreview: '',
-        number: '1.',
+        number: '1',
         isTitle: false,
         hasChildren: true,
       },
@@ -437,7 +437,7 @@ describe('OutlineView', () => {
         pos: 0,
         endPos: 100,
         bodyPreview: '',
-        number: '1.',
+        number: '1',
         isTitle: false,
         hasChildren: true,
       },
@@ -481,7 +481,7 @@ describe('OutlineView', () => {
         pos: 50,
         endPos: 100,
         bodyPreview: '',
-        number: '1.',
+        number: '1',
         isTitle: false,
         hasChildren: false,
       },
@@ -499,7 +499,7 @@ describe('OutlineView', () => {
         pos: 0,
         endPos: 200,
         bodyPreview: '',
-        number: '1.',
+        number: '1',
         isTitle: false,
         hasChildren: true,
       },
@@ -539,7 +539,7 @@ describe('OutlineView', () => {
         pos: 0,
         endPos: 200,
         bodyPreview: '',
-        number: '1.',
+        number: '1',
         isTitle: false,
         hasChildren: true,
       },
@@ -567,7 +567,7 @@ describe('OutlineView', () => {
         pos: 0,
         endPos: 200,
         bodyPreview: '',
-        number: '1.',
+        number: '1',
         isTitle: false,
         hasChildren: true,
       },
@@ -613,7 +613,7 @@ describe('OutlineView', () => {
         pos: 0,
         endPos: 200,
         bodyPreview: '',
-        number: '1.',
+        number: '1',
         isTitle: false,
         hasChildren: true,
       },

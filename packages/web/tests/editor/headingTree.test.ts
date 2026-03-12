@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extractHeadingTree } from '../../src/editor/headingTree.js';
+import { extractHeadingTree, LEVEL_TO_DEPTH } from '../../src/editor/headingTree.js';
 import type { HeadingEntry } from '../../src/editor/headingTree.js';
 
 // ---------------------------------------------------------------------------
@@ -69,6 +69,25 @@ function makeDoc(nodes: MockNode[]): MockDoc {
 // Tests
 // ---------------------------------------------------------------------------
 
+describe('LEVEL_TO_DEPTH constant', () => {
+  it('exports correct depth mapping for all heading levels', () => {
+    expect(LEVEL_TO_DEPTH[1]).toBe(1);
+    expect(LEVEL_TO_DEPTH[2]).toBe(2);
+    expect(LEVEL_TO_DEPTH[3]).toBe(2);
+    expect(LEVEL_TO_DEPTH[4]).toBe(3);
+    expect(LEVEL_TO_DEPTH[5]).toBe(3);
+    expect(LEVEL_TO_DEPTH[6]).toBe(4);
+  });
+
+  it('H2 and H3 share the same depth', () => {
+    expect(LEVEL_TO_DEPTH[2]).toBe(LEVEL_TO_DEPTH[3]);
+  });
+
+  it('H4 and H5 share the same depth', () => {
+    expect(LEVEL_TO_DEPTH[4]).toBe(LEVEL_TO_DEPTH[5]);
+  });
+});
+
 describe('extractHeadingTree', () => {
   // 1. Empty doc returns empty array
   it('returns empty array for empty doc', () => {
@@ -89,8 +108,8 @@ describe('extractHeadingTree', () => {
     expect(result[0]?.hasChildren).toBe(false);
   });
 
-  // 3. Title node + H1 sections → title gets '', H1s get "1.", "2."
-  it('title node + H1 sections → title has no number, H1s numbered 1., 2.', () => {
+  // 3. Title node + H1 sections → title gets '', H1s get "1", "2" (no trailing dot)
+  it('title node + H1 sections → title has no number, H1s numbered 1, 2', () => {
     const doc = makeDoc([
       makeTitle('Contract Title', 20),
       makeHeading(1, 'Section A', 20),
@@ -101,16 +120,16 @@ describe('extractHeadingTree', () => {
     expect(result[0]?.number).toBe('');
     expect(result[0]?.isTitle).toBe(true);
     expect(result[0]?.hasChildren).toBe(true);
-    expect(result[1]?.number).toBe('1.');
+    expect(result[1]?.number).toBe('1');
     expect(result[1]?.isTitle).toBe(false);
     expect(result[1]?.hasChildren).toBe(false);
-    expect(result[2]?.number).toBe('2.');
+    expect(result[2]?.number).toBe('2');
     expect(result[2]?.isTitle).toBe(false);
     expect(result[2]?.hasChildren).toBe(false);
   });
 
-  // 4. H1 headings with no title node — numbered 1., 2., 3.
-  it('H1 headings with no title node are numbered sequentially', () => {
+  // 4. H1 headings with no title node — numbered 1, 2, 3 (no trailing dot)
+  it('H1 headings with no title node are numbered sequentially without trailing dot', () => {
     const doc = makeDoc([
       makeHeading(1, 'Alpha', 20),
       makeHeading(1, 'Beta', 20),
@@ -118,10 +137,10 @@ describe('extractHeadingTree', () => {
     ]);
     const result = extractHeadingTree(doc as unknown as import('@milkdown/kit/prose/model').Node);
     expect(result).toHaveLength(3);
-    expect(result[0]?.number).toBe('1.');
+    expect(result[0]?.number).toBe('1');
     expect(result[0]?.isTitle).toBe(false);
-    expect(result[1]?.number).toBe('2.');
-    expect(result[2]?.number).toBe('3.');
+    expect(result[1]?.number).toBe('2');
+    expect(result[2]?.number).toBe('3');
   });
 
   // 5. Title + H1 + H2 hierarchy
@@ -136,13 +155,13 @@ describe('extractHeadingTree', () => {
     expect(result).toHaveLength(4);
     expect(result[0]?.number).toBe('');
     expect(result[0]?.isTitle).toBe(true);
-    expect(result[1]?.number).toBe('1.');
+    expect(result[1]?.number).toBe('1');
     expect(result[2]?.number).toBe('1.1');
     expect(result[3]?.number).toBe('1.2');
   });
 
-  // 6. Full H1-H4 hierarchy with title node
-  it('full H1-H4 hierarchy produces correct numbers', () => {
+  // 6. Full H1-H4 hierarchy with title node (alternating depth: H3 shares depth 2 with H2)
+  it('full H1-H4 hierarchy produces alternating-depth numbers', () => {
     const doc = makeDoc([
       makeTitle('Title', 20),
       makeHeading(1, 'Section', 20),
@@ -154,14 +173,18 @@ describe('extractHeadingTree', () => {
     expect(result).toHaveLength(5);
     expect(result[0]?.number).toBe('');
     expect(result[0]?.isTitle).toBe(true);
-    expect(result[1]?.number).toBe('1.');
+    // H1 → depth 1 → "1"
+    expect(result[1]?.number).toBe('1');
+    // H2 → depth 2 → "1.1"
     expect(result[2]?.number).toBe('1.1');
-    expect(result[3]?.number).toBe('1.1.1');
-    expect(result[4]?.number).toBe('1.1.1.1');
+    // H3 → depth 2 (shared with H2) → continues depth-2 counter → "1.2"
+    expect(result[3]?.number).toBe('1.2');
+    // H4 → depth 3 → "1.2.1"
+    expect(result[4]?.number).toBe('1.2.1');
   });
 
-  // 7. Full H1-H6 hierarchy produces correct numbers
-  it('H5 and H6 headings are included and numbered correctly', () => {
+  // 7. Full H1-H6 hierarchy (alternating depth pattern)
+  it('H1-H6 hierarchy uses alternating depth numbering', () => {
     const doc = makeDoc([
       makeTitle('Title', 20),
       makeHeading(1, 'S1', 20),
@@ -174,16 +197,22 @@ describe('extractHeadingTree', () => {
     const result = extractHeadingTree(doc as unknown as import('@milkdown/kit/prose/model').Node);
     expect(result).toHaveLength(7);
     expect(result[0]?.number).toBe('');
-    expect(result[1]?.number).toBe('1.');
+    // H1 → depth 1 → "1"
+    expect(result[1]?.number).toBe('1');
+    // H2 → depth 2 → "1.1"
     expect(result[2]?.number).toBe('1.1');
-    expect(result[3]?.number).toBe('1.1.1');
-    expect(result[4]?.number).toBe('1.1.1.1');
-    expect(result[5]?.number).toBe('1.1.1.1.1');
-    expect(result[6]?.number).toBe('1.1.1.1.1.1');
+    // H3 → depth 2 (shared with H2) → "1.2"
+    expect(result[3]?.number).toBe('1.2');
+    // H4 → depth 3 → "1.2.1"
+    expect(result[4]?.number).toBe('1.2.1');
+    // H5 → depth 3 (shared with H4) → "1.2.2"
+    expect(result[5]?.number).toBe('1.2.2');
+    // H6 → depth 4 → "1.2.2.1"
+    expect(result[6]?.number).toBe('1.2.2.1');
   });
 
-  // 8. H5 and H6 sequential numbering
-  it('multiple H5 entries under same H4 number sequentially', () => {
+  // 8. H5 shares depth-3 counter with H4
+  it('H5 after H4 continues the depth-3 counter (shared depth)', () => {
     const doc = makeDoc([
       makeHeading(1, 'S1', 20),
       makeHeading(2, 'S1.1', 20),
@@ -194,12 +223,17 @@ describe('extractHeadingTree', () => {
     ]);
     const result = extractHeadingTree(doc as unknown as import('@milkdown/kit/prose/model').Node);
     expect(result).toHaveLength(6);
-    expect(result[4]?.number).toBe('1.1.1.1.1');
-    expect(result[5]?.number).toBe('1.1.1.1.2');
+    // H1→"1", H2→"1.1", H3→"1.2", H4→"1.2.1", H5→"1.2.2", H5→"1.2.3"
+    expect(result[0]?.number).toBe('1');
+    expect(result[1]?.number).toBe('1.1');
+    expect(result[2]?.number).toBe('1.2');
+    expect(result[3]?.number).toBe('1.2.1');
+    expect(result[4]?.number).toBe('1.2.2');
+    expect(result[5]?.number).toBe('1.2.3');
   });
 
-  // 9. H6 sequential numbering
-  it('multiple H6 entries under same H5 number sequentially', () => {
+  // 9. H6 at depth 4 — sequential under H5
+  it('multiple H6 entries number sequentially at depth 4', () => {
     const doc = makeDoc([
       makeHeading(1, 'S1', 20),
       makeHeading(5, 'Deep', 20),
@@ -208,12 +242,98 @@ describe('extractHeadingTree', () => {
     ]);
     const result = extractHeadingTree(doc as unknown as import('@milkdown/kit/prose/model').Node);
     expect(result).toHaveLength(4);
-    expect(result[2]?.number).toBe('1.0.0.0.1.1');
-    expect(result[3]?.number).toBe('1.0.0.0.1.2');
+    // H1→"1", H5→depth3 so counters=[1,0,1,0]→"1.0.1", H6→depth4→"1.0.1.1", H6→"1.0.1.2"
+    expect(result[0]?.number).toBe('1');
+    expect(result[1]?.number).toBe('1.0.1');
+    expect(result[2]?.number).toBe('1.0.1.1');
+    expect(result[3]?.number).toBe('1.0.1.2');
   });
 
-  // 10. Multiple sections with mixed levels
-  it('multiple sections with mixed levels', () => {
+  // NEW: H3 after H2 continues the depth-2 counter
+  it('H3 after H2 continues the depth-2 counter (shared depth)', () => {
+    const doc = makeDoc([
+      makeHeading(1, 'Article One', 20),
+      makeHeading(2, 'First body clause', 20),
+      makeHeading(2, 'Second body clause', 20),
+      makeHeading(3, 'Subheading', 20),
+    ]);
+    const result = extractHeadingTree(doc as unknown as import('@milkdown/kit/prose/model').Node);
+    expect(result).toHaveLength(4);
+    expect(result[0]?.number).toBe('1');
+    expect(result[1]?.number).toBe('1.1');
+    expect(result[2]?.number).toBe('1.2');
+    // H3 shares depth 2 with H2 — continues from counter=2 → "1.3"
+    expect(result[3]?.number).toBe('1.3');
+  });
+
+  // NEW: Full alternating pattern example matching the spec
+  it('full alternating pattern spec example', () => {
+    const doc = makeDoc([
+      makeHeading(1, 'Article One', 20),
+      makeHeading(2, 'First body clause', 20),
+      makeHeading(2, 'Second body clause', 20),
+      makeHeading(3, 'Subheading', 20),
+      makeHeading(4, 'Nested body', 20),
+      makeHeading(4, 'Nested body 2', 20),
+      makeHeading(5, 'Sub-subheading', 20),
+      makeHeading(6, 'Deep body', 20),
+      makeHeading(1, 'Article Two', 20),
+      makeHeading(2, 'Body clause', 20),
+    ]);
+    const result = extractHeadingTree(doc as unknown as import('@milkdown/kit/prose/model').Node);
+    expect(result).toHaveLength(10);
+    expect(result[0]?.number).toBe('1'); // H1
+    expect(result[1]?.number).toBe('1.1'); // H2
+    expect(result[2]?.number).toBe('1.2'); // H2
+    expect(result[3]?.number).toBe('1.3'); // H3 shares depth2
+    expect(result[4]?.number).toBe('1.3.1'); // H4
+    expect(result[5]?.number).toBe('1.3.2'); // H4
+    expect(result[6]?.number).toBe('1.3.3'); // H5 shares depth3
+    expect(result[7]?.number).toBe('1.3.3.1'); // H6
+    expect(result[8]?.number).toBe('2'); // H1
+    expect(result[9]?.number).toBe('2.1'); // H2 resets under new H1
+  });
+
+  // NEW: Counter resets when moving back to a shallower depth
+  it('depth-2 counter resets when H1 increments (shallower depth)', () => {
+    const doc = makeDoc([
+      makeHeading(1, 'S1', 20),
+      makeHeading(2, 'Sub A', 20),
+      makeHeading(3, 'Sub B', 20), // H3 shares depth2, counter=2
+      makeHeading(1, 'S2', 20), // H1 resets depth2 and deeper
+      makeHeading(2, 'Sub C', 20), // starts fresh at "2.1"
+    ]);
+    const result = extractHeadingTree(doc as unknown as import('@milkdown/kit/prose/model').Node);
+    expect(result).toHaveLength(5);
+    expect(result[0]?.number).toBe('1');
+    expect(result[1]?.number).toBe('1.1');
+    expect(result[2]?.number).toBe('1.2');
+    expect(result[3]?.number).toBe('2');
+    expect(result[4]?.number).toBe('2.1');
+  });
+
+  // NEW: depth-3 counter resets when depth-2 increments
+  it('depth-3 counter resets when depth-2 counter increments', () => {
+    const doc = makeDoc([
+      makeHeading(1, 'S1', 20),
+      makeHeading(2, 'S1.1', 20),
+      makeHeading(4, 'Nested A', 20), // H4→depth3=1 → "1.1.1"
+      makeHeading(5, 'Nested B', 20), // H5→depth3=2 → "1.1.2"
+      makeHeading(2, 'S1.2', 20), // H2→depth2 increments, resets depth3+4
+      makeHeading(4, 'Nested C', 20), // H4→depth3=1 → "1.2.1" (reset!)
+    ]);
+    const result = extractHeadingTree(doc as unknown as import('@milkdown/kit/prose/model').Node);
+    expect(result).toHaveLength(6);
+    expect(result[0]?.number).toBe('1');
+    expect(result[1]?.number).toBe('1.1');
+    expect(result[2]?.number).toBe('1.1.1');
+    expect(result[3]?.number).toBe('1.1.2');
+    expect(result[4]?.number).toBe('1.2');
+    expect(result[5]?.number).toBe('1.2.1');
+  });
+
+  // 10. Multiple sections with mixed levels (H3 now shares depth-2 with H2)
+  it('multiple sections with mixed levels (H3 shares depth with H2)', () => {
     const doc = makeDoc([
       makeTitle('Title', 20),
       makeHeading(1, 'S1', 20),
@@ -228,17 +348,18 @@ describe('extractHeadingTree', () => {
     expect(result).toHaveLength(8);
     expect(result[0]?.number).toBe('');
     expect(result[0]?.isTitle).toBe(true);
-    expect(result[1]?.number).toBe('1.');
+    expect(result[1]?.number).toBe('1');
     expect(result[2]?.number).toBe('1.1');
     expect(result[3]?.number).toBe('1.2');
-    expect(result[4]?.number).toBe('2.');
+    expect(result[4]?.number).toBe('2');
     expect(result[5]?.number).toBe('2.1');
-    expect(result[6]?.number).toBe('2.1.1');
-    expect(result[7]?.number).toBe('2.1.2');
+    // H3 shares depth-2 with H2: continues from "2.1" → "2.2", "2.3"
+    expect(result[6]?.number).toBe('2.2');
+    expect(result[7]?.number).toBe('2.3');
   });
 
-  // 11. H3 without parent H2 → still numbers correctly using last known parent
-  it('H3 without parent H2 still numbers correctly', () => {
+  // 11. H3 without parent H2 still numbers correctly
+  it('H3 without parent H2 still numbers correctly (shares depth-2 counter)', () => {
     const doc = makeDoc([
       makeTitle('Title', 20),
       makeHeading(1, 'Section', 20),
@@ -249,10 +370,10 @@ describe('extractHeadingTree', () => {
     const result = extractHeadingTree(doc as unknown as import('@milkdown/kit/prose/model').Node);
     expect(result).toHaveLength(4);
     expect(result[0]?.isTitle).toBe(true);
-    expect(result[1]?.number).toBe('1.');
-    // H3 counter resets under the current H1, no H2 parent — uses "0" for missing H2
-    expect(result[2]?.number).toBe('1.0.1');
-    expect(result[3]?.number).toBe('1.0.2');
+    expect(result[1]?.number).toBe('1');
+    // H3 uses depth-2 (same as H2); no H2 has fired, so depth-2 counter was 0, now 1 → "1.1"
+    expect(result[2]?.number).toBe('1.1');
+    expect(result[3]?.number).toBe('1.2');
   });
 
   // 12. endPos calculation: section ends at next same-or-higher heading
@@ -357,41 +478,47 @@ describe('extractHeadingTree', () => {
     expect(result[2]?.pos).toBe(51);
   });
 
-  // 21. H4 sequential numbering under same H3
-  it('multiple H4 entries under same H3 number sequentially', () => {
+  // 21. H4 sequential numbering under same H3 (H3 and H2 share depth-2)
+  it('multiple H4 entries under same H3 number sequentially at depth-3', () => {
     const doc = makeDoc([
       makeTitle('Title', 20),
       makeHeading(1, 'S1', 20),
       makeHeading(2, 'S1.1', 20),
-      makeHeading(3, 'S1.1.1', 20),
+      makeHeading(3, 'S1.1.1', 20), // H3 shares depth-2 with H2 → "1.2"
       makeHeading(4, 'Sub-clause 1', 20),
       makeHeading(4, 'Sub-clause 2', 20),
       makeHeading(4, 'Sub-clause 3', 20),
     ]);
     const result = extractHeadingTree(doc as unknown as import('@milkdown/kit/prose/model').Node);
     expect(result[0]?.isTitle).toBe(true);
-    expect(result[4]?.number).toBe('1.1.1.1');
-    expect(result[5]?.number).toBe('1.1.1.2');
-    expect(result[6]?.number).toBe('1.1.1.3');
+    expect(result[1]?.number).toBe('1');
+    expect(result[2]?.number).toBe('1.1');
+    expect(result[3]?.number).toBe('1.2'); // H3 → depth2 shared
+    // H4 → depth3, resets on H3: "1.2.1", "1.2.2", "1.2.3"
+    expect(result[4]?.number).toBe('1.2.1');
+    expect(result[5]?.number).toBe('1.2.2');
+    expect(result[6]?.number).toBe('1.2.3');
   });
 
-  // 22. H3 decimal counter resets when H2 changes
-  it('H3 decimal counter resets when parent H2 changes', () => {
+  // 22. H3 and H2 share the same depth-2 counter continuously
+  it('H2 and H3 share and advance the same depth-2 counter', () => {
     const doc = makeDoc([
       makeTitle('Title', 20),
       makeHeading(1, 'S1', 20),
       makeHeading(2, 'S1.1', 20),
       makeHeading(3, 'Clause 1', 20),
       makeHeading(3, 'Clause 2', 20),
-      makeHeading(2, 'S1.2', 20),
+      makeHeading(2, 'S1.x', 20),
       makeHeading(3, 'New clause 1', 20),
     ]);
     const result = extractHeadingTree(doc as unknown as import('@milkdown/kit/prose/model').Node);
     expect(result[0]?.isTitle).toBe(true);
-    expect(result[3]?.number).toBe('1.1.1');
-    expect(result[4]?.number).toBe('1.1.2');
-    expect(result[5]?.number).toBe('1.2');
-    expect(result[6]?.number).toBe('1.2.1');
+    expect(result[1]?.number).toBe('1');
+    expect(result[2]?.number).toBe('1.1'); // H2 → depth2 counter=1
+    expect(result[3]?.number).toBe('1.2'); // H3 → depth2 counter=2
+    expect(result[4]?.number).toBe('1.3'); // H3 → depth2 counter=3
+    expect(result[5]?.number).toBe('1.4'); // H2 → depth2 counter=4
+    expect(result[6]?.number).toBe('1.5'); // H3 → depth2 counter=5
   });
 
   // 23. text field matches the heading's textContent
@@ -512,7 +639,7 @@ describe('extractHeadingTree', () => {
   });
 
   // ---------------------------------------------------------------------------
-  // Standard contract structure tests (no level-shifting)
+  // Standard contract structure tests
   // ---------------------------------------------------------------------------
   describe('standard document structures', () => {
     // 1. Standard contract: title node + H1 sections + H2 clauses
@@ -532,23 +659,23 @@ describe('extractHeadingTree', () => {
       expect(result[0]?.isTitle).toBe(true);
       expect(result[0]?.number).toBe('');
       expect(result[1]?.text).toBe('Purpose');
-      expect(result[1]?.number).toBe('1.');
+      expect(result[1]?.number).toBe('1');
       expect(result[2]?.text).toBe('Clause A');
       expect(result[2]?.number).toBe('1.1');
       expect(result[3]?.text).toBe('Clause B');
       expect(result[3]?.number).toBe('1.2');
       expect(result[4]?.text).toBe('Services');
-      expect(result[4]?.number).toBe('2.');
+      expect(result[4]?.number).toBe('2');
       expect(result[5]?.text).toBe('Clause C');
       expect(result[5]?.number).toBe('2.1');
       expect(result[6]?.text).toBe('Clause D');
       expect(result[6]?.number).toBe('2.2');
       expect(result[7]?.text).toBe('Term');
-      expect(result[7]?.number).toBe('3.');
+      expect(result[7]?.number).toBe('3');
     });
 
-    // 2. Deep contract: title node + H1 + H2 + H3 sub-clauses
-    it('deep contract: title node + H1 + H2 + H3 sub-clauses', () => {
+    // 2. Deep contract: title node + H1 + H2 + H3 sub-clauses (H3 shares depth-2 with H2)
+    it('deep contract: title node + H1 + H2 + H3 sub-clauses (H3 shares depth-2)', () => {
       const doc = makeDoc([
         makeTitle('Engagement Letter', 20),
         makeHeading(1, 'Definitions', 20),
@@ -563,28 +690,30 @@ describe('extractHeadingTree', () => {
       expect(result[0]?.isTitle).toBe(true);
       expect(result[0]?.number).toBe('');
       expect(result[1]?.text).toBe('Definitions');
-      expect(result[1]?.number).toBe('1.');
+      expect(result[1]?.number).toBe('1');
       expect(result[2]?.text).toBe('General Terms');
       expect(result[2]?.number).toBe('1.1');
+      // H3 shares depth-2 with H2 → continues from 1.1 → "1.2", "1.3"
       expect(result[3]?.text).toBe('Interpretation rules');
-      expect(result[3]?.number).toBe('1.1.1');
+      expect(result[3]?.number).toBe('1.2');
       expect(result[4]?.text).toBe('Currency conventions');
-      expect(result[4]?.number).toBe('1.1.2');
+      expect(result[4]?.number).toBe('1.3');
+      // H2 "Specific Terms" → depth-2 counter=4 → "1.4"
       expect(result[5]?.text).toBe('Specific Terms');
-      expect(result[5]?.number).toBe('1.2');
+      expect(result[5]?.number).toBe('1.4');
       expect(result[6]?.text).toBe('Obligations');
-      expect(result[6]?.number).toBe('2.');
+      expect(result[6]?.number).toBe('2');
     });
 
-    // 3. No title node: H1 sections numbered from 1.
-    it('no title node: H1 sections numbered from 1.', () => {
+    // 3. No title node: H1 sections numbered from 1 (no trailing dot)
+    it('no title node: H1 sections numbered from 1', () => {
       const doc = makeDoc([makeHeading(1, 'Background', 20), makeHeading(1, 'Scope', 20)]);
       const result = extractHeadingTree(doc as unknown as import('@milkdown/kit/prose/model').Node);
       expect(result).toHaveLength(2);
       expect(result[0]?.isTitle).toBe(false);
-      expect(result[0]?.number).toBe('1.');
+      expect(result[0]?.number).toBe('1');
       expect(result[1]?.isTitle).toBe(false);
-      expect(result[1]?.number).toBe('2.');
+      expect(result[1]?.number).toBe('2');
     });
 
     // 4. No title node: H2 sections with no H1 — number as 0.1, 0.2, ...
@@ -620,11 +749,11 @@ describe('extractHeadingTree', () => {
       expect(result[0]?.isTitle).toBe(true);
       expect(result[0]?.number).toBe('');
       expect(result[1]?.text).toBe('Part I');
-      expect(result[1]?.number).toBe('1.');
+      expect(result[1]?.number).toBe('1');
       expect(result[2]?.text).toBe('Chapter 1');
       expect(result[2]?.number).toBe('1.1');
       expect(result[3]?.text).toBe('Part II');
-      expect(result[3]?.number).toBe('2.');
+      expect(result[3]?.number).toBe('2');
     });
   });
 });

@@ -160,7 +160,7 @@ describe('numberingPlugin', () => {
         pos: 0,
         endPos: 50,
         bodyPreview: 'Intro text',
-        number: '1.',
+        number: '1',
         isTitle: false,
         hasChildren: false,
       },
@@ -218,7 +218,7 @@ describe('numberingPlugin', () => {
         pos: 2,
         endPos: 30,
         bodyPreview: '',
-        number: '1.',
+        number: '1',
         isTitle: false,
         hasChildren: true,
       },
@@ -251,7 +251,7 @@ describe('numberingPlugin', () => {
         pos: 0,
         endPos: 40,
         bodyPreview: '',
-        number: '1.',
+        number: '1',
         isTitle: false,
         hasChildren: false,
       },
@@ -268,7 +268,7 @@ describe('numberingPlugin', () => {
     const span = factory!();
     expect(span.tagName.toLowerCase()).toBe('span');
     expect(span.className).toBe('legal-numbering');
-    expect(span.textContent).toBe('1.');
+    expect(span.textContent).toBe('1');
   });
 
   it('widget span has contentEditable set to false', () => {
@@ -304,7 +304,7 @@ describe('numberingPlugin', () => {
         pos: 0,
         endPos: 20,
         bodyPreview: '',
-        number: '1.',
+        number: '1',
         isTitle: false,
         hasChildren: false,
       },
@@ -339,7 +339,7 @@ describe('numberingPlugin', () => {
         pos: 0,
         endPos: 100,
         bodyPreview: '',
-        number: '1.',
+        number: '1',
         isTitle: false,
         hasChildren: true,
       },
@@ -382,7 +382,7 @@ describe('numberingPlugin', () => {
         pos: 0,
         endPos: 50,
         bodyPreview: '',
-        number: '1.',
+        number: '1',
         isTitle: false,
         hasChildren: true,
       },
@@ -405,7 +405,7 @@ describe('numberingPlugin', () => {
     expect(widgetCalls).toHaveLength(2);
     const span0 = widgetCalls[0]?.factory();
     const span1 = widgetCalls[1]?.factory();
-    expect(span0?.textContent).toBe('1.');
+    expect(span0?.textContent).toBe('1');
     expect(span1?.textContent).toBe('1.1');
   });
 
@@ -429,7 +429,7 @@ describe('numberingPlugin', () => {
         pos: 20,
         endPos: 60,
         bodyPreview: '',
-        number: '1.',
+        number: '1',
         isTitle: false,
         hasChildren: true,
       },
@@ -453,7 +453,7 @@ describe('numberingPlugin', () => {
     expect(widgetCalls).toHaveLength(2);
     // Node decorations only for non-title entries
     expect(nodeCalls).toHaveLength(2);
-    // First widget should be for "1." (pos 20 + 1 = 21)
+    // First widget should be for "1" (pos 20 + 1 = 21)
     expect(widgetCalls[0]?.pos).toBe(21);
   });
 
@@ -467,7 +467,7 @@ describe('numberingPlugin', () => {
         pos: 0,
         endPos: 50,
         bodyPreview: '',
-        number: '1.',
+        number: '1',
         isTitle: false,
         hasChildren: true,
       },
@@ -511,7 +511,7 @@ describe('numberingPlugin', () => {
         pos: 5,
         endPos: 50,
         bodyPreview: '',
-        number: '1.',
+        number: '1',
         isTitle: false,
         hasChildren: true,
       },
@@ -545,7 +545,7 @@ describe('numberingPlugin', () => {
         pos: 20,
         endPos: 50,
         bodyPreview: '',
-        number: '1.',
+        number: '1',
         isTitle: false,
         hasChildren: false,
       },
@@ -568,7 +568,7 @@ describe('numberingPlugin', () => {
         pos: 10,
         endPos: 50,
         bodyPreview: '',
-        number: '1.',
+        number: '1',
         isTitle: false,
         hasChildren: true,
       },
@@ -597,7 +597,7 @@ describe('numberingPlugin', () => {
         pos: 5,
         endPos: 50,
         bodyPreview: '',
-        number: '1.',
+        number: '1',
         isTitle: false,
         hasChildren: true,
       },
