@@ -225,15 +225,42 @@
   font-size: inherit;
 }
 
-/* Legal list variants */
-.milkdown .ProseMirror ol[data-legal-list="lower-alpha"] { list-style-type: lower-alpha; }
-.milkdown .ProseMirror ol[data-legal-list="upper-alpha"] { list-style-type: upper-alpha; }
-.milkdown .ProseMirror ol[data-legal-list="lower-roman"] { list-style-type: lower-roman; }
-.milkdown .ProseMirror ol[data-legal-list="upper-roman"] { list-style-type: upper-roman; }
-
+/* Legal list variants — counter-based rendering
+   Crepe's listItemBlockView replaces native <li> markers with .label-wrapper
+   divs showing wrong numeric labels. We hide those and use CSS counters. */
 .milkdown .ProseMirror ol[data-legal-list] {
+  counter-reset: legal-item;
   padding-left: 24px;
 }
 
-/* Hide Milkdown Crepe label-wrapper divs inside legal lists — we use native CSS markers */
-.milkdown .ProseMirror ol[data-legal-list] .label-wrapper { display: none; }
+.milkdown .ProseMirror ol[data-legal-list] .label-wrapper {
+  display: none;
+}
+
+.milkdown .ProseMirror ol[data-legal-list] li {
+  counter-increment: legal-item;
+}
+
+/* Shared marker styling */
+.milkdown .ProseMirror ol[data-legal-list] li::before {
+  flex-shrink: 0;
+  min-width: 24px;
+  text-align: right;
+  margin-right: 10px;
+  color: var(--text-secondary);
+  font-family: var(--editor-font-serif);
+}
+
+/* Type-specific marker content */
+.milkdown .ProseMirror ol[data-legal-list="lower-alpha"] li::before {
+  content: counter(legal-item, lower-alpha) ". ";
+}
+.milkdown .ProseMirror ol[data-legal-list="upper-alpha"] li::before {
+  content: counter(legal-item, upper-alpha) ". ";
+}
+.milkdown .ProseMirror ol[data-legal-list="lower-roman"] li::before {
+  content: counter(legal-item, lower-roman) ". ";
+}
+.milkdown .ProseMirror ol[data-legal-list="upper-roman"] li::before {
+  content: counter(legal-item, upper-roman) ". ";
+}

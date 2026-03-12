@@ -127,7 +127,6 @@ describe('legalListSchemaPlugin', () => {
       expect(result[0]).toBe('ol');
       expect(result[1]).toEqual({
         'data-legal-list': 'lower-alpha',
-        style: 'list-style-type: lower-alpha',
       });
       expect(result[2]).toBe(0);
     });
@@ -136,7 +135,6 @@ describe('legalListSchemaPlugin', () => {
       const result = plugin.schema.toDOM({ attrs: { listType: 'upper-roman' } });
       expect(result[1]).toEqual({
         'data-legal-list': 'upper-roman',
-        style: 'list-style-type: upper-roman',
       });
     });
 
@@ -145,7 +143,6 @@ describe('legalListSchemaPlugin', () => {
       const result = plugin.schema.toDOM({ attrs: {} as Record<string, string> });
       expect(result[1]).toEqual({
         'data-legal-list': 'lower-alpha',
-        style: 'list-style-type: lower-alpha',
       });
     });
   });

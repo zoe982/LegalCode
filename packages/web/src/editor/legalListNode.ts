@@ -59,7 +59,6 @@ export const legalListSchemaPlugin = $node('legal_list', () => ({
       'ol',
       {
         'data-legal-list': listType,
-        style: 'list-style-type: ' + listType,
       },
       0,
     ];
