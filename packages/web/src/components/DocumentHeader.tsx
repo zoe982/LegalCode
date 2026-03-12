@@ -93,6 +93,10 @@ const modeSegmentStyle = {
   flex: 1,
   textAlign: 'center' as const,
   minWidth: 0,
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  lineHeight: 1,
 } as const;
 
 function formatDate(dateString: string): string {
