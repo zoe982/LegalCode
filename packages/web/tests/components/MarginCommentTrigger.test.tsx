@@ -109,4 +109,12 @@ describe('MarginCommentTrigger', () => {
     const trigger = screen.getByTestId('margin-comment-trigger');
     expect(trigger).toHaveStyle({ width: '36px', height: '36px' });
   });
+
+  it('prevents default on mousedown to preserve editor selection', () => {
+    renderTrigger();
+    const trigger = screen.getByTestId('margin-comment-trigger');
+    const mousedownEvent = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
+    const prevented = !trigger.dispatchEvent(mousedownEvent);
+    expect(prevented).toBe(true);
+  });
 });

@@ -21,6 +21,9 @@ export function MarginCommentTrigger({ top, visible, onClick }: MarginCommentTri
       data-testid="margin-comment-trigger"
       aria-label="Add comment"
       onClick={onClick}
+      onMouseDown={(e: React.MouseEvent) => {
+        e.preventDefault();
+      }}
       sx={{
         position: 'absolute',
         top: `${String(top)}px`,
