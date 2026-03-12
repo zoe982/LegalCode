@@ -23,6 +23,10 @@ vi.mock('@milkdown/kit/utils', () => ({
   callCommand: (key: string, ...args: unknown[]) => `callCommand:${key}:${JSON.stringify(args)}`,
 }));
 
+vi.mock('@milkdown/kit/core', () => ({
+  editorViewCtx: 'editorViewCtx',
+}));
+
 import { EditorToolbar } from '../../src/components/EditorToolbar.js';
 
 const mockAction = vi.fn();
@@ -322,12 +326,14 @@ describe('EditorToolbar', () => {
       expect(screen.queryByRole('menu')).not.toBeInTheDocument();
     });
 
-    it('clicking Title menu item calls executeCommand with heading level 1', async () => {
+    it('clicking Title menu item calls editor.action to set block type to title', async () => {
       const user = userEvent.setup();
       renderToolbar({ crepeRef: mockCrepeRef as never });
       await user.click(screen.getByRole('button', { name: 'Heading' }));
       await user.click(screen.getByRole('menuitem', { name: 'Title' }));
+      // Title uses a direct editor.action callback (not callCommand) to setBlockType
       expect(mockAction).toHaveBeenCalledTimes(1);
+      expect(typeof mockAction.mock.calls[0]?.[0]).toBe('function');
     });
 
     it('clicking Article (H1) menu item calls executeCommand', async () => {
@@ -376,6 +382,77 @@ describe('EditorToolbar', () => {
       await user.click(screen.getByRole('button', { name: 'Heading' }));
       await user.click(screen.getByRole('menuitem', { name: 'Body text' }));
       expect(mockAction).toHaveBeenCalledTimes(1);
+    });
+
+    it('Title action callback calls setBlockType with title node type', async () => {
+      const user = userEvent.setup();
+      renderToolbar({ crepeRef: mockCrepeRef as never });
+      await user.click(screen.getByRole('button', { name: 'Heading' }));
+      await user.click(screen.getByRole('menuitem', { name: 'Title' }));
+
+      // Extract the action callback and invoke it with a mock ctx
+      const actionFn = mockAction.mock.calls[0]?.[0] as (ctx: unknown) => void;
+      expect(typeof actionFn).toBe('function');
+
+      const mockTr = {
+        setBlockType: vi.fn().mockReturnThis(),
+      };
+      const mockTitleType = { name: 'title' };
+      const mockView = {
+        state: {
+          selection: { from: 5, to: 5 },
+          schema: { nodes: { title: mockTitleType } },
+          tr: mockTr,
+        },
+        dispatch: vi.fn(),
+      };
+      const mockCtx = {
+        get: vi.fn().mockReturnValue(mockView),
+      };
+
+      actionFn(mockCtx);
+
+      expect(mockCtx.get).toHaveBeenCalledWith('editorViewCtx');
+      expect(mockTr.setBlockType).toHaveBeenCalledWith(5, 5, mockTitleType);
+      expect(mockView.dispatch).toHaveBeenCalledWith(mockTr);
+    });
+
+    it('Title action does nothing when title node type is not in schema', async () => {
+      const user = userEvent.setup();
+      renderToolbar({ crepeRef: mockCrepeRef as never });
+      await user.click(screen.getByRole('button', { name: 'Heading' }));
+      await user.click(screen.getByRole('menuitem', { name: 'Title' }));
+
+      const actionFn = mockAction.mock.calls[0]?.[0] as (ctx: unknown) => void;
+
+      const mockView = {
+        state: {
+          selection: { from: 5, to: 5 },
+          schema: { nodes: {} }, // no 'title' node type
+          tr: { setBlockType: vi.fn() },
+        },
+        dispatch: vi.fn(),
+      };
+      const mockCtx = {
+        get: vi.fn().mockReturnValue(mockView),
+      };
+
+      // Should not throw
+      actionFn(mockCtx);
+
+      expect(mockView.dispatch).not.toHaveBeenCalled();
+    });
+
+    it('Title menu item does not call callCommand-based executeCommand', async () => {
+      const user = userEvent.setup();
+      renderToolbar({ crepeRef: mockCrepeRef as never });
+      await user.click(screen.getByRole('button', { name: 'Heading' }));
+      await user.click(screen.getByRole('menuitem', { name: 'Title' }));
+
+      // The action should be a function (direct action), not a callCommand string
+      const actionArg = mockAction.mock.calls[0]?.[0] as unknown;
+      expect(typeof actionArg).toBe('function');
+      expect(typeof actionArg).not.toBe('string');
     });
   });
 
@@ -610,13 +687,13 @@ describe('EditorToolbar', () => {
       expect(mockAction).not.toHaveBeenCalled();
     });
 
-    it('calls onSourceLinePrefix with # prefix when Title is clicked in source mode', async () => {
+    it('calls onSourceLinePrefix with "% " prefix when Title is clicked in source mode', async () => {
       const user = userEvent.setup();
       const onSourceLinePrefix = vi.fn();
       renderToolbar({ mode: 'source', onSourceLinePrefix });
       await user.click(screen.getByRole('button', { name: 'Heading' }));
       await user.click(screen.getByRole('menuitem', { name: 'Title' }));
-      expect(onSourceLinePrefix).toHaveBeenCalledWith('# ');
+      expect(onSourceLinePrefix).toHaveBeenCalledWith('% ');
     });
 
     it('calls onSourceLinePrefix with ### prefix when Clause (H3) is clicked in source mode', async () => {

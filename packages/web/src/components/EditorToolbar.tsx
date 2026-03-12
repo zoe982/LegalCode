@@ -27,6 +27,7 @@ import {
   insertHrCommand,
 } from '@milkdown/kit/preset/commonmark';
 import { callCommand } from '@milkdown/kit/utils';
+import { editorViewCtx } from '@milkdown/kit/core';
 import { FirstUseTooltip } from './FirstUseTooltip.js';
 
 interface EditorToolbarProps {
@@ -61,14 +62,20 @@ const helperButtonStyle = {
 } as const;
 
 const headingMenuItems = [
-  { label: 'Title', level: 1 as const, fontWeight: 700 },
-  { label: 'Article (H1)', level: 1 as const, fontWeight: 600 },
-  { label: 'Section (H2)', level: 2 as const, fontWeight: 600 },
-  { label: 'Clause (H3)', level: 3 as const, fontWeight: 500 },
-  { label: 'Sub-clause (H4)', level: 4 as const, fontWeight: 400 },
-  { label: 'Paragraph (H5)', level: 5 as const, fontWeight: 400 },
-  { label: 'Sub-paragraph (H6)', level: 6 as const, fontWeight: 400 },
-  { label: 'Body text', level: 0 as const, fontWeight: 400, color: 'var(--text-secondary)' },
+  { label: 'Title', level: 0 as const, fontWeight: 700, isTitle: true as const },
+  { label: 'Article (H1)', level: 1 as const, fontWeight: 600, isTitle: false as const },
+  { label: 'Section (H2)', level: 2 as const, fontWeight: 600, isTitle: false as const },
+  { label: 'Clause (H3)', level: 3 as const, fontWeight: 500, isTitle: false as const },
+  { label: 'Sub-clause (H4)', level: 4 as const, fontWeight: 400, isTitle: false as const },
+  { label: 'Paragraph (H5)', level: 5 as const, fontWeight: 400, isTitle: false as const },
+  { label: 'Sub-paragraph (H6)', level: 6 as const, fontWeight: 400, isTitle: false as const },
+  {
+    label: 'Body text',
+    level: 0 as const,
+    fontWeight: 400,
+    color: 'var(--text-secondary)',
+    isTitle: false as const,
+  },
 ] as const;
 
 export const EditorToolbar: React.FC<EditorToolbarProps> = ({
@@ -105,8 +112,23 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
     setHeadingMenuAnchor(null);
   };
 
-  const handleHeadingMenuItemClick = (level: 0 | 1 | 2 | 3 | 4 | 5 | 6) => {
-    if (mode === 'source') {
+  const handleHeadingMenuItemClick = (level: 0 | 1 | 2 | 3 | 4 | 5 | 6, isTitle: boolean) => {
+    if (isTitle) {
+      if (mode === 'source') {
+        onSourceLinePrefix?.('% ');
+      } else {
+        crepeRef?.current?.editor.action((ctx) => {
+          const view = ctx.get(editorViewCtx);
+          const { state } = view;
+          const { selection } = state;
+          const titleType = state.schema.nodes.title;
+          if (titleType) {
+            const tr = state.tr.setBlockType(selection.from, selection.to, titleType);
+            view.dispatch(tr);
+          }
+        });
+      }
+    } else if (mode === 'source') {
       if (level > 0) {
         onSourceLinePrefix?.('#'.repeat(level) + ' ');
       }
@@ -236,7 +258,7 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
               <MenuItem
                 key={item.label}
                 onClick={() => {
-                  handleHeadingMenuItemClick(item.level);
+                  handleHeadingMenuItemClick(item.level, item.isTitle);
                 }}
                 sx={{
                   fontFamily: '"DM Sans", sans-serif',

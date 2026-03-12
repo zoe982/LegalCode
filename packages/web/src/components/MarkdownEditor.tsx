@@ -6,7 +6,7 @@ import { Box } from '@mui/material';
 import { createCommentPlugin } from '../editor/commentPlugin.js';
 import type { CommentPluginOptions } from '../editor/commentPlugin.js';
 import { createNumberingPlugin } from '../editor/numberingPlugin.js';
-import { createTitlePlugin } from '../editor/titleNode.js';
+import { createTitlePlugin, titleSchemaPlugin, remarkTitlePlugin } from '../editor/titleNode.js';
 
 import '@milkdown/crepe/theme/common/style.css';
 import '@milkdown/crepe/theme/frame.css';
@@ -61,6 +61,7 @@ function MilkdownEditor({
       crepe.setReadonly(true);
     }
 
+    crepe.editor.use(titleSchemaPlugin).use(remarkTitlePlugin);
     crepe.editor.use($prose(() => createTitlePlugin()));
     crepe.editor.use($prose(() => createNumberingPlugin()));
 

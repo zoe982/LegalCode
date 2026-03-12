@@ -45,6 +45,8 @@ vi.mock('../../src/editor/numberingPlugin.js', () => ({
 const mockCreateTitlePlugin = vi.fn().mockReturnValue({ key: 'mock-title-plugin' });
 vi.mock('../../src/editor/titleNode.js', () => ({
   createTitlePlugin: (...args: unknown[]) => mockCreateTitlePlugin(...args) as unknown,
+  titleSchemaPlugin: { id: 'title', type: '$node' },
+  remarkTitlePlugin: { id: 'titleSyntax', type: '$remark' },
 }));
 
 const captured: {
@@ -297,8 +299,8 @@ describe('MarkdownEditor', () => {
 
     // Comment plugin is NOT installed without onSelectionChange
     expect(mockCreateCommentPlugin).not.toHaveBeenCalled();
-    // editor.use IS called twice for the always-on title + numbering plugins
-    expect(mockEditorUse).toHaveBeenCalledTimes(2);
+    // editor.use IS called 4 times: titleSchemaPlugin, remarkTitlePlugin, title decoration plugin, numbering plugin
+    expect(mockEditorUse).toHaveBeenCalledTimes(4);
     expect(mockCreateTitlePlugin).toHaveBeenCalledTimes(1);
     expect(mockCreateNumberingPlugin).toHaveBeenCalledTimes(1);
   });
@@ -316,8 +318,8 @@ describe('MarkdownEditor', () => {
     const fakeRoot = document.createElement('div');
     editorCb?.(fakeRoot);
 
-    // Only the title + numbering plugins are installed (always-on); no comment plugin, no collab plugin
-    expect(mockEditorUse).toHaveBeenCalledTimes(2);
+    // Only the always-on plugins: titleSchema, remarkTitle, title decoration, numbering; no comment plugin, no collab plugin
+    expect(mockEditorUse).toHaveBeenCalledTimes(4);
     expect(mockCreateTitlePlugin).toHaveBeenCalledTimes(1);
     expect(mockCreateNumberingPlugin).toHaveBeenCalledTimes(1);
     expect(mockCreateCommentPlugin).not.toHaveBeenCalled();

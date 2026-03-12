@@ -55,11 +55,31 @@ vi.mock('@milkdown/kit/prose/view', () => {
   };
 });
 
+// Mock $node and $remark from @milkdown/kit/utils
+vi.mock('@milkdown/kit/utils', () => ({
+  $node: (id: string, schemaFn: () => Record<string, unknown>) => ({
+    id,
+    schema: schemaFn(),
+    type: '$node',
+  }),
+  $remark: (id: string, remarkFn: () => () => (tree: unknown) => void) => ({
+    id,
+    plugin: remarkFn(),
+    type: '$remark',
+  }),
+}));
+
 // ---------------------------------------------------------------------------
 // Import SUT
 // ---------------------------------------------------------------------------
 
-import { createTitlePlugin, titlePluginKey, titleNodeSpec } from '../../src/editor/titleNode.js';
+import {
+  createTitlePlugin,
+  titlePluginKey,
+  titleNodeSpec,
+  titleSchemaPlugin,
+  remarkTitlePlugin,
+} from '../../src/editor/titleNode.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -354,5 +374,401 @@ describe('createTitlePlugin', () => {
     expect(nodeCalls).toHaveLength(1);
     expect(nodeCalls[0]?.from).toBe(1);
     expect(nodeCalls[0]?.to).toBe(21);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// titleSchemaPlugin ($node) tests
+// ---------------------------------------------------------------------------
+
+describe('titleSchemaPlugin', () => {
+  it('is defined and has id "title"', () => {
+    expect(titleSchemaPlugin).toBeDefined();
+    const plugin = titleSchemaPlugin as unknown as { id: string; type: string };
+    expect(plugin.id).toBe('title');
+    expect(plugin.type).toBe('$node');
+  });
+
+  it('schema has block group', () => {
+    const plugin = titleSchemaPlugin as unknown as { schema: Record<string, unknown> };
+    expect(plugin.schema.group).toBe('block');
+  });
+
+  it('schema has inline* content', () => {
+    const plugin = titleSchemaPlugin as unknown as { schema: Record<string, unknown> };
+    expect(plugin.schema.content).toBe('inline*');
+  });
+
+  it('schema is defining', () => {
+    const plugin = titleSchemaPlugin as unknown as { schema: Record<string, unknown> };
+    expect(plugin.schema.defining).toBe(true);
+  });
+
+  it('schema parseDOM matches div[data-type="title"]', () => {
+    const plugin = titleSchemaPlugin as unknown as { schema: { parseDOM: { tag: string }[] } };
+    expect(plugin.schema.parseDOM).toHaveLength(1);
+    expect(plugin.schema.parseDOM[0]?.tag).toBe('div[data-type="title"]');
+  });
+
+  it('schema toDOM returns correct DOM structure', () => {
+    const plugin = titleSchemaPlugin as unknown as { schema: { toDOM: () => unknown[] } };
+    const result = plugin.schema.toDOM();
+    expect(result).toEqual(['div', { 'data-type': 'title', class: 'legal-title' }, 0]);
+  });
+
+  describe('parseMarkdown', () => {
+    it('matches nodes with type "title"', () => {
+      const plugin = titleSchemaPlugin as unknown as {
+        schema: { parseMarkdown: { match: (node: { type: string }) => boolean } };
+      };
+      expect(plugin.schema.parseMarkdown.match({ type: 'title' })).toBe(true);
+    });
+
+    it('does not match nodes with other types', () => {
+      const plugin = titleSchemaPlugin as unknown as {
+        schema: { parseMarkdown: { match: (node: { type: string }) => boolean } };
+      };
+      expect(plugin.schema.parseMarkdown.match({ type: 'paragraph' })).toBe(false);
+      expect(plugin.schema.parseMarkdown.match({ type: 'heading' })).toBe(false);
+    });
+
+    it('runner opens node, processes children, and closes node', () => {
+      const plugin = titleSchemaPlugin as unknown as {
+        schema: {
+          parseMarkdown: {
+            runner: (state: unknown, node: unknown, type: unknown) => void;
+          };
+        };
+      };
+      const openNodeMock = vi.fn().mockReturnThis();
+      const nextMock = vi.fn().mockReturnThis();
+      const closeNodeMock = vi.fn().mockReturnThis();
+      const mockState = {
+        openNode: openNodeMock,
+        next: nextMock,
+        closeNode: closeNodeMock,
+      };
+      const mockNode = {
+        type: 'title',
+        children: [{ type: 'text', value: 'My Title' }],
+      };
+      const mockType = { name: 'title' };
+
+      plugin.schema.parseMarkdown.runner(mockState, mockNode, mockType);
+
+      expect(openNodeMock).toHaveBeenCalledWith(mockType);
+      expect(nextMock).toHaveBeenCalledWith(mockNode.children);
+      expect(closeNodeMock).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('toMarkdown', () => {
+    it('matches ProseMirror nodes with type name "title"', () => {
+      const plugin = titleSchemaPlugin as unknown as {
+        schema: { toMarkdown: { match: (node: { type: { name: string } }) => boolean } };
+      };
+      expect(plugin.schema.toMarkdown.match({ type: { name: 'title' } })).toBe(true);
+    });
+
+    it('does not match ProseMirror nodes with other type names', () => {
+      const plugin = titleSchemaPlugin as unknown as {
+        schema: { toMarkdown: { match: (node: { type: { name: string } }) => boolean } };
+      };
+      expect(plugin.schema.toMarkdown.match({ type: { name: 'paragraph' } })).toBe(false);
+      expect(plugin.schema.toMarkdown.match({ type: { name: 'heading' } })).toBe(false);
+    });
+
+    it('runner serializes as paragraph with "% " prefix text', () => {
+      const plugin = titleSchemaPlugin as unknown as {
+        schema: {
+          toMarkdown: {
+            runner: (state: unknown, node: unknown) => void;
+          };
+        };
+      };
+      const openNodeMock = vi.fn().mockReturnThis();
+      const addNodeMock = vi.fn().mockReturnThis();
+      const nextMock = vi.fn().mockReturnThis();
+      const closeNodeMock = vi.fn().mockReturnThis();
+      const mockState = {
+        openNode: openNodeMock,
+        addNode: addNodeMock,
+        next: nextMock,
+        closeNode: closeNodeMock,
+      };
+      const mockContent = [{ type: { name: 'text' } }];
+      const mockNode = { type: { name: 'title' }, content: mockContent };
+
+      plugin.schema.toMarkdown.runner(mockState, mockNode);
+
+      expect(openNodeMock).toHaveBeenCalledWith('paragraph');
+      expect(addNodeMock).toHaveBeenCalledWith('text', undefined, '% ');
+      expect(nextMock).toHaveBeenCalledWith(mockContent);
+      expect(closeNodeMock).toHaveBeenCalledTimes(1);
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// remarkTitlePlugin ($remark) tests
+// ---------------------------------------------------------------------------
+
+describe('remarkTitlePlugin', () => {
+  it('is defined and has id "titleSyntax"', () => {
+    expect(remarkTitlePlugin).toBeDefined();
+    const plugin = remarkTitlePlugin as unknown as { id: string; type: string };
+    expect(plugin.id).toBe('titleSyntax');
+    expect(plugin.type).toBe('$remark');
+  });
+
+  it('transforms paragraph starting with "% " into title node', () => {
+    const plugin = remarkTitlePlugin as unknown as { plugin: () => (tree: unknown) => void };
+    const tree = {
+      type: 'root',
+      children: [
+        {
+          type: 'paragraph',
+          children: [{ type: 'text', value: '% Master Agreement' }],
+        },
+      ],
+    };
+
+    plugin.plugin()(tree);
+
+    const firstChild = tree.children[0] as {
+      type: string;
+      children: { type: string; value: string }[];
+    };
+    expect(firstChild.type).toBe('title');
+    expect(firstChild.children[0]?.value).toBe('Master Agreement');
+  });
+
+  it('does not transform paragraphs that do not start with "% "', () => {
+    const plugin = remarkTitlePlugin as unknown as { plugin: () => (tree: unknown) => void };
+    const tree = {
+      type: 'root',
+      children: [
+        {
+          type: 'paragraph',
+          children: [{ type: 'text', value: 'Regular paragraph text' }],
+        },
+      ],
+    };
+
+    plugin.plugin()(tree);
+
+    const firstChild = tree.children[0] as { type: string };
+    expect(firstChild.type).toBe('paragraph');
+  });
+
+  it('strips the "% " prefix from the text value', () => {
+    const plugin = remarkTitlePlugin as unknown as { plugin: () => (tree: unknown) => void };
+    const tree = {
+      type: 'root',
+      children: [
+        {
+          type: 'paragraph',
+          children: [{ type: 'text', value: '% Annex A' }],
+        },
+      ],
+    };
+
+    plugin.plugin()(tree);
+
+    const firstChild = tree.children[0] as { type: string; children: { value: string }[] };
+    expect(firstChild.children[0]?.value).toBe('Annex A');
+  });
+
+  it('removes the text node when value is only "% " (empty title text)', () => {
+    const plugin = remarkTitlePlugin as unknown as { plugin: () => (tree: unknown) => void };
+    const tree = {
+      type: 'root',
+      children: [
+        {
+          type: 'paragraph',
+          children: [{ type: 'text', value: '% ' }],
+        },
+      ],
+    };
+
+    plugin.plugin()(tree);
+
+    const firstChild = tree.children[0] as { type: string; children: unknown[] };
+    expect(firstChild.type).toBe('title');
+    expect(firstChild.children).toHaveLength(0);
+  });
+
+  it('does not transform heading nodes', () => {
+    const plugin = remarkTitlePlugin as unknown as { plugin: () => (tree: unknown) => void };
+    const tree = {
+      type: 'root',
+      children: [
+        {
+          type: 'heading',
+          depth: 1,
+          children: [{ type: 'text', value: '% Not a title' }],
+        },
+      ],
+    };
+
+    plugin.plugin()(tree);
+
+    const firstChild = tree.children[0] as { type: string };
+    expect(firstChild.type).toBe('heading');
+  });
+
+  it('only transforms first text child starting with "% "', () => {
+    const plugin = remarkTitlePlugin as unknown as { plugin: () => (tree: unknown) => void };
+    const tree = {
+      type: 'root',
+      children: [
+        {
+          type: 'paragraph',
+          children: [
+            { type: 'text', value: 'No prefix ' },
+            { type: 'text', value: '% not first child' },
+          ],
+        },
+      ],
+    };
+
+    plugin.plugin()(tree);
+
+    const firstChild = tree.children[0] as { type: string };
+    expect(firstChild.type).toBe('paragraph');
+  });
+
+  it('preserves multiple inline children after the "% " prefix', () => {
+    const plugin = remarkTitlePlugin as unknown as { plugin: () => (tree: unknown) => void };
+    const tree = {
+      type: 'root',
+      children: [
+        {
+          type: 'paragraph',
+          children: [
+            { type: 'text', value: '% Bold ' },
+            { type: 'strong', children: [{ type: 'text', value: 'Title' }] },
+          ],
+        },
+      ],
+    };
+
+    plugin.plugin()(tree);
+
+    const firstChild = tree.children[0] as { type: string; children: unknown[] };
+    expect(firstChild.type).toBe('title');
+    expect(firstChild.children).toHaveLength(2);
+  });
+
+  it('handles tree with multiple paragraphs, only transforms matching ones', () => {
+    const plugin = remarkTitlePlugin as unknown as { plugin: () => (tree: unknown) => void };
+    const tree = {
+      type: 'root',
+      children: [
+        {
+          type: 'paragraph',
+          children: [{ type: 'text', value: '% Document Title' }],
+        },
+        {
+          type: 'paragraph',
+          children: [{ type: 'text', value: 'Normal paragraph' }],
+        },
+        {
+          type: 'paragraph',
+          children: [{ type: 'text', value: '% Annex Title' }],
+        },
+      ],
+    };
+
+    plugin.plugin()(tree);
+
+    const children = tree.children as { type: string }[];
+    expect(children[0]?.type).toBe('title');
+    expect(children[1]?.type).toBe('paragraph');
+    expect(children[2]?.type).toBe('title');
+  });
+
+  it('does not transform paragraph where first child is not text', () => {
+    const plugin = remarkTitlePlugin as unknown as { plugin: () => (tree: unknown) => void };
+    const tree = {
+      type: 'root',
+      children: [
+        {
+          type: 'paragraph',
+          children: [{ type: 'strong', children: [{ type: 'text', value: '% Bold' }] }],
+        },
+      ],
+    };
+
+    plugin.plugin()(tree);
+
+    const firstChild = tree.children[0] as { type: string };
+    expect(firstChild.type).toBe('paragraph');
+  });
+
+  it('does not transform paragraph with "%" but no space after', () => {
+    const plugin = remarkTitlePlugin as unknown as { plugin: () => (tree: unknown) => void };
+    const tree = {
+      type: 'root',
+      children: [
+        {
+          type: 'paragraph',
+          children: [{ type: 'text', value: '%NoSpace' }],
+        },
+      ],
+    };
+
+    plugin.plugin()(tree);
+
+    const firstChild = tree.children[0] as { type: string };
+    expect(firstChild.type).toBe('paragraph');
+  });
+
+  it('handles empty children array gracefully', () => {
+    const plugin = remarkTitlePlugin as unknown as { plugin: () => (tree: unknown) => void };
+    const tree = {
+      type: 'root',
+      children: [
+        {
+          type: 'paragraph',
+          children: [],
+        },
+      ],
+    };
+
+    plugin.plugin()(tree);
+
+    const firstChild = tree.children[0] as { type: string };
+    expect(firstChild.type).toBe('paragraph');
+  });
+
+  it('handles tree with no children property gracefully', () => {
+    const plugin = remarkTitlePlugin as unknown as { plugin: () => (tree: unknown) => void };
+    const tree = { type: 'root' };
+
+    // Should not throw when tree has no children
+    expect(() => {
+      plugin.plugin()(tree);
+    }).not.toThrow();
+  });
+
+  it('handles sparse children array with undefined entries', () => {
+    const plugin = remarkTitlePlugin as unknown as { plugin: () => (tree: unknown) => void };
+    // Create a tree with a sparse array (undefined at index 0)
+    const children: unknown[] = [];
+    children.length = 2;
+
+    children[1] = {
+      type: 'paragraph',
+      children: [{ type: 'text', value: '% Title After Gap' }],
+    };
+    const tree = { type: 'root', children };
+
+    expect(() => {
+      plugin.plugin()(tree);
+    }).not.toThrow();
+
+    const secondChild = children[1] as { type: string } | undefined;
+    expect(secondChild?.type).toBe('title');
   });
 });
