@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef, useMemo, createElement } from
 import { useParams, useNavigate } from 'react-router';
 import { Box, Button, Skeleton } from '@mui/material';
 import type { Crepe } from '@milkdown/crepe';
+import type { EditorView } from '@codemirror/view';
 import { replaceAll } from '@milkdown/kit/utils';
 import { editorViewCtx } from '@milkdown/kit/core';
 import { TextSelection } from '@milkdown/kit/prose/state';
@@ -28,6 +29,7 @@ import type { AutosaveState } from '../hooks/useAutosave.js';
 import { EditorToolbar } from '../components/EditorToolbar.js';
 import { useEditorHistory } from '../hooks/useEditorHistory.js';
 import { useHeadingLevel } from '../hooks/useHeadingLevel.js';
+import { useSourceEditorCommands } from '../hooks/useSourceEditorCommands.js';
 import { KeyboardShortcutHelp } from '../components/KeyboardShortcutHelp.js';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts.js';
 import { useToast } from '../components/Toast.js';
@@ -110,6 +112,12 @@ export function TemplateEditorPage() {
     id,
     commentErrorCallbacks,
   );
+
+  // CodeMirror EditorView ref for source mode commands
+  const cmViewRef = useRef<EditorView | null>(null);
+  const handleCmViewReady = useCallback((view: EditorView | null) => {
+    cmViewRef.current = view;
+  }, []);
 
   // Crepe editor ref for Milkdown commands
   const crepeRef = useRef<Crepe | null>(null);
@@ -271,6 +279,8 @@ export function TemplateEditorPage() {
   });
 
   const { handleIndent, handleOutdent } = useHeadingLevel(crepeRef);
+
+  const sourceCommands = useSourceEditorCommands(cmViewRef);
 
   const autosave = useAutosave({
     templateId: id,
@@ -811,8 +821,8 @@ export function TemplateEditorPage() {
           crepeRef={crepeRef}
           canUndo={canUndo}
           canRedo={canRedo}
-          onUndo={handleUndo}
-          onRedo={handleRedo}
+          onUndo={editorMode === 'source' ? sourceCommands.undo : handleUndo}
+          onRedo={editorMode === 'source' ? sourceCommands.redo : handleRedo}
           onImportCleanup={handleImportCleanup}
           outlineMode={outlineMode}
           onToggleOutline={() => {
@@ -820,6 +830,9 @@ export function TemplateEditorPage() {
           }}
           onIndentHeading={handleIndent}
           onOutdentHeading={handleOutdent}
+          onSourceWrap={sourceCommands.wrapSelection}
+          onSourceLinePrefix={sourceCommands.insertLinePrefix}
+          onSourceBlock={sourceCommands.insertBlock}
         />
 
         {/* Outline view — full replacement for editor canvas when active */}
@@ -947,6 +960,7 @@ export function TemplateEditorPage() {
                   value={content}
                   onChange={handleContentChange}
                   readOnly={isReadOnly}
+                  onViewReady={handleCmViewReady}
                 />
               </Box>
             </Box>

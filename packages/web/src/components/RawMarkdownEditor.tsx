@@ -18,6 +18,7 @@ interface RawMarkdownEditorProps {
   value: string;
   onChange: (value: string) => void;
   readOnly?: boolean | undefined;
+  onViewReady?: ((view: EditorView | null) => void) | undefined;
 }
 
 const editorTheme = EditorView.theme({
@@ -49,14 +50,22 @@ const editorTheme = EditorView.theme({
   },
 });
 
-export function RawMarkdownEditor({ value, onChange, readOnly = false }: RawMarkdownEditorProps) {
+export function RawMarkdownEditor({
+  value,
+  onChange,
+  readOnly = false,
+  onViewReady,
+}: RawMarkdownEditorProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const viewRef = useRef<EditorView | null>(null);
   const onChangeRef = useRef(onChange);
+  const onViewReadyRef = useRef(onViewReady);
   const readOnlyCompartment = useRef(new Compartment());
 
   // Keep onChange ref current
   onChangeRef.current = onChange;
+  // Keep onViewReady ref current
+  onViewReadyRef.current = onViewReady;
 
   const getExtensions = useCallback(
     (isReadOnly: boolean) => [
@@ -101,10 +110,12 @@ export function RawMarkdownEditor({ value, onChange, readOnly = false }: RawMark
     });
 
     viewRef.current = view;
+    onViewReadyRef.current?.(view);
 
     return () => {
       view.destroy();
       viewRef.current = null;
+      onViewReadyRef.current?.(null);
     };
     // Only run on mount/unmount
   }, []);

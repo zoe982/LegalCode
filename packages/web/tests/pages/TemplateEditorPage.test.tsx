@@ -90,23 +90,56 @@ vi.mock('../../src/components/MarkdownEditor.js', () => ({
   },
 }));
 
+const mockOnViewReady = vi.fn();
+
 vi.mock('../../src/components/RawMarkdownEditor.js', () => ({
   RawMarkdownEditor: ({
     value,
     onChange,
     readOnly,
+    onViewReady,
   }: {
     value: string;
     onChange?: (value: string) => void;
     readOnly?: boolean;
-  }) => (
-    <textarea
-      data-testid="raw-markdown-editor"
-      value={value}
-      onChange={(e) => onChange?.(e.target.value)}
-      readOnly={readOnly}
-    />
-  ),
+    onViewReady?: (view: unknown) => void;
+  }) => {
+    // Call onViewReady with a mock view to simulate the real component behavior
+    if (onViewReady) {
+      mockOnViewReady(onViewReady);
+      onViewReady({
+        dispatch: vi.fn(),
+        state: {
+          selection: { main: { from: 0, to: 0, empty: true } },
+          doc: { lineAt: vi.fn(), toString: () => '' },
+        },
+      });
+    }
+    return (
+      <textarea
+        data-testid="raw-markdown-editor"
+        value={value}
+        onChange={(e) => onChange?.(e.target.value)}
+        readOnly={readOnly}
+      />
+    );
+  },
+}));
+
+const mockSourceWrap = vi.fn();
+const mockSourceLinePrefix = vi.fn();
+const mockSourceBlock = vi.fn();
+const mockSourceUndo = vi.fn();
+const mockSourceRedo = vi.fn();
+
+vi.mock('../../src/hooks/useSourceEditorCommands.js', () => ({
+  useSourceEditorCommands: () => ({
+    wrapSelection: mockSourceWrap,
+    insertLinePrefix: mockSourceLinePrefix,
+    insertBlock: mockSourceBlock,
+    undo: mockSourceUndo,
+    redo: mockSourceRedo,
+  }),
 }));
 
 const mockReplaceAll = vi.fn((content: string) => `replaceAll:${content}`);
@@ -360,6 +393,11 @@ vi.mock('../../src/components/EditorToolbar.js', () => ({
     onImportCleanup,
     outlineMode,
     onToggleOutline,
+    onSourceWrap,
+    onSourceLinePrefix,
+    onSourceBlock,
+    onUndo,
+    onRedo,
   }: {
     mode: string;
     wordCount: number;
@@ -367,6 +405,11 @@ vi.mock('../../src/components/EditorToolbar.js', () => ({
     onImportCleanup?: () => void;
     outlineMode?: boolean;
     onToggleOutline?: () => void;
+    onSourceWrap?: (prefix: string, suffix?: string) => void;
+    onSourceLinePrefix?: (prefix: string) => void;
+    onSourceBlock?: (text: string) => void;
+    onUndo?: () => void;
+    onRedo?: () => void;
   }) => (
     <div data-testid="editor-toolbar">
       <span data-testid="editor-mode">{mode}</span>
@@ -380,6 +423,46 @@ vi.mock('../../src/components/EditorToolbar.js', () => ({
       {onToggleOutline != null && (
         <button data-testid="toolbar-toggle-outline" onClick={onToggleOutline}>
           {outlineMode === true ? 'Exit Outline' : 'Outline'}
+        </button>
+      )}
+      {onSourceWrap != null && (
+        <button
+          data-testid="toolbar-source-bold"
+          onClick={() => {
+            onSourceWrap('**', '**');
+          }}
+        >
+          Source Bold
+        </button>
+      )}
+      {onSourceLinePrefix != null && (
+        <button
+          data-testid="toolbar-source-heading"
+          onClick={() => {
+            onSourceLinePrefix('## ');
+          }}
+        >
+          Source H2
+        </button>
+      )}
+      {onSourceBlock != null && (
+        <button
+          data-testid="toolbar-source-hr"
+          onClick={() => {
+            onSourceBlock('---');
+          }}
+        >
+          Source HR
+        </button>
+      )}
+      {onUndo != null && (
+        <button data-testid="toolbar-undo" onClick={onUndo}>
+          Undo
+        </button>
+      )}
+      {onRedo != null && (
+        <button data-testid="toolbar-redo" onClick={onRedo}>
+          Redo
         </button>
       )}
     </div>
@@ -3554,6 +3637,88 @@ describe('TemplateEditorPage', () => {
       });
 
       expect(screen.queryByTestId('outline-view')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('Source mode toolbar wiring', () => {
+    beforeEach(() => {
+      mockUseParams.mockReturnValue({ id: 't1' });
+      mockUseTemplate.mockReturnValue(
+        createTemplateQueryResult({
+          data: templateData(draftTemplate, '# Draft content'),
+        }),
+      );
+    });
+
+    it('passes onSourceWrap to EditorToolbar (always present, not gated on mode)', () => {
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      // Source commands are always passed to toolbar regardless of mode
+      expect(screen.getByTestId('toolbar-source-bold')).toBeInTheDocument();
+    });
+
+    it('passes onSourceLinePrefix to EditorToolbar', () => {
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      expect(screen.getByTestId('toolbar-source-heading')).toBeInTheDocument();
+    });
+
+    it('passes onSourceBlock to EditorToolbar', () => {
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      expect(screen.getByTestId('toolbar-source-hr')).toBeInTheDocument();
+    });
+
+    it('clicking toolbar-source-bold triggers sourceCommands.wrapSelection', async () => {
+      const user = userEvent.setup();
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      await user.click(screen.getByTestId('toolbar-source-bold'));
+      expect(mockSourceWrap).toHaveBeenCalledWith('**', '**');
+    });
+
+    it('clicking toolbar-source-heading triggers sourceCommands.insertLinePrefix', async () => {
+      const user = userEvent.setup();
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      await user.click(screen.getByTestId('toolbar-source-heading'));
+      expect(mockSourceLinePrefix).toHaveBeenCalledWith('## ');
+    });
+
+    it('clicking toolbar-source-hr triggers sourceCommands.insertBlock', async () => {
+      const user = userEvent.setup();
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      await user.click(screen.getByTestId('toolbar-source-hr'));
+      expect(mockSourceBlock).toHaveBeenCalledWith('---');
+    });
+
+    it('passes undo/redo handlers to EditorToolbar', () => {
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      expect(screen.getByTestId('toolbar-undo')).toBeInTheDocument();
+      expect(screen.getByTestId('toolbar-redo')).toBeInTheDocument();
+    });
+
+    it('clicking toolbar undo in source mode calls sourceCommands.undo', async () => {
+      const user = userEvent.setup();
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      // Switch to source mode: render DocumentHeader to populate latestDocumentHeaderProps
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('source');
+      });
+
+      await user.click(screen.getByTestId('toolbar-undo'));
+      expect(mockSourceUndo).toHaveBeenCalled();
+    });
+
+    it('clicking toolbar redo in source mode calls sourceCommands.redo', async () => {
+      const user = userEvent.setup();
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      // Switch to source mode
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('source');
+      });
+
+      await user.click(screen.getByTestId('toolbar-redo'));
+      expect(mockSourceRedo).toHaveBeenCalled();
     });
   });
 });

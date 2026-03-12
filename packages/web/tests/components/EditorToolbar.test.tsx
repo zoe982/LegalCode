@@ -67,10 +67,22 @@ describe('EditorToolbar', () => {
     expect(screen.getByRole('button', { name: 'Horizontal Rule' })).toBeInTheDocument();
   });
 
-  it('hides markdown helpers in source mode', () => {
+  it('shows shared formatting buttons in source mode (Bold, Italic, Heading, etc.)', () => {
     renderToolbar({ mode: 'source' });
-    expect(screen.queryByRole('button', { name: 'Heading' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Bold' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Bold' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Italic' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Heading' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Link' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Ordered List' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'List' })).toBeInTheDocument();
+  });
+
+  it('hides edit-only buttons in source mode (Toggle Outline, Import Cleanup, Indent, Outdent)', () => {
+    renderToolbar({ mode: 'source' });
+    expect(screen.queryByRole('button', { name: 'Toggle Outline' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Import Cleanup' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Indent Heading' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Outdent Heading' })).not.toBeInTheDocument();
   });
 
   it('hides markdown helpers when readOnly', () => {
@@ -374,10 +386,10 @@ describe('EditorToolbar', () => {
       expect(screen.getByRole('button', { name: 'Redo' })).toBeInTheDocument();
     });
 
-    it('hides Undo and Redo buttons in source mode', () => {
+    it('shows Undo and Redo buttons in source mode', () => {
       renderToolbar({ mode: 'source' });
-      expect(screen.queryByRole('button', { name: 'Undo' })).not.toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: 'Redo' })).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Undo' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Redo' })).toBeInTheDocument();
     });
 
     it('hides Undo and Redo buttons when readOnly', () => {
@@ -566,6 +578,127 @@ describe('EditorToolbar', () => {
       renderToolbar(); // no onOutdentHeading
       await user.click(screen.getByRole('button', { name: 'Outdent Heading' }));
       // Should not throw
+    });
+  });
+
+  describe('Source mode commands', () => {
+    it('calls onSourceWrap with bold markers when Bold is clicked in source mode', async () => {
+      const user = userEvent.setup();
+      const onSourceWrap = vi.fn();
+      renderToolbar({ mode: 'source', onSourceWrap });
+      await user.click(screen.getByRole('button', { name: 'Bold' }));
+      expect(onSourceWrap).toHaveBeenCalledWith('**', '**');
+      expect(mockAction).not.toHaveBeenCalled();
+    });
+
+    it('calls onSourceWrap with italic markers when Italic is clicked in source mode', async () => {
+      const user = userEvent.setup();
+      const onSourceWrap = vi.fn();
+      renderToolbar({ mode: 'source', onSourceWrap });
+      await user.click(screen.getByRole('button', { name: 'Italic' }));
+      expect(onSourceWrap).toHaveBeenCalledWith('*', '*');
+      expect(mockAction).not.toHaveBeenCalled();
+    });
+
+    it('calls onSourceLinePrefix with ## prefix when Section (H2) is clicked in source mode', async () => {
+      const user = userEvent.setup();
+      const onSourceLinePrefix = vi.fn();
+      renderToolbar({ mode: 'source', onSourceLinePrefix });
+      await user.click(screen.getByRole('button', { name: 'Heading' }));
+      await user.click(screen.getByRole('menuitem', { name: 'Section (H2)' }));
+      expect(onSourceLinePrefix).toHaveBeenCalledWith('## ');
+      expect(mockAction).not.toHaveBeenCalled();
+    });
+
+    it('calls onSourceLinePrefix with # prefix when Title is clicked in source mode', async () => {
+      const user = userEvent.setup();
+      const onSourceLinePrefix = vi.fn();
+      renderToolbar({ mode: 'source', onSourceLinePrefix });
+      await user.click(screen.getByRole('button', { name: 'Heading' }));
+      await user.click(screen.getByRole('menuitem', { name: 'Title' }));
+      expect(onSourceLinePrefix).toHaveBeenCalledWith('# ');
+    });
+
+    it('calls onSourceLinePrefix with ### prefix when Clause (H3) is clicked in source mode', async () => {
+      const user = userEvent.setup();
+      const onSourceLinePrefix = vi.fn();
+      renderToolbar({ mode: 'source', onSourceLinePrefix });
+      await user.click(screen.getByRole('button', { name: 'Heading' }));
+      await user.click(screen.getByRole('menuitem', { name: 'Clause (H3)' }));
+      expect(onSourceLinePrefix).toHaveBeenCalledWith('### ');
+    });
+
+    it('calls onSourceLinePrefix with ordered list prefix when Ordered List is clicked in source mode', async () => {
+      const user = userEvent.setup();
+      const onSourceLinePrefix = vi.fn();
+      renderToolbar({ mode: 'source', onSourceLinePrefix });
+      await user.click(screen.getByRole('button', { name: 'Ordered List' }));
+      expect(onSourceLinePrefix).toHaveBeenCalledWith('1. ');
+      expect(mockAction).not.toHaveBeenCalled();
+    });
+
+    it('calls onSourceLinePrefix with bullet list prefix when List is clicked in source mode', async () => {
+      const user = userEvent.setup();
+      const onSourceLinePrefix = vi.fn();
+      renderToolbar({ mode: 'source', onSourceLinePrefix });
+      await user.click(screen.getByRole('button', { name: 'List' }));
+      expect(onSourceLinePrefix).toHaveBeenCalledWith('- ');
+      expect(mockAction).not.toHaveBeenCalled();
+    });
+
+    it('calls onSourceBlock with HR when Horizontal Rule is clicked in source mode', async () => {
+      const user = userEvent.setup();
+      const onSourceBlock = vi.fn();
+      renderToolbar({ mode: 'source', onSourceBlock });
+      await user.click(screen.getByRole('button', { name: 'Horizontal Rule' }));
+      expect(onSourceBlock).toHaveBeenCalledWith('---');
+      expect(mockAction).not.toHaveBeenCalled();
+    });
+
+    it('does not call crepeRef.editor.action for Bold in source mode', async () => {
+      const user = userEvent.setup();
+      renderToolbar({ mode: 'source', crepeRef: mockCrepeRef as never });
+      await user.click(screen.getByRole('button', { name: 'Bold' }));
+      expect(mockAction).not.toHaveBeenCalled();
+    });
+
+    it('calls onUndo when Undo is clicked in source mode', async () => {
+      const user = userEvent.setup();
+      const onUndo = vi.fn();
+      renderToolbar({ mode: 'source', onUndo });
+      await user.click(screen.getByRole('button', { name: 'Undo' }));
+      expect(onUndo).toHaveBeenCalledTimes(1);
+    });
+
+    it('calls onRedo when Redo is clicked in source mode', async () => {
+      const user = userEvent.setup();
+      const onRedo = vi.fn();
+      renderToolbar({ mode: 'source', onRedo });
+      await user.click(screen.getByRole('button', { name: 'Redo' }));
+      expect(onRedo).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not crash in source mode when source command props are not provided', async () => {
+      const user = userEvent.setup();
+      renderToolbar({ mode: 'source' });
+      await user.click(screen.getByRole('button', { name: 'Bold' }));
+      await user.click(screen.getByRole('button', { name: 'Italic' }));
+      await user.click(screen.getByRole('button', { name: 'Ordered List' }));
+      await user.click(screen.getByRole('button', { name: 'List' }));
+      await user.click(screen.getByRole('button', { name: 'Horizontal Rule' }));
+      // No crash = pass
+    });
+
+    it('Body text heading item closes menu without calling commands in source mode', async () => {
+      const user = userEvent.setup();
+      const onSourceLinePrefix = vi.fn();
+      renderToolbar({ mode: 'source', onSourceLinePrefix });
+      await user.click(screen.getByRole('button', { name: 'Heading' }));
+      await user.click(screen.getByRole('menuitem', { name: 'Body text' }));
+      // Body text (level 0) should not call insertLinePrefix in source mode
+      expect(onSourceLinePrefix).not.toHaveBeenCalled();
+      // Menu should close
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument();
     });
   });
 });

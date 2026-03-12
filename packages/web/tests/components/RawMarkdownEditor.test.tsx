@@ -221,4 +221,39 @@ describe('RawMarkdownEditor', () => {
       unmount();
     }).not.toThrow();
   });
+
+  it('calls onViewReady with EditorView instance after mount', () => {
+    const onChange = vi.fn();
+    const onViewReady = vi.fn();
+    render(<RawMarkdownEditor value="hello" onChange={onChange} onViewReady={onViewReady} />);
+
+    expect(onViewReady).toHaveBeenCalledTimes(1);
+    // Should be called with a non-null view object
+    expect(onViewReady.mock.calls[0]?.[0]).not.toBeNull();
+  });
+
+  it('calls onViewReady with null on unmount', () => {
+    const onChange = vi.fn();
+    const onViewReady = vi.fn();
+    const { unmount } = render(
+      <RawMarkdownEditor value="hello" onChange={onChange} onViewReady={onViewReady} />,
+    );
+
+    // First call on mount
+    expect(onViewReady).toHaveBeenCalledTimes(1);
+
+    unmount();
+
+    // Second call on unmount with null
+    expect(onViewReady).toHaveBeenCalledTimes(2);
+    expect(onViewReady.mock.calls[1]?.[0]).toBeNull();
+  });
+
+  it('works normally when onViewReady is not provided', () => {
+    const onChange = vi.fn();
+    // Should not throw when onViewReady is undefined
+    expect(() => {
+      render(<RawMarkdownEditor value="test" onChange={onChange} />);
+    }).not.toThrow();
+  });
 });

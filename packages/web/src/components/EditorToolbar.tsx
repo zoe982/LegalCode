@@ -44,6 +44,9 @@ interface EditorToolbarProps {
   onToggleOutline?: (() => void) | undefined;
   onIndentHeading?: (() => void) | undefined;
   onOutdentHeading?: (() => void) | undefined;
+  onSourceWrap?: ((prefix: string, suffix?: string) => void) | undefined;
+  onSourceLinePrefix?: ((prefix: string) => void) | undefined;
+  onSourceBlock?: ((text: string) => void) | undefined;
 }
 
 const helperButtonStyle = {
@@ -83,8 +86,11 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
   onToggleOutline,
   onIndentHeading,
   onOutdentHeading,
+  onSourceWrap,
+  onSourceLinePrefix,
+  onSourceBlock,
 }) => {
-  const showMarkdownHelpers = mode === 'edit' && !readOnly;
+  const showMarkdownHelpers = !readOnly;
   const [headingMenuAnchor, setHeadingMenuAnchor] = useState<HTMLElement | null>(null);
 
   const executeCommand = (commandFn: ReturnType<typeof callCommand>) => {
@@ -100,7 +106,13 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
   };
 
   const handleHeadingMenuItemClick = (level: 0 | 1 | 2 | 3 | 4 | 5 | 6) => {
-    executeCommand(callCommand(wrapInHeadingCommand.key, level));
+    if (mode === 'source') {
+      if (level > 0) {
+        onSourceLinePrefix?.('#'.repeat(level) + ' ');
+      }
+    } else {
+      executeCommand(callCommand(wrapInHeadingCommand.key, level));
+    }
     handleHeadingMenuClose();
   };
 
@@ -141,29 +153,40 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
             flexItem
             sx={{ mx: 0.5, borderColor: 'var(--border-primary)' }}
           />
-          <IconButton
-            aria-label="Toggle Outline"
-            sx={{
-              ...helperButtonStyle,
-              ...(outlineMode === true && {
-                backgroundColor: 'var(--surface-tertiary)',
-                color: 'var(--text-primary)',
-              }),
-            }}
-            onClick={onToggleOutline}
-          >
-            <ListAltOutlined sx={{ fontSize: '20px' }} />
-          </IconButton>
-          <Divider
-            orientation="vertical"
-            flexItem
-            sx={{ mx: 0.5, borderColor: 'var(--border-primary)' }}
-          />
+
+          {/* Edit-only: Toggle Outline */}
+          {mode === 'edit' && (
+            <>
+              <IconButton
+                aria-label="Toggle Outline"
+                sx={{
+                  ...helperButtonStyle,
+                  ...(outlineMode === true && {
+                    backgroundColor: 'var(--surface-tertiary)',
+                    color: 'var(--text-primary)',
+                  }),
+                }}
+                onClick={onToggleOutline}
+              >
+                <ListAltOutlined sx={{ fontSize: '20px' }} />
+              </IconButton>
+              <Divider
+                orientation="vertical"
+                flexItem
+                sx={{ mx: 0.5, borderColor: 'var(--border-primary)' }}
+              />
+            </>
+          )}
+
           <IconButton
             aria-label="Bold"
             sx={helperButtonStyle}
             onClick={() => {
-              executeCommand(callCommand(toggleStrongCommand.key));
+              if (mode === 'source') {
+                onSourceWrap?.('**', '**');
+              } else {
+                executeCommand(callCommand(toggleStrongCommand.key));
+              }
             }}
           >
             <FormatBoldIcon sx={{ fontSize: '20px' }} />
@@ -172,7 +195,11 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
             aria-label="Italic"
             sx={helperButtonStyle}
             onClick={() => {
-              executeCommand(callCommand(toggleEmphasisCommand.key));
+              if (mode === 'source') {
+                onSourceWrap?.('*', '*');
+              } else {
+                executeCommand(callCommand(toggleEmphasisCommand.key));
+              }
             }}
           >
             <FormatItalicIcon sx={{ fontSize: '20px' }} />
@@ -238,7 +265,11 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
             aria-label="Ordered List"
             sx={helperButtonStyle}
             onClick={() => {
-              executeCommand(callCommand(wrapInOrderedListCommand.key));
+              if (mode === 'source') {
+                onSourceLinePrefix?.('1. ');
+              } else {
+                executeCommand(callCommand(wrapInOrderedListCommand.key));
+              }
             }}
           >
             <FormatListNumberedOutlined sx={{ fontSize: '20px' }} />
@@ -247,7 +278,11 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
             aria-label="List"
             sx={helperButtonStyle}
             onClick={() => {
-              executeCommand(callCommand(wrapInBulletListCommand.key));
+              if (mode === 'source') {
+                onSourceLinePrefix?.('- ');
+              } else {
+                executeCommand(callCommand(wrapInBulletListCommand.key));
+              }
             }}
           >
             <FormatListBulletedOutlined sx={{ fontSize: '20px' }} />
@@ -279,24 +314,43 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
           >
             <CodeOutlined sx={{ fontSize: '20px' }} />
           </IconButton>
-          <IconButton aria-label="Import Cleanup" sx={helperButtonStyle} onClick={onImportCleanup}>
-            <AutoFixHighOutlined sx={{ fontSize: '20px' }} />
-          </IconButton>
-          <IconButton
-            aria-label="Outdent Heading"
-            sx={helperButtonStyle}
-            onClick={onOutdentHeading}
-          >
-            <FormatIndentDecreaseOutlined sx={{ fontSize: '20px' }} />
-          </IconButton>
-          <IconButton aria-label="Indent Heading" sx={helperButtonStyle} onClick={onIndentHeading}>
-            <FormatIndentIncreaseOutlined sx={{ fontSize: '20px' }} />
-          </IconButton>
+
+          {/* Edit-only: Import Cleanup, Outdent/Indent Heading */}
+          {mode === 'edit' && (
+            <>
+              <IconButton
+                aria-label="Import Cleanup"
+                sx={helperButtonStyle}
+                onClick={onImportCleanup}
+              >
+                <AutoFixHighOutlined sx={{ fontSize: '20px' }} />
+              </IconButton>
+              <IconButton
+                aria-label="Outdent Heading"
+                sx={helperButtonStyle}
+                onClick={onOutdentHeading}
+              >
+                <FormatIndentDecreaseOutlined sx={{ fontSize: '20px' }} />
+              </IconButton>
+              <IconButton
+                aria-label="Indent Heading"
+                sx={helperButtonStyle}
+                onClick={onIndentHeading}
+              >
+                <FormatIndentIncreaseOutlined sx={{ fontSize: '20px' }} />
+              </IconButton>
+            </>
+          )}
+
           <IconButton
             aria-label="Horizontal Rule"
             sx={helperButtonStyle}
             onClick={() => {
-              executeCommand(callCommand(insertHrCommand.key));
+              if (mode === 'source') {
+                onSourceBlock?.('---');
+              } else {
+                executeCommand(callCommand(insertHrCommand.key));
+              }
             }}
           >
             <HorizontalRuleOutlined sx={{ fontSize: '20px' }} />
