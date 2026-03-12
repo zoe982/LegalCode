@@ -40,7 +40,7 @@ interface MdastNode {
  */
 export const legalListSchemaPlugin = $node('legal_list', () => ({
   group: 'block',
-  content: 'list_item+',
+  content: 'listItem+',
   attrs: {
     listType: { default: 'lower-alpha' },
     spread: { default: false },

@@ -78,8 +78,8 @@ describe('legalListSchemaPlugin', () => {
     expect(plugin.schema.group).toBe('block');
   });
 
-  it('schema content is "list_item+"', () => {
-    expect(plugin.schema.content).toBe('list_item+');
+  it('schema content is "listItem+"', () => {
+    expect(plugin.schema.content).toBe('listItem+');
   });
 
   describe('schema attrs', () => {

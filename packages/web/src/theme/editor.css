@@ -234,3 +234,6 @@
 .milkdown .ProseMirror ol[data-legal-list] {
   padding-left: 24px;
 }
+
+/* Hide Milkdown Crepe label-wrapper divs inside legal lists — we use native CSS markers */
+.milkdown .ProseMirror ol[data-legal-list] .label-wrapper { display: none; }
