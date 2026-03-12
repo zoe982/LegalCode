@@ -224,3 +224,13 @@
 .milkdown .ProseMirror h6 .legal-numbering {
   font-size: inherit;
 }
+
+/* Legal list variants */
+.milkdown .ProseMirror ol[data-legal-list="lower-alpha"] { list-style-type: lower-alpha; }
+.milkdown .ProseMirror ol[data-legal-list="upper-alpha"] { list-style-type: upper-alpha; }
+.milkdown .ProseMirror ol[data-legal-list="lower-roman"] { list-style-type: lower-roman; }
+.milkdown .ProseMirror ol[data-legal-list="upper-roman"] { list-style-type: upper-roman; }
+
+.milkdown .ProseMirror ol[data-legal-list] {
+  padding-left: 24px;
+}

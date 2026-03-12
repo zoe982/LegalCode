@@ -7,6 +7,7 @@ import { createCommentPlugin } from '../editor/commentPlugin.js';
 import type { CommentPluginOptions } from '../editor/commentPlugin.js';
 import { createNumberingPlugin } from '../editor/numberingPlugin.js';
 import { createTitlePlugin, titleSchemaPlugin, remarkTitlePlugin } from '../editor/titleNode.js';
+import { legalListSchemaPlugin, remarkLegalListPlugin } from '../editor/legalListNode.js';
 
 import '@milkdown/crepe/theme/common/style.css';
 import '@milkdown/crepe/theme/frame.css';
@@ -62,6 +63,7 @@ function MilkdownEditor({
     }
 
     crepe.editor.use(titleSchemaPlugin).use(remarkTitlePlugin);
+    crepe.editor.use(legalListSchemaPlugin).use(remarkLegalListPlugin);
     crepe.editor.use($prose(() => createTitlePlugin()));
     crepe.editor.use($prose(() => createNumberingPlugin()));
 
