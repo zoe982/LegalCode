@@ -15,6 +15,8 @@ import AutoFixHighOutlined from '@mui/icons-material/AutoFixHighOutlined';
 import UndoRounded from '@mui/icons-material/UndoRounded';
 import RedoRounded from '@mui/icons-material/RedoRounded';
 import ListAltOutlined from '@mui/icons-material/ListAltOutlined';
+import FormatIndentIncreaseOutlined from '@mui/icons-material/FormatIndentIncreaseOutlined';
+import FormatIndentDecreaseOutlined from '@mui/icons-material/FormatIndentDecreaseOutlined';
 import type { Crepe } from '@milkdown/crepe';
 import {
   toggleStrongCommand,
@@ -40,6 +42,8 @@ interface EditorToolbarProps {
   onImportCleanup?: (() => void) | undefined;
   outlineMode?: boolean | undefined;
   onToggleOutline?: (() => void) | undefined;
+  onIndentHeading?: (() => void) | undefined;
+  onOutdentHeading?: (() => void) | undefined;
 }
 
 const helperButtonStyle = {
@@ -77,6 +81,8 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
   onImportCleanup,
   outlineMode,
   onToggleOutline,
+  onIndentHeading,
+  onOutdentHeading,
 }) => {
   const showMarkdownHelpers = mode === 'edit' && !readOnly;
   const [headingMenuAnchor, setHeadingMenuAnchor] = useState<HTMLElement | null>(null);
@@ -275,6 +281,16 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
           </IconButton>
           <IconButton aria-label="Import Cleanup" sx={helperButtonStyle} onClick={onImportCleanup}>
             <AutoFixHighOutlined sx={{ fontSize: '20px' }} />
+          </IconButton>
+          <IconButton
+            aria-label="Outdent Heading"
+            sx={helperButtonStyle}
+            onClick={onOutdentHeading}
+          >
+            <FormatIndentDecreaseOutlined sx={{ fontSize: '20px' }} />
+          </IconButton>
+          <IconButton aria-label="Indent Heading" sx={helperButtonStyle} onClick={onIndentHeading}>
+            <FormatIndentIncreaseOutlined sx={{ fontSize: '20px' }} />
           </IconButton>
           <IconButton
             aria-label="Horizontal Rule"

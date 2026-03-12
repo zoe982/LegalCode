@@ -506,4 +506,66 @@ describe('EditorToolbar', () => {
       // Should not throw
     });
   });
+
+  describe('Indent / Outdent heading buttons', () => {
+    it('renders Indent Heading button in edit mode', () => {
+      renderToolbar({ mode: 'edit' });
+      expect(screen.getByRole('button', { name: 'Indent Heading' })).toBeInTheDocument();
+    });
+
+    it('renders Outdent Heading button in edit mode', () => {
+      renderToolbar({ mode: 'edit' });
+      expect(screen.getByRole('button', { name: 'Outdent Heading' })).toBeInTheDocument();
+    });
+
+    it('hides Indent Heading button in source mode', () => {
+      renderToolbar({ mode: 'source' });
+      expect(screen.queryByRole('button', { name: 'Indent Heading' })).not.toBeInTheDocument();
+    });
+
+    it('hides Outdent Heading button in source mode', () => {
+      renderToolbar({ mode: 'source' });
+      expect(screen.queryByRole('button', { name: 'Outdent Heading' })).not.toBeInTheDocument();
+    });
+
+    it('hides Indent Heading button when readOnly', () => {
+      renderToolbar({ mode: 'edit', readOnly: true });
+      expect(screen.queryByRole('button', { name: 'Indent Heading' })).not.toBeInTheDocument();
+    });
+
+    it('hides Outdent Heading button when readOnly', () => {
+      renderToolbar({ mode: 'edit', readOnly: true });
+      expect(screen.queryByRole('button', { name: 'Outdent Heading' })).not.toBeInTheDocument();
+    });
+
+    it('calls onIndentHeading when Indent Heading is clicked', async () => {
+      const user = userEvent.setup();
+      const onIndentHeading = vi.fn();
+      renderToolbar({ onIndentHeading });
+      await user.click(screen.getByRole('button', { name: 'Indent Heading' }));
+      expect(onIndentHeading).toHaveBeenCalledTimes(1);
+    });
+
+    it('calls onOutdentHeading when Outdent Heading is clicked', async () => {
+      const user = userEvent.setup();
+      const onOutdentHeading = vi.fn();
+      renderToolbar({ onOutdentHeading });
+      await user.click(screen.getByRole('button', { name: 'Outdent Heading' }));
+      expect(onOutdentHeading).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not crash when onIndentHeading is not provided', async () => {
+      const user = userEvent.setup();
+      renderToolbar(); // no onIndentHeading
+      await user.click(screen.getByRole('button', { name: 'Indent Heading' }));
+      // Should not throw
+    });
+
+    it('does not crash when onOutdentHeading is not provided', async () => {
+      const user = userEvent.setup();
+      renderToolbar(); // no onOutdentHeading
+      await user.click(screen.getByRole('button', { name: 'Outdent Heading' }));
+      // Should not throw
+    });
+  });
 });
