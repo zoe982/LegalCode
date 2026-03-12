@@ -459,7 +459,7 @@ describe('numberingPlugin', () => {
 
   // --- Node decoration creation ---
 
-  it('creates node decoration with legal-heading-bold class for entries with hasChildren=true', () => {
+  it('creates node decoration with legal-heading-bold class for odd-level entries (level 1)', () => {
     const entries: HeadingEntry[] = [
       {
         level: 1,
@@ -481,7 +481,7 @@ describe('numberingPlugin', () => {
     expect(nodeCalls[0]?.attrs).toEqual({ class: 'legal-heading-bold' });
   });
 
-  it('creates node decoration with legal-heading-body class for entries with hasChildren=false', () => {
+  it('creates node decoration with legal-heading-body class for even-level entries (level 2)', () => {
     const entries: HeadingEntry[] = [
       {
         level: 2,
@@ -490,6 +490,94 @@ describe('numberingPlugin', () => {
         endPos: 30,
         bodyPreview: '',
         number: '1.1',
+        isTitle: false,
+        hasChildren: false,
+      },
+    ];
+    mockExtractHeadingTree.mockReturnValue(entries);
+    const plugin = createNumberingPlugin();
+    const stateSpec = getStateSpec(plugin);
+    stateSpec.init(undefined, { doc: mockDoc });
+
+    expect(nodeCalls).toHaveLength(1);
+    expect(nodeCalls[0]?.attrs).toEqual({ class: 'legal-heading-body' });
+  });
+
+  it('H1 (odd level) gets legal-heading-bold regardless of hasChildren', () => {
+    const entries: HeadingEntry[] = [
+      {
+        level: 1,
+        text: 'Standalone',
+        pos: 0,
+        endPos: 30,
+        bodyPreview: '',
+        number: '1',
+        isTitle: false,
+        hasChildren: false,
+      },
+    ];
+    mockExtractHeadingTree.mockReturnValue(entries);
+    const plugin = createNumberingPlugin();
+    const stateSpec = getStateSpec(plugin);
+    stateSpec.init(undefined, { doc: mockDoc });
+
+    expect(nodeCalls).toHaveLength(1);
+    expect(nodeCalls[0]?.attrs).toEqual({ class: 'legal-heading-bold' });
+  });
+
+  it('H2 (even level) gets legal-heading-body regardless of hasChildren', () => {
+    const entries: HeadingEntry[] = [
+      {
+        level: 2,
+        text: 'Parent',
+        pos: 0,
+        endPos: 50,
+        bodyPreview: '',
+        number: '1.1',
+        isTitle: false,
+        hasChildren: true,
+      },
+    ];
+    mockExtractHeadingTree.mockReturnValue(entries);
+    const plugin = createNumberingPlugin();
+    const stateSpec = getStateSpec(plugin);
+    stateSpec.init(undefined, { doc: mockDoc });
+
+    expect(nodeCalls).toHaveLength(1);
+    expect(nodeCalls[0]?.attrs).toEqual({ class: 'legal-heading-body' });
+  });
+
+  it('H3 (odd level) gets legal-heading-bold', () => {
+    const entries: HeadingEntry[] = [
+      {
+        level: 3,
+        text: 'Subsection',
+        pos: 5,
+        endPos: 40,
+        bodyPreview: '',
+        number: '1.1.1',
+        isTitle: false,
+        hasChildren: false,
+      },
+    ];
+    mockExtractHeadingTree.mockReturnValue(entries);
+    const plugin = createNumberingPlugin();
+    const stateSpec = getStateSpec(plugin);
+    stateSpec.init(undefined, { doc: mockDoc });
+
+    expect(nodeCalls).toHaveLength(1);
+    expect(nodeCalls[0]?.attrs).toEqual({ class: 'legal-heading-bold' });
+  });
+
+  it('H4 (even level) gets legal-heading-body', () => {
+    const entries: HeadingEntry[] = [
+      {
+        level: 4,
+        text: 'Clause',
+        pos: 5,
+        endPos: 40,
+        bodyPreview: '',
+        number: '1.1.1.1',
         isTitle: false,
         hasChildren: false,
       },
@@ -557,7 +645,8 @@ describe('numberingPlugin', () => {
 
     // Only 1 node decoration (for the non-title entry)
     expect(nodeCalls).toHaveLength(1);
-    expect(nodeCalls[0]?.attrs).toEqual({ class: 'legal-heading-body' });
+    // Non-title entry is level 1 (odd) → legal-heading-bold
+    expect(nodeCalls[0]?.attrs).toEqual({ class: 'legal-heading-bold' });
   });
 
   it('node decoration spans from entry.pos to entry.pos + nodeSize', () => {

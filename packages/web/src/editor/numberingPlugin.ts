@@ -38,7 +38,7 @@ function buildDecorations(doc: Node): DecorationSet {
       if (node) {
         decorations.push(
           Decoration.node(entry.pos, entry.pos + node.nodeSize, {
-            class: entry.hasChildren ? 'legal-heading-bold' : 'legal-heading-body',
+            class: entry.level % 2 === 1 ? 'legal-heading-bold' : 'legal-heading-body',
           }),
         );
       }

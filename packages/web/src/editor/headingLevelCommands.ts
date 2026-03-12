@@ -107,7 +107,7 @@ export function findHeadingsInRange(
  * - Blocked if the target heading is the first H1 AND no title node exists in
  *   the document (the first H1 acts as document title when there's no title node)
  * - An H1 following a title node is NOT treated as the document title
- * - Blocked if all selected headings are at the maximum depth (H4)
+ * - Blocked if all selected headings are at the maximum depth (H6)
  * - Blocked if no heading at level <= L exists before the target (no parent context)
  * - Returns all valid changes; blocked=true if the whole operation must be rejected
  */
@@ -138,7 +138,7 @@ export function canIncreaseLevel(
     }
 
     // Skip headings already at maximum depth — but don't block the whole operation
-    if (target.level >= 4) {
+    if (target.level >= 6) {
       continue;
     }
 

@@ -75,36 +75,21 @@ const PATTERNS: PatternDef[] = [
       return remaining.length > 0 ? remaining : text.trim();
     },
   },
-  // 3. \d+\.\d+\.\d+\.\d+\.\d+\.\d+\s — H6, must come before H5 to avoid false match
+  // 3. \d+\.\d+\.\d+\.\d+\s — H6 (depth 4, body variant), must come before 3-segment to avoid false match
+  //    5-segment and 6-segment patterns removed: no clean depth-5/6 mapping in alternating scheme
   {
-    regex: /^\d+\.\d+\.\d+\.\d+\.\d+\.\d+\s/,
+    regex: /^\d+\.\d+\.\d+\.\d+\s/,
     headingLevel: 6,
     confidence: 'high',
     pattern: 'numbered-h6',
     clean: (text, match) => text.slice(match[0].length),
   },
-  // 4. \d+\.\d+\.\d+\.\d+\.\d+\s — H5, must come before H4 to avoid false match
+  // 4. \d+\.\d+\.\d+\s — H4 (depth 3, body variant), must come before h2 to avoid false match
   {
-    regex: /^\d+\.\d+\.\d+\.\d+\.\d+\s/,
-    headingLevel: 5,
-    confidence: 'high',
-    pattern: 'numbered-h5',
-    clean: (text, match) => text.slice(match[0].length),
-  },
-  // 5. \d+\.\d+\.\d+\.\d+\s — H4, must come before H3 to avoid false match
-  {
-    regex: /^\d+\.\d+\.\d+\.\d+\s/,
+    regex: /^\d+\.\d+\.\d+\s/,
     headingLevel: 4,
     confidence: 'high',
     pattern: 'numbered-h4',
-    clean: (text, match) => text.slice(match[0].length),
-  },
-  // 6. \d+\.\d+\.\d+\s — must come before h2 to avoid false match
-  {
-    regex: /^\d+\.\d+\.\d+\s/,
-    headingLevel: 3,
-    confidence: 'high',
-    pattern: 'numbered-h3',
     clean: (text, match) => text.slice(match[0].length),
   },
   // 7. \d+\.\d+\s

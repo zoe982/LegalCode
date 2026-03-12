@@ -286,7 +286,22 @@ describe('canIncreaseLevel', () => {
     expect(result.changes).toHaveLength(0);
   });
 
-  it('blocks H4 — cannot indent beyond maximum depth of 4', () => {
+  it('blocks H6 — cannot indent beyond maximum depth of 6', () => {
+    const doc = makeDoc([
+      makeHeading(1, 'Section', 20), // pos=1
+      makeHeading(2, 'Sub', 20), // pos=21
+      makeHeading(3, 'Clause', 20), // pos=41
+      makeHeading(4, 'SubClause', 20), // pos=61
+      makeHeading(5, 'SubSubClause', 20), // pos=81
+      makeHeading(6, 'DeepClause', 20), // pos=101
+    ]);
+    const allHeadings = collectHeadings(doc as unknown as import('@milkdown/kit/prose/model').Node);
+    const result = canIncreaseLevel(allHeadings, 101, 101);
+    expect(result.blocked).toBe(true);
+    expect(result.changes).toHaveLength(0);
+  });
+
+  it('allows H4 increase to H5 — no longer blocked at H4', () => {
     const doc = makeDoc([
       makeHeading(1, 'Section', 20), // pos=1
       makeHeading(2, 'Sub', 20), // pos=21
@@ -295,8 +310,24 @@ describe('canIncreaseLevel', () => {
     ]);
     const allHeadings = collectHeadings(doc as unknown as import('@milkdown/kit/prose/model').Node);
     const result = canIncreaseLevel(allHeadings, 61, 61);
-    expect(result.blocked).toBe(true);
-    expect(result.changes).toHaveLength(0);
+    expect(result.blocked).toBe(false);
+    expect(result.changes).toHaveLength(1);
+    expect(result.changes[0]).toEqual({ pos: 61, newLevel: 5 });
+  });
+
+  it('allows H5 increase to H6', () => {
+    const doc = makeDoc([
+      makeHeading(1, 'Section', 20), // pos=1
+      makeHeading(2, 'Sub', 20), // pos=21
+      makeHeading(3, 'Clause', 20), // pos=41
+      makeHeading(4, 'SubClause', 20), // pos=61
+      makeHeading(5, 'SubSubClause', 20), // pos=81
+    ]);
+    const allHeadings = collectHeadings(doc as unknown as import('@milkdown/kit/prose/model').Node);
+    const result = canIncreaseLevel(allHeadings, 81, 81);
+    expect(result.blocked).toBe(false);
+    expect(result.changes).toHaveLength(1);
+    expect(result.changes[0]).toEqual({ pos: 81, newLevel: 6 });
   });
 
   it('allows H2 increase to H3 when H1 exists above', () => {
@@ -378,22 +409,21 @@ describe('canIncreaseLevel', () => {
     expect(result.changes.length).toBeGreaterThan(0);
   });
 
-  it('partially blocks when some headings in selection are at max level H4', () => {
+  it('partially blocks when some headings in selection are at max level H6', () => {
     const doc = makeDoc([
       makeHeading(1, 'Section', 20), // pos=1
       makeHeading(2, 'Sub', 20), // pos=21
       makeHeading(3, 'Clause', 20), // pos=41
       makeHeading(4, 'SubClause', 20), // pos=61
+      makeHeading(5, 'SubSubClause', 20), // pos=81
+      makeHeading(6, 'DeepClause', 20), // pos=101
     ]);
     const allHeadings = collectHeadings(doc as unknown as import('@milkdown/kit/prose/model').Node);
-    // Selection covers H3 (pos=41) and H4 (pos=61)
-    const result = canIncreaseLevel(allHeadings, 41, 70);
-    // H3 should be allowed (→H4), H4 is blocked — result should either:
-    // (a) block the whole operation if any heading is blocked, or
-    // (b) return only valid changes
-    // The H4 at pos=61 is at max level
-    const h4Change = result.changes.find((c: LevelChange) => c.pos === 61);
-    expect(h4Change).toBeUndefined(); // H4 should not be in changes
+    // Selection covers H5 (pos=81) and H6 (pos=101)
+    const result = canIncreaseLevel(allHeadings, 81, 110);
+    // H5 should be allowed (→H6), H6 is blocked — H6 should not be in changes
+    const h6Change = result.changes.find((c: LevelChange) => c.pos === 101);
+    expect(h6Change).toBeUndefined(); // H6 should not be in changes
   });
 
   it('blocks entire operation when the first H1 is the only heading in selection', () => {

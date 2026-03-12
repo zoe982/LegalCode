@@ -16,8 +16,8 @@
   font-size: var(--editor-h1-size);
   line-height: var(--editor-h1-height);
   font-weight: var(--editor-h1-weight);
-  margin-top: 32px;
-  margin-bottom: 16px;
+  margin-top: 28px;
+  margin-bottom: 4px;
   color: var(--text-primary);
   font-family: var(--editor-font-serif);
 }
@@ -26,8 +26,8 @@
   font-size: var(--editor-h2-size);
   line-height: var(--editor-h2-height);
   font-weight: var(--editor-h2-weight);
-  margin-top: 28px;
-  margin-bottom: 12px;
+  margin-top: 4px;
+  margin-bottom: 4px;
   color: var(--text-primary);
   font-family: var(--editor-font-serif);
 }
@@ -36,7 +36,7 @@
   font-size: var(--editor-h3-size);
   line-height: var(--editor-h3-height);
   font-weight: var(--editor-h3-weight);
-  margin-top: 8px;
+  margin-top: 20px;
   margin-bottom: 4px;
   color: var(--text-primary);
   font-family: var(--editor-font-serif);
@@ -46,7 +46,7 @@
   font-size: var(--editor-h4-size);
   line-height: var(--editor-h4-height);
   font-weight: var(--editor-h4-weight);
-  margin-top: 8px;
+  margin-top: 4px;
   margin-bottom: 4px;
   color: var(--text-primary);
   font-family: var(--editor-font-serif);
@@ -56,7 +56,7 @@
   font-size: var(--editor-h5-size);
   line-height: var(--editor-h5-height);
   font-weight: var(--editor-h5-weight);
-  margin-top: 8px;
+  margin-top: 16px;
   margin-bottom: 4px;
   color: var(--text-primary);
   font-family: var(--editor-font-serif);
@@ -66,7 +66,7 @@
   font-size: var(--editor-h6-size);
   line-height: var(--editor-h6-height);
   font-weight: var(--editor-h6-weight);
-  margin-top: 8px;
+  margin-top: 4px;
   margin-bottom: 4px;
   color: var(--text-primary);
   font-family: var(--editor-font-serif);
@@ -92,19 +92,30 @@
   margin-top: 0;
 }
 
-/* Structural heading (has sub-headings beneath it) */
+/* Structural heading — odd levels (h1, h3, h5) have sub-headings beneath them */
 .milkdown .ProseMirror .legal-heading-bold {
   font-weight: 600 !important;
 }
 
-/* Leaf heading (no sub-headings, renders as body text) */
+/* Leaf heading — even levels (h2, h4, h6) render as body text, no sub-headings */
 .milkdown .ProseMirror .legal-heading-body {
   font-weight: 400 !important;
 }
 
-/* Bold heading spacing — generous top margin for section breaks */
-.milkdown .ProseMirror .legal-heading-bold:is(h1, h2) {
-  margin-top: 32px;
+/* Structural heading spacing — section breaks at each odd level */
+.milkdown .ProseMirror .legal-heading-bold:is(h1) {
+  margin-top: 28px;
+  margin-bottom: 4px;
+}
+
+.milkdown .ProseMirror .legal-heading-bold:is(h3) {
+  margin-top: 20px;
+  margin-bottom: 4px;
+}
+
+.milkdown .ProseMirror .legal-heading-bold:is(h5) {
+  margin-top: 16px;
+  margin-bottom: 4px;
 }
 
 /* Body/leaf heading spacing — tight clustering under parent */
