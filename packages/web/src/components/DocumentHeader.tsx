@@ -234,8 +234,10 @@ export function DocumentHeader({
           fontSize: '1.125rem',
           fontWeight: 600,
           color: 'var(--text-primary)',
+          flex: '1 1 auto',
           minWidth: '120px',
-          maxWidth: '300px',
+          overflow: 'hidden',
+          whiteSpace: 'nowrap',
           padding: '4px 0',
           mr: '12px',
           textOverflow: 'ellipsis',
@@ -622,9 +624,6 @@ export function DocumentHeader({
           )}
         </Box>
       </Popover>
-
-      {/* Spacer to push action buttons right */}
-      <Box sx={{ flex: 1 }} />
 
       {/* Right slot (connection status, presence avatars, export) */}
       {rightSlot != null && (
