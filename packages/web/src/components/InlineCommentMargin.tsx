@@ -130,7 +130,7 @@ export function InlineCommentMargin({
         ml: 3,
         width: 320,
         display: 'block',
-        '@media (max-width: 1259px)': { display: 'none' },
+        '@media (max-width: 1199px)': { display: 'none' },
       }}
     >
       {/* Comment cards */}

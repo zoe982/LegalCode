@@ -844,13 +844,12 @@ export function TemplateEditorPage() {
               px: { xs: 2, sm: 4, md: 6 },
             }}
           >
-            {/* Editor layout container — 1200px max, centers the 860px page with room for margin */}
+            {/* Editor layout container — full width with right padding reserving space for margin comments */}
             <Box
               data-testid="editor-layout-container"
               sx={{
-                maxWidth: 1200,
-                mx: 'auto',
                 position: 'relative',
+                pr: { xs: 0, lg: '340px' },
               }}
             >
               {/* Edit mode — always mounted, hidden when source */}
@@ -858,8 +857,7 @@ export function TemplateEditorPage() {
                 data-testid="edit-editor-container"
                 sx={{
                   display: editorMode === 'edit' ? 'block' : 'none',
-                  width: 860,
-                  maxWidth: '100%',
+                  width: '100%',
                   backgroundColor: '#FFFFFF',
                   border: '1px solid #E0E0E4',
                   borderRadius: '2px',
@@ -919,8 +917,7 @@ export function TemplateEditorPage() {
                 data-testid="source-editor-wrapper"
                 sx={{
                   display: editorMode === 'source' ? 'block' : 'none',
-                  width: 860,
-                  maxWidth: '100%',
+                  width: '100%',
                   backgroundColor: '#FFFFFF',
                   border: '1px solid #E0E0E4',
                   borderRadius: '2px',
