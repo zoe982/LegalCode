@@ -27,23 +27,41 @@ export function createNumberingPlugin(): Plugin {
 
 function buildDecorations(doc: Node): DecorationSet {
   const entries = extractHeadingTree(doc);
-  const numbered = entries.filter((e) => e.number !== '');
-  if (numbered.length === 0) return DecorationSet.empty;
+  if (entries.length === 0) return DecorationSet.empty;
 
-  const decorations = numbered.map((entry) => {
-    // Widget position: entry.pos + 1 (inside the heading node, before text content)
-    return Decoration.widget(
-      entry.pos + 1,
-      () => {
-        const span = document.createElement('span');
-        span.className = 'legal-numbering';
-        span.textContent = entry.number;
-        span.contentEditable = 'false';
-        return span;
-      },
-      { side: -1 },
-    );
-  });
+  const decorations: Decoration[] = [];
 
+  for (const entry of entries) {
+    // Node decoration: bold/body class for all non-title entries
+    if (!entry.isTitle) {
+      const node = doc.nodeAt(entry.pos);
+      if (node) {
+        decorations.push(
+          Decoration.node(entry.pos, entry.pos + node.nodeSize, {
+            class: entry.hasChildren ? 'legal-heading-bold' : 'legal-heading-body',
+          }),
+        );
+      }
+    }
+
+    // Widget decoration: number label for entries with non-empty number
+    if (entry.number !== '') {
+      decorations.push(
+        Decoration.widget(
+          entry.pos + 1,
+          () => {
+            const span = document.createElement('span');
+            span.className = 'legal-numbering';
+            span.textContent = entry.number;
+            span.contentEditable = 'false';
+            return span;
+          },
+          { side: -1 },
+        ),
+      );
+    }
+  }
+
+  if (decorations.length === 0) return DecorationSet.empty;
   return DecorationSet.create(doc, decorations);
 }

@@ -32,11 +32,18 @@ vi.mock('@milkdown/kit/prose/state', () => {
 // Capture widget calls for inspection
 const widgetCalls: { pos: number; factory: () => HTMLElement; options: unknown }[] = [];
 
+// Capture node calls for inspection
+const nodeCalls: { from: number; to: number; attrs: unknown }[] = [];
+
 vi.mock('@milkdown/kit/prose/view', () => {
   const MockDecoration = {
     widget(pos: number, factory: () => HTMLElement, options: unknown) {
       widgetCalls.push({ pos, factory, options });
       return { type: 'widget', pos, factory, options };
+    },
+    node(from: number, to: number, attrs: unknown) {
+      nodeCalls.push({ from, to, attrs });
+      return { type: 'node', from, to, attrs };
     },
   };
 
@@ -81,11 +88,17 @@ function getPropsSpec(plugin: unknown) {
   };
 }
 
-const mockDoc = { nodeSize: 100 };
+const mockDoc = {
+  nodeSize: 100,
+  nodeAt() {
+    return { nodeSize: 20 };
+  },
+};
 
 describe('numberingPlugin', () => {
   beforeEach(() => {
     widgetCalls.length = 0;
+    nodeCalls.length = 0;
     mockExtractHeadingTree.mockReset();
     mockExtractHeadingTree.mockReturnValue([]);
   });
@@ -355,8 +368,10 @@ describe('numberingPlugin', () => {
     const plugin = createNumberingPlugin();
     const stateSpec = getStateSpec(plugin);
     const result = stateSpec.init(undefined, { doc: mockDoc }) as { decorations: unknown[] };
-    expect(result.decorations).toHaveLength(3);
+    // 3 widget decorations + 3 node decorations = 6 total
+    expect(result.decorations).toHaveLength(6);
     expect(widgetCalls).toHaveLength(3);
+    expect(nodeCalls).toHaveLength(3);
   });
 
   it('multiple headings have correct numbers in widget text', () => {
@@ -396,7 +411,7 @@ describe('numberingPlugin', () => {
 
   // --- Title entry skip ---
 
-  it('skips decoration for title entry (empty number)', () => {
+  it('skips widget decoration for title entry (empty number) but still skips node decoration', () => {
     const entries: HeadingEntry[] = [
       {
         level: 1,
@@ -433,10 +448,168 @@ describe('numberingPlugin', () => {
     const plugin = createNumberingPlugin();
     const stateSpec = getStateSpec(plugin);
     const result = stateSpec.init(undefined, { doc: mockDoc }) as { decorations: unknown[] };
-    // Only 2 decorations — title entry (number: '') is skipped
-    expect(result.decorations).toHaveLength(2);
+    // 2 widget decorations + 2 node decorations = 4 total (title entry skipped for both)
+    expect(result.decorations).toHaveLength(4);
     expect(widgetCalls).toHaveLength(2);
+    // Node decorations only for non-title entries
+    expect(nodeCalls).toHaveLength(2);
     // First widget should be for "1." (pos 20 + 1 = 21)
     expect(widgetCalls[0]?.pos).toBe(21);
+  });
+
+  // --- Node decoration creation ---
+
+  it('creates node decoration with legal-heading-bold class for entries with hasChildren=true', () => {
+    const entries: HeadingEntry[] = [
+      {
+        level: 1,
+        text: 'Section',
+        pos: 0,
+        endPos: 50,
+        bodyPreview: '',
+        number: '1.',
+        isTitle: false,
+        hasChildren: true,
+      },
+    ];
+    mockExtractHeadingTree.mockReturnValue(entries);
+    const plugin = createNumberingPlugin();
+    const stateSpec = getStateSpec(plugin);
+    stateSpec.init(undefined, { doc: mockDoc });
+
+    expect(nodeCalls).toHaveLength(1);
+    expect(nodeCalls[0]?.attrs).toEqual({ class: 'legal-heading-bold' });
+  });
+
+  it('creates node decoration with legal-heading-body class for entries with hasChildren=false', () => {
+    const entries: HeadingEntry[] = [
+      {
+        level: 2,
+        text: 'Leaf',
+        pos: 10,
+        endPos: 30,
+        bodyPreview: '',
+        number: '1.1',
+        isTitle: false,
+        hasChildren: false,
+      },
+    ];
+    mockExtractHeadingTree.mockReturnValue(entries);
+    const plugin = createNumberingPlugin();
+    const stateSpec = getStateSpec(plugin);
+    stateSpec.init(undefined, { doc: mockDoc });
+
+    expect(nodeCalls).toHaveLength(1);
+    expect(nodeCalls[0]?.attrs).toEqual({ class: 'legal-heading-body' });
+  });
+
+  it('creates both node and widget decorations for numbered entries', () => {
+    const entries: HeadingEntry[] = [
+      {
+        level: 1,
+        text: 'Section',
+        pos: 5,
+        endPos: 50,
+        bodyPreview: '',
+        number: '1.',
+        isTitle: false,
+        hasChildren: true,
+      },
+    ];
+    mockExtractHeadingTree.mockReturnValue(entries);
+    const plugin = createNumberingPlugin();
+    const stateSpec = getStateSpec(plugin);
+    const result = stateSpec.init(undefined, { doc: mockDoc }) as { decorations: unknown[] };
+
+    // 1 node decoration + 1 widget decoration = 2 total
+    expect(result.decorations).toHaveLength(2);
+    expect(nodeCalls).toHaveLength(1);
+    expect(widgetCalls).toHaveLength(1);
+  });
+
+  it('does not create node decoration for title entries', () => {
+    const entries: HeadingEntry[] = [
+      {
+        level: 1,
+        text: 'Title',
+        pos: 0,
+        endPos: 20,
+        bodyPreview: '',
+        number: '',
+        isTitle: true,
+        hasChildren: true,
+      },
+      {
+        level: 1,
+        text: 'Section',
+        pos: 20,
+        endPos: 50,
+        bodyPreview: '',
+        number: '1.',
+        isTitle: false,
+        hasChildren: false,
+      },
+    ];
+    mockExtractHeadingTree.mockReturnValue(entries);
+    const plugin = createNumberingPlugin();
+    const stateSpec = getStateSpec(plugin);
+    stateSpec.init(undefined, { doc: mockDoc });
+
+    // Only 1 node decoration (for the non-title entry)
+    expect(nodeCalls).toHaveLength(1);
+    expect(nodeCalls[0]?.attrs).toEqual({ class: 'legal-heading-body' });
+  });
+
+  it('node decoration spans from entry.pos to entry.pos + nodeSize', () => {
+    const entries: HeadingEntry[] = [
+      {
+        level: 1,
+        text: 'Section',
+        pos: 10,
+        endPos: 50,
+        bodyPreview: '',
+        number: '1.',
+        isTitle: false,
+        hasChildren: true,
+      },
+    ];
+    mockExtractHeadingTree.mockReturnValue(entries);
+    const plugin = createNumberingPlugin();
+    const stateSpec = getStateSpec(plugin);
+    stateSpec.init(undefined, { doc: mockDoc });
+
+    expect(nodeCalls).toHaveLength(1);
+    expect(nodeCalls[0]?.from).toBe(10);
+    expect(nodeCalls[0]?.to).toBe(30); // 10 + 20 (mock nodeSize)
+  });
+
+  it('skips node decoration when nodeAt returns null', () => {
+    const docWithNullNode = {
+      nodeSize: 100,
+      nodeAt() {
+        return null;
+      },
+    };
+    const entries: HeadingEntry[] = [
+      {
+        level: 1,
+        text: 'Section',
+        pos: 5,
+        endPos: 50,
+        bodyPreview: '',
+        number: '1.',
+        isTitle: false,
+        hasChildren: true,
+      },
+    ];
+    mockExtractHeadingTree.mockReturnValue(entries);
+    const plugin = createNumberingPlugin();
+    const stateSpec = getStateSpec(plugin);
+    stateSpec.init(undefined, { doc: docWithNullNode });
+
+    // No node decoration created when nodeAt returns null
+    expect(nodeCalls).toHaveLength(0);
+    // Widget decoration still created
+    expect(widgetCalls).toHaveLength(1);
   });
 });

@@ -24,7 +24,7 @@ function getIndent(level: number): number {
 function maxDepthForFilter(filter: DepthFilter): number {
   if (filter === 'sections') return 1;
   if (filter === 'subsections') return 2;
-  return 4;
+  return 6;
 }
 
 /**
@@ -53,22 +53,6 @@ function computeHiddenByCollapse(entries: HeadingEntry[], collapsed: Set<number>
   return hidden;
 }
 
-/**
- * An entry "has children" if any subsequent entry has a deeper level before
- * the next entry with the same or higher level.
- */
-function entryHasChildren(entries: HeadingEntry[], index: number): boolean {
-  const entry = entries[index];
-  if (!entry) return false;
-  for (let i = index + 1; i < entries.length; i++) {
-    const next = entries[i];
-    if (!next) break;
-    if (next.level <= entry.level) break;
-    if (next.level > entry.level) return true;
-  }
-  return false;
-}
-
 export function OutlineView({
   entries,
   onReorderSection,
@@ -95,9 +79,6 @@ export function OutlineView({
   const filteredEntries = entries.filter((e) => e.level <= maxDepth);
   const hiddenByCollapse = computeHiddenByCollapse(filteredEntries, collapsed);
   const visibleEntries = filteredEntries.filter((e) => !hiddenByCollapse.has(e.pos));
-
-  // Map from visible index to original filtered index (for child detection)
-  const filteredIndexMap = new Map<number, number>(filteredEntries.map((e, i) => [e.pos, i]));
 
   const handleDragStart = useCallback(
     (index: number) => (e: React.DragEvent<HTMLDivElement>) => {
@@ -278,8 +259,7 @@ export function OutlineView({
           </Box>
         ) : (
           visibleEntries.map((entry, visibleIdx) => {
-            const filteredIdx = filteredIndexMap.get(entry.pos) ?? visibleIdx;
-            const hasChildren = entryHasChildren(filteredEntries, filteredIdx);
+            const hasChildren = entry.hasChildren;
             const isCollapsed = collapsed.has(entry.pos);
             const isDragging = dragSourceIndex === visibleIdx;
 
@@ -388,14 +368,23 @@ export function OutlineView({
                       }}
                       sx={{
                         fontFamily: '"DM Sans", sans-serif',
-                        fontSize: entry.level >= 3 ? '0.75rem' : '0.8125rem',
-                        fontWeight: entry.level === 1 ? 600 : 400,
+                        fontSize:
+                          entry.level >= 5
+                            ? '0.6875rem'
+                            : entry.level >= 3
+                              ? '0.75rem'
+                              : '0.8125rem',
+                        fontWeight: entry.hasChildren ? 600 : 400,
                         color: entry.level >= 3 ? 'var(--text-secondary)' : 'var(--text-primary)',
                         cursor: 'pointer',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         whiteSpace: 'nowrap',
                         flex: 1,
+                        ...(entry.isTitle && {
+                          borderLeft: '3px solid var(--accent-primary)',
+                          paddingLeft: '8px',
+                        }),
                         '&:hover': {
                           color: '#8027FF',
                         },

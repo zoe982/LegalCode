@@ -1,7 +1,9 @@
-import { Box, Divider, IconButton, Typography } from '@mui/material';
+import { useState } from 'react';
+import { Box, Button, Divider, IconButton, Menu, MenuItem, Typography } from '@mui/material';
 import FormatBoldIcon from '@mui/icons-material/FormatBold';
 import FormatItalicIcon from '@mui/icons-material/FormatItalic';
 import TitleOutlined from '@mui/icons-material/TitleOutlined';
+import KeyboardArrowDownRounded from '@mui/icons-material/KeyboardArrowDownRounded';
 import InsertLinkOutlined from '@mui/icons-material/InsertLinkOutlined';
 import FormatListBulletedOutlined from '@mui/icons-material/FormatListBulletedOutlined';
 import TableChartOutlined from '@mui/icons-material/TableChartOutlined';
@@ -51,6 +53,17 @@ const helperButtonStyle = {
   },
 } as const;
 
+const headingMenuItems = [
+  { label: 'Title', level: 1 as const, fontWeight: 700 },
+  { label: 'Article (H1)', level: 1 as const, fontWeight: 600 },
+  { label: 'Section (H2)', level: 2 as const, fontWeight: 600 },
+  { label: 'Clause (H3)', level: 3 as const, fontWeight: 500 },
+  { label: 'Sub-clause (H4)', level: 4 as const, fontWeight: 400 },
+  { label: 'Paragraph (H5)', level: 5 as const, fontWeight: 400 },
+  { label: 'Sub-paragraph (H6)', level: 6 as const, fontWeight: 400 },
+  { label: 'Body text', level: 0 as const, fontWeight: 400, color: 'var(--text-secondary)' },
+] as const;
+
 export const EditorToolbar: React.FC<EditorToolbarProps> = ({
   mode,
   wordCount,
@@ -66,9 +79,23 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
   onToggleOutline,
 }) => {
   const showMarkdownHelpers = mode === 'edit' && !readOnly;
+  const [headingMenuAnchor, setHeadingMenuAnchor] = useState<HTMLElement | null>(null);
 
   const executeCommand = (commandFn: ReturnType<typeof callCommand>) => {
     crepeRef?.current?.editor.action(commandFn);
+  };
+
+  const handleHeadingButtonClick = (event: React.MouseEvent<HTMLElement>) => {
+    setHeadingMenuAnchor(event.currentTarget);
+  };
+
+  const handleHeadingMenuClose = () => {
+    setHeadingMenuAnchor(null);
+  };
+
+  const handleHeadingMenuItemClick = (level: 0 | 1 | 2 | 3 | 4 | 5 | 6) => {
+    executeCommand(callCommand(wrapInHeadingCommand.key, level));
+    handleHeadingMenuClose();
   };
 
   return (
@@ -144,15 +171,54 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
           >
             <FormatItalicIcon sx={{ fontSize: '20px' }} />
           </IconButton>
-          <IconButton
+
+          {/* Heading dropdown button */}
+          <Button
             aria-label="Heading"
-            sx={helperButtonStyle}
-            onClick={() => {
-              executeCommand(callCommand(wrapInHeadingCommand.key, 2));
+            aria-haspopup="true"
+            aria-expanded={headingMenuAnchor !== null ? 'true' : undefined}
+            onClick={handleHeadingButtonClick}
+            sx={{
+              ...helperButtonStyle,
+              width: 'auto',
+              minWidth: 'unset',
+              px: '6px',
+              textTransform: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '2px',
             }}
           >
             <TitleOutlined sx={{ fontSize: '20px' }} />
-          </IconButton>
+            <KeyboardArrowDownRounded sx={{ fontSize: '14px' }} />
+          </Button>
+          <Menu
+            anchorEl={headingMenuAnchor}
+            open={headingMenuAnchor !== null}
+            onClose={handleHeadingMenuClose}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+            transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+          >
+            {headingMenuItems.map((item) => (
+              <MenuItem
+                key={item.label}
+                onClick={() => {
+                  handleHeadingMenuItemClick(item.level);
+                }}
+                sx={{
+                  fontFamily: '"DM Sans", sans-serif',
+                  fontSize: '0.8125rem',
+                  fontWeight: item.fontWeight,
+                  color: 'color' in item ? item.color : undefined,
+                  py: 0.75,
+                  px: 2,
+                }}
+              >
+                {item.label}
+              </MenuItem>
+            ))}
+          </Menu>
+
           <IconButton
             aria-label="Link"
             sx={helperButtonStyle}

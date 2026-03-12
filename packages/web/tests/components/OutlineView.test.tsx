@@ -428,4 +428,221 @@ describe('OutlineView', () => {
     expect(h3TextEl).toHaveStyle({ color: 'var(--text-secondary)' });
     expect(h3TextEl).toHaveStyle({ fontWeight: '400' });
   });
+
+  it('uses entry.hasChildren for font weight: parent bold, leaf normal', () => {
+    const entriesWithH1Parent: HeadingEntry[] = [
+      {
+        level: 1,
+        text: 'Parent Section',
+        pos: 0,
+        endPos: 100,
+        bodyPreview: '',
+        number: '1.',
+        isTitle: false,
+        hasChildren: true,
+      },
+      {
+        level: 3,
+        text: 'Leaf Clause',
+        pos: 100,
+        endPos: 200,
+        bodyPreview: '',
+        number: '1.0.1',
+        isTitle: false,
+        hasChildren: false,
+      },
+    ];
+    renderOutlineView({ entries: entriesWithH1Parent });
+
+    // H1 with hasChildren: true → fontWeight 600
+    const h1TextEl = screen.getByText('Parent Section');
+    expect(h1TextEl).toHaveStyle({ fontWeight: '600' });
+
+    // H3 with hasChildren: false → fontWeight 400
+    const h3TextEl = screen.getByText('Leaf Clause');
+    expect(h3TextEl).toHaveStyle({ fontWeight: '400' });
+  });
+
+  it('renders title entry with accent border and bold weight', () => {
+    const entriesWithTitle: HeadingEntry[] = [
+      {
+        level: 1,
+        text: 'My Agreement',
+        pos: 0,
+        endPos: 50,
+        bodyPreview: '',
+        number: '',
+        isTitle: true,
+        hasChildren: true,
+      },
+      {
+        level: 1,
+        text: 'Definitions',
+        pos: 50,
+        endPos: 100,
+        bodyPreview: '',
+        number: '1.',
+        isTitle: false,
+        hasChildren: false,
+      },
+    ];
+    renderOutlineView({ entries: entriesWithTitle });
+    const titleText = screen.getByText('My Agreement');
+    expect(titleText).toHaveStyle({ fontWeight: '600' });
+  });
+
+  it('renders H5/H6 entries with smallest font size', () => {
+    const deepEntries: HeadingEntry[] = [
+      {
+        level: 1,
+        text: 'Article',
+        pos: 0,
+        endPos: 200,
+        bodyPreview: '',
+        number: '1.',
+        isTitle: false,
+        hasChildren: true,
+      },
+      {
+        level: 5,
+        text: 'Paragraph',
+        pos: 100,
+        endPos: 150,
+        bodyPreview: '',
+        number: '1.0.0.0.1',
+        isTitle: false,
+        hasChildren: false,
+      },
+      {
+        level: 6,
+        text: 'Sub-paragraph',
+        pos: 150,
+        endPos: 200,
+        bodyPreview: '',
+        number: '1.0.0.0.1.1',
+        isTitle: false,
+        hasChildren: false,
+      },
+    ];
+    renderOutlineView({ entries: deepEntries });
+    const h5Text = screen.getByText('Paragraph');
+    const h6Text = screen.getByText('Sub-paragraph');
+    expect(h5Text).toHaveStyle({ fontSize: '0.6875rem' });
+    expect(h6Text).toHaveStyle({ fontSize: '0.6875rem' });
+  });
+
+  it('renders H4 entry with medium font size (0.75rem)', () => {
+    const entriesWithH4: HeadingEntry[] = [
+      {
+        level: 1,
+        text: 'Top Level',
+        pos: 0,
+        endPos: 200,
+        bodyPreview: '',
+        number: '1.',
+        isTitle: false,
+        hasChildren: true,
+      },
+      {
+        level: 4,
+        text: 'Sub-clause',
+        pos: 100,
+        endPos: 200,
+        bodyPreview: '',
+        number: '1.0.0.1',
+        isTitle: false,
+        hasChildren: false,
+      },
+    ];
+    renderOutlineView({ entries: entriesWithH4 });
+    const h4Text = screen.getByText('Sub-clause');
+    expect(h4Text).toHaveStyle({ fontSize: '0.75rem' });
+  });
+
+  it('renders H5 with 96px indentation and H6 with 120px indentation', () => {
+    const deepEntries: HeadingEntry[] = [
+      {
+        level: 1,
+        text: 'Article',
+        pos: 0,
+        endPos: 200,
+        bodyPreview: '',
+        number: '1.',
+        isTitle: false,
+        hasChildren: true,
+      },
+      {
+        level: 5,
+        text: 'Paragraph',
+        pos: 100,
+        endPos: 150,
+        bodyPreview: '',
+        number: '1.0.0.0.1',
+        isTitle: false,
+        hasChildren: false,
+      },
+      {
+        level: 6,
+        text: 'Sub-paragraph',
+        pos: 150,
+        endPos: 200,
+        bodyPreview: '',
+        number: '1.0.0.0.1.1',
+        isTitle: false,
+        hasChildren: false,
+      },
+    ];
+    renderOutlineView({ entries: deepEntries });
+
+    const h5Entry = screen.getByTestId('outline-entry-1');
+    const h6Entry = screen.getByTestId('outline-entry-2');
+
+    const h5Content = within(h5Entry).getByTestId('outline-entry-content');
+    const h6Content = within(h6Entry).getByTestId('outline-entry-content');
+
+    // H5: (5-1) * 24 = 96px, H6: (6-1) * 24 = 120px
+    expect(h5Content).toHaveStyle({ paddingLeft: '96px' });
+    expect(h6Content).toHaveStyle({ paddingLeft: '120px' });
+  });
+
+  it('"All levels" filter shows entries up to level 6', () => {
+    const deepEntries: HeadingEntry[] = [
+      {
+        level: 1,
+        text: 'Article',
+        pos: 0,
+        endPos: 200,
+        bodyPreview: '',
+        number: '1.',
+        isTitle: false,
+        hasChildren: true,
+      },
+      {
+        level: 5,
+        text: 'Paragraph',
+        pos: 100,
+        endPos: 150,
+        bodyPreview: '',
+        number: '1.0.0.0.1',
+        isTitle: false,
+        hasChildren: false,
+      },
+      {
+        level: 6,
+        text: 'Sub-paragraph',
+        pos: 150,
+        endPos: 200,
+        bodyPreview: '',
+        number: '1.0.0.0.1.1',
+        isTitle: false,
+        hasChildren: false,
+      },
+    ];
+    renderOutlineView({ entries: deepEntries });
+
+    // "All levels" is the default — all entries including H5 and H6 should be visible
+    expect(screen.getByText('Article')).toBeInTheDocument();
+    expect(screen.getByText('Paragraph')).toBeInTheDocument();
+    expect(screen.getByText('Sub-paragraph')).toBeInTheDocument();
+  });
 });

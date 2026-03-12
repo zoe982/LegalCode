@@ -42,6 +42,11 @@ vi.mock('../../src/editor/numberingPlugin.js', () => ({
   createNumberingPlugin: (...args: unknown[]) => mockCreateNumberingPlugin(...args) as unknown,
 }));
 
+const mockCreateTitlePlugin = vi.fn().mockReturnValue({ key: 'mock-title-plugin' });
+vi.mock('../../src/editor/titleNode.js', () => ({
+  createTitlePlugin: (...args: unknown[]) => mockCreateTitlePlugin(...args) as unknown,
+}));
+
 const captured: {
   editorCallback: ((root: HTMLElement) => unknown) | null;
   editorCallbackHistory: ((root: HTMLElement) => unknown)[];
@@ -292,8 +297,9 @@ describe('MarkdownEditor', () => {
 
     // Comment plugin is NOT installed without onSelectionChange
     expect(mockCreateCommentPlugin).not.toHaveBeenCalled();
-    // editor.use IS called once for the always-on numbering plugin
-    expect(mockEditorUse).toHaveBeenCalledTimes(1);
+    // editor.use IS called twice for the always-on title + numbering plugins
+    expect(mockEditorUse).toHaveBeenCalledTimes(2);
+    expect(mockCreateTitlePlugin).toHaveBeenCalledTimes(1);
     expect(mockCreateNumberingPlugin).toHaveBeenCalledTimes(1);
   });
 
@@ -310,8 +316,9 @@ describe('MarkdownEditor', () => {
     const fakeRoot = document.createElement('div');
     editorCb?.(fakeRoot);
 
-    // Only the numbering plugin is installed (always-on); no comment plugin, no collab plugin
-    expect(mockEditorUse).toHaveBeenCalledTimes(1);
+    // Only the title + numbering plugins are installed (always-on); no comment plugin, no collab plugin
+    expect(mockEditorUse).toHaveBeenCalledTimes(2);
+    expect(mockCreateTitlePlugin).toHaveBeenCalledTimes(1);
     expect(mockCreateNumberingPlugin).toHaveBeenCalledTimes(1);
     expect(mockCreateCommentPlugin).not.toHaveBeenCalled();
   });

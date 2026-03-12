@@ -122,10 +122,11 @@ describe('EditorToolbar', () => {
     expect(mockAction).toHaveBeenCalledTimes(1);
   });
 
-  it('calls crepeRef.editor.action for Heading button', async () => {
+  it('calls crepeRef.editor.action for Heading button — opens menu then selects item', async () => {
     const user = userEvent.setup();
     renderToolbar({ crepeRef: mockCrepeRef as never });
     await user.click(screen.getByRole('button', { name: 'Heading' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Section (H2)' }));
     expect(mockAction).toHaveBeenCalledTimes(1);
   });
 
@@ -185,17 +186,27 @@ describe('EditorToolbar', () => {
     expect(onInsertMarkdown).toHaveBeenCalledWith('{{var:', '}}');
   });
 
-  it('Bold/Italic/Heading/List/OrderedList/HR buttons do nothing when crepeRef is null', async () => {
+  it('Bold/Italic/List/OrderedList/HR buttons do nothing when crepeRef is null', async () => {
     const user = userEvent.setup();
     const nullCrepeRef = { current: null };
     renderToolbar({ crepeRef: nullCrepeRef as never });
     // Should not throw when clicking any Milkdown command button with null crepeRef
     await user.click(screen.getByRole('button', { name: 'Bold' }));
     await user.click(screen.getByRole('button', { name: 'Italic' }));
-    await user.click(screen.getByRole('button', { name: 'Heading' }));
     await user.click(screen.getByRole('button', { name: 'List' }));
     await user.click(screen.getByRole('button', { name: 'Ordered List' }));
     await user.click(screen.getByRole('button', { name: 'Horizontal Rule' }));
+    // No crash = pass
+  });
+
+  it('Heading dropdown menu items do nothing when crepeRef is null', async () => {
+    const user = userEvent.setup();
+    const nullCrepeRef = { current: null };
+    renderToolbar({ crepeRef: nullCrepeRef as never });
+    // Click heading button to open menu
+    await user.click(screen.getByRole('button', { name: 'Heading' }));
+    // Click a menu item — should not crash
+    await user.click(screen.getByRole('menuitem', { name: 'Clause (H3)' }));
     // No crash = pass
   });
 
@@ -250,6 +261,110 @@ describe('EditorToolbar', () => {
     renderToolbar({ wordCount: 50 });
     expect(screen.queryByText('All changes saved')).not.toBeInTheDocument();
     expect(screen.queryByText('Offline — changes saved locally')).not.toBeInTheDocument();
+  });
+
+  describe('Heading dropdown menu', () => {
+    it('opens heading dropdown menu when Heading button is clicked', async () => {
+      const user = userEvent.setup();
+      renderToolbar({ crepeRef: mockCrepeRef as never });
+      await user.click(screen.getByRole('button', { name: 'Heading' }));
+      expect(screen.getByRole('menu')).toBeInTheDocument();
+    });
+
+    it('shows all heading level options in the dropdown menu', async () => {
+      const user = userEvent.setup();
+      renderToolbar({ crepeRef: mockCrepeRef as never });
+      await user.click(screen.getByRole('button', { name: 'Heading' }));
+      expect(screen.getByRole('menuitem', { name: 'Title' })).toBeInTheDocument();
+      expect(screen.getByRole('menuitem', { name: 'Article (H1)' })).toBeInTheDocument();
+      expect(screen.getByRole('menuitem', { name: 'Section (H2)' })).toBeInTheDocument();
+      expect(screen.getByRole('menuitem', { name: 'Clause (H3)' })).toBeInTheDocument();
+      expect(screen.getByRole('menuitem', { name: 'Sub-clause (H4)' })).toBeInTheDocument();
+      expect(screen.getByRole('menuitem', { name: 'Paragraph (H5)' })).toBeInTheDocument();
+      expect(screen.getByRole('menuitem', { name: 'Sub-paragraph (H6)' })).toBeInTheDocument();
+      expect(screen.getByRole('menuitem', { name: 'Body text' })).toBeInTheDocument();
+    });
+
+    it('clicking a heading level option calls executeCommand and closes menu', async () => {
+      const user = userEvent.setup();
+      renderToolbar({ crepeRef: mockCrepeRef as never });
+      await user.click(screen.getByRole('button', { name: 'Heading' }));
+      await user.click(screen.getByRole('menuitem', { name: 'Clause (H3)' }));
+      expect(mockAction).toHaveBeenCalledTimes(1);
+      // Menu should be closed
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    });
+
+    it('heading dropdown menu closes when pressing Escape', async () => {
+      const user = userEvent.setup();
+      renderToolbar({ crepeRef: mockCrepeRef as never });
+      await user.click(screen.getByRole('button', { name: 'Heading' }));
+      expect(screen.getByRole('menu')).toBeInTheDocument();
+      // Press Escape to close
+      await user.keyboard('{Escape}');
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    });
+
+    it('menu does not appear before Heading button is clicked', () => {
+      renderToolbar({ crepeRef: mockCrepeRef as never });
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    });
+
+    it('clicking Title menu item calls executeCommand with heading level 1', async () => {
+      const user = userEvent.setup();
+      renderToolbar({ crepeRef: mockCrepeRef as never });
+      await user.click(screen.getByRole('button', { name: 'Heading' }));
+      await user.click(screen.getByRole('menuitem', { name: 'Title' }));
+      expect(mockAction).toHaveBeenCalledTimes(1);
+    });
+
+    it('clicking Article (H1) menu item calls executeCommand', async () => {
+      const user = userEvent.setup();
+      renderToolbar({ crepeRef: mockCrepeRef as never });
+      await user.click(screen.getByRole('button', { name: 'Heading' }));
+      await user.click(screen.getByRole('menuitem', { name: 'Article (H1)' }));
+      expect(mockAction).toHaveBeenCalledTimes(1);
+    });
+
+    it('clicking Section (H2) menu item calls executeCommand', async () => {
+      const user = userEvent.setup();
+      renderToolbar({ crepeRef: mockCrepeRef as never });
+      await user.click(screen.getByRole('button', { name: 'Heading' }));
+      await user.click(screen.getByRole('menuitem', { name: 'Section (H2)' }));
+      expect(mockAction).toHaveBeenCalledTimes(1);
+    });
+
+    it('clicking Sub-clause (H4) menu item calls executeCommand', async () => {
+      const user = userEvent.setup();
+      renderToolbar({ crepeRef: mockCrepeRef as never });
+      await user.click(screen.getByRole('button', { name: 'Heading' }));
+      await user.click(screen.getByRole('menuitem', { name: 'Sub-clause (H4)' }));
+      expect(mockAction).toHaveBeenCalledTimes(1);
+    });
+
+    it('clicking Paragraph (H5) menu item calls executeCommand', async () => {
+      const user = userEvent.setup();
+      renderToolbar({ crepeRef: mockCrepeRef as never });
+      await user.click(screen.getByRole('button', { name: 'Heading' }));
+      await user.click(screen.getByRole('menuitem', { name: 'Paragraph (H5)' }));
+      expect(mockAction).toHaveBeenCalledTimes(1);
+    });
+
+    it('clicking Sub-paragraph (H6) menu item calls executeCommand', async () => {
+      const user = userEvent.setup();
+      renderToolbar({ crepeRef: mockCrepeRef as never });
+      await user.click(screen.getByRole('button', { name: 'Heading' }));
+      await user.click(screen.getByRole('menuitem', { name: 'Sub-paragraph (H6)' }));
+      expect(mockAction).toHaveBeenCalledTimes(1);
+    });
+
+    it('clicking Body text menu item calls executeCommand', async () => {
+      const user = userEvent.setup();
+      renderToolbar({ crepeRef: mockCrepeRef as never });
+      await user.click(screen.getByRole('button', { name: 'Heading' }));
+      await user.click(screen.getByRole('menuitem', { name: 'Body text' }));
+      expect(mockAction).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('Undo/Redo buttons', () => {
