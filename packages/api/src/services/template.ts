@@ -96,6 +96,7 @@ export async function createTemplate(
     category: input.category,
     description: input.description ?? null,
     country: input.country ?? null,
+    company: input.company ?? null,
     currentVersion: 1,
     createdBy: userId,
     createdAt: now,
@@ -181,6 +182,9 @@ export async function listTemplates(db: AppDb, query: Partial<TemplateQuery>): P
   }
   if (parsed.country) {
     conditions.push(eq(templates.country, parsed.country));
+  }
+  if (parsed.company) {
+    conditions.push(eq(templates.company, parsed.company));
   }
   if (parsed.tag) {
     const taggedIds = db
@@ -330,6 +334,7 @@ export async function updateTemplate(
     description:
       parsed.description !== undefined ? (parsed.description ?? null) : existing.description,
     country: parsed.country !== undefined ? (parsed.country ?? null) : existing.country,
+    company: parsed.company !== undefined ? (parsed.company ?? null) : existing.company,
     currentVersion: newVersion,
     updatedAt: now,
   };
@@ -354,6 +359,7 @@ export async function updateTemplate(
         title: updatedTemplate.title,
         category: updatedTemplate.category,
         country: updatedTemplate.country,
+        company: updatedTemplate.company,
         currentVersion: newVersion,
         updatedAt: now,
       })

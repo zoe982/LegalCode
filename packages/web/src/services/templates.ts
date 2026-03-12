@@ -10,6 +10,7 @@ export interface TemplateListParams {
   search?: string;
   category?: string;
   country?: string;
+  company?: string;
   tag?: string;
   sort?: string;
   page?: number;
@@ -47,6 +48,7 @@ export const templateService = {
     if (params.search) searchParams.set('search', params.search);
     if (params.category) searchParams.set('category', params.category);
     if (params.country) searchParams.set('country', params.country);
+    if (params.company) searchParams.set('company', params.company);
     if (params.tag) searchParams.set('tag', params.tag);
     if (params.sort) searchParams.set('sort', params.sort);
     if (params.page != null) searchParams.set('page', String(params.page));

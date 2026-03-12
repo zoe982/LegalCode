@@ -9,6 +9,7 @@ import SearchOffIcon from '@mui/icons-material/SearchOff';
 import { useTemplates, useDeleteTemplate } from '../hooks/useTemplates.js';
 import { useCategories } from '../hooks/useCategories.js';
 import { useCountries } from '../hooks/useCountries.js';
+import { useCompanies } from '../hooks/useCompanies.js';
 import { TemplateCard } from '../components/TemplateCard.js';
 import { CreateTemplateDialog } from '../components/CreateTemplateDialog.js';
 import { DeleteTemplateDialog } from '../components/DeleteTemplateDialog.js';
@@ -34,6 +35,7 @@ export function TemplateListPage() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
   const [countryFilter, setCountryFilter] = useState<string | null>(null);
+  const [companyFilter, setCompanyFilter] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<SortBy>('updated');
   const [sortAnchorEl, setSortAnchorEl] = useState<HTMLElement | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -57,6 +59,7 @@ export function TemplateListPage() {
     ...(debouncedSearch !== '' ? { search: debouncedSearch } : {}),
     ...(categoryFilter !== null ? { category: categoryFilter } : {}),
     ...(countryFilter !== null ? { country: countryFilter } : {}),
+    ...(companyFilter !== null ? { company: companyFilter } : {}),
     sort: sortBy,
   };
 
@@ -70,10 +73,16 @@ export function TemplateListPage() {
   const { data: countriesData } = useCountries();
   const countryList = countriesData?.countries ?? [];
 
+  const { data: companiesData } = useCompanies();
+  const companyList = companiesData?.companies ?? [];
+
   const currentSortLabel = SORT_OPTIONS.find((o) => o.value === sortBy)?.label ?? 'Recently edited';
 
   const hasActiveFilters =
-    debouncedSearch !== '' || categoryFilter !== null || countryFilter !== null;
+    debouncedSearch !== '' ||
+    categoryFilter !== null ||
+    countryFilter !== null ||
+    companyFilter !== null;
 
   if (isLoading) {
     return (
@@ -330,6 +339,84 @@ export function TemplateListPage() {
                 })}
               </>
             )}
+            {companyList.length > 0 && (
+              <>
+                <Typography
+                  sx={{
+                    fontFamily: '"DM Sans", sans-serif',
+                    fontSize: '0.8125rem',
+                    fontWeight: 600,
+                    color: '#9B9DB0',
+                    alignSelf: 'center',
+                    ml: 1,
+                    mr: 0.5,
+                  }}
+                >
+                  Company
+                </Typography>
+                <Box
+                  data-testid="company-chip-all"
+                  component="button"
+                  type="button"
+                  role="button"
+                  onClick={() => {
+                    setCompanyFilter(null);
+                  }}
+                  sx={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    borderRadius: '9999px',
+                    padding: '5px 14px',
+                    fontFamily: '"DM Sans", sans-serif',
+                    fontSize: '0.8125rem',
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                    transition: 'all 150ms ease',
+                    border: companyFilter === null ? 'none' : '1px solid #E4E5ED',
+                    backgroundColor: companyFilter === null ? '#8027FF' : '#F9F9FB',
+                    color: companyFilter === null ? '#FFFFFF' : '#6B6D82',
+                    '&:hover': {
+                      backgroundColor: companyFilter === null ? '#6B1FDB' : '#F3F3F7',
+                    },
+                  }}
+                >
+                  All
+                </Box>
+                {companyList.map((company) => {
+                  const isActive = companyFilter === company.name;
+                  return (
+                    <Box
+                      key={`company-${company.name}`}
+                      component="button"
+                      type="button"
+                      role="button"
+                      onClick={() => {
+                        setCompanyFilter(companyFilter === company.name ? null : company.name);
+                      }}
+                      sx={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        borderRadius: '9999px',
+                        padding: '5px 14px',
+                        fontFamily: '"DM Sans", sans-serif',
+                        fontSize: '0.8125rem',
+                        fontWeight: 500,
+                        cursor: 'pointer',
+                        transition: 'all 150ms ease',
+                        border: isActive ? 'none' : '1px solid #E4E5ED',
+                        backgroundColor: isActive ? '#8027FF' : '#F9F9FB',
+                        color: isActive ? '#FFFFFF' : '#6B6D82',
+                        '&:hover': {
+                          backgroundColor: isActive ? '#6B1FDB' : '#F3F3F7',
+                        },
+                      }}
+                    >
+                      {company.name}
+                    </Box>
+                  );
+                })}
+              </>
+            )}
           </Box>
 
           {/* Sort button */}
@@ -434,6 +521,7 @@ export function TemplateListPage() {
                 setDebouncedSearch('');
                 setCategoryFilter(null);
                 setCountryFilter(null);
+                setCompanyFilter(null);
               }}
               sx={{
                 mt: 1,

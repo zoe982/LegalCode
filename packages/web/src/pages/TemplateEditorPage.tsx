@@ -71,6 +71,7 @@ export function TemplateEditorPage() {
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState('');
   const [country, setCountry] = useState('');
+  const [company, setCompany] = useState('');
   const [content, setContent] = useState('');
   const [formInitialized, setFormInitialized] = useState(false);
 
@@ -293,12 +294,14 @@ export function TemplateEditorPage() {
     /* v8 ignore next -- defensive guard; categories always have entries by the time auto-create runs */
     const resolvedCategory = category !== '' ? category : (categories[0]?.name ?? 'General');
     const resolvedCountry = country !== '' ? country : undefined;
+    const resolvedCompany = company !== '' ? company : undefined;
     const resolvedContent = content !== '' ? content : ' ';
     void createMutation
       .mutateAsync({
         title,
         category: resolvedCategory,
         country: resolvedCountry,
+        company: resolvedCompany,
         content: resolvedContent,
       })
       .then((result: unknown) => {
@@ -312,7 +315,7 @@ export function TemplateEditorPage() {
         setAutoCreateState('idle');
         showToast('Failed to save draft', 'error');
       });
-  }, [title, category, categories, country, content, createMutation, navigate, showToast]);
+  }, [title, category, categories, country, company, content, createMutation, navigate, showToast]);
 
   // Auto-create draft when user starts typing in create mode
   useEffect(() => {
@@ -560,6 +563,8 @@ export function TemplateEditorPage() {
           onCategoryChange={setCategory}
           country={country}
           onCountryChange={setCountry}
+          company={company}
+          onCompanyChange={setCompany}
           editorMode={editorMode}
           onModeChange={(mode: 'edit' | 'source') => {
             handleModeChangeRef.current(mode);
@@ -594,6 +599,7 @@ export function TemplateEditorPage() {
     title,
     category,
     country,
+    company,
     editorMode,
     id,
     isReadOnly,
@@ -614,13 +620,14 @@ export function TemplateEditorPage() {
 
   // Reset form when navigating to a different template
   const prevIdRef = useRef(id);
-  /* v8 ignore next 12 -- navigation reset requires React Router param change; covered by e2e */
+  /* v8 ignore next 13 -- navigation reset requires React Router param change; covered by e2e */
   useEffect(() => {
     if (prevIdRef.current !== id) {
       setFormInitialized(false);
       setTitle('');
       setCategory('');
       setCountry('');
+      setCompany('');
       setContent('');
       isDirtyRef.current = false;
       hasAutoCreatedRef.current = false;
@@ -634,6 +641,7 @@ export function TemplateEditorPage() {
     setTitle(templateData.template.title);
     setCategory(templateData.template.category);
     setCountry(templateData.template.country ?? '');
+    setCompany(templateData.template.company ?? '');
     setContent(templateData.content);
     setFormInitialized(true);
   }

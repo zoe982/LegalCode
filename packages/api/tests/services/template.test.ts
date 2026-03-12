@@ -36,6 +36,7 @@ function mockTemplateRow(overrides: Partial<Record<string, unknown>> = {}) {
     category: 'contracts',
     description: null,
     country: null,
+    company: null,
     currentVersion: 1,
     createdBy: 'user-1',
     createdAt: '2026-01-01T00:00:00.000Z',
@@ -285,6 +286,38 @@ describe('template service', () => {
       }
     });
 
+    it('sets company to null when not provided', async () => {
+      vi.spyOn(db, 'select').mockReturnValue(setupDisplayIdSelectMock());
+      vi.spyOn(db, 'batch').mockResolvedValue([] as never);
+
+      const result = await createTemplate(
+        db,
+        { title: 'No Company', category: 'contracts', content: '# Body' },
+        'user-1',
+      );
+
+      expect('template' in result).toBe(true);
+      if ('template' in result) {
+        expect(result.template.company).toBeNull();
+      }
+    });
+
+    it('sets company when provided', async () => {
+      vi.spyOn(db, 'select').mockReturnValue(setupDisplayIdSelectMock());
+      vi.spyOn(db, 'batch').mockResolvedValue([] as never);
+
+      const result = await createTemplate(
+        db,
+        { title: 'With Company', category: 'contracts', content: '# Body', company: 'Acme Corp' },
+        'user-1',
+      );
+
+      expect('template' in result).toBe(true);
+      if ('template' in result) {
+        expect(result.template.company).toBe('Acme Corp');
+      }
+    });
+
     it('sets createdBy to the userId', async () => {
       vi.spyOn(db, 'select').mockReturnValue(setupDisplayIdSelectMock());
       vi.spyOn(db, 'batch').mockResolvedValue([] as never);
@@ -414,6 +447,13 @@ describe('template service', () => {
       setupListMock(db, [], 0);
 
       const result = await listTemplates(db, { country: 'US' });
+      expect(result.data).toEqual([]);
+    });
+
+    it('applies company filter', async () => {
+      setupListMock(db, [], 0);
+
+      const result = await listTemplates(db, { company: 'Acme Corp' });
       expect(result.data).toEqual([]);
     });
 
@@ -755,6 +795,69 @@ describe('template service', () => {
       expect(result).toHaveProperty('template');
       if ('template' in result) {
         expect(result.template.country).toBeNull();
+      }
+    });
+
+    it('sets company when provided in update', async () => {
+      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue(mockTemplateRow() as never);
+
+      vi.spyOn(db, 'batch').mockResolvedValue([] as never);
+
+      const tagWhereSpy = vi.fn().mockResolvedValue([]);
+      const tagInnerJoinSpy = vi.fn().mockReturnValue({ where: tagWhereSpy });
+      const tagFromSpy = vi.fn().mockReturnValue({ innerJoin: tagInnerJoinSpy });
+      vi.spyOn(db, 'select').mockReturnValue({ from: tagFromSpy } as never);
+
+      const result = await updateTemplate(
+        db,
+        't1',
+        { content: '# Body', company: 'Acme Corp' },
+        'user-1',
+      );
+
+      expect(result).toHaveProperty('template');
+      if ('template' in result) {
+        expect(result.template.company).toBe('Acme Corp');
+      }
+    });
+
+    it('sets company to null when explicitly provided as null', async () => {
+      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue(
+        mockTemplateRow({ company: 'Acme Corp' }) as never,
+      );
+
+      vi.spyOn(db, 'batch').mockResolvedValue([] as never);
+
+      const tagWhereSpy = vi.fn().mockResolvedValue([]);
+      const tagInnerJoinSpy = vi.fn().mockReturnValue({ where: tagWhereSpy });
+      const tagFromSpy = vi.fn().mockReturnValue({ innerJoin: tagInnerJoinSpy });
+      vi.spyOn(db, 'select').mockReturnValue({ from: tagFromSpy } as never);
+
+      const result = await updateTemplate(db, 't1', { content: '# Body', company: null }, 'user-1');
+
+      expect(result).toHaveProperty('template');
+      if ('template' in result) {
+        expect(result.template.company).toBeNull();
+      }
+    });
+
+    it('keeps existing company when company is not provided in update', async () => {
+      vi.spyOn(db.query.templates, 'findFirst').mockResolvedValue(
+        mockTemplateRow({ company: 'Acme Corp' }) as never,
+      );
+
+      vi.spyOn(db, 'batch').mockResolvedValue([] as never);
+
+      const tagWhereSpy = vi.fn().mockResolvedValue([]);
+      const tagInnerJoinSpy = vi.fn().mockReturnValue({ where: tagWhereSpy });
+      const tagFromSpy = vi.fn().mockReturnValue({ innerJoin: tagInnerJoinSpy });
+      vi.spyOn(db, 'select').mockReturnValue({ from: tagFromSpy } as never);
+
+      const result = await updateTemplate(db, 't1', { content: '# Body' }, 'user-1');
+
+      expect(result).toHaveProperty('template');
+      if ('template' in result) {
+        expect(result.template.company).toBe('Acme Corp');
       }
     });
 

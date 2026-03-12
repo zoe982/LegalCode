@@ -13,6 +13,7 @@ const mockTemplate: Template = {
   category: 'Employment',
   description: null,
   country: 'US',
+  company: null,
   currentVersion: 2,
   deletedAt: null,
   deletedBy: null,
@@ -245,5 +246,25 @@ describe('TemplateCard', () => {
     const templateEmptyCountry = { ...mockTemplate, country: '' };
     render(<TemplateCard template={templateEmptyCountry} onClick={onClick} />);
     expect(screen.queryByTestId('template-card-country')).not.toBeInTheDocument();
+  });
+
+  // company tests
+  it('renders company next to other metadata when present', () => {
+    const templateWithCompany = { ...mockTemplate, company: 'Acme Corp' };
+    render(<TemplateCard template={templateWithCompany} onClick={onClick} />);
+    const companyEl = screen.getByTestId('template-card-company');
+    expect(companyEl).toBeInTheDocument();
+    expect(companyEl).toHaveTextContent('Acme Corp');
+  });
+
+  it('does not render company when null', () => {
+    render(<TemplateCard template={mockTemplate} onClick={onClick} />);
+    expect(screen.queryByTestId('template-card-company')).not.toBeInTheDocument();
+  });
+
+  it('does not render company when empty string', () => {
+    const templateEmptyCompany = { ...mockTemplate, company: '' };
+    render(<TemplateCard template={templateEmptyCompany} onClick={onClick} />);
+    expect(screen.queryByTestId('template-card-company')).not.toBeInTheDocument();
   });
 });

@@ -17,6 +17,7 @@ import { useNavigate } from 'react-router';
 import { useCreateTemplate } from '../hooks/useTemplates.js';
 import { useCategories } from '../hooks/useCategories.js';
 import { useCountries } from '../hooks/useCountries.js';
+import { useCompanies } from '../hooks/useCompanies.js';
 
 interface CreateTemplateDialogProps {
   open: boolean;
@@ -28,10 +29,12 @@ export function CreateTemplateDialog({ open, onClose }: CreateTemplateDialogProp
   const createMutation = useCreateTemplate();
   const { data: categoriesData } = useCategories();
   const { data: countriesData } = useCountries();
+  const { data: companiesData } = useCompanies();
 
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState('');
   const [country, setCountry] = useState('');
+  const [company, setCompany] = useState('');
   const [titleError, setTitleError] = useState('');
   const [categoryError, setCategoryError] = useState('');
   const [titleTouched, setTitleTouched] = useState(false);
@@ -47,6 +50,7 @@ export function CreateTemplateDialog({ open, onClose }: CreateTemplateDialogProp
     setTitle('');
     setCategory('');
     setCountry('');
+    setCompany('');
     setTitleError('');
     setCategoryError('');
     setTitleTouched(false);
@@ -106,6 +110,7 @@ export function CreateTemplateDialog({ open, onClose }: CreateTemplateDialogProp
         title: title.trim(),
         category,
         country: country || null,
+        company: company || null,
         content: ' ',
       });
       void navigate(`/templates/${result.template.id}`);
@@ -116,6 +121,7 @@ export function CreateTemplateDialog({ open, onClose }: CreateTemplateDialogProp
 
   const categories = categoriesData?.categories ?? [];
   const countries = countriesData?.countries ?? [];
+  const companies = companiesData?.companies ?? [];
 
   return (
     <Dialog
@@ -372,6 +378,70 @@ export function CreateTemplateDialog({ open, onClose }: CreateTemplateDialogProp
               {countries.map((c) => (
                 <MenuItem key={c.id} value={c.code}>
                   {c.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Box>
+
+        {/* Company Row */}
+        <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+          {/* Company */}
+          <FormControl sx={{ flex: 1 }}>
+            <Typography
+              component="label"
+              id="create-template-company-label"
+              htmlFor="create-template-company"
+              sx={{
+                fontFamily: '"DM Sans", sans-serif',
+                fontSize: '0.8125rem',
+                fontWeight: 600,
+                color: '#12111A',
+                mb: 0.75,
+              }}
+            >
+              Company
+            </Typography>
+            <Select
+              id="create-template-company"
+              labelId="create-template-company-label"
+              value={company}
+              displayEmpty
+              disabled={isPending}
+              onChange={(e) => {
+                setCompany(e.target.value);
+              }}
+              input={
+                <OutlinedInput
+                  sx={{
+                    borderRadius: '12px',
+                    '& .MuiOutlinedInput-notchedOutline': {
+                      borderColor: '#D1D2DE',
+                    },
+                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                      borderColor: '#8027FF',
+                      boxShadow: '0 0 0 3px rgba(128, 39, 255, 0.2)',
+                    },
+                  }}
+                />
+              }
+              renderValue={(selected: string) => {
+                if (selected === '') {
+                  return (
+                    <Typography sx={{ color: '#9B9DB0', fontSize: '0.875rem' }}>
+                      Select...
+                    </Typography>
+                  );
+                }
+                return selected;
+              }}
+            >
+              <MenuItem value="">
+                <em>None</em>
+              </MenuItem>
+              {companies.map((co) => (
+                <MenuItem key={co.id} value={co.name}>
+                  {co.name}
                 </MenuItem>
               ))}
             </Select>

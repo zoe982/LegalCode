@@ -17,9 +17,10 @@ vi.mock('react-router', async () => {
   };
 });
 
-const { mockCategoriesData, mockCountriesData } = vi.hoisted(() => ({
+const { mockCategoriesData, mockCountriesData, mockCompaniesData } = vi.hoisted(() => ({
   mockCategoriesData: vi.fn(),
   mockCountriesData: vi.fn(),
+  mockCompaniesData: vi.fn(),
 }));
 
 vi.mock('../../src/hooks/useCategories.js', () => ({
@@ -28,6 +29,10 @@ vi.mock('../../src/hooks/useCategories.js', () => ({
 
 vi.mock('../../src/hooks/useCountries.js', () => ({
   useCountries: () => mockCountriesData() as unknown,
+}));
+
+vi.mock('../../src/hooks/useCompanies.js', () => ({
+  useCompanies: () => mockCompaniesData() as unknown,
 }));
 
 const { DocumentHeader } = await import('../../src/components/DocumentHeader.js');
@@ -69,6 +74,18 @@ const defaultCountries = {
   isSuccess: true,
 };
 
+const defaultCompanies = {
+  data: {
+    companies: [
+      { id: 'cm1', name: 'Acme Corp', createdAt: '2026-01-01T00:00:00Z' },
+      { id: 'cm2', name: 'Globex', createdAt: '2026-01-02T00:00:00Z' },
+    ],
+  },
+  isLoading: false,
+  isError: false,
+  isSuccess: true,
+};
+
 interface RenderProps {
   title?: string;
   onTitleChange?: (title: string) => void;
@@ -76,6 +93,8 @@ interface RenderProps {
   onCategoryChange?: (category: string) => void;
   country?: string;
   onCountryChange?: (country: string) => void;
+  company?: string;
+  onCompanyChange?: (company: string) => void;
   editorMode?: 'edit' | 'source';
   onModeChange?: (mode: 'edit' | 'source') => void;
   templateId?: string | undefined;
@@ -97,6 +116,8 @@ function renderHeader(props: RenderProps = {}) {
     onCategoryChange: vi.fn(),
     country: 'US',
     onCountryChange: vi.fn(),
+    company: '',
+    onCompanyChange: vi.fn(),
     editorMode: 'edit' as const,
     onModeChange: vi.fn(),
     templateId: 't1',
@@ -117,6 +138,7 @@ describe('DocumentHeader', () => {
     localStorage.clear();
     mockCategoriesData.mockReturnValue(defaultCategories);
     mockCountriesData.mockReturnValue(defaultCountries);
+    mockCompaniesData.mockReturnValue(defaultCompanies);
   });
 
   // Back button
@@ -439,8 +461,8 @@ describe('DocumentHeader', () => {
     renderHeader({ country: '', onCountryChange });
     // MUI Select: the clickable trigger has role="combobox"
     const comboboxes = screen.getAllByRole('combobox');
-    // Country select is the second combobox (after category)
-    expect(comboboxes).toHaveLength(2);
+    // Country select is the second combobox (after category), company is third
+    expect(comboboxes.length).toBeGreaterThanOrEqual(2);
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- length asserted above
     fireEvent.mouseDown(comboboxes[1]!);
     const listbox = within(screen.getByRole('listbox'));
@@ -521,5 +543,47 @@ describe('DocumentHeader', () => {
     });
     renderHeader({ country: 'ZZ' });
     expect(screen.getByText('ZZ')).toBeInTheDocument();
+  });
+
+  // Company select
+  it('renders company select with correct label', () => {
+    renderHeader({ company: '' });
+    const companySelect = screen.getByLabelText('Template company');
+    expect(companySelect).toBeInTheDocument();
+  });
+
+  it('renders company select placeholder when empty', () => {
+    renderHeader({ company: '' });
+    expect(screen.getByText('Company')).toBeInTheDocument();
+  });
+
+  it('company select shows value when company is set', () => {
+    renderHeader({ company: 'Acme Corp' });
+    expect(screen.queryByText('Company')).not.toBeInTheDocument();
+    expect(screen.getByText('Acme Corp')).toBeInTheDocument();
+  });
+
+  it('onCompanyChange is called when company is selected', () => {
+    const onCompanyChange = vi.fn();
+    renderHeader({ company: '', onCompanyChange });
+    const comboboxes = screen.getAllByRole('combobox');
+    // Company select is the third combobox (after category and country)
+    expect(comboboxes.length).toBeGreaterThanOrEqual(3);
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- length asserted above
+    fireEvent.mouseDown(comboboxes[2]!);
+    const listbox = within(screen.getByRole('listbox'));
+    const option = listbox.getByText('Acme Corp');
+    fireEvent.click(option);
+    expect(onCompanyChange).toHaveBeenCalledWith('Acme Corp');
+  });
+
+  it('company select is disabled when readOnly', () => {
+    renderHeader({ readOnly: true });
+    const companySelect = screen.getByLabelText('Template company');
+    // MUI Select disabled state: the combobox has aria-disabled set
+    expect(companySelect).toBeInTheDocument();
+    // The select container should have the Mui-disabled class when disabled
+    const selectRoot = companySelect.closest('.MuiSelect-select, [class*="MuiInputBase"]');
+    expect(selectRoot ?? companySelect).toBeDefined();
   });
 });

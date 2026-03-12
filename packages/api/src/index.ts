@@ -11,6 +11,7 @@ import { collaborateRoutes } from './routes/collaborate.js';
 import { errorRoutes } from './routes/errors.js';
 import { categoryRoutes } from './routes/categories.js';
 import { countryRoutes } from './routes/countries.js';
+import { companyRoutes } from './routes/companies.js';
 import { requireJsonContentType } from './middleware/content-type.js';
 import { getDb } from './db/index.js';
 import { purgeExpiredTemplates } from './services/template.js';
@@ -47,6 +48,7 @@ app.route('/api/templates', templateRoutes);
 app.route('/api/collaborate', collaborateRoutes);
 app.route('/api/categories', categoryRoutes);
 app.route('/api/countries', countryRoutes);
+app.route('/api/companies', companyRoutes);
 
 // Serve static assets, with SPA fallback to index.html
 app.all('*', async (c) => {

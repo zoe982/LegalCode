@@ -12,6 +12,7 @@ import type { Template } from '@legalcode/shared';
 import type { TemplateListResponse } from '../../src/services/templates.js';
 import type { CategoryListResponse } from '../../src/services/categories.js';
 import type { CountryListResponse } from '../../src/services/countries.js';
+import type { CompanyListResponse } from '../../src/services/companies.js';
 import type { UseQueryResult } from '@tanstack/react-query';
 
 const mockUseTemplates = vi.fn();
@@ -19,6 +20,7 @@ const mockDeleteMutate = vi.fn();
 const mockUseDeleteTemplate = vi.fn();
 const mockUseCategories = vi.fn();
 const mockUseCountries = vi.fn();
+const mockUseCompanies = vi.fn();
 const mockNavigate = vi.fn();
 
 vi.mock('react-router', async () => {
@@ -42,6 +44,10 @@ vi.mock('../../src/hooks/useCountries.js', () => ({
   useCountries: () => mockUseCountries() as unknown,
 }));
 
+vi.mock('../../src/hooks/useCompanies.js', () => ({
+  useCompanies: () => mockUseCompanies() as unknown,
+}));
+
 vi.mock('../../src/components/CreateTemplateDialog.js', () => ({
   CreateTemplateDialog: ({ open, onClose }: { open: boolean; onClose: () => void }) =>
     open ? (
@@ -60,6 +66,7 @@ const mockTemplates: Template[] = [
     category: 'Employment',
     description: null,
     country: 'US',
+    company: null,
     currentVersion: 2,
     createdBy: 'u1',
     createdAt: '2026-01-01T00:00:00Z',
@@ -75,6 +82,7 @@ const mockTemplates: Template[] = [
     category: 'NDA',
     description: null,
     country: null,
+    company: null,
     currentVersion: 1,
     createdBy: 'u1',
     createdAt: '2026-02-01T00:00:00Z',
@@ -90,6 +98,7 @@ const mockTemplates: Template[] = [
     category: 'Employment',
     description: null,
     country: 'UK',
+    company: null,
     currentVersion: 1,
     createdBy: 'u1',
     createdAt: '2026-03-01T00:00:00Z',
@@ -215,6 +224,44 @@ function createCountryQueryResult(
   } as UseQueryResult<CountryListResponse>;
 }
 
+const mockCompaniesList = [
+  { id: 'cm1', name: 'Acme Corp', createdAt: '2026-01-01T00:00:00Z' },
+  { id: 'cm2', name: 'Globex', createdAt: '2026-01-01T00:00:00Z' },
+];
+
+function createCompanyQueryResult(
+  overrides: Partial<UseQueryResult<CompanyListResponse>>,
+): UseQueryResult<CompanyListResponse> {
+  return {
+    data: undefined,
+    dataUpdatedAt: 0,
+    error: null,
+    errorUpdateCount: 0,
+    errorUpdatedAt: 0,
+    failureCount: 0,
+    failureReason: null,
+    fetchStatus: 'idle',
+    isError: false,
+    isFetched: true,
+    isFetchedAfterMount: true,
+    isFetching: false,
+    isInitialLoading: false,
+    isLoading: false,
+    isLoadingError: false,
+    isPaused: false,
+    isPending: false,
+    isPlaceholderData: false,
+    isRefetchError: false,
+    isRefetching: false,
+    isStale: false,
+    isSuccess: true,
+    promise: Promise.resolve({ companies: [] }),
+    refetch: vi.fn(),
+    status: 'success',
+    ...overrides,
+  } as UseQueryResult<CompanyListResponse>;
+}
+
 function Wrapper({ children }: { children: ReactNode }) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -243,6 +290,11 @@ describe('TemplateListPage', () => {
     mockUseCountries.mockReturnValue(
       createCountryQueryResult({
         data: { countries: mockCountriesList },
+      }),
+    );
+    mockUseCompanies.mockReturnValue(
+      createCompanyQueryResult({
+        data: { companies: mockCompaniesList },
       }),
     );
   });
@@ -1186,5 +1238,170 @@ describe('TemplateListPage', () => {
       expect(confirmButton).toBeDefined();
       expect(confirmButton).toBeDisabled();
     });
+  });
+
+  // Company filter chips
+  it('renders company filter chips from API', () => {
+    mockUseTemplates.mockReturnValue(
+      createQueryResult({
+        data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
+      }),
+    );
+
+    render(<TemplateListPage />, { wrapper: Wrapper });
+
+    expect(screen.getByRole('button', { name: 'Acme Corp' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Globex' })).toBeInTheDocument();
+  });
+
+  it('filters by company when company chip is clicked', async () => {
+    const user = userEvent.setup();
+    mockUseTemplates.mockReturnValue(
+      createQueryResult({
+        data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
+      }),
+    );
+
+    render(<TemplateListPage />, { wrapper: Wrapper });
+    await user.click(screen.getByRole('button', { name: 'Acme Corp' }));
+
+    await waitFor(() => {
+      const lastCall = mockUseTemplates.mock.calls[mockUseTemplates.mock.calls.length - 1] as [
+        Record<string, unknown>,
+      ];
+      expect(lastCall[0]).toEqual(expect.objectContaining({ company: 'Acme Corp' }));
+    });
+  });
+
+  it('"All" company chip is shown and active by default', () => {
+    mockUseTemplates.mockReturnValue(
+      createQueryResult({
+        data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
+      }),
+    );
+
+    render(<TemplateListPage />, { wrapper: Wrapper });
+
+    const allCompanyChip = screen.getByTestId('company-chip-all');
+    expect(allCompanyChip).toBeInTheDocument();
+    expect(allCompanyChip).toHaveAttribute('role', 'button');
+  });
+
+  it('clicking "All" company chip clears company filter', async () => {
+    const user = userEvent.setup();
+    mockUseTemplates.mockReturnValue(
+      createQueryResult({
+        data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
+      }),
+    );
+
+    render(<TemplateListPage />, { wrapper: Wrapper });
+
+    // First select a company
+    await user.click(screen.getByRole('button', { name: 'Acme Corp' }));
+
+    await waitFor(() => {
+      const lastCall = mockUseTemplates.mock.calls[mockUseTemplates.mock.calls.length - 1] as [
+        Record<string, unknown>,
+      ];
+      expect(lastCall[0]).toEqual(expect.objectContaining({ company: 'Acme Corp' }));
+    });
+
+    // Then click "All" company chip to clear
+    await user.click(screen.getByTestId('company-chip-all'));
+
+    await waitFor(() => {
+      const lastCall = mockUseTemplates.mock.calls[mockUseTemplates.mock.calls.length - 1] as [
+        Record<string, unknown>,
+      ];
+      expect(lastCall[0]).not.toHaveProperty('company');
+    });
+  });
+
+  it('"Clear filters" resets company filter', async () => {
+    const user = userEvent.setup();
+    mockUseTemplates.mockReturnValue(
+      createQueryResult({
+        data: { data: [], total: 0, page: 1, limit: 20 },
+      }),
+    );
+
+    render(<TemplateListPage />, { wrapper: Wrapper });
+
+    // Click a company to activate filter
+    await user.click(screen.getByRole('button', { name: 'Acme Corp' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Clear filters' })).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Clear filters' }));
+
+    await waitFor(() => {
+      const lastCall = mockUseTemplates.mock.calls[mockUseTemplates.mock.calls.length - 1] as [
+        Record<string, unknown>,
+      ];
+      expect(lastCall[0]).not.toHaveProperty('company');
+    });
+  });
+
+  it('clicking active company chip toggles it off', async () => {
+    const user = userEvent.setup();
+    mockUseTemplates.mockReturnValue(
+      createQueryResult({
+        data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
+      }),
+    );
+
+    render(<TemplateListPage />, { wrapper: Wrapper });
+
+    // Click Acme Corp to activate
+    await user.click(screen.getByRole('button', { name: 'Acme Corp' }));
+
+    await waitFor(() => {
+      const lastCall = mockUseTemplates.mock.calls[mockUseTemplates.mock.calls.length - 1] as [
+        Record<string, unknown>,
+      ];
+      expect(lastCall[0]).toEqual(expect.objectContaining({ company: 'Acme Corp' }));
+    });
+
+    // Click Acme Corp again to deactivate
+    await user.click(screen.getByRole('button', { name: 'Acme Corp' }));
+
+    await waitFor(() => {
+      const lastCall = mockUseTemplates.mock.calls[mockUseTemplates.mock.calls.length - 1] as [
+        Record<string, unknown>,
+      ];
+      expect(lastCall[0]).not.toHaveProperty('company');
+    });
+  });
+
+  it('displays Company label before company chips', () => {
+    mockUseTemplates.mockReturnValue(
+      createQueryResult({
+        data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
+      }),
+    );
+
+    render(<TemplateListPage />, { wrapper: Wrapper });
+
+    expect(screen.getByText('Company')).toBeInTheDocument();
+  });
+
+  it('does not render company chips section when no companies', () => {
+    mockUseCompanies.mockReturnValue(
+      createCompanyQueryResult({
+        data: { companies: [] },
+      }),
+    );
+    mockUseTemplates.mockReturnValue(
+      createQueryResult({
+        data: { data: mockTemplates, total: 3, page: 1, limit: 20 },
+      }),
+    );
+
+    render(<TemplateListPage />, { wrapper: Wrapper });
+
+    expect(screen.queryByTestId('company-chip-all')).not.toBeInTheDocument();
   });
 });

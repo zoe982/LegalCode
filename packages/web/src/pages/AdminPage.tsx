@@ -4,6 +4,7 @@ import { ErrorLogTab } from '../components/ErrorLogTab.js';
 import { UsersTab } from '../components/UsersTab.js';
 import { CategoryManager } from '../components/CategoryManager.js';
 import { CountryManager } from '../components/CountryManager.js';
+import { CompanyManager } from '../components/CompanyManager.js';
 import { TrashManager } from '../components/TrashManager.js';
 import { useTopAppBarSetters } from '../contexts/TopAppBarContext.js';
 
@@ -67,6 +68,23 @@ export function AdminPage() {
         Countries
       </Typography>
       <CountryManager />
+
+      <Divider sx={{ my: 4, borderColor: '#E4E5ED' }} />
+
+      {/* Companies Section */}
+      <Typography
+        variant="h5"
+        component="h2"
+        sx={{
+          fontFamily: '"Source Serif 4", Georgia, "Times New Roman", serif',
+          fontWeight: 600,
+          color: '#12111A',
+          mb: 2,
+        }}
+      >
+        Companies
+      </Typography>
+      <CompanyManager />
 
       <Divider sx={{ my: 4, borderColor: '#E4E5ED' }} />
 

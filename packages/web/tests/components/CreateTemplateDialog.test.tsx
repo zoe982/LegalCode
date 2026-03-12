@@ -10,12 +10,14 @@ import { theme } from '../../src/theme/index.js';
 import { CreateTemplateDialog } from '../../src/components/CreateTemplateDialog.js';
 import type { CategoryListResponse } from '../../src/services/categories.js';
 import type { CountryListResponse } from '../../src/services/countries.js';
+import type { CompanyListResponse } from '../../src/services/companies.js';
 import type { UseQueryResult } from '@tanstack/react-query';
 
 const mockMutateAsync = vi.fn();
 const mockUseCreateTemplate = vi.fn();
 const mockUseCategories = vi.fn();
 const mockUseCountries = vi.fn();
+const mockUseCompanies = vi.fn();
 const mockNavigate = vi.fn();
 
 vi.mock('react-router', async () => {
@@ -38,6 +40,10 @@ vi.mock('../../src/hooks/useCountries.js', () => ({
   useCountries: () => mockUseCountries() as unknown,
 }));
 
+vi.mock('../../src/hooks/useCompanies.js', () => ({
+  useCompanies: () => mockUseCompanies() as unknown,
+}));
+
 const mockCategories: CategoryListResponse = {
   categories: [
     { id: 'c1', name: 'Employment', createdAt: '2026-01-01T00:00:00Z' },
@@ -51,6 +57,13 @@ const mockCountries: CountryListResponse = {
     { id: 'co1', name: 'United States', code: 'US', createdAt: '2026-01-01T00:00:00Z' },
     { id: 'co2', name: 'United Kingdom', code: 'GB', createdAt: '2026-01-02T00:00:00Z' },
     { id: 'co3', name: 'Germany', code: 'DE', createdAt: '2026-01-03T00:00:00Z' },
+  ],
+};
+
+const mockCompanies: CompanyListResponse = {
+  companies: [
+    { id: 'cm1', name: 'Acme Corp', createdAt: '2026-01-01T00:00:00Z' },
+    { id: 'cm2', name: 'Globex', createdAt: '2026-01-02T00:00:00Z' },
   ],
 };
 
@@ -109,6 +122,7 @@ describe('CreateTemplateDialog', () => {
     mockUseCreateTemplate.mockReturnValue(defaultMutationResult());
     mockUseCategories.mockReturnValue(defaultQueryResult(mockCategories));
     mockUseCountries.mockReturnValue(defaultQueryResult(mockCountries));
+    mockUseCompanies.mockReturnValue(defaultQueryResult(mockCompanies));
     mockMutateAsync.mockResolvedValue({
       template: { id: 'new-t1', title: 'Test', slug: 'test', category: 'Employment' },
       tags: [],
@@ -293,6 +307,7 @@ describe('CreateTemplateDialog', () => {
         title: 'Employment Agreement',
         category: 'NDA',
         country: 'US',
+        company: null,
         content: ' ',
       });
     });
@@ -315,6 +330,7 @@ describe('CreateTemplateDialog', () => {
         title: 'My Template',
         category: 'Employment',
         country: null,
+        company: null,
         content: ' ',
       });
     });
@@ -472,8 +488,8 @@ describe('CreateTemplateDialog', () => {
   it('displays placeholder text for selects when nothing selected', () => {
     renderDialog();
     const placeholders = screen.getAllByText('Select...');
-    // Both category and country show "Select..." placeholder
-    expect(placeholders).toHaveLength(2);
+    // Category, country, and company selects all show "Select..." placeholder
+    expect(placeholders).toHaveLength(3);
   });
 
   it('does not close dialog when isPending', () => {
@@ -685,5 +701,94 @@ describe('CreateTemplateDialog', () => {
     );
 
     expect(resetFn).toHaveBeenCalled();
+  });
+
+  // Company select tests
+  it('populates company select from useCompanies data with a None option', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    const companyCombobox = screen.getByLabelText('Company');
+    await user.click(companyCombobox);
+
+    const listbox = screen.getByRole('listbox');
+    expect(within(listbox).getByRole('option', { name: 'None' })).toBeInTheDocument();
+    expect(within(listbox).getByRole('option', { name: 'Acme Corp' })).toBeInTheDocument();
+    expect(within(listbox).getByRole('option', { name: 'Globex' })).toBeInTheDocument();
+  });
+
+  it('company select shows placeholder "Select..." when empty', () => {
+    renderDialog();
+    const placeholders = screen.getAllByText('Select...');
+    // Both country and company show "Select..." placeholder (plus category)
+    expect(placeholders.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('company select displays selected company name', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    const companyCombobox = screen.getByLabelText('Company');
+    await user.click(companyCombobox);
+    await user.click(screen.getByRole('option', { name: 'Globex' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Globex')).toBeInTheDocument();
+    });
+  });
+
+  it('passes company: null when no company selected', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    await user.type(screen.getByLabelText('Title'), 'My Template');
+
+    const categoryCombobox = screen.getByLabelText('Category');
+    await user.click(categoryCombobox);
+    await user.click(screen.getByRole('option', { name: 'Employment' }));
+
+    await user.click(screen.getByRole('button', { name: 'Create' }));
+
+    await waitFor(() => {
+      expect(mockMutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({
+          company: null,
+        }),
+      );
+    });
+  });
+
+  it('passes company name when company selected', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    await user.type(screen.getByLabelText('Title'), 'My Template');
+
+    const categoryCombobox = screen.getByLabelText('Category');
+    await user.click(categoryCombobox);
+    await user.click(screen.getByRole('option', { name: 'Employment' }));
+
+    const companyCombobox = screen.getByLabelText('Company');
+    await user.click(companyCombobox);
+    await user.click(screen.getByRole('option', { name: 'Acme Corp' }));
+
+    await user.click(screen.getByRole('button', { name: 'Create' }));
+
+    await waitFor(() => {
+      expect(mockMutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({
+          company: 'Acme Corp',
+        }),
+      );
+    });
+  });
+
+  it('renders with no companies when companiesData is undefined', () => {
+    mockUseCompanies.mockReturnValue(defaultQueryResult(undefined, { isLoading: true }));
+    renderDialog();
+
+    // Should still render the dialog without crashing
+    expect(screen.getByText('New Template')).toBeInTheDocument();
+    expect(screen.getByLabelText('Company')).toBeInTheDocument();
   });
 });

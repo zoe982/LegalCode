@@ -17,6 +17,7 @@ export const templates = sqliteTable('templates', {
   category: text('category').notNull(),
   description: text('description'),
   country: text('country'),
+  company: text('company'),
   currentVersion: integer('current_version').notNull().default(1),
   createdBy: text('created_by')
     .notNull()
@@ -117,6 +118,12 @@ export const countries = sqliteTable('countries', {
   id: text('id').primaryKey(),
   name: text('name').notNull().unique(),
   code: text('code').notNull().unique(),
+  createdAt: text('created_at').notNull(),
+});
+
+export const companies = sqliteTable('companies', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull().unique(),
   createdAt: text('created_at').notNull(),
 });
 

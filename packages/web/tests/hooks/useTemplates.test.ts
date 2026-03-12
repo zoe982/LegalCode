@@ -68,6 +68,7 @@ const mockTemplate: Template = {
   category: 'contracts',
   description: null,
   country: null,
+  company: null,
   currentVersion: 1,
   createdBy: 'user-1',
   createdAt: '2026-01-01T00:00:00Z',

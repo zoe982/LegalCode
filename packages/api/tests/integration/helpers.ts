@@ -12,6 +12,7 @@ const MIGRATION_FILES = [
   '0001_dizzy_jean_grey.sql',
   '0002_delete_templates.sql',
   '0003_add_display_id.sql',
+  '0004_add_company.sql',
 ];
 
 /**

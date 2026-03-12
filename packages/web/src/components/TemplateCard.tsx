@@ -115,6 +115,37 @@ export function TemplateCard({ template, onClick, onDelete }: TemplateCardProps)
               </Typography>
             </>
           )}
+          {template.company != null && template.company !== '' && (
+            <>
+              <Typography
+                component="span"
+                sx={{
+                  fontFamily: '"DM Sans", sans-serif',
+                  fontSize: '0.6875rem',
+                  fontWeight: 600,
+                  color: '#6B6D82',
+                  lineHeight: 1,
+                }}
+              >
+                {'\u00B7'}
+              </Typography>
+              <Typography
+                component="span"
+                data-testid="template-card-company"
+                sx={{
+                  fontFamily: '"DM Sans", sans-serif',
+                  fontSize: '0.6875rem',
+                  fontWeight: 600,
+                  letterSpacing: '0.05em',
+                  textTransform: 'uppercase',
+                  color: '#6B6D82',
+                  lineHeight: 1,
+                }}
+              >
+                {template.company}
+              </Typography>
+            </>
+          )}
         </Box>
         {onDelete != null && (
           <IconButton

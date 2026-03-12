@@ -27,6 +27,7 @@ export interface Template {
   category: string;
   description: string | null;
   country: string | null;
+  company: string | null;
   currentVersion: number;
   createdBy: string;
   createdAt: string;
@@ -70,6 +71,12 @@ export interface Country {
   id: string;
   name: string;
   code: string;
+  createdAt: string;
+}
+
+export interface Company {
+  id: string;
+  name: string;
   createdAt: string;
 }
 

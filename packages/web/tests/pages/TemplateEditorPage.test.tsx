@@ -620,6 +620,7 @@ vi.mock('../../src/components/DocumentHeader.js', () => ({
         <span data-testid="dh-title">{String(props.title)}</span>
         <span data-testid="dh-category">{String(props.category)}</span>
         <span data-testid="dh-country">{String(props.country)}</span>
+        <span data-testid="dh-company">{String(props.company)}</span>
         <span data-testid="dh-deleted">{props.readOnly ? 'true' : 'false'}</span>
         <span data-testid="dh-mode">{String(props.editorMode)}</span>
         {typeof props.onModeChange === 'function' && (
@@ -773,6 +774,7 @@ const draftTemplate: Template = {
   category: 'Employment',
   description: null,
   country: 'US',
+  company: null,
   currentVersion: 1,
   createdBy: 'u1',
   createdAt: '2026-01-01T00:00:00Z',
@@ -1085,6 +1087,12 @@ describe('TemplateEditorPage', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
       const { getByTestId } = renderDocumentHeader();
       expect(getByTestId('dh-country')).toHaveTextContent('US');
+    });
+
+    it('passes company to DocumentHeader', () => {
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      const { getByTestId } = renderDocumentHeader();
+      expect(getByTestId('dh-company')).toHaveTextContent('');
     });
 
     it('passes templateId to DocumentHeader', () => {

@@ -70,6 +70,7 @@ const mockTemplate: Template = {
   category: 'contracts',
   description: null,
   country: 'US',
+  company: null,
   currentVersion: 3,
   deletedAt: null,
   deletedBy: null,

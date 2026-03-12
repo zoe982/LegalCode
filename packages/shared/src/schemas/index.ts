@@ -22,6 +22,7 @@ export const createTemplateSchema = z.object({
   category: z.string().min(1).max(100),
   description: z.string().max(500).optional(),
   country: z.string().min(2).max(3).nullable().optional(),
+  company: z.string().min(1).max(100).nullable().optional(),
   content: z.string().min(1),
   tags: z.array(z.string().min(1)).optional(),
 });
@@ -31,6 +32,7 @@ export const updateTemplateSchema = z.object({
   category: z.string().min(1).max(100).optional(),
   description: z.string().max(500).optional(),
   country: z.string().min(2).max(3).nullable().optional(),
+  company: z.string().min(1).max(100).nullable().optional(),
   content: z.string().min(1).optional(),
   changeSummary: z.string().max(500).optional(),
   tags: z.array(z.string().min(1)).optional(),
@@ -44,6 +46,7 @@ export const templateSchema = z.object({
   category: z.string(),
   description: z.string().nullable(),
   country: z.string().nullable(),
+  company: z.string().nullable(),
   currentVersion: z.number(),
   createdBy: z.string(),
   createdAt: z.string(),
@@ -61,6 +64,7 @@ export const templateQuerySchema = z.object({
   search: z.string().optional(),
   category: z.string().optional(),
   country: z.string().optional(),
+  company: z.string().optional(),
   tag: z.string().optional(),
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().positive().max(100).default(20),
@@ -111,10 +115,26 @@ export const updateCountrySchema = z.object({
   code: z.string().min(2).max(3).optional(),
 });
 
+export const companySchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  createdAt: z.string(),
+});
+
+export const createCompanySchema = z.object({
+  name: z.string().min(1).max(100),
+});
+
+export const updateCompanySchema = z.object({
+  name: z.string().min(1).max(100),
+});
+
 export type CreateCategoryInput = z.infer<typeof createCategorySchema>;
 export type UpdateCategoryInput = z.infer<typeof updateCategorySchema>;
 export type CreateCountryInput = z.infer<typeof createCountrySchema>;
 export type UpdateCountryInput = z.infer<typeof updateCountrySchema>;
+export type CreateCompanyInput = z.infer<typeof createCompanySchema>;
+export type UpdateCompanyInput = z.infer<typeof updateCompanySchema>;
 
 export * from './auth.js';
 export * from './comments.js';

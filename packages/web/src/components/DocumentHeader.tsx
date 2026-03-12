@@ -18,6 +18,7 @@ import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded';
 import { useNavigate, Link } from 'react-router';
 import { useCategories } from '../hooks/useCategories.js';
 import { useCountries } from '../hooks/useCountries.js';
+import { useCompanies } from '../hooks/useCompanies.js';
 import type { SelectChangeEvent } from '@mui/material/Select';
 
 export interface DocumentHeaderProps {
@@ -27,6 +28,8 @@ export interface DocumentHeaderProps {
   onCategoryChange: (category: string) => void;
   country: string;
   onCountryChange: (country: string) => void;
+  company: string;
+  onCompanyChange: (company: string) => void;
   editorMode: 'edit' | 'source';
   onModeChange: (mode: 'edit' | 'source') => void;
   templateId?: string | undefined;
@@ -119,6 +122,8 @@ export function DocumentHeader({
   onCategoryChange,
   country,
   onCountryChange,
+  company,
+  onCompanyChange,
   editorMode,
   onModeChange,
   templateId,
@@ -134,6 +139,7 @@ export function DocumentHeader({
   const navigate = useNavigate();
   const categoriesQuery = useCategories();
   const countriesQuery = useCountries();
+  const companiesQuery = useCompanies();
 
   const [moreAnchorEl, setMoreAnchorEl] = useState<HTMLButtonElement | null>(null);
   const moreOpen = Boolean(moreAnchorEl);
@@ -164,8 +170,16 @@ export function DocumentHeader({
     [onCountryChange],
   );
 
+  const handleCompanyChange = useCallback(
+    (event: SelectChangeEvent) => {
+      onCompanyChange(event.target.value);
+    },
+    [onCompanyChange],
+  );
+
   const categories = categoriesQuery.data?.categories ?? [];
   const countries = countriesQuery.data?.countries ?? [];
+  const companies = companiesQuery.data?.companies ?? [];
 
   return (
     <Box
@@ -318,6 +332,55 @@ export function DocumentHeader({
       >
         {countries.map((co) => (
           <MenuItem key={co.id} value={co.code} sx={{ height: '36px', fontSize: '0.875rem' }}>
+            {co.name}
+          </MenuItem>
+        ))}
+      </Select>
+
+      {/* Company select */}
+      <Select
+        value={company}
+        onChange={handleCompanyChange}
+        displayEmpty
+        variant="standard"
+        disableUnderline
+        size="small"
+        aria-label="Template company"
+        disabled={readOnly}
+        IconComponent={ExpandMoreRounded}
+        renderValue={(value: string) => {
+          if (!value) {
+            return (
+              <Typography
+                component="span"
+                sx={{
+                  color: 'var(--text-tertiary)',
+                  fontFamily: '"DM Sans", sans-serif',
+                  fontSize: '0.8125rem',
+                }}
+              >
+                Company
+              </Typography>
+            );
+          }
+          return value;
+        }}
+        sx={{ ...compactSelectStyle, mr: '12px' }}
+        MenuProps={{
+          slotProps: {
+            paper: {
+              sx: {
+                backgroundColor: 'var(--surface-elevated)',
+                border: '1px solid var(--border-primary)',
+                borderRadius: '10px',
+                boxShadow: 'var(--shadow-md)',
+              },
+            },
+          },
+        }}
+      >
+        {companies.map((co) => (
+          <MenuItem key={co.id} value={co.name} sx={{ height: '36px', fontSize: '0.875rem' }}>
             {co.name}
           </MenuItem>
         ))}
