@@ -42,6 +42,8 @@ export function InlineCommentMargin({
   const [showResolved, setShowResolved] = useState(false);
   const [cardHeights, setCardHeights] = useState<Map<string, number>>(new Map());
   const cardRefs = useRef<Map<string, HTMLElement>>(new Map());
+  const elementToIdRef = useRef<WeakMap<Element, string>>(new WeakMap());
+  const resizeObserverRef = useRef<ResizeObserver | null>(null);
 
   const resolvedCount = useMemo(() => threads.filter((t) => t.comment.resolved).length, [threads]);
 
@@ -54,7 +56,7 @@ export function InlineCommentMargin({
 
   const positions = useCommentPositions(contentRef, commentIds, cardHeights);
 
-  // Measure card heights after render
+  // Measure card heights after render (initial synchronous measurement)
   useLayoutEffect(() => {
     const newHeights = new Map<string, number>();
     for (const thread of visibleThreads) {
@@ -66,10 +68,49 @@ export function InlineCommentMargin({
     setCardHeights(newHeights);
   }, [visibleThreads]);
 
+  // Initialize ResizeObserver for per-card height tracking
+  useLayoutEffect(() => {
+    const observer = new ResizeObserver((entries) => {
+      const updates = new Map<string, number>();
+      for (const entry of entries) {
+        const commentId = elementToIdRef.current.get(entry.target);
+        if (commentId != null) {
+          const height = (entry.target as HTMLElement).offsetHeight;
+          updates.set(commentId, height);
+        }
+      }
+      if (updates.size > 0) {
+        setCardHeights((prev) => {
+          let changed = false;
+          const next = new Map(prev);
+          for (const [id, h] of updates) {
+            if (prev.get(id) !== h) {
+              next.set(id, h);
+              changed = true;
+            }
+          }
+          return changed ? next : prev;
+        });
+      }
+    });
+    resizeObserverRef.current = observer;
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
+
   const setCardRef = useCallback((commentId: string, el: HTMLElement | null) => {
+    const observer = resizeObserverRef.current;
     if (el != null) {
       cardRefs.current.set(commentId, el);
+      elementToIdRef.current.set(el, commentId);
+      observer?.observe(el);
     } else {
+      const prevEl = cardRefs.current.get(commentId);
+      if (prevEl != null) {
+        observer?.unobserve(prevEl);
+        elementToIdRef.current.delete(prevEl);
+      }
       cardRefs.current.delete(commentId);
     }
   }, []);

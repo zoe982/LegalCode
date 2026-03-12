@@ -73,4 +73,41 @@ describe('CommentHighlight', () => {
     const el = screen.getByTestId('comment-highlight-comment-1');
     expect(el).toHaveStyle({ cursor: 'pointer' });
   });
+
+  // ── NEW TESTS ──────────────────────────────────────────────────────
+
+  it('overlapping highlights both receive click events independently', async () => {
+    const user = userEvent.setup();
+    const onClick1 = vi.fn();
+    const onClick2 = vi.fn();
+
+    const { container } = render(
+      <div>
+        <CommentHighlight status="unresolved" commentId="comment-A" onClick={onClick1}>
+          Shared text
+        </CommentHighlight>
+        <CommentHighlight status="unresolved" commentId="comment-B" onClick={onClick2}>
+          Other text
+        </CommentHighlight>
+      </div>,
+    );
+
+    // Click first highlight
+    const highlight1 = container.querySelector('[data-testid="comment-highlight-comment-A"]');
+    expect(highlight1).toBeTruthy();
+    if (highlight1 != null) {
+      await user.click(highlight1 as HTMLElement);
+    }
+    expect(onClick1).toHaveBeenCalledWith('comment-A');
+    expect(onClick2).not.toHaveBeenCalled();
+
+    // Click second highlight
+    const highlight2 = container.querySelector('[data-testid="comment-highlight-comment-B"]');
+    expect(highlight2).toBeTruthy();
+    if (highlight2 != null) {
+      await user.click(highlight2 as HTMLElement);
+    }
+    expect(onClick2).toHaveBeenCalledWith('comment-B');
+    expect(onClick1).toHaveBeenCalledTimes(1);
+  });
 });

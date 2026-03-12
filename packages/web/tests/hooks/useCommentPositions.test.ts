@@ -108,7 +108,8 @@ describe('useCommentPositions', () => {
     document.body.removeChild(container);
   });
 
-  it('resolves collisions by pushing overlapping cards down with 12px gap and 320px fallback height', () => {
+  // UPDATED: CARD_MIN_HEIGHT is now 140 (was 320)
+  it('resolves collisions by pushing overlapping cards down with 12px gap and 140px fallback height', () => {
     const container = createContainerWithMarks([
       { id: 'c1', top: 100 },
       { id: 'c2', top: 105 },
@@ -117,9 +118,9 @@ describe('useCommentPositions', () => {
 
     const { result } = renderHook(() => useCommentPositions(ref, ['c1', 'c2'], new Map()));
 
-    // First card stays at 100, second should be pushed to 100 + 320 (CARD_MIN_HEIGHT fallback) + 12 (GAP) = 432
+    // First card stays at 100, second should be pushed to 100 + 140 (CARD_MIN_HEIGHT fallback) + 12 (GAP) = 252
     expect(result.current[0]).toEqual({ commentId: 'c1', top: 100 });
-    expect(result.current[1]?.top).toBe(432);
+    expect(result.current[1]?.top).toBe(252);
 
     document.body.removeChild(container);
   });
@@ -141,6 +142,7 @@ describe('useCommentPositions', () => {
     document.body.removeChild(container);
   });
 
+  // UPDATED: CARD_MIN_HEIGHT is now 140 (was 320)
   it('falls back to CARD_MIN_HEIGHT when cardHeights has no entry for a comment', () => {
     const container = createContainerWithMarks([
       { id: 'c1', top: 100 },
@@ -148,7 +150,7 @@ describe('useCommentPositions', () => {
       { id: 'c3', top: 110 },
     ]);
     const ref = createMockRef(container);
-    // Only c1 has a measured height; c2 will use fallback (320)
+    // Only c1 has a measured height; c2 will use fallback (140)
     const cardHeights = new Map([['c1', 50]]);
 
     const { result } = renderHook(() => useCommentPositions(ref, ['c1', 'c2', 'c3'], cardHeights));
@@ -157,8 +159,8 @@ describe('useCommentPositions', () => {
     expect(result.current[0]).toEqual({ commentId: 'c1', top: 100 });
     // c2 pushed to 100 + 50 (c1 measured) + 12 = 162
     expect(result.current[1]?.top).toBe(162);
-    // c3 pushed to 162 + 320 (c2 fallback) + 12 = 494
-    expect(result.current[2]?.top).toBe(494);
+    // c3 pushed to 162 + 140 (c2 fallback) + 12 = 314
+    expect(result.current[2]?.top).toBe(314);
 
     document.body.removeChild(container);
   });
@@ -237,6 +239,7 @@ describe('useCommentPositions', () => {
     document.body.removeChild(container);
   });
 
+  // UPDATED: c2 should be at 100 + 140 + 12 = 252 (was 432)
   it('recalculates when commentIds change', () => {
     const container = createContainerWithMarks([
       { id: 'c1', top: 100 },
@@ -254,7 +257,9 @@ describe('useCommentPositions', () => {
     rerender({ ids: ['c1', 'c2'] });
 
     expect(result.current).toHaveLength(2);
-    expect(result.current[1]).toEqual({ commentId: 'c2', top: 432 });
+    // c2 anchor is at 200, which is already past c1 (100) + 140 + 12 = 252, so c2 stays at 252
+    // Actually: c2 anchor is at 200, min is 100+140+12=252, so c2 is at Math.max(200,252) = 252
+    expect(result.current[1]).toEqual({ commentId: 'c2', top: 252 });
 
     document.body.removeChild(container);
   });
@@ -442,5 +447,274 @@ describe('useCommentPositions', () => {
 
     document.body.removeChild(scrollParent);
     vi.restoreAllMocks();
+  });
+
+  // ── NEW TESTS ──────────────────────────────────────────────────────
+
+  it('no two cards ever share the same vertical pixel range', () => {
+    // 5 cards all anchored at the same position — after collision resolution none overlap
+    const container = createContainerWithMarks([
+      { id: 'c1', top: 100 },
+      { id: 'c2', top: 100 },
+      { id: 'c3', top: 100 },
+      { id: 'c4', top: 100 },
+      { id: 'c5', top: 100 },
+    ]);
+    const ref = createMockRef(container);
+    // Give each card a measured height of 80px
+    const cardHeights = new Map([
+      ['c1', 80],
+      ['c2', 80],
+      ['c3', 80],
+      ['c4', 80],
+      ['c5', 80],
+    ]);
+
+    const { result } = renderHook(() =>
+      useCommentPositions(ref, ['c1', 'c2', 'c3', 'c4', 'c5'], cardHeights),
+    );
+
+    const positions = result.current;
+    expect(positions).toHaveLength(5);
+
+    // Verify no two cards overlap: card[i].top + height[i] + GAP <= card[i+1].top
+    for (let i = 0; i < positions.length - 1; i++) {
+      const current = positions[i];
+      const next = positions[i + 1];
+      if (current == null || next == null) continue;
+      const currentHeight = cardHeights.get(current.commentId) ?? 140;
+      expect(current.top + currentHeight + 12).toBeLessThanOrEqual(next.top);
+    }
+
+    document.body.removeChild(container);
+  });
+
+  it('positions update when a single card height increases mid-render', () => {
+    const container = createContainerWithMarks([
+      { id: 'c1', top: 100 },
+      { id: 'c2', top: 105 },
+      { id: 'c3', top: 110 },
+    ]);
+    const ref = createMockRef(container);
+
+    // Initial heights: c1=60, c2=60
+    let cardHeights = new Map([
+      ['c1', 60],
+      ['c2', 60],
+    ]);
+
+    const { result, rerender } = renderHook(
+      ({ heights }: { heights: Map<string, number> }) =>
+        useCommentPositions(ref, ['c1', 'c2', 'c3'], heights),
+      { initialProps: { heights: cardHeights } },
+    );
+
+    // c1 at 100, c2 at 100+60+12=172, c3 at 172+60+12=244
+    expect(result.current[0]?.top).toBe(100);
+    expect(result.current[1]?.top).toBe(172);
+    expect(result.current[2]?.top).toBe(244);
+
+    // c2 height increases to 200 — all cards below should shift down
+    cardHeights = new Map([
+      ['c1', 60],
+      ['c2', 200],
+    ]);
+    rerender({ heights: cardHeights });
+
+    // c1 unchanged, c2 unchanged, c3 now at 172+200+12=384
+    expect(result.current[0]?.top).toBe(100);
+    expect(result.current[1]?.top).toBe(172);
+    expect(result.current[2]?.top).toBe(384);
+
+    document.body.removeChild(container);
+  });
+
+  it('positions update when a card height decreases', () => {
+    const container = createContainerWithMarks([
+      { id: 'c1', top: 100 },
+      { id: 'c2', top: 105 },
+      { id: 'c3', top: 110 },
+    ]);
+    const ref = createMockRef(container);
+
+    // Start with large c2 height
+    let cardHeights = new Map([
+      ['c1', 60],
+      ['c2', 300],
+    ]);
+
+    const { result, rerender } = renderHook(
+      ({ heights }: { heights: Map<string, number> }) =>
+        useCommentPositions(ref, ['c1', 'c2', 'c3'], heights),
+      { initialProps: { heights: cardHeights } },
+    );
+
+    // c3 starts at 172+300+12=484
+    expect(result.current[2]?.top).toBe(484);
+
+    // c2 height decreases to 60 — c3 should shift up
+    cardHeights = new Map([
+      ['c1', 60],
+      ['c2', 60],
+    ]);
+    rerender({ heights: cardHeights });
+
+    // c3 now at 172+60+12=244
+    expect(result.current[2]?.top).toBe(244);
+
+    document.body.removeChild(container);
+  });
+
+  it('handles rapid successive height changes without overlap', () => {
+    const container = createContainerWithMarks([
+      { id: 'c1', top: 100 },
+      { id: 'c2', top: 105 },
+      { id: 'c3', top: 110 },
+    ]);
+    const ref = createMockRef(container);
+
+    const heights = [50, 100, 200, 80, 60];
+    let cardHeights = new Map([
+      ['c1', heights[0] ?? 140],
+      ['c2', 60],
+    ]);
+
+    const { result, rerender } = renderHook(
+      ({ h }: { h: Map<string, number> }) => useCommentPositions(ref, ['c1', 'c2', 'c3'], h),
+      { initialProps: { h: cardHeights } },
+    );
+
+    // Simulate rapid successive updates
+    for (const h of heights) {
+      cardHeights = new Map([
+        ['c1', h],
+        ['c2', 60],
+      ]);
+      rerender({ h: cardHeights });
+    }
+
+    // After final update, verify no overlaps
+    const positions = result.current;
+    expect(positions).toHaveLength(3);
+    for (let i = 0; i < positions.length - 1; i++) {
+      const current = positions[i];
+      const next = positions[i + 1];
+      if (current == null || next == null) continue;
+      const currentHeight = cardHeights.get(current.commentId) ?? 140;
+      expect(current.top + currentHeight + 12).toBeLessThanOrEqual(next.top);
+    }
+
+    document.body.removeChild(container);
+  });
+
+  it('maintains document order even when cards are pushed far from anchors', () => {
+    // 5 comments all on the same line (same anchor top)
+    const container = createContainerWithMarks([
+      { id: 'c1', top: 200 },
+      { id: 'c2', top: 200 },
+      { id: 'c3', top: 200 },
+      { id: 'c4', top: 200 },
+      { id: 'c5', top: 200 },
+    ]);
+    const ref = createMockRef(container);
+    const cardHeights = new Map([
+      ['c1', 100],
+      ['c2', 100],
+      ['c3', 100],
+      ['c4', 100],
+      ['c5', 100],
+    ]);
+
+    const { result } = renderHook(() =>
+      useCommentPositions(ref, ['c1', 'c2', 'c3', 'c4', 'c5'], cardHeights),
+    );
+
+    const positions = result.current;
+    expect(positions).toHaveLength(5);
+
+    // Cards should appear in input order (all same anchor, order preserved by stable sort + input order)
+    // Key requirement: positions are strictly increasing (document order preserved)
+    for (let i = 0; i < positions.length - 1; i++) {
+      const current = positions[i];
+      const next = positions[i + 1];
+      if (current == null || next == null) continue;
+      expect(current.top).toBeLessThan(next.top);
+    }
+
+    document.body.removeChild(container);
+  });
+
+  it('handles 10+ comments anchored to the same paragraph', () => {
+    const marks = Array.from({ length: 12 }, (_, i) => ({ id: `c${String(i + 1)}`, top: 300 }));
+    const container = createContainerWithMarks(marks);
+    const ref = createMockRef(container);
+    const cardHeights = new Map(marks.map((m) => [m.id, 80]));
+    const ids = marks.map((m) => m.id);
+
+    const { result } = renderHook(() => useCommentPositions(ref, ids, cardHeights));
+
+    const positions = result.current;
+    expect(positions).toHaveLength(12);
+
+    // All cards must be non-overlapping
+    for (let i = 0; i < positions.length - 1; i++) {
+      const current = positions[i];
+      const next = positions[i + 1];
+      if (current == null || next == null) continue;
+      const currentHeight = cardHeights.get(current.commentId) ?? 140;
+      expect(current.top + currentHeight + 12).toBeLessThanOrEqual(next.top);
+    }
+
+    document.body.removeChild(container);
+  });
+
+  it('handles mix of tiny (50px) and tall (400px) cards', () => {
+    const container = createContainerWithMarks([
+      { id: 'c1', top: 100 },
+      { id: 'c2', top: 105 }, // tall card
+      { id: 'c3', top: 110 },
+    ]);
+    const ref = createMockRef(container);
+    const cardHeights = new Map([
+      ['c1', 50],
+      ['c2', 400],
+      ['c3', 50],
+    ]);
+
+    const { result } = renderHook(() => useCommentPositions(ref, ['c1', 'c2', 'c3'], cardHeights));
+
+    const positions = result.current;
+    expect(positions).toHaveLength(3);
+
+    // c1 at 100, c2 at 100+50+12=162, c3 at 162+400+12=574
+    expect(positions[0]?.top).toBe(100);
+    expect(positions[1]?.top).toBe(162);
+    expect(positions[2]?.top).toBe(574);
+
+    // Gap after tall card is maintained
+    const c2Pos = positions[1];
+    const c3Pos = positions[2];
+    if (c2Pos != null && c3Pos != null) {
+      expect(c3Pos.top - (c2Pos.top + 400)).toBeGreaterThanOrEqual(12);
+    }
+
+    document.body.removeChild(container);
+  });
+
+  it('handles empty cardHeights gracefully with reduced fallback (140px, not 320px)', () => {
+    const container = createContainerWithMarks([
+      { id: 'c1', top: 100 },
+      { id: 'c2', top: 105 },
+    ]);
+    const ref = createMockRef(container);
+
+    // No heights provided — should use 140px fallback, not 320px
+    const { result } = renderHook(() => useCommentPositions(ref, ['c1', 'c2'], new Map()));
+
+    // c2 should be at 100 + 140 + 12 = 252, NOT 100 + 320 + 12 = 432
+    expect(result.current[1]?.top).toBe(252);
+    expect(result.current[1]?.top).not.toBe(432);
+
+    document.body.removeChild(container);
   });
 });

@@ -1,12 +1,12 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
 
 export interface CommentPosition {
   commentId: string;
   top: number;
 }
 
-const CARD_MIN_HEIGHT = 320;
-const CARD_GAP = 12;
+export const CARD_MIN_HEIGHT = 140;
+export const CARD_GAP = 12;
 
 export function useCommentPositions(
   containerRef: React.RefObject<HTMLElement | null>,
@@ -79,7 +79,7 @@ export function useCommentPositions(
     setPositions(resolved);
   }, [containerRef, commentIdsKey, cardHeightsKey]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     calculate();
   }, [calculate]);
 
