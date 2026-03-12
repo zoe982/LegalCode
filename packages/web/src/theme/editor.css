@@ -42,6 +42,89 @@
   font-family: var(--editor-font-serif);
 }
 
+.milkdown .ProseMirror h4 {
+  font-size: var(--editor-h4-size);
+  line-height: var(--editor-h4-height);
+  font-weight: var(--editor-h4-weight);
+  margin-top: 8px;
+  margin-bottom: 4px;
+  color: var(--text-primary);
+  font-family: var(--editor-font-serif);
+}
+
+.milkdown .ProseMirror h5 {
+  font-size: var(--editor-h5-size);
+  line-height: var(--editor-h5-height);
+  font-weight: var(--editor-h5-weight);
+  margin-top: 8px;
+  margin-bottom: 4px;
+  color: var(--text-primary);
+  font-family: var(--editor-font-serif);
+}
+
+.milkdown .ProseMirror h6 {
+  font-size: var(--editor-h6-size);
+  line-height: var(--editor-h6-height);
+  font-weight: var(--editor-h6-weight);
+  margin-top: 8px;
+  margin-bottom: 4px;
+  color: var(--text-primary);
+  font-family: var(--editor-font-serif);
+}
+
+/* Title node */
+.milkdown .ProseMirror div[data-type="title"] {
+  font-size: var(--editor-title-size);
+  line-height: var(--editor-title-height);
+  font-weight: var(--editor-title-weight);
+  font-family: var(--editor-font-serif);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-primary);
+  padding-bottom: 12px;
+  margin-top: 48px;
+  margin-bottom: 24px;
+}
+
+/* First title in document needs no top margin */
+.milkdown .ProseMirror div[data-type="title"]:first-child {
+  margin-top: 0;
+}
+
+/* Structural heading (has sub-headings beneath it) */
+.milkdown .ProseMirror .legal-heading-bold {
+  font-weight: 600 !important;
+}
+
+/* Leaf heading (no sub-headings, renders as body text) */
+.milkdown .ProseMirror .legal-heading-body {
+  font-weight: 400 !important;
+}
+
+/* Bold heading spacing — generous top margin for section breaks */
+.milkdown .ProseMirror .legal-heading-bold:is(h1, h2) {
+  margin-top: 32px;
+}
+
+/* Body/leaf heading spacing — tight clustering under parent */
+.milkdown .ProseMirror .legal-heading-body {
+  margin-top: 4px;
+  margin-bottom: 4px;
+}
+
+/* Numbering in bold (structural) headings */
+.milkdown .ProseMirror .legal-heading-bold .legal-numbering {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* Numbering in body (leaf) headings */
+.milkdown .ProseMirror .legal-heading-body .legal-numbering {
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+
 /* Body text */
 .milkdown .ProseMirror p {
   font-size: var(--editor-body-size);
@@ -120,5 +203,13 @@
 }
 
 .milkdown .ProseMirror h4 .legal-numbering {
+  font-size: inherit;
+}
+
+.milkdown .ProseMirror h5 .legal-numbering {
+  font-size: inherit;
+}
+
+.milkdown .ProseMirror h6 .legal-numbering {
   font-size: inherit;
 }
