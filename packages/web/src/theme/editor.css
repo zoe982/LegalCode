@@ -241,10 +241,10 @@
   counter-increment: legal-item;
 }
 
-/* Shared marker styling */
-.milkdown .ProseMirror ol[data-legal-list] li::before {
+/* Place marker on the flex container so it sits inline with .children */
+.milkdown .ProseMirror ol[data-legal-list] li > .list-item::before {
   flex-shrink: 0;
-  min-width: 16px;
+  min-width: auto;
   text-align: left;
   margin-right: 4px;
   color: var(--text-secondary);
@@ -252,15 +252,15 @@
 }
 
 /* Type-specific marker content */
-.milkdown .ProseMirror ol[data-legal-list="lower-alpha"] li::before {
+.milkdown .ProseMirror ol[data-legal-list="lower-alpha"] li > .list-item::before {
   content: counter(legal-item, lower-alpha) ". ";
 }
-.milkdown .ProseMirror ol[data-legal-list="upper-alpha"] li::before {
+.milkdown .ProseMirror ol[data-legal-list="upper-alpha"] li > .list-item::before {
   content: counter(legal-item, upper-alpha) ". ";
 }
-.milkdown .ProseMirror ol[data-legal-list="lower-roman"] li::before {
+.milkdown .ProseMirror ol[data-legal-list="lower-roman"] li > .list-item::before {
   content: counter(legal-item, lower-roman) ". ";
 }
-.milkdown .ProseMirror ol[data-legal-list="upper-roman"] li::before {
+.milkdown .ProseMirror ol[data-legal-list="upper-roman"] li > .list-item::before {
   content: counter(legal-item, upper-roman) ". ";
 }

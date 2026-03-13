@@ -145,6 +145,62 @@ describe('legalListSchemaPlugin', () => {
         'data-legal-list': 'lower-alpha',
       });
     });
+
+    it('produces HTML structure matching CSS selectors: ol[data-legal-list] > li', () => {
+      const result = plugin.schema.toDOM({ attrs: { listType: 'lower-alpha' } });
+      // result = ['ol', { 'data-legal-list': 'lower-alpha' }, 0]
+      // Slot 0 means ProseMirror will render children (li elements) inside the ol
+      expect(result[0]).toBe('ol');
+      const attrs = result[1] as Record<string, string>;
+      expect(attrs['data-legal-list']).toBeDefined();
+      expect(typeof attrs['data-legal-list']).toBe('string');
+      // The 0 slot ensures li children are rendered inside this ol
+      expect(result[2]).toBe(0);
+    });
+
+    it('toDOM output matches snapshot for regression detection', () => {
+      const lowerAlpha = plugin.schema.toDOM({ attrs: { listType: 'lower-alpha' } });
+      const upperAlpha = plugin.schema.toDOM({ attrs: { listType: 'upper-alpha' } });
+      const lowerRoman = plugin.schema.toDOM({ attrs: { listType: 'lower-roman' } });
+      const upperRoman = plugin.schema.toDOM({ attrs: { listType: 'upper-roman' } });
+
+      expect(lowerAlpha).toMatchInlineSnapshot(`
+        [
+          "ol",
+          {
+            "data-legal-list": "lower-alpha",
+          },
+          0,
+        ]
+      `);
+      expect(upperAlpha).toMatchInlineSnapshot(`
+        [
+          "ol",
+          {
+            "data-legal-list": "upper-alpha",
+          },
+          0,
+        ]
+      `);
+      expect(lowerRoman).toMatchInlineSnapshot(`
+        [
+          "ol",
+          {
+            "data-legal-list": "lower-roman",
+          },
+          0,
+        ]
+      `);
+      expect(upperRoman).toMatchInlineSnapshot(`
+        [
+          "ol",
+          {
+            "data-legal-list": "upper-roman",
+          },
+          0,
+        ]
+      `);
+    });
   });
 
   describe('parseMarkdown', () => {
