@@ -230,7 +230,7 @@
    divs showing wrong numeric labels. We hide those and use CSS counters. */
 .milkdown .ProseMirror ol[data-legal-list] {
   counter-reset: legal-item;
-  padding-left: 24px;
+  padding-left: 0;
 }
 
 .milkdown .ProseMirror ol[data-legal-list] .label-wrapper {
@@ -244,9 +244,9 @@
 /* Shared marker styling */
 .milkdown .ProseMirror ol[data-legal-list] li::before {
   flex-shrink: 0;
-  min-width: 24px;
-  text-align: right;
-  margin-right: 10px;
+  min-width: 16px;
+  text-align: left;
+  margin-right: 4px;
   color: var(--text-secondary);
   font-family: var(--editor-font-serif);
 }
