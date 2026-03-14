@@ -139,8 +139,12 @@ describe('thinAutoVersions', () => {
   });
 
   it('thins to weekly beyond 30 days', async () => {
-    // Create multiple auto-versions in the same week bucket (45 days ago, within hours of each other)
-    const baseDate = new Date(Date.now() - 45 * 24 * 60 * 60 * 1000);
+    // Create multiple auto-versions in the same week bucket (45 days ago, within hours of each other).
+    // Snap to mid-week (Wednesday noon UTC) so the +2h offset never crosses a week boundary.
+    const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+    const roughDate = Date.now() - 45 * 24 * 60 * 60 * 1000;
+    const weekStart = Math.floor(roughDate / WEEK_MS) * WEEK_MS;
+    const baseDate = new Date(weekStart + 3.5 * 24 * 60 * 60 * 1000); // mid-week
     const versions: MockVersion[] = [
       {
         id: 'v1',
