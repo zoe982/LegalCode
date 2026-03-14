@@ -264,3 +264,115 @@
 .milkdown .ProseMirror ol[data-legal-list="upper-roman"] li > .list-item::before {
   content: counter(legal-item, upper-roman) ". ";
 }
+
+/* ── Variable Chip (inline NodeView) ── */
+
+.milkdown {
+  --var-text-color: #8027FF;
+  --var-text-bg: #8027FF14;
+  --var-date-color: #2563EB;
+  --var-date-bg: #2563EB14;
+  --var-address-color: #D97706;
+  --var-address-bg: #D9770614;
+  --var-currency-color: #059669;
+  --var-currency-bg: #05966914;
+  --var-signature-color: #DB2777;
+  --var-signature-bg: #DB277714;
+  --var-number-color: #0D9488;
+  --var-number-bg: #0D948814;
+  --var-custom-color: #6B6D82;
+  --var-custom-bg: #6B6D8214;
+}
+
+.milkdown .ProseMirror .variable-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px 1px 4px;
+  border-radius: 4px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.25rem;
+  vertical-align: baseline;
+  cursor: default;
+  user-select: none;
+  white-space: nowrap;
+  transition: background 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.milkdown .ProseMirror .variable-chip__icon {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.milkdown .ProseMirror .variable-chip__name {
+  color: var(--text-primary);
+}
+
+/* Type variants */
+.milkdown .ProseMirror .variable-chip--text {
+  background: var(--var-text-bg);
+  border: 1px solid color-mix(in srgb, var(--var-text-color) 30%, transparent);
+}
+.milkdown .ProseMirror .variable-chip--text .variable-chip__icon {
+  color: var(--var-text-color);
+  font-style: italic;
+}
+
+.milkdown .ProseMirror .variable-chip--date {
+  background: var(--var-date-bg);
+  border: 1px solid color-mix(in srgb, var(--var-date-color) 30%, transparent);
+}
+.milkdown .ProseMirror .variable-chip--date .variable-chip__icon {
+  color: var(--var-date-color);
+}
+
+.milkdown .ProseMirror .variable-chip--address {
+  background: var(--var-address-bg);
+  border: 1px solid color-mix(in srgb, var(--var-address-color) 30%, transparent);
+}
+.milkdown .ProseMirror .variable-chip--address .variable-chip__icon {
+  color: var(--var-address-color);
+}
+
+.milkdown .ProseMirror .variable-chip--currency {
+  background: var(--var-currency-bg);
+  border: 1px solid color-mix(in srgb, var(--var-currency-color) 30%, transparent);
+}
+.milkdown .ProseMirror .variable-chip--currency .variable-chip__icon {
+  color: var(--var-currency-color);
+}
+
+.milkdown .ProseMirror .variable-chip--signature {
+  background: var(--var-signature-bg);
+  border: 1px solid color-mix(in srgb, var(--var-signature-color) 30%, transparent);
+}
+.milkdown .ProseMirror .variable-chip--signature .variable-chip__icon {
+  color: var(--var-signature-color);
+  font-style: italic;
+}
+
+.milkdown .ProseMirror .variable-chip--number {
+  background: var(--var-number-bg);
+  border: 1px solid color-mix(in srgb, var(--var-number-color) 30%, transparent);
+}
+.milkdown .ProseMirror .variable-chip--number .variable-chip__icon {
+  color: var(--var-number-color);
+}
+
+.milkdown .ProseMirror .variable-chip--custom {
+  background: var(--var-custom-bg);
+  border: 1px solid color-mix(in srgb, var(--var-custom-color) 30%, transparent);
+}
+.milkdown .ProseMirror .variable-chip--custom .variable-chip__icon {
+  color: var(--var-custom-color);
+}
+
+/* Selected state (ProseMirror applies this class) */
+.milkdown .ProseMirror .variable-chip.ProseMirror-selectednode {
+  box-shadow: 0 0 0 2px var(--accent-primary-ring, rgba(128, 39, 255, 0.25));
+  border-color: var(--accent-primary, #8027FF);
+  outline: none;
+}
