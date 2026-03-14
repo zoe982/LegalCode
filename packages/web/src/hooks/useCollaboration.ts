@@ -26,6 +26,7 @@ const RECONNECT_DELAYS = [1000, 2000, 4000, 8000, 16000];
 
 export interface CollaborationOptions {
   onCommentEvent?: (() => void) | undefined;
+  onSuggestionEvent?: (() => void) | undefined;
 }
 
 export function useCollaboration(
@@ -47,6 +48,8 @@ export function useCollaboration(
   const connectFnRef = useRef<(() => void) | null>(null);
   const onCommentEventRef = useRef(options ? options.onCommentEvent : undefined);
   onCommentEventRef.current = options ? options.onCommentEvent : undefined;
+  const onSuggestionEventRef = useRef(options ? options.onSuggestionEvent : undefined);
+  onSuggestionEventRef.current = options ? options.onSuggestionEvent : undefined;
   const userRef = useRef(user);
   userRef.current = user;
 
@@ -147,6 +150,10 @@ export function useCollaboration(
         // MSG_COMMENT = 2
         if (data[0] === 2) {
           if (onCommentEventRef.current) onCommentEventRef.current();
+        }
+        // MSG_SUGGESTION = 3
+        if (data[0] === 3) {
+          if (onSuggestionEventRef.current) onSuggestionEventRef.current();
         }
       };
 

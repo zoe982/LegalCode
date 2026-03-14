@@ -47,6 +47,9 @@ import { CommentAnchorProvider } from '../contexts/CommentAnchorContext.js';
 import { DocumentHeader } from '../components/DocumentHeader.js';
 import { DeleteTemplateDialog } from '../components/DeleteTemplateDialog.js';
 import { InlineCommentMargin } from '../components/InlineCommentMargin.js';
+import { useSuggestions } from '../hooks/useSuggestions.js';
+import { PresenceCursorStyles } from '../components/PresenceCursor.js';
+import { resolveSuggestionAnchors } from '../editor/suggestionAnchors.js';
 
 export function TemplateEditorPage() {
   const { id } = useParams<{ id: string }>();
@@ -81,6 +84,7 @@ export function TemplateEditorPage() {
 
   const [editorMode, setEditorMode] = useState<'edit' | 'source'>('edit');
   const [outlineMode, setOutlineMode] = useState(false);
+  const [editingMode, setEditingMode] = useState<'editing' | 'suggesting' | 'viewing'>('editing');
   const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [cleanupDialogOpen, setCleanupDialogOpen] = useState(false);
@@ -114,6 +118,9 @@ export function TemplateEditorPage() {
     id,
     commentErrorCallbacks,
   );
+
+  const { suggestions, createSuggestion, acceptSuggestion, rejectSuggestion, deleteSuggestion } =
+    useSuggestions(id);
 
   // CodeMirror EditorView ref for source mode commands
   const cmViewRef = useRef<EditorView | null>(null);
@@ -182,6 +189,7 @@ export function TemplateEditorPage() {
   }, [threads]);
 
   const [activeCommentId, setActiveCommentId] = useState<string | null>(null);
+  const [activeSuggestionId, setActiveSuggestionId] = useState<string | null>(null);
 
   // Sync activeCommentId to ProseMirror decorations
   useEffect(() => {
@@ -249,6 +257,59 @@ export function TemplateEditorPage() {
     setActiveCommentId(commentId);
   }, []);
 
+  const handleSuggestInsert = useCallback(
+    (from: number, to: number, text: string) => {
+      if (!id) return;
+      createSuggestion({
+        templateId: id,
+        type: 'insert',
+        anchorFrom: String(from),
+        anchorTo: String(to),
+        originalText: '',
+        replacementText: text,
+      });
+    },
+    [id, createSuggestion],
+  );
+
+  const handleSuggestDelete = useCallback(
+    (from: number, to: number, text: string) => {
+      if (!id) return;
+      createSuggestion({
+        templateId: id,
+        type: 'delete',
+        anchorFrom: String(from),
+        anchorTo: String(to),
+        originalText: text,
+      });
+    },
+    [id, createSuggestion],
+  );
+
+  const handleAcceptSuggestion = useCallback(
+    (suggestionId: string) => {
+      if (!id) return;
+      acceptSuggestion({ templateId: id, suggestionId });
+    },
+    [id, acceptSuggestion],
+  );
+
+  const handleRejectSuggestion = useCallback(
+    (suggestionId: string) => {
+      if (!id) return;
+      rejectSuggestion({ templateId: id, suggestionId });
+    },
+    [id, rejectSuggestion],
+  );
+
+  const handleDeleteSuggestion = useCallback(
+    (suggestionId: string) => {
+      if (!id) return;
+      deleteSuggestion({ templateId: id, suggestionId });
+    },
+    [id, deleteSuggestion],
+  );
+
   /* v8 ignore next 3 -- click handler on editor surface, tested via integration */
   const handleEditorSurfaceClick = useCallback(() => {
     if (activeCommentId != null) setActiveCommentId(null);
@@ -305,6 +366,18 @@ export function TemplateEditorPage() {
         : null,
     [isCreateMode, isViewer, user?.id, user?.email],
   );
+
+  const onSuggestionEvent = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: ['suggestions', id] });
+  }, [queryClient, id]);
+
+  const suggestionAnchors = useMemo(() => {
+    if (!suggestions.length) return [];
+    return resolveSuggestionAnchors(
+      suggestions.filter((s) => s.status === 'pending'),
+      999999,
+    );
+  }, [suggestions]);
 
   const isDeleted = templateData?.template.deletedAt != null;
   const isReadOnly = isViewer || isDeleted;
@@ -597,9 +670,18 @@ export function TemplateEditorPage() {
         onExport={handleExport}
         queryClient={queryClient}
         id={id}
+        onSuggestionEvent={onSuggestionEvent}
       />
     );
-  }, [isCreateMode, draftSaveStatus, collaborationUser, handleExport, queryClient, id]);
+  }, [
+    isCreateMode,
+    draftSaveStatus,
+    collaborationUser,
+    handleExport,
+    queryClient,
+    id,
+    onSuggestionEvent,
+  ]);
 
   // Ref for documentHeaderRightSlot — read inside setConfig effect to avoid
   // re-triggering the context update cycle that causes React Error #185.
@@ -877,6 +959,8 @@ export function TemplateEditorPage() {
           onSourceLinePrefix={sourceCommands.insertLinePrefix}
           onSourceBlock={sourceCommands.insertBlock}
           onLegalList={editorMode === 'source' ? handleLegalList : undefined}
+          editingMode={editingMode}
+          onEditingModeChange={setEditingMode}
         />
 
         {/* Outline view — full replacement for editor canvas when active */}
@@ -955,7 +1039,14 @@ export function TemplateEditorPage() {
                     readOnly={isReadOnly}
                     onEditorReady={handleEditorReady}
                     onSelectionChange={onSelectionChange}
+                    suggestingMode={editingMode === 'suggesting'}
+                    onSuggestInsert={handleSuggestInsert}
+                    onSuggestDelete={handleSuggestDelete}
+                    suggestionAnchors={suggestionAnchors}
+                    remoteCursors={[]}
+                    localUserId={user?.id ?? null}
                   />
+                  <PresenceCursorStyles />
                 </Box>
                 {!isCreateMode && (
                   <MarginCommentTrigger
@@ -982,6 +1073,14 @@ export function TemplateEditorPage() {
                     authorEmail={user?.email ?? ''}
                     isCreating={isCreating}
                     pendingCommentTop={selectionInfo.buttonPosition?.top ?? undefined}
+                    suggestions={suggestions.filter((s) => s.status === 'pending')}
+                    activeSuggestionId={activeSuggestionId}
+                    onSuggestionClick={setActiveSuggestionId}
+                    onAcceptSuggestion={handleAcceptSuggestion}
+                    onRejectSuggestion={handleRejectSuggestion}
+                    onDeleteSuggestion={handleDeleteSuggestion}
+                    /* v8 ignore next -- permission check combines author ownership and admin role */
+                    canDeleteSuggestion={(s) => s.authorId === user?.id || user?.role === 'admin'}
                   />
                 )}
               </Box>

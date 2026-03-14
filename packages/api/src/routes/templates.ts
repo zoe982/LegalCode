@@ -24,6 +24,7 @@ import {
   autosaveSchema,
 } from '@legalcode/shared';
 import { commentRoutes } from './comments.js';
+import { suggestionRoutes } from './suggestions.js';
 import { logAudit } from '../services/audit-log.js';
 
 export const templateRoutes = new Hono<AppEnv>();
@@ -248,3 +249,6 @@ templateRoutes.delete('/:id/permanent', requireRole('admin'), async (c) => {
 
 // ── Comment sub-routes ────────────────────────────────────────────────
 templateRoutes.route('/:id/comments', commentRoutes);
+
+// ── Suggestion sub-routes ─────────────────────────────────────────────
+templateRoutes.route('/:id/suggestions', suggestionRoutes);

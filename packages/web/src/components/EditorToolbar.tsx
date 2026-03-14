@@ -1,5 +1,8 @@
 import { useState } from 'react';
 import { Box, Button, Divider, IconButton, Menu, MenuItem, Typography } from '@mui/material';
+import EditOutlined from '@mui/icons-material/EditOutlined';
+import RateReviewOutlined from '@mui/icons-material/RateReviewOutlined';
+import VisibilityOutlined from '@mui/icons-material/VisibilityOutlined';
 import FormatBoldIcon from '@mui/icons-material/FormatBold';
 import FormatItalicIcon from '@mui/icons-material/FormatItalic';
 import TitleOutlined from '@mui/icons-material/TitleOutlined';
@@ -50,6 +53,8 @@ interface EditorToolbarProps {
   onSourceLinePrefix?: ((prefix: string) => void) | undefined;
   onSourceBlock?: ((text: string) => void) | undefined;
   onLegalList?: ((listType: string) => void) | undefined;
+  editingMode?: 'editing' | 'suggesting' | 'viewing';
+  onEditingModeChange?: ((mode: 'editing' | 'suggesting' | 'viewing') => void) | undefined;
 }
 
 const helperButtonStyle = {
@@ -99,10 +104,34 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
   onSourceLinePrefix,
   onSourceBlock,
   onLegalList,
+  editingMode,
+  onEditingModeChange,
 }) => {
   const showMarkdownHelpers = !readOnly;
   const [headingMenuAnchor, setHeadingMenuAnchor] = useState<HTMLElement | null>(null);
   const [legalListMenuAnchor, setLegalListMenuAnchor] = useState<HTMLElement | null>(null);
+  const [modeMenuAnchor, setModeMenuAnchor] = useState<HTMLElement | null>(null);
+
+  const modeConfig = {
+    editing: {
+      icon: <EditOutlined sx={{ fontSize: '18px' }} />,
+      label: 'Editing',
+      description: 'Edit directly',
+    },
+    suggesting: {
+      icon: <RateReviewOutlined sx={{ fontSize: '18px' }} />,
+      label: 'Suggesting',
+      description: 'Propose changes',
+    },
+    viewing: {
+      icon: <VisibilityOutlined sx={{ fontSize: '18px' }} />,
+      label: 'Viewing',
+      description: 'Read only',
+    },
+  } as const;
+
+  const currentMode = editingMode ?? 'editing';
+  const current = modeConfig[currentMode];
 
   const executeCommand = (commandFn: ReturnType<typeof callCommand>) => {
     crepeRef?.current?.editor.action(commandFn);
@@ -452,7 +481,7 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
         </Box>
       )}
 
-      {/* Right: Word count + Connection status */}
+      {/* Right: Mode selector + Word count */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
         <FirstUseTooltip
           featureId="shortcuts"
@@ -469,6 +498,102 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
             {wordCount} {wordCount === 1 ? 'word' : 'words'}
           </Typography>
         </FirstUseTooltip>
+
+        {!readOnly && mode === 'edit' && onEditingModeChange != null && (
+          <>
+            <Button
+              aria-label="Editing mode"
+              aria-haspopup="true"
+              aria-expanded={modeMenuAnchor !== null ? 'true' : undefined}
+              onClick={(e) => {
+                setModeMenuAnchor(e.currentTarget);
+              }}
+              sx={{
+                height: '32px',
+                px: '10px',
+                borderRadius: '6px',
+                border:
+                  currentMode === 'suggesting'
+                    ? '1px solid var(--accent-primary)'
+                    : '1px solid var(--border-primary)',
+                backgroundColor:
+                  currentMode === 'suggesting' ? 'rgba(128, 39, 255, 0.08)' : 'transparent',
+                textTransform: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                color: 'var(--text-secondary)',
+                fontFamily: '"DM Sans", sans-serif',
+                fontSize: '0.75rem',
+                fontWeight: 500,
+                minWidth: 'unset',
+              }}
+            >
+              {current.icon}
+              {current.label}
+              <KeyboardArrowDownRounded sx={{ fontSize: '14px' }} />
+            </Button>
+            <Menu
+              anchorEl={modeMenuAnchor}
+              open={modeMenuAnchor !== null}
+              onClose={() => {
+                setModeMenuAnchor(null);
+              }}
+              anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+              transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+              slotProps={{ paper: { sx: { width: 200, borderRadius: '10px', mt: 0.5 } } }}
+            >
+              {(['editing', 'suggesting', 'viewing'] as const).map((m) => (
+                <MenuItem
+                  key={m}
+                  selected={currentMode === m}
+                  onClick={() => {
+                    onEditingModeChange(m);
+                    setModeMenuAnchor(null);
+                  }}
+                  sx={{
+                    py: 1,
+                    px: 1.5,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'flex-start',
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Box
+                      sx={{
+                        color:
+                          currentMode === m ? 'var(--accent-primary)' : 'var(--text-secondary)',
+                      }}
+                    >
+                      {modeConfig[m].icon}
+                    </Box>
+                    <Typography
+                      sx={{
+                        fontSize: '0.8125rem',
+                        fontWeight: 500,
+                        fontFamily: '"DM Sans", sans-serif',
+                        color: currentMode === m ? 'var(--text-primary)' : 'var(--text-body)',
+                      }}
+                    >
+                      {modeConfig[m].label}
+                    </Typography>
+                  </Box>
+                  <Typography
+                    sx={{
+                      fontSize: '0.6875rem',
+                      fontFamily: '"DM Sans", sans-serif',
+                      color: 'var(--text-tertiary)',
+                      ml: '30px',
+                    }}
+                  >
+                    {modeConfig[m].description}
+                  </Typography>
+                </MenuItem>
+              ))}
+            </Menu>
+          </>
+        )}
       </Box>
     </Box>
   );

@@ -54,6 +54,25 @@ vi.mock('../../src/editor/legalListNode.js', () => ({
   remarkLegalListPlugin: { id: 'legalListSyntax', type: '$remark' },
 }));
 
+const mockCreateSuggestionPlugin = vi.fn().mockReturnValue({ key: 'mock-suggestion-plugin' });
+vi.mock('../../src/editor/suggestionPlugin.js', () => ({
+  createSuggestionPlugin: (...args: unknown[]) => mockCreateSuggestionPlugin(...args) as unknown,
+  suggestionPluginKey: { key: 'suggestionPlugin' },
+}));
+
+const mockCreatePresenceCursorsPlugin = vi
+  .fn()
+  .mockReturnValue({ key: 'mock-presence-cursors-plugin' });
+vi.mock('../../src/editor/presenceCursorsPlugin.js', () => ({
+  createPresenceCursorsPlugin: (...args: unknown[]) =>
+    mockCreatePresenceCursorsPlugin(...args) as unknown,
+  presenceCursorsKey: { key: 'presenceCursors' },
+}));
+
+vi.mock('../../src/editor/suggestionAnchors.js', () => ({
+  resolveSuggestionAnchors: vi.fn().mockReturnValue([]),
+}));
+
 const captured: {
   editorCallback: ((root: HTMLElement) => unknown) | null;
   editorCallbackHistory: ((root: HTMLElement) => unknown)[];
@@ -304,8 +323,8 @@ describe('MarkdownEditor', () => {
 
     // Comment plugin is NOT installed without onSelectionChange
     expect(mockCreateCommentPlugin).not.toHaveBeenCalled();
-    // editor.use IS called 6 times: titleSchemaPlugin, remarkTitlePlugin, legalListSchemaPlugin, remarkLegalListPlugin, title decoration plugin, numbering plugin
-    expect(mockEditorUse).toHaveBeenCalledTimes(6);
+    // editor.use IS called 8 times: titleSchemaPlugin, remarkTitlePlugin, legalListSchemaPlugin, remarkLegalListPlugin, title decoration plugin, numbering plugin, suggestion plugin, presence cursors plugin
+    expect(mockEditorUse).toHaveBeenCalledTimes(8);
     expect(mockCreateTitlePlugin).toHaveBeenCalledTimes(1);
     expect(mockCreateNumberingPlugin).toHaveBeenCalledTimes(1);
   });
@@ -323,11 +342,55 @@ describe('MarkdownEditor', () => {
     const fakeRoot = document.createElement('div');
     editorCb?.(fakeRoot);
 
-    // Only the always-on plugins: titleSchema, remarkTitle, legalListSchema, remarkLegalList, title decoration, numbering; no comment plugin, no collab plugin
-    expect(mockEditorUse).toHaveBeenCalledTimes(6);
+    // Always-on plugins: titleSchema, remarkTitle, legalListSchema, remarkLegalList, title decoration, numbering, suggestion, presence cursors; no comment plugin, no collab plugin
+    expect(mockEditorUse).toHaveBeenCalledTimes(8);
     expect(mockCreateTitlePlugin).toHaveBeenCalledTimes(1);
     expect(mockCreateNumberingPlugin).toHaveBeenCalledTimes(1);
     expect(mockCreateCommentPlugin).not.toHaveBeenCalled();
+  });
+
+  it('installs suggestion plugin when editor is created', () => {
+    captured.editorCallback = null;
+
+    render(<MarkdownEditor />);
+
+    const editorCb = captured.editorCallback as ((root: HTMLElement) => unknown) | null;
+    expect(editorCb).not.toBeNull();
+    const fakeRoot = document.createElement('div');
+    editorCb?.(fakeRoot);
+
+    expect(mockCreateSuggestionPlugin).toHaveBeenCalledTimes(1);
+  });
+
+  it('installs presence cursors plugin when editor is created', () => {
+    captured.editorCallback = null;
+
+    render(<MarkdownEditor />);
+
+    const editorCb = captured.editorCallback as ((root: HTMLElement) => unknown) | null;
+    expect(editorCb).not.toBeNull();
+    const fakeRoot = document.createElement('div');
+    editorCb?.(fakeRoot);
+
+    expect(mockCreatePresenceCursorsPlugin).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders with suggestingMode prop without error', () => {
+    expect(() => {
+      render(<MarkdownEditor suggestingMode={true} />);
+    }).not.toThrow();
+    expect(screen.getByTestId('milkdown-editor')).toBeInTheDocument();
+  });
+
+  it('renders with onSuggestInsert and onSuggestDelete callbacks without error', () => {
+    const onSuggestInsert = vi.fn();
+    const onSuggestDelete = vi.fn();
+    expect(() => {
+      render(
+        <MarkdownEditor onSuggestInsert={onSuggestInsert} onSuggestDelete={onSuggestDelete} />,
+      );
+    }).not.toThrow();
+    expect(screen.getByTestId('milkdown-editor')).toBeInTheDocument();
   });
 
   it('does not re-create editorCallback when onChange identity changes (stable ref)', () => {
@@ -356,7 +419,217 @@ describe('MarkdownEditor', () => {
     expect(lastCallback).toBe(firstCallback);
   });
 
-  it('uses latest onChange via ref even after identity change', () => {
+  it('installs suggestion plugin when editor is created', () => {
+    captured.editorCallback = null;
+
+    render(<MarkdownEditor />);
+
+    const editorCb = captured.editorCallback as ((root: HTMLElement) => unknown) | null;
+    expect(editorCb).not.toBeNull();
+    const fakeRoot = document.createElement('div');
+    editorCb?.(fakeRoot);
+
+    expect(mockCreateSuggestionPlugin).toHaveBeenCalledTimes(1);
+  });
+
+  it('installs presence cursors plugin when editor is created', () => {
+    captured.editorCallback = null;
+
+    render(<MarkdownEditor />);
+
+    const editorCb = captured.editorCallback as ((root: HTMLElement) => unknown) | null;
+    expect(editorCb).not.toBeNull();
+    const fakeRoot = document.createElement('div');
+    editorCb?.(fakeRoot);
+
+    expect(mockCreatePresenceCursorsPlugin).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders with suggestingMode prop without error', () => {
+    expect(() => {
+      render(<MarkdownEditor suggestingMode={true} />);
+    }).not.toThrow();
+    expect(screen.getByTestId('milkdown-editor')).toBeInTheDocument();
+  });
+
+  it('renders with onSuggestInsert and onSuggestDelete callbacks without error', () => {
+    const onSuggestInsert = vi.fn();
+    const onSuggestDelete = vi.fn();
+    expect(() => {
+      render(
+        <MarkdownEditor onSuggestInsert={onSuggestInsert} onSuggestDelete={onSuggestDelete} />,
+      );
+    }).not.toThrow();
+    expect(screen.getByTestId('milkdown-editor')).toBeInTheDocument();
+  });
+
+  it('invokes onSuggestInsert callback via the suggestion plugin wrapper', () => {
+    captured.editorCallback = null;
+    const onSuggestInsert = vi.fn();
+
+    render(<MarkdownEditor onSuggestInsert={onSuggestInsert} />);
+
+    const editorCb = captured.editorCallback as ((root: HTMLElement) => unknown) | null;
+    expect(editorCb).not.toBeNull();
+    const fakeRoot = document.createElement('div');
+    editorCb?.(fakeRoot);
+
+    // createSuggestionPlugin is called with an object containing onSuggestInsert and onSuggestDelete wrappers
+    expect(mockCreateSuggestionPlugin).toHaveBeenCalledTimes(1);
+    const pluginOpts = (
+      mockCreateSuggestionPlugin.mock.calls[0] as [
+        {
+          onSuggestInsert: (from: number, to: number, text: string) => void;
+          onSuggestDelete: (from: number, to: number, text: string) => void;
+        },
+      ]
+    )[0];
+
+    // Invoke the wrapper — should call our onSuggestInsert fn
+    pluginOpts.onSuggestInsert(0, 5, 'inserted text');
+    expect(onSuggestInsert).toHaveBeenCalledWith(0, 5, 'inserted text');
+  });
+
+  it('invokes onSuggestDelete callback via the suggestion plugin wrapper', () => {
+    captured.editorCallback = null;
+    const onSuggestDelete = vi.fn();
+
+    render(<MarkdownEditor onSuggestDelete={onSuggestDelete} />);
+
+    const editorCb = captured.editorCallback as ((root: HTMLElement) => unknown) | null;
+    expect(editorCb).not.toBeNull();
+    const fakeRoot = document.createElement('div');
+    editorCb?.(fakeRoot);
+
+    expect(mockCreateSuggestionPlugin).toHaveBeenCalledTimes(1);
+    const pluginOpts = (
+      mockCreateSuggestionPlugin.mock.calls[0] as [
+        {
+          onSuggestInsert: (from: number, to: number, text: string) => void;
+          onSuggestDelete: (from: number, to: number, text: string) => void;
+        },
+      ]
+    )[0];
+
+    // Invoke the wrapper — should call our onSuggestDelete fn
+    pluginOpts.onSuggestDelete(3, 8, 'deleted text');
+    expect(onSuggestDelete).toHaveBeenCalledWith(3, 8, 'deleted text');
+  });
+
+  it('does not crash when onSuggestInsert wrapper is called without a handler', () => {
+    captured.editorCallback = null;
+
+    render(<MarkdownEditor />);
+
+    const editorCb = captured.editorCallback as ((root: HTMLElement) => unknown) | null;
+    expect(editorCb).not.toBeNull();
+    const fakeRoot = document.createElement('div');
+    editorCb?.(fakeRoot);
+
+    const pluginOpts = (
+      mockCreateSuggestionPlugin.mock.calls[0] as [
+        {
+          onSuggestInsert: (from: number, to: number, text: string) => void;
+          onSuggestDelete: (from: number, to: number, text: string) => void;
+        },
+      ]
+    )[0];
+
+    // Should not throw when no onSuggestInsert provided
+    expect(() => {
+      pluginOpts.onSuggestInsert(0, 5, 'text');
+    }).not.toThrow();
+  });
+
+  it('does not crash when onSuggestDelete wrapper is called without a handler', () => {
+    captured.editorCallback = null;
+
+    render(<MarkdownEditor />);
+
+    const editorCb = captured.editorCallback as ((root: HTMLElement) => unknown) | null;
+    expect(editorCb).not.toBeNull();
+    const fakeRoot = document.createElement('div');
+    editorCb?.(fakeRoot);
+
+    const pluginOpts = (
+      mockCreateSuggestionPlugin.mock.calls[0] as [
+        {
+          onSuggestInsert: (from: number, to: number, text: string) => void;
+          onSuggestDelete: (from: number, to: number, text: string) => void;
+        },
+      ]
+    )[0];
+
+    // Should not throw when no onSuggestDelete provided
+    expect(() => {
+      pluginOpts.onSuggestDelete(0, 5, 'text');
+    }).not.toThrow();
+  });
+
+  it('uses latest onSuggestInsert via ref after identity change', () => {
+    captured.editorCallback = null;
+    const onSuggestInsert1 = vi.fn();
+    const onSuggestInsert2 = vi.fn();
+
+    const { rerender } = render(<MarkdownEditor onSuggestInsert={onSuggestInsert1} />);
+
+    const editorCb = captured.editorCallback as ((root: HTMLElement) => unknown) | null;
+    expect(editorCb).not.toBeNull();
+    const fakeRoot = document.createElement('div');
+    editorCb?.(fakeRoot);
+
+    const pluginOpts = (
+      mockCreateSuggestionPlugin.mock.calls[0] as [
+        {
+          onSuggestInsert: (from: number, to: number, text: string) => void;
+          onSuggestDelete: (from: number, to: number, text: string) => void;
+        },
+      ]
+    )[0];
+
+    pluginOpts.onSuggestInsert(0, 3, 'first');
+    expect(onSuggestInsert1).toHaveBeenCalledWith(0, 3, 'first');
+
+    // Re-render with new handler — ref should be updated
+    rerender(<MarkdownEditor onSuggestInsert={onSuggestInsert2} />);
+
+    pluginOpts.onSuggestInsert(0, 3, 'second');
+    expect(onSuggestInsert2).toHaveBeenCalledWith(0, 3, 'second');
+    expect(onSuggestInsert1).toHaveBeenCalledTimes(1); // not called again
+  });
+
+  it('uses latest onSuggestDelete via ref after identity change', () => {
+    captured.editorCallback = null;
+    const onSuggestDelete1 = vi.fn();
+    const onSuggestDelete2 = vi.fn();
+
+    const { rerender } = render(<MarkdownEditor onSuggestDelete={onSuggestDelete1} />);
+
+    const editorCb = captured.editorCallback as ((root: HTMLElement) => unknown) | null;
+    expect(editorCb).not.toBeNull();
+    const fakeRoot = document.createElement('div');
+    editorCb?.(fakeRoot);
+
+    const pluginOpts = (
+      mockCreateSuggestionPlugin.mock.calls[0] as [
+        {
+          onSuggestInsert: (from: number, to: number, text: string) => void;
+          onSuggestDelete: (from: number, to: number, text: string) => void;
+        },
+      ]
+    )[0];
+
+    pluginOpts.onSuggestDelete(0, 3, 'first');
+    expect(onSuggestDelete1).toHaveBeenCalledWith(0, 3, 'first');
+
+    rerender(<MarkdownEditor onSuggestDelete={onSuggestDelete2} />);
+
+    pluginOpts.onSuggestDelete(0, 3, 'second');
+    expect(onSuggestDelete2).toHaveBeenCalledWith(0, 3, 'second');
+    expect(onSuggestDelete1).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses latest onSuggestInsert via ref even after identity change', () => {
     // After the fix, even though editorCallback is stable, it should use the
     // latest onChange function via a ref. This means:
     // 1. Render with onChange1, create editor, fire listener -> calls onChange1

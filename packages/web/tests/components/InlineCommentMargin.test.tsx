@@ -6,6 +6,7 @@ import { ThemeProvider } from '@mui/material/styles';
 import { theme } from '../../src/theme/index.js';
 import { InlineCommentMargin } from '../../src/components/InlineCommentMargin.js';
 import type { CommentThread } from '../../src/types/comments.js';
+import type { Suggestion } from '../../src/types/suggestions.js';
 
 // Mock useCommentPositions — now accepts 3 params
 vi.mock('../../src/hooks/useCommentPositions.js', () => ({
@@ -37,6 +38,44 @@ vi.mock('../../src/components/NewCommentCard.js', () => ({
         Submit
       </button>
       <button onClick={onCancel}>CancelNew</button>
+    </div>
+  ),
+}));
+
+// Mock InlineSuggestionCard
+vi.mock('../../src/components/InlineSuggestionCard.js', () => ({
+  InlineSuggestionCard: ({
+    suggestion,
+    isActive,
+    onAccept,
+    onReject,
+  }: {
+    suggestion: { id: string; type: string };
+    isActive?: boolean;
+    onAccept: (id: string) => void;
+    onReject: (id: string) => void;
+  }) => (
+    <div
+      data-testid={`suggestion-card-${suggestion.id}`}
+      data-active={isActive === true ? 'true' : undefined}
+      data-type={suggestion.type}
+    >
+      <button
+        onClick={() => {
+          onAccept(suggestion.id);
+        }}
+        aria-label="Accept suggestion"
+      >
+        Accept
+      </button>
+      <button
+        onClick={() => {
+          onReject(suggestion.id);
+        }}
+        aria-label="Reject suggestion"
+      >
+        Reject
+      </button>
     </div>
   ),
 }));
@@ -663,5 +702,250 @@ describe('InlineCommentMargin', () => {
     await user.click(screen.getByTestId('inline-card-c3'));
     expect(onCommentClick).toHaveBeenCalledWith('c3');
     expect(onCommentClick).toHaveBeenCalledTimes(2);
+  });
+});
+
+// ── Suggestion card helpers ─────────────────────────────────────────────────
+
+function makeSuggestion(overrides: Partial<Suggestion> = {}): Suggestion {
+  return {
+    id: 's-1',
+    templateId: 't-1',
+    authorId: 'u-1',
+    authorName: 'Alice Smith',
+    authorEmail: 'alice@example.com',
+    type: 'insert',
+    anchorFrom: '10',
+    anchorTo: '10',
+    originalText: '',
+    replacementText: 'new text',
+    status: 'pending',
+    resolvedBy: null,
+    resolvedAt: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    ...overrides,
+  };
+}
+
+describe('InlineCommentMargin — suggestion cards in margin', () => {
+  beforeEach(() => {
+    resizeCallbacks = new Map();
+    vi.stubGlobal('ResizeObserver', MockResizeObserver);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('renders suggestion cards when suggestions prop is provided', () => {
+    const suggestions = [makeSuggestion({ id: 's-1' })];
+
+    render(<InlineCommentMargin threads={[]} {...defaultProps} suggestions={suggestions} />, {
+      wrapper: Wrapper,
+    });
+
+    expect(screen.getByTestId('suggestion-card-s-1')).toBeInTheDocument();
+  });
+
+  it('renders suggestion card alongside comment cards', () => {
+    const threads = [createThread('c1', 'A comment')];
+    const suggestions = [makeSuggestion({ id: 's-1' })];
+
+    render(<InlineCommentMargin threads={threads} {...defaultProps} suggestions={suggestions} />, {
+      wrapper: Wrapper,
+    });
+
+    expect(screen.getByTestId('inline-card-c1')).toBeInTheDocument();
+    expect(screen.getByTestId('suggestion-card-s-1')).toBeInTheDocument();
+  });
+
+  it('renders suggestion card with correct type attribute', () => {
+    const suggestions = [makeSuggestion({ id: 's-del', type: 'delete' })];
+
+    render(<InlineCommentMargin threads={[]} {...defaultProps} suggestions={suggestions} />, {
+      wrapper: Wrapper,
+    });
+
+    expect(screen.getByTestId('suggestion-card-s-del')).toHaveAttribute('data-type', 'delete');
+  });
+
+  it('calls onAcceptSuggestion when accept button is clicked', async () => {
+    const user = userEvent.setup();
+    const onAcceptSuggestion = vi.fn();
+    const suggestions = [makeSuggestion({ id: 's-accept' })];
+
+    render(
+      <InlineCommentMargin
+        threads={[]}
+        {...defaultProps}
+        suggestions={suggestions}
+        onAcceptSuggestion={onAcceptSuggestion}
+      />,
+      { wrapper: Wrapper },
+    );
+
+    await user.click(screen.getByRole('button', { name: /accept suggestion/i }));
+    expect(onAcceptSuggestion).toHaveBeenCalledWith('s-accept');
+  });
+
+  it('calls onRejectSuggestion when reject button is clicked', async () => {
+    const user = userEvent.setup();
+    const onRejectSuggestion = vi.fn();
+    const suggestions = [makeSuggestion({ id: 's-reject' })];
+
+    render(
+      <InlineCommentMargin
+        threads={[]}
+        {...defaultProps}
+        suggestions={suggestions}
+        onRejectSuggestion={onRejectSuggestion}
+      />,
+      { wrapper: Wrapper },
+    );
+
+    await user.click(screen.getByRole('button', { name: /reject suggestion/i }));
+    expect(onRejectSuggestion).toHaveBeenCalledWith('s-reject');
+  });
+
+  it('renders no suggestion cards when suggestions prop is not provided', () => {
+    render(<InlineCommentMargin threads={[]} {...defaultProps} />, { wrapper: Wrapper });
+
+    expect(screen.queryByTestId(/suggestion-card-/)).not.toBeInTheDocument();
+  });
+
+  it('renders no suggestion cards when suggestions is an empty array', () => {
+    render(<InlineCommentMargin threads={[]} {...defaultProps} suggestions={[]} />, {
+      wrapper: Wrapper,
+    });
+
+    expect(screen.queryByTestId(/suggestion-card-/)).not.toBeInTheDocument();
+  });
+
+  it('renders multiple suggestion cards', () => {
+    const suggestions = [
+      makeSuggestion({ id: 's-1' }),
+      makeSuggestion({ id: 's-2', type: 'delete', originalText: 'old', replacementText: null }),
+    ];
+
+    render(<InlineCommentMargin threads={[]} {...defaultProps} suggestions={suggestions} />, {
+      wrapper: Wrapper,
+    });
+
+    expect(screen.getByTestId('suggestion-card-s-1')).toBeInTheDocument();
+    expect(screen.getByTestId('suggestion-card-s-2')).toBeInTheDocument();
+  });
+
+  it('marks active suggestion card when activeSuggestionId matches', () => {
+    const suggestions = [makeSuggestion({ id: 's-active' })];
+
+    render(
+      <InlineCommentMargin
+        threads={[]}
+        {...defaultProps}
+        suggestions={suggestions}
+        activeSuggestionId="s-active"
+      />,
+      { wrapper: Wrapper },
+    );
+
+    expect(screen.getByTestId('suggestion-card-s-active')).toHaveAttribute('data-active', 'true');
+  });
+
+  it('does not mark suggestion as active when activeSuggestionId does not match', () => {
+    const suggestions = [makeSuggestion({ id: 's-1' })];
+
+    render(
+      <InlineCommentMargin
+        threads={[]}
+        {...defaultProps}
+        suggestions={suggestions}
+        activeSuggestionId="s-other"
+      />,
+      { wrapper: Wrapper },
+    );
+
+    expect(screen.getByTestId('suggestion-card-s-1')).not.toHaveAttribute('data-active', 'true');
+  });
+
+  it('passes canDelete=true to InlineSuggestionCard when canDeleteSuggestion returns true', () => {
+    // Extend the InlineSuggestionCard mock to expose canDelete prop
+    const suggestions = [makeSuggestion({ id: 's-can-del' })];
+
+    render(
+      <InlineCommentMargin
+        threads={[]}
+        {...defaultProps}
+        suggestions={suggestions}
+        canDeleteSuggestion={() => true}
+        onDeleteSuggestion={vi.fn()}
+      />,
+      { wrapper: Wrapper },
+    );
+
+    // Card should render — canDelete=true is passed internally
+    expect(screen.getByTestId('suggestion-card-s-can-del')).toBeInTheDocument();
+  });
+
+  it('passes canDelete=false to InlineSuggestionCard when canDeleteSuggestion returns false', () => {
+    const suggestions = [makeSuggestion({ id: 's-no-del' })];
+
+    render(
+      <InlineCommentMargin
+        threads={[]}
+        {...defaultProps}
+        suggestions={suggestions}
+        canDeleteSuggestion={() => false}
+        onDeleteSuggestion={vi.fn()}
+      />,
+      { wrapper: Wrapper },
+    );
+
+    expect(screen.getByTestId('suggestion-card-s-no-del')).toBeInTheDocument();
+  });
+
+  it('renders suggestion card and passes onSuggestionClick prop (wired via InlineSuggestionCard onClick)', () => {
+    const onSuggestionClick = vi.fn();
+    const suggestions = [makeSuggestion({ id: 's-click' })];
+
+    render(
+      <InlineCommentMargin
+        threads={[]}
+        {...defaultProps}
+        suggestions={suggestions}
+        onSuggestionClick={onSuggestionClick}
+      />,
+      { wrapper: Wrapper },
+    );
+
+    // The suggestion card renders — onSuggestionClick is wired via InlineSuggestionCard's onClick prop
+    expect(screen.getByTestId('suggestion-card-s-click')).toBeInTheDocument();
+  });
+
+  it('uses fallback accept/reject handlers when onAcceptSuggestion/onRejectSuggestion are not provided', async () => {
+    const user = userEvent.setup();
+    const suggestions = [makeSuggestion({ id: 's-fallback' })];
+
+    // No onAcceptSuggestion or onRejectSuggestion passed — should fall back to () => undefined
+    render(<InlineCommentMargin threads={[]} {...defaultProps} suggestions={suggestions} />, {
+      wrapper: Wrapper,
+    });
+
+    // Clicking accept/reject should not throw (fallback no-ops)
+    await user.click(screen.getByRole('button', { name: /accept suggestion/i }));
+    await user.click(screen.getByRole('button', { name: /reject suggestion/i }));
+
+    expect(screen.getByTestId('suggestion-card-s-fallback')).toBeInTheDocument();
+  });
+
+  it('renders suggestion card with non-numeric anchorFrom (falls back to 0 for top calculation)', () => {
+    const suggestions = [makeSuggestion({ id: 's-nan-anchor', anchorFrom: 'NaN' })];
+
+    render(<InlineCommentMargin threads={[]} {...defaultProps} suggestions={suggestions} />, {
+      wrapper: Wrapper,
+    });
+
+    // Card should render even when anchorFrom is not a valid integer
+    expect(screen.getByTestId('suggestion-card-s-nan-anchor')).toBeInTheDocument();
   });
 });

@@ -14,6 +14,7 @@ interface EditorRightSlotProps {
   onExport: () => void;
   queryClient: QueryClient;
   id: string | undefined;
+  onSuggestionEvent?: (() => void) | undefined;
 }
 
 const priority: ConnectionStatusType[] = [
@@ -32,6 +33,7 @@ export const EditorRightSlot = memo(function EditorRightSlot({
   onExport,
   queryClient,
   id,
+  onSuggestionEvent,
 }: EditorRightSlotProps) {
   const isCreateMode = id === undefined;
 
@@ -42,6 +44,7 @@ export const EditorRightSlot = memo(function EditorRightSlot({
 
   const collaboration = useCollaboration(!isCreateMode ? id : null, collaborationUser, {
     onCommentEvent,
+    onSuggestionEvent,
   });
 
   const unifiedStatus: ConnectionStatusType | null = useMemo(() => {

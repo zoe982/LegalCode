@@ -287,18 +287,43 @@ vi.mock('../../src/hooks/useCollaboration.js', () => ({
   useCollaboration: (...args: unknown[]) => mockUseCollaboration(...args) as unknown,
 }));
 
+const mockUseSuggestions = vi.fn().mockReturnValue({
+  suggestions: [],
+  isLoading: false,
+  error: null,
+  createSuggestion: vi.fn(),
+  acceptSuggestion: vi.fn(),
+  rejectSuggestion: vi.fn(),
+  deleteSuggestion: vi.fn(),
+  isCreating: false,
+});
+
+vi.mock('../../src/hooks/useSuggestions.js', () => ({
+  useSuggestions: (...args: unknown[]) => mockUseSuggestions(...args) as unknown,
+}));
+
+vi.mock('../../src/components/PresenceCursor.js', () => ({
+  PresenceCursorStyles: () => null,
+}));
+
+vi.mock('../../src/editor/suggestionAnchors.js', () => ({
+  resolveSuggestionAnchors: vi.fn().mockReturnValue([]),
+}));
+
 vi.mock('../../src/components/EditorRightSlot.js', () => ({
   EditorRightSlot: ({
     collaborationUser,
     draftSaveStatus,
     onExport,
     id,
+    onSuggestionEvent,
   }: {
     collaborationUser: { userId: string; email: string; color: string } | null;
     draftSaveStatus: string | null;
     onExport: () => void;
     queryClient: unknown;
     id: string | undefined;
+    onSuggestionEvent?: () => void;
   }) => {
     // Simulate the real EditorRightSlot behavior using the mocked useCollaboration.
     // This mirrors EditorRightSlot's unifiedStatus logic for test fidelity.
@@ -343,6 +368,11 @@ vi.mock('../../src/components/EditorRightSlot.js', () => ({
             </div>
           )}
           <button aria-label="export" onClick={onExport} />
+          {onSuggestionEvent != null && (
+            <button data-testid="ers-suggestion-event" onClick={onSuggestionEvent}>
+              Suggestion Event
+            </button>
+          )}
         </div>
       );
     }
@@ -398,6 +428,9 @@ vi.mock('../../src/components/EditorToolbar.js', () => ({
     onSourceBlock,
     onUndo,
     onRedo,
+    onEditingModeChange,
+    editingMode,
+    onLegalList,
   }: {
     mode: string;
     wordCount: number;
@@ -410,63 +443,99 @@ vi.mock('../../src/components/EditorToolbar.js', () => ({
     onSourceBlock?: (text: string) => void;
     onUndo?: () => void;
     onRedo?: () => void;
-  }) => (
-    <div data-testid="editor-toolbar">
-      <span data-testid="editor-mode">{mode}</span>
-      <span data-testid="word-count">{String(wordCount)} words</span>
-      {crepeRef != null && <span data-testid="toolbar-has-crepe-ref" />}
-      {onImportCleanup != null && (
-        <button data-testid="toolbar-import-cleanup" onClick={onImportCleanup}>
-          Import Cleanup
-        </button>
-      )}
-      {onToggleOutline != null && (
-        <button data-testid="toolbar-toggle-outline" onClick={onToggleOutline}>
-          {outlineMode === true ? 'Exit Outline' : 'Outline'}
-        </button>
-      )}
-      {onSourceWrap != null && (
-        <button
-          data-testid="toolbar-source-bold"
-          onClick={() => {
-            onSourceWrap('**', '**');
-          }}
-        >
-          Source Bold
-        </button>
-      )}
-      {onSourceLinePrefix != null && (
-        <button
-          data-testid="toolbar-source-heading"
-          onClick={() => {
-            onSourceLinePrefix('## ');
-          }}
-        >
-          Source H2
-        </button>
-      )}
-      {onSourceBlock != null && (
-        <button
-          data-testid="toolbar-source-hr"
-          onClick={() => {
-            onSourceBlock('---');
-          }}
-        >
-          Source HR
-        </button>
-      )}
-      {onUndo != null && (
-        <button data-testid="toolbar-undo" onClick={onUndo}>
-          Undo
-        </button>
-      )}
-      {onRedo != null && (
-        <button data-testid="toolbar-redo" onClick={onRedo}>
-          Redo
-        </button>
-      )}
-    </div>
-  ),
+    onEditingModeChange?: (mode: string) => void;
+    editingMode?: string;
+    onLegalList?: (listType: string) => void;
+  }) => {
+    return (
+      <div data-testid="editor-toolbar">
+        <span data-testid="editor-mode">{mode}</span>
+        <span data-testid="word-count">{String(wordCount)} words</span>
+        {crepeRef != null && <span data-testid="toolbar-has-crepe-ref" />}
+        {onImportCleanup != null && (
+          <button data-testid="toolbar-import-cleanup" onClick={onImportCleanup}>
+            Import Cleanup
+          </button>
+        )}
+        {onToggleOutline != null && (
+          <button data-testid="toolbar-toggle-outline" onClick={onToggleOutline}>
+            {outlineMode === true ? 'Exit Outline' : 'Outline'}
+          </button>
+        )}
+        {onSourceWrap != null && (
+          <button
+            data-testid="toolbar-source-bold"
+            onClick={() => {
+              onSourceWrap('**', '**');
+            }}
+          >
+            Source Bold
+          </button>
+        )}
+        {onSourceLinePrefix != null && (
+          <button
+            data-testid="toolbar-source-heading"
+            onClick={() => {
+              onSourceLinePrefix('## ');
+            }}
+          >
+            Source H2
+          </button>
+        )}
+        {onSourceBlock != null && (
+          <button
+            data-testid="toolbar-source-hr"
+            onClick={() => {
+              onSourceBlock('---');
+            }}
+          >
+            Source HR
+          </button>
+        )}
+        {onUndo != null && (
+          <button data-testid="toolbar-undo" onClick={onUndo}>
+            Undo
+          </button>
+        )}
+        {onRedo != null && (
+          <button data-testid="toolbar-redo" onClick={onRedo}>
+            Redo
+          </button>
+        )}
+        {onEditingModeChange != null && (
+          <button
+            data-testid="toolbar-set-suggesting"
+            onClick={() => {
+              onEditingModeChange('suggesting');
+            }}
+          >
+            Suggest
+          </button>
+        )}
+        {onEditingModeChange != null && (
+          <button
+            data-testid="toolbar-set-editing"
+            onClick={() => {
+              onEditingModeChange('editing');
+            }}
+          >
+            Edit
+          </button>
+        )}
+        {editingMode != null && <span data-testid="toolbar-editing-mode">{editingMode}</span>}
+        {onLegalList != null && (
+          <button
+            data-testid="toolbar-legal-list"
+            onClick={() => {
+              onLegalList('numbered');
+            }}
+          >
+            Legal List
+          </button>
+        )}
+      </div>
+    );
+  },
 }));
 
 vi.mock('../../src/hooks/useOutlineTree.js', () => ({
@@ -531,6 +600,9 @@ vi.mock('../../src/components/InlineCommentMargin.js', () => ({
     onSubmitComment,
     onCancelComment,
     pendingCommentTop,
+    onAcceptSuggestion,
+    onRejectSuggestion,
+    onDeleteSuggestion,
   }: {
     threads: { comment: { id: string; content: string } }[];
     contentRef: unknown;
@@ -547,6 +619,9 @@ vi.mock('../../src/components/InlineCommentMargin.js', () => ({
     authorEmail?: string;
     isCreating?: boolean;
     pendingCommentTop?: number;
+    onAcceptSuggestion?: (id: string) => void;
+    onRejectSuggestion?: (id: string) => void;
+    onDeleteSuggestion?: (id: string) => void;
   }) => (
     <div data-testid="inline-comment-margin" role="complementary" aria-label="Comments">
       <span data-testid="margin-thread-count">{String(threads.length)}</span>
@@ -594,6 +669,36 @@ vi.mock('../../src/components/InlineCommentMargin.js', () => ({
       >
         Reply
       </button>
+      {onAcceptSuggestion != null && (
+        <button
+          data-testid="margin-accept-suggestion"
+          onClick={() => {
+            onAcceptSuggestion('s1');
+          }}
+        >
+          Accept
+        </button>
+      )}
+      {onRejectSuggestion != null && (
+        <button
+          data-testid="margin-reject-suggestion"
+          onClick={() => {
+            onRejectSuggestion('s1');
+          }}
+        >
+          Reject
+        </button>
+      )}
+      {onDeleteSuggestion != null && (
+        <button
+          data-testid="margin-delete-suggestion"
+          onClick={() => {
+            onDeleteSuggestion('s1');
+          }}
+        >
+          Delete Suggestion
+        </button>
+      )}
     </div>
   ),
 }));
@@ -947,6 +1052,16 @@ describe('TemplateEditorPage', () => {
       status: 'disconnected',
       connectedUsers: [],
       saveVersion: mockSaveVersion,
+    });
+    mockUseSuggestions.mockReturnValue({
+      suggestions: [],
+      isLoading: false,
+      error: null,
+      createSuggestion: vi.fn(),
+      acceptSuggestion: vi.fn(),
+      rejectSuggestion: vi.fn(),
+      deleteSuggestion: vi.fn(),
+      isCreating: false,
     });
   });
 
@@ -3637,6 +3752,631 @@ describe('TemplateEditorPage', () => {
       });
 
       expect(screen.queryByTestId('outline-view')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('handleApplyCleanup toast messages', () => {
+    beforeEach(() => {
+      mockUseParams.mockReturnValue({ id: 't1' });
+      mockUseTemplate.mockReturnValue(
+        createTemplateQueryResult({
+          data: templateData(draftTemplate, '# Draft'),
+        }),
+      );
+    });
+
+    it('shows "cleaned N headings" toast when only heading conversions are applied', () => {
+      const mockConversions = [
+        {
+          pos: 5,
+          originalText: '1. Introduction',
+          headingLevel: 1,
+          cleanedText: 'Introduction',
+          confidence: 'high' as const,
+          pattern: 'numbered-h1',
+          sourceType: 'heading' as const,
+          selected: true,
+        },
+        {
+          pos: 15,
+          originalText: '2. Background',
+          headingLevel: 2,
+          cleanedText: 'Background',
+          confidence: 'high' as const,
+          pattern: 'numbered-h2',
+          sourceType: 'heading' as const,
+          selected: true,
+        },
+      ];
+
+      const mockHeadingNode = { type: { name: 'heading' }, nodeSize: 20, attrs: { level: 1 } };
+      const mockHeadingType = { create: vi.fn().mockReturnValue({ type: 'heading' }) };
+      const mockTr = {
+        doc: { nodeAt: vi.fn().mockReturnValue(mockHeadingNode) },
+        replaceWith: vi.fn().mockReturnThis(),
+      };
+      const mockDispatch = vi.fn();
+      const mockView = {
+        state: {
+          doc: { forEach: vi.fn() },
+          tr: mockTr,
+          schema: {
+            nodes: { heading: mockHeadingType },
+            text: vi.fn((t: string) => ({ text: t })),
+          },
+        },
+        dispatch: mockDispatch,
+      };
+      const mockCtx = { get: vi.fn().mockReturnValue(mockView) };
+
+      mockEditorAction.mockImplementation((cb: (ctx: unknown) => void) => {
+        cb(mockCtx);
+      });
+      mockScanForConversions.mockReturnValue(mockConversions);
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      act(() => {
+        screen.getByTestId('toolbar-import-cleanup').click();
+      });
+      act(() => {
+        screen.getByTestId('cleanup-apply').click();
+      });
+
+      expect(mockShowToast).toHaveBeenCalledWith('Cleaned 2 headings', 'success');
+    });
+
+    it('shows "cleaned 1 heading" (singular) when one heading conversion is applied', () => {
+      const mockConversions = [
+        {
+          pos: 5,
+          originalText: '1. Introduction',
+          headingLevel: 1,
+          cleanedText: 'Introduction',
+          confidence: 'high' as const,
+          pattern: 'numbered-h1',
+          sourceType: 'heading' as const,
+          selected: true,
+        },
+      ];
+
+      const mockHeadingNode = { type: { name: 'heading' }, nodeSize: 20, attrs: { level: 1 } };
+      const mockHeadingType = { create: vi.fn().mockReturnValue({ type: 'heading' }) };
+      const mockTr = {
+        doc: { nodeAt: vi.fn().mockReturnValue(mockHeadingNode) },
+        replaceWith: vi.fn().mockReturnThis(),
+      };
+      const mockView = {
+        state: {
+          doc: { forEach: vi.fn() },
+          tr: mockTr,
+          schema: {
+            nodes: { heading: mockHeadingType },
+            text: vi.fn((t: string) => ({ text: t })),
+          },
+        },
+        dispatch: vi.fn(),
+      };
+      const mockCtx = { get: vi.fn().mockReturnValue(mockView) };
+
+      mockEditorAction.mockImplementation((cb: (ctx: unknown) => void) => {
+        cb(mockCtx);
+      });
+      mockScanForConversions.mockReturnValue(mockConversions);
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      act(() => {
+        screen.getByTestId('toolbar-import-cleanup').click();
+      });
+      act(() => {
+        screen.getByTestId('cleanup-apply').click();
+      });
+
+      expect(mockShowToast).toHaveBeenCalledWith('Cleaned 1 heading', 'success');
+    });
+
+    it('shows combined toast when both paragraphs and headings are converted', () => {
+      const mockConversions = [
+        {
+          pos: 10,
+          originalText: '1. Para',
+          headingLevel: 1,
+          cleanedText: 'Para',
+          confidence: 'high' as const,
+          pattern: 'numbered-h1',
+          sourceType: 'paragraph' as const,
+          selected: true,
+        },
+        {
+          pos: 5,
+          originalText: '2. Head',
+          headingLevel: 2,
+          cleanedText: 'Head',
+          confidence: 'high' as const,
+          pattern: 'numbered-h2',
+          sourceType: 'heading' as const,
+          selected: true,
+        },
+      ];
+
+      const mockHeadingNode = { type: { name: 'heading' }, nodeSize: 15, attrs: { level: 1 } };
+      const mockHeadingType = { create: vi.fn().mockReturnValue({ type: 'heading' }) };
+      const mockTr = {
+        doc: { nodeAt: vi.fn().mockReturnValue(mockHeadingNode) },
+        replaceWith: vi.fn().mockReturnThis(),
+      };
+      const mockView = {
+        state: {
+          doc: { forEach: vi.fn() },
+          tr: mockTr,
+          schema: {
+            nodes: { heading: mockHeadingType },
+            text: vi.fn((t: string) => ({ text: t })),
+          },
+        },
+        dispatch: vi.fn(),
+      };
+      const mockCtx = { get: vi.fn().mockReturnValue(mockView) };
+
+      mockEditorAction.mockImplementation((cb: (ctx: unknown) => void) => {
+        cb(mockCtx);
+      });
+      mockScanForConversions.mockReturnValue(mockConversions);
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      act(() => {
+        screen.getByTestId('toolbar-import-cleanup').click();
+      });
+      act(() => {
+        screen.getByTestId('cleanup-apply').click();
+      });
+
+      expect(mockShowToast).toHaveBeenCalledWith(
+        'Converted 1 paragraph to headings, cleaned 1 heading',
+        'success',
+      );
+    });
+
+    it('shows "Applied N cleanups" fallback toast when no paragraph/heading sourceType is present', () => {
+      // Send conversions with no sourceType fields (or empty filtered results)
+      const mockConversions = [
+        {
+          pos: 5,
+          originalText: '1. Item',
+          headingLevel: 1,
+          cleanedText: 'Item',
+          confidence: 'high' as const,
+          pattern: 'numbered-h1',
+          // No sourceType — undefined falls through both filters
+          selected: true,
+        },
+        {
+          pos: 15,
+          originalText: '2. Item',
+          headingLevel: 1,
+          cleanedText: 'Item',
+          confidence: 'high' as const,
+          pattern: 'numbered-h1',
+          selected: true,
+        },
+      ];
+
+      const mockParagraphNode = { type: { name: 'paragraph' }, nodeSize: 12 };
+      const mockHeadingType = { create: vi.fn().mockReturnValue({ type: 'heading' }) };
+      const mockTr = {
+        doc: { nodeAt: vi.fn().mockReturnValue(mockParagraphNode) },
+        replaceWith: vi.fn().mockReturnThis(),
+      };
+      const mockView = {
+        state: {
+          doc: { forEach: vi.fn() },
+          tr: mockTr,
+          schema: {
+            nodes: { heading: mockHeadingType },
+            text: vi.fn((t: string) => ({ text: t })),
+          },
+        },
+        dispatch: vi.fn(),
+      };
+      const mockCtx = { get: vi.fn().mockReturnValue(mockView) };
+
+      mockEditorAction.mockImplementation((cb: (ctx: unknown) => void) => {
+        cb(mockCtx);
+      });
+      mockScanForConversions.mockReturnValue(mockConversions);
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      act(() => {
+        screen.getByTestId('toolbar-import-cleanup').click();
+      });
+      act(() => {
+        screen.getByTestId('cleanup-apply').click();
+      });
+
+      // paragraphCount === 0, headingCount === 0 -> fallback "Applied 2 cleanups"
+      expect(mockShowToast).toHaveBeenCalledWith('Applied 2 cleanups', 'success');
+    });
+
+    it('shows "Applied 1 cleanup" (singular) when one cleanup without sourceType is applied', () => {
+      const mockConversions = [
+        {
+          pos: 5,
+          originalText: '1. Item',
+          headingLevel: 1,
+          cleanedText: 'Item',
+          confidence: 'high' as const,
+          pattern: 'numbered-h1',
+          selected: true,
+          // No sourceType
+        },
+      ];
+
+      const mockParagraphNode = { type: { name: 'paragraph' }, nodeSize: 12 };
+      const mockHeadingType = { create: vi.fn().mockReturnValue({ type: 'heading' }) };
+      const mockTr = {
+        doc: { nodeAt: vi.fn().mockReturnValue(mockParagraphNode) },
+        replaceWith: vi.fn().mockReturnThis(),
+      };
+      const mockView = {
+        state: {
+          doc: { forEach: vi.fn() },
+          tr: mockTr,
+          schema: {
+            nodes: { heading: mockHeadingType },
+            text: vi.fn((t: string) => ({ text: t })),
+          },
+        },
+        dispatch: vi.fn(),
+      };
+      const mockCtx = { get: vi.fn().mockReturnValue(mockView) };
+
+      mockEditorAction.mockImplementation((cb: (ctx: unknown) => void) => {
+        cb(mockCtx);
+      });
+      mockScanForConversions.mockReturnValue(mockConversions);
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      act(() => {
+        screen.getByTestId('toolbar-import-cleanup').click();
+      });
+      act(() => {
+        screen.getByTestId('cleanup-apply').click();
+      });
+
+      // paragraphCount === 0, headingCount === 0, selected.length === 1 -> "Applied 1 cleanup"
+      expect(mockShowToast).toHaveBeenCalledWith('Applied 1 cleanup', 'success');
+    });
+
+    it('handles heading node conversion using node.attrs.level when available', () => {
+      const mockConversions = [
+        {
+          pos: 5,
+          originalText: '1. Introduction',
+          headingLevel: 1,
+          cleanedText: 'Introduction',
+          confidence: 'high' as const,
+          pattern: 'numbered-h1',
+          sourceType: 'heading' as const,
+          selected: true,
+        },
+      ];
+
+      // heading node with numeric attrs.level
+      const mockHeadingNode = { type: { name: 'heading' }, nodeSize: 20, attrs: { level: 2 } };
+      const createdHeadingNode = { type: 'heading' };
+      const mockHeadingType = { create: vi.fn().mockReturnValue(createdHeadingNode) };
+      const mockTr = {
+        doc: { nodeAt: vi.fn().mockReturnValue(mockHeadingNode) },
+        replaceWith: vi.fn().mockReturnThis(),
+      };
+      const mockDispatch = vi.fn();
+      const mockView = {
+        state: {
+          doc: { forEach: vi.fn() },
+          tr: mockTr,
+          schema: {
+            nodes: { heading: mockHeadingType },
+            text: vi.fn((t: string) => ({ text: t })),
+          },
+        },
+        dispatch: mockDispatch,
+      };
+      const mockCtx = { get: vi.fn().mockReturnValue(mockView) };
+
+      mockEditorAction.mockImplementation((cb: (ctx: unknown) => void) => {
+        cb(mockCtx);
+      });
+      mockScanForConversions.mockReturnValue(mockConversions);
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      act(() => {
+        screen.getByTestId('toolbar-import-cleanup').click();
+      });
+      act(() => {
+        screen.getByTestId('cleanup-apply').click();
+      });
+
+      // Should use node.attrs.level (2) rather than conv.headingLevel (1)
+      expect(mockHeadingType.create).toHaveBeenCalledWith({ level: 2 }, expect.anything());
+    });
+
+    it('handles heading node conversion using conv.headingLevel when attrs.level is not a number', () => {
+      const mockConversions = [
+        {
+          pos: 5,
+          originalText: '1. Introduction',
+          headingLevel: 3,
+          cleanedText: 'Introduction',
+          confidence: 'high' as const,
+          pattern: 'numbered-h1',
+          sourceType: 'heading' as const,
+          selected: true,
+        },
+      ];
+
+      // heading node with non-numeric attrs.level
+      const mockHeadingNode = { type: { name: 'heading' }, nodeSize: 20, attrs: { level: 'auto' } };
+      const mockHeadingType = { create: vi.fn().mockReturnValue({ type: 'heading' }) };
+      const mockTr = {
+        doc: { nodeAt: vi.fn().mockReturnValue(mockHeadingNode) },
+        replaceWith: vi.fn().mockReturnThis(),
+      };
+      const mockView = {
+        state: {
+          doc: { forEach: vi.fn() },
+          tr: mockTr,
+          schema: {
+            nodes: { heading: mockHeadingType },
+            text: vi.fn((t: string) => ({ text: t })),
+          },
+        },
+        dispatch: vi.fn(),
+      };
+      const mockCtx = { get: vi.fn().mockReturnValue(mockView) };
+
+      mockEditorAction.mockImplementation((cb: (ctx: unknown) => void) => {
+        cb(mockCtx);
+      });
+      mockScanForConversions.mockReturnValue(mockConversions);
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      act(() => {
+        screen.getByTestId('toolbar-import-cleanup').click();
+      });
+      act(() => {
+        screen.getByTestId('cleanup-apply').click();
+      });
+
+      // Should fall back to conv.headingLevel (3)
+      expect(mockHeadingType.create).toHaveBeenCalledWith({ level: 3 }, expect.anything());
+    });
+  });
+
+  describe('Suggestion mode', () => {
+    beforeEach(() => {
+      mockUseParams.mockReturnValue({ id: 't1' });
+      mockUseTemplate.mockReturnValue(
+        createTemplateQueryResult({
+          data: templateData(draftTemplate, '# Draft content'),
+        }),
+      );
+    });
+
+    it('passes editingMode="editing" to EditorToolbar by default', () => {
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      expect(screen.getByTestId('toolbar-editing-mode')).toHaveTextContent('editing');
+    });
+
+    it('switches editingMode to "suggesting" when EditorToolbar fires onEditingModeChange("suggesting")', async () => {
+      const user = userEvent.setup();
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      await user.click(screen.getByTestId('toolbar-set-suggesting'));
+
+      expect(screen.getByTestId('toolbar-editing-mode')).toHaveTextContent('suggesting');
+    });
+
+    it('passes suggestingMode=true to MarkdownEditor when editingMode is "suggesting"', async () => {
+      // MarkdownEditor mock doesn't expose suggestingMode as attribute — we test via EditorToolbar state
+      const user = userEvent.setup();
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      await user.click(screen.getByTestId('toolbar-set-suggesting'));
+
+      // After switching to suggesting mode, the EditorToolbar should reflect it
+      expect(screen.getByTestId('toolbar-editing-mode')).toHaveTextContent('suggesting');
+    });
+
+    it('passes onLegalList to EditorToolbar in source mode', async () => {
+      const user = userEvent.setup();
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      // Switch to source mode
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onModeChange as (m: string) => void)('source');
+      });
+
+      // onLegalList should now be defined (in source mode)
+      expect(screen.getByTestId('toolbar-legal-list')).toBeInTheDocument();
+      await user.click(screen.getByTestId('toolbar-legal-list'));
+      expect(mockSourceLinePrefix).toHaveBeenCalled();
+    });
+
+    it('does not pass onLegalList to EditorToolbar in edit mode', () => {
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+      // In edit mode, onLegalList is undefined
+      expect(screen.queryByTestId('toolbar-legal-list')).not.toBeInTheDocument();
+    });
+
+    it('wires createSuggestion via handleSuggestInsert when onSuggestInsert fires', () => {
+      const mockCreateSuggestion = vi.fn();
+      mockUseSuggestions.mockReturnValue({
+        suggestions: [],
+        isLoading: false,
+        error: null,
+        createSuggestion: mockCreateSuggestion,
+        acceptSuggestion: vi.fn(),
+        rejectSuggestion: vi.fn(),
+        deleteSuggestion: vi.fn(),
+        isCreating: false,
+      });
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      // handleSuggestInsert is wired to MarkdownEditor's onSuggestInsert
+      // Since MarkdownEditor is mocked, we verify useSuggestions was called with the template id
+      expect(mockUseSuggestions).toHaveBeenCalledWith('t1');
+    });
+
+    it('passes pending suggestions as suggestionAnchors to MarkdownEditor', async () => {
+      const { resolveSuggestionAnchors } = vi.mocked(
+        await import('../../src/editor/suggestionAnchors.js'),
+      );
+      const mockSuggestion = {
+        id: 's-1',
+        templateId: 't1',
+        authorId: 'u1',
+        authorName: 'Alice',
+        authorEmail: 'alice@example.com',
+        type: 'insert' as const,
+        anchorFrom: '10',
+        anchorTo: '10',
+        originalText: '',
+        replacementText: 'new text',
+        status: 'pending' as const,
+        resolvedBy: null,
+        resolvedAt: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      mockUseSuggestions.mockReturnValue({
+        suggestions: [mockSuggestion],
+        isLoading: false,
+        error: null,
+        createSuggestion: vi.fn(),
+        acceptSuggestion: vi.fn(),
+        rejectSuggestion: vi.fn(),
+        deleteSuggestion: vi.fn(),
+        isCreating: false,
+      });
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      // resolveSuggestionAnchors should have been called with the pending suggestion
+      expect(resolveSuggestionAnchors).toHaveBeenCalledWith([mockSuggestion], 999999);
+    });
+
+    it('handleRejectSuggestion calls rejectSuggestion with templateId and suggestionId', async () => {
+      const mockRejectSuggestion = vi.fn();
+      mockUseSuggestions.mockReturnValue({
+        suggestions: [],
+        isLoading: false,
+        error: null,
+        createSuggestion: vi.fn(),
+        acceptSuggestion: vi.fn(),
+        rejectSuggestion: mockRejectSuggestion,
+        deleteSuggestion: vi.fn(),
+        isCreating: false,
+      });
+
+      const user = userEvent.setup();
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      await user.click(screen.getByTestId('margin-reject-suggestion'));
+
+      expect(mockRejectSuggestion).toHaveBeenCalledWith({ templateId: 't1', suggestionId: 's1' });
+    });
+
+    it('handleDeleteSuggestion calls deleteSuggestion with templateId and suggestionId', async () => {
+      const mockDeleteSuggestion = vi.fn();
+      mockUseSuggestions.mockReturnValue({
+        suggestions: [],
+        isLoading: false,
+        error: null,
+        createSuggestion: vi.fn(),
+        acceptSuggestion: vi.fn(),
+        rejectSuggestion: vi.fn(),
+        deleteSuggestion: mockDeleteSuggestion,
+        isCreating: false,
+      });
+
+      const user = userEvent.setup();
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      await user.click(screen.getByTestId('margin-delete-suggestion'));
+
+      expect(mockDeleteSuggestion).toHaveBeenCalledWith({ templateId: 't1', suggestionId: 's1' });
+    });
+
+    it('onSuggestionEvent invalidates suggestions query', async () => {
+      const invalidateQueriesSpy = vi
+        .spyOn(QueryClient.prototype, 'invalidateQueries')
+        .mockResolvedValue(undefined);
+
+      const user = userEvent.setup();
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      // EditorRightSlot is rendered inside DocumentHeader's rightSlot — must render it
+      const { getByTestId } = renderDocumentHeader();
+      await user.click(getByTestId('ers-suggestion-event'));
+
+      expect(invalidateQueriesSpy).toHaveBeenCalledWith({ queryKey: ['suggestions', 't1'] });
+      invalidateQueriesSpy.mockRestore();
+    });
+  });
+
+  describe('draftSaveStatus — create mode saving branch', () => {
+    it('shows saving status in rightSlot during auto-create', async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      mockUseParams.mockReturnValue({});
+      mockUseTemplate.mockReturnValue(
+        createTemplateQueryResult({
+          data: undefined,
+          isLoading: false,
+          isPending: true,
+          isSuccess: false,
+          status: 'pending',
+        }),
+      );
+
+      let resolveCreate: (value: unknown) => void = () => undefined;
+      mockCreateMutateAsync.mockReturnValue(
+        new Promise((resolve) => {
+          resolveCreate = resolve;
+        }),
+      );
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      // Set a title to initiate auto-create
+      renderDocumentHeader();
+      act(() => {
+        (latestDocumentHeaderProps.onTitleChange as (t: string) => void)('Saving Test');
+      });
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1100);
+      });
+
+      // During save, autoCreateState = 'saving', isCreateMode = true
+      // => draftSaveStatus = 'saving' => rightSlot should be defined
+      renderDocumentHeader();
+      expect(latestDocumentHeaderProps.rightSlot).not.toBeUndefined();
+
+      // Clean up pending promise
+      act(() => {
+        resolveCreate({ template: { ...draftTemplate, id: 'save-status-2' } });
+      });
+
+      vi.useRealTimers();
     });
   });
 

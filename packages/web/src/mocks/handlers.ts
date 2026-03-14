@@ -2,6 +2,7 @@ import { http, HttpResponse } from 'msw';
 import { createTemplateSchema, updateTemplateSchema } from '@legalcode/shared';
 import type { Template, TemplateVersion, User } from '@legalcode/shared';
 import type { Comment } from '../types/comments.js';
+import type { Suggestion } from '../types/suggestions.js';
 
 const mockUsers: User[] = [
   {
@@ -148,6 +149,43 @@ const mockComments: Comment[] = [
 ];
 
 let commentIdCounter = 4;
+
+const mockSuggestions: Suggestion[] = [
+  {
+    id: 's1',
+    templateId: 't1',
+    authorId: 'u1',
+    authorName: 'Joseph Marsico',
+    authorEmail: 'joseph.marsico@acasus.com',
+    type: 'insert',
+    anchorFrom: '10',
+    anchorTo: '10',
+    originalText: '',
+    replacementText: 'proposed new text',
+    status: 'pending',
+    resolvedBy: null,
+    resolvedAt: null,
+    createdAt: '2026-03-14T10:00:00Z',
+    updatedAt: '2026-03-14T10:00:00Z',
+  },
+  {
+    id: 's2',
+    templateId: 't1',
+    authorId: 'u2',
+    authorName: 'Legal Reviewer',
+    authorEmail: 'reviewer@acasus.com',
+    type: 'delete',
+    anchorFrom: '20',
+    anchorTo: '30',
+    originalText: 'text to delete',
+    replacementText: null,
+    status: 'pending',
+    resolvedBy: null,
+    resolvedAt: null,
+    createdAt: '2026-03-14T10:01:00Z',
+    updatedAt: '2026-03-14T10:01:00Z',
+  },
+];
 
 export const handlers = [
   http.get('/api/health', () => {
@@ -338,6 +376,45 @@ export const handlers = [
       return HttpResponse.json({ error: 'Not found' }, { status: 404 });
     }
     mockComments.splice(index, 1);
+    return new HttpResponse(null, { status: 204 });
+  }),
+
+  // Suggestion handlers
+  http.get('/api/templates/:id/suggestions', () => {
+    return HttpResponse.json(mockSuggestions);
+  }),
+
+  http.post('/api/templates/:id/suggestions', async ({ request }) => {
+    const body = (await request.json()) as Record<string, unknown>;
+    const newSuggestion: Suggestion = {
+      id: `s${String(Date.now())}`,
+      templateId: 't1',
+      authorId: 'u1',
+      authorName: 'Joseph Marsico',
+      authorEmail: 'joseph.marsico@acasus.com',
+      type: body.type as 'insert' | 'delete',
+      anchorFrom: body.anchorFrom as string,
+      anchorTo: body.anchorTo as string,
+      originalText: body.originalText as string,
+      replacementText: (body.replacementText as string | null | undefined) ?? null,
+      status: 'pending',
+      resolvedBy: null,
+      resolvedAt: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    return HttpResponse.json(newSuggestion, { status: 201 });
+  }),
+
+  http.patch('/api/templates/:id/suggestions/:sid/accept', () => {
+    return new HttpResponse(null, { status: 204 });
+  }),
+
+  http.patch('/api/templates/:id/suggestions/:sid/reject', () => {
+    return new HttpResponse(null, { status: 204 });
+  }),
+
+  http.delete('/api/templates/:id/suggestions/:sid', () => {
     return new HttpResponse(null, { status: 204 });
   }),
 

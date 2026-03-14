@@ -8,6 +8,10 @@ import type { CommentPluginOptions } from '../editor/commentPlugin.js';
 import { createNumberingPlugin } from '../editor/numberingPlugin.js';
 import { createTitlePlugin, titleSchemaPlugin, remarkTitlePlugin } from '../editor/titleNode.js';
 import { legalListSchemaPlugin, remarkLegalListPlugin } from '../editor/legalListNode.js';
+import { createSuggestionPlugin } from '../editor/suggestionPlugin.js';
+import type { SuggestionAnchor } from '../editor/suggestionAnchors.js';
+import { createPresenceCursorsPlugin } from '../editor/presenceCursorsPlugin.js';
+import type { RemoteCursor } from '../editor/presenceCursorsPlugin.js';
 
 import '@milkdown/crepe/theme/common/style.css';
 import '@milkdown/crepe/theme/frame.css';
@@ -19,6 +23,13 @@ interface MarkdownEditorProps {
   readOnly?: boolean | undefined;
   onEditorReady?: ((crepe: Crepe) => void) | undefined;
   onSelectionChange?: CommentPluginOptions['onSelectionChange'] | undefined;
+  suggestingMode?: boolean | undefined;
+  onSuggestInsert?: ((from: number, to: number, text: string) => void) | undefined;
+  onSuggestDelete?: ((from: number, to: number, text: string) => void) | undefined;
+  suggestionAnchors?: SuggestionAnchor[] | undefined;
+  activeSuggestionId?: string | null | undefined;
+  remoteCursors?: RemoteCursor[] | undefined;
+  localUserId?: string | null | undefined;
 }
 
 function MilkdownEditor({
@@ -27,7 +38,18 @@ function MilkdownEditor({
   readOnly,
   onEditorReady,
   onSelectionChange,
-}: MarkdownEditorProps) {
+  onSuggestInsert,
+  onSuggestDelete,
+}: Pick<
+  MarkdownEditorProps,
+  | 'defaultValue'
+  | 'onChange'
+  | 'readOnly'
+  | 'onEditorReady'
+  | 'onSelectionChange'
+  | 'onSuggestInsert'
+  | 'onSuggestDelete'
+>) {
   const crepeRef = useRef<Crepe | null>(null);
 
   const onChangeRef = useRef(onChange);
@@ -35,12 +57,16 @@ function MilkdownEditor({
   const defaultValueRef = useRef(defaultValue);
   const onSelectionChangeRef = useRef(onSelectionChange);
   const readOnlyRef = useRef(readOnly);
+  const onSuggestInsertRef = useRef(onSuggestInsert);
+  const onSuggestDeleteRef = useRef(onSuggestDelete);
 
   onChangeRef.current = onChange;
   onEditorReadyRef.current = onEditorReady;
   defaultValueRef.current = defaultValue;
   onSelectionChangeRef.current = onSelectionChange;
   readOnlyRef.current = readOnly;
+  onSuggestInsertRef.current = onSuggestInsert;
+  onSuggestDeleteRef.current = onSuggestDelete;
 
   const editorCallback = useCallback((root: HTMLElement) => {
     const crepe = new Crepe({
@@ -71,6 +97,17 @@ function MilkdownEditor({
       const selectionChangeFn = onSelectionChangeRef.current;
       crepe.editor.use($prose(() => createCommentPlugin({ onSelectionChange: selectionChangeFn })));
     }
+
+    const suggestionOpts = {
+      onSuggestInsert: (...args: Parameters<NonNullable<typeof onSuggestInsertRef.current>>) => {
+        onSuggestInsertRef.current?.(...args);
+      },
+      onSuggestDelete: (...args: Parameters<NonNullable<typeof onSuggestDeleteRef.current>>) => {
+        onSuggestDeleteRef.current?.(...args);
+      },
+    };
+    crepe.editor.use($prose(() => createSuggestionPlugin(suggestionOpts)));
+    crepe.editor.use($prose(() => createPresenceCursorsPlugin()));
 
     crepeRef.current = crepe;
     onEditorReadyRef.current?.(crepe);
@@ -107,6 +144,8 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
           readOnly={props.readOnly}
           onEditorReady={props.onEditorReady}
           onSelectionChange={props.onSelectionChange}
+          onSuggestInsert={props.onSuggestInsert}
+          onSuggestDelete={props.onSuggestDelete}
         />
       </MilkdownProvider>
     </Box>

@@ -610,6 +610,47 @@ describe('useCollaboration', () => {
     expect(onCommentEvent).not.toHaveBeenCalled();
   });
 
+  it('calls onSuggestionEvent when MSG_SUGGESTION (type 3) message is received', async () => {
+    vi.useFakeTimers();
+    const onSuggestionEvent = vi.fn();
+    const { result } = renderHook(() =>
+      useCollaboration('tmpl-1', testUser, { onSuggestionEvent }),
+    );
+
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+    expect(result.current.status).toBe('connected');
+
+    // Simulate MSG_SUGGESTION message (type byte = 3)
+    const ws = wsRef();
+    const suggestionMsg = new Uint8Array([3]).buffer;
+    act(() => {
+      ws.onmessage?.({ data: suggestionMsg });
+    });
+
+    expect(onSuggestionEvent).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not call onSuggestionEvent when no handler provided', async () => {
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useCollaboration('tmpl-1', testUser));
+
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+    expect(result.current.status).toBe('connected');
+
+    // Simulate MSG_SUGGESTION message — should not throw
+    const ws = wsRef();
+    act(() => {
+      ws.onmessage?.({ data: new Uint8Array([3]).buffer });
+    });
+
+    // No assertion needed — just verifying no error thrown
+    expect(result.current.status).toBe('connected');
+  });
+
   it('reports error when reconnection exhausts all attempts', async () => {
     vi.useFakeTimers();
 

@@ -108,6 +108,30 @@ export const comments = sqliteTable('comments', {
   updatedAt: text('updated_at').notNull(),
 });
 
+export const suggestions = sqliteTable('suggestions', {
+  id: text('id').primaryKey(),
+  templateId: text('template_id')
+    .notNull()
+    .references(() => templates.id),
+  authorId: text('author_id')
+    .notNull()
+    .references(() => users.id),
+  authorName: text('author_name').notNull(),
+  authorEmail: text('author_email').notNull(),
+  type: text('type', { enum: ['insert', 'delete'] }).notNull(),
+  anchorFrom: text('anchor_from').notNull(),
+  anchorTo: text('anchor_to').notNull(),
+  originalText: text('original_text').notNull(),
+  replacementText: text('replacement_text'),
+  status: text('status', { enum: ['pending', 'accepted', 'rejected'] })
+    .notNull()
+    .default('pending'),
+  resolvedBy: text('resolved_by'),
+  resolvedAt: text('resolved_at'),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+});
+
 export const categories = sqliteTable('categories', {
   id: text('id').primaryKey(),
   name: text('name').notNull().unique(),

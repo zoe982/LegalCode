@@ -781,6 +781,106 @@ describe('EditorToolbar', () => {
     });
   });
 
+  describe('editing mode toggle', () => {
+    it('renders mode selector with "Editing" label by default in edit mode', () => {
+      renderToolbar({ mode: 'edit', onEditingModeChange: vi.fn() });
+      expect(screen.getByRole('button', { name: /editing mode/i })).toBeInTheDocument();
+      expect(screen.getByText('Editing')).toBeInTheDocument();
+    });
+
+    it('renders mode selector with "Suggesting" label when editingMode is suggesting', () => {
+      renderToolbar({ mode: 'edit', editingMode: 'suggesting', onEditingModeChange: vi.fn() });
+      expect(screen.getByText('Suggesting')).toBeInTheDocument();
+    });
+
+    it('renders mode selector with "Viewing" label when editingMode is viewing', () => {
+      renderToolbar({ mode: 'edit', editingMode: 'viewing', onEditingModeChange: vi.fn() });
+      expect(screen.getByText('Viewing')).toBeInTheDocument();
+    });
+
+    it('opens dropdown menu on click', async () => {
+      const user = userEvent.setup();
+      renderToolbar({ mode: 'edit', onEditingModeChange: vi.fn() });
+      await user.click(screen.getByRole('button', { name: /editing mode/i }));
+      expect(screen.getByRole('menu')).toBeInTheDocument();
+    });
+
+    it('shows all three mode options in dropdown', async () => {
+      const user = userEvent.setup();
+      renderToolbar({ mode: 'edit', onEditingModeChange: vi.fn() });
+      await user.click(screen.getByRole('button', { name: /editing mode/i }));
+      expect(screen.getByRole('menuitem', { name: /editing/i })).toBeInTheDocument();
+      expect(screen.getByRole('menuitem', { name: /suggesting/i })).toBeInTheDocument();
+      expect(screen.getByRole('menuitem', { name: /viewing/i })).toBeInTheDocument();
+    });
+
+    it('calls onEditingModeChange with "suggesting" when Suggesting is selected', async () => {
+      const user = userEvent.setup();
+      const onEditingModeChange = vi.fn();
+      renderToolbar({ mode: 'edit', onEditingModeChange });
+      await user.click(screen.getByRole('button', { name: /editing mode/i }));
+      await user.click(screen.getByRole('menuitem', { name: /suggesting/i }));
+      expect(onEditingModeChange).toHaveBeenCalledWith('suggesting');
+    });
+
+    it('calls onEditingModeChange with "editing" when Editing is selected', async () => {
+      const user = userEvent.setup();
+      const onEditingModeChange = vi.fn();
+      renderToolbar({ mode: 'edit', editingMode: 'suggesting', onEditingModeChange });
+      await user.click(screen.getByRole('button', { name: /editing mode/i }));
+      await user.click(screen.getByRole('menuitem', { name: /Editing.*Edit directly/i }));
+      expect(onEditingModeChange).toHaveBeenCalledWith('editing');
+    });
+
+    it('calls onEditingModeChange with "viewing" when Viewing is selected', async () => {
+      const user = userEvent.setup();
+      const onEditingModeChange = vi.fn();
+      renderToolbar({ mode: 'edit', onEditingModeChange });
+      await user.click(screen.getByRole('button', { name: /editing mode/i }));
+      await user.click(screen.getByRole('menuitem', { name: /viewing/i }));
+      expect(onEditingModeChange).toHaveBeenCalledWith('viewing');
+    });
+
+    it('closes dropdown after selecting a mode', async () => {
+      const user = userEvent.setup();
+      renderToolbar({ mode: 'edit', onEditingModeChange: vi.fn() });
+      await user.click(screen.getByRole('button', { name: /editing mode/i }));
+      await user.click(screen.getByRole('menuitem', { name: /suggesting/i }));
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    });
+
+    it('does not render mode selector when readOnly is true', () => {
+      renderToolbar({ mode: 'edit', readOnly: true, onEditingModeChange: vi.fn() });
+      expect(screen.queryByRole('button', { name: /editing mode/i })).not.toBeInTheDocument();
+    });
+
+    it('does not render mode selector in source mode', () => {
+      renderToolbar({ mode: 'source', onEditingModeChange: vi.fn() });
+      expect(screen.queryByRole('button', { name: /editing mode/i })).not.toBeInTheDocument();
+    });
+
+    it('does not render mode selector when onEditingModeChange is not provided', () => {
+      renderToolbar({ mode: 'edit' });
+      expect(screen.queryByRole('button', { name: /editing mode/i })).not.toBeInTheDocument();
+    });
+
+    it('shows accent border styling when in suggesting mode', () => {
+      renderToolbar({ mode: 'edit', editingMode: 'suggesting', onEditingModeChange: vi.fn() });
+      const modeBtn = screen.getByRole('button', { name: /editing mode/i });
+      expect(modeBtn).toBeInTheDocument();
+      // Button exists and is in suggesting mode — styling is applied via MUI sx
+    });
+
+    it('mode dropdown closes when Escape is pressed', async () => {
+      const user = userEvent.setup();
+      renderToolbar({ mode: 'edit', onEditingModeChange: vi.fn() });
+      await user.click(screen.getByRole('button', { name: /editing mode/i }));
+      expect(screen.getByRole('menu')).toBeInTheDocument();
+      await user.keyboard('{Escape}');
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    });
+  });
+
   describe('Legal List dropdown', () => {
     it('renders Legal List button in edit mode', () => {
       renderToolbar({ mode: 'edit' });

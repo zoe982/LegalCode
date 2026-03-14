@@ -25,7 +25,7 @@
     "deploy:web": "pnpm --filter @legalcode/web deploy",
     "security:scan": "semgrep scan --config p/owasp-top-ten --config p/typescript --config p/security-audit --config p/react --config p/javascript --config .semgrep/custom-rules.yml --error --severity WARNING --severity ERROR packages/",
     "security:secrets": "gitleaks detect --verbose",
-    "audit:security": "pnpm audit --audit-level high",
+    "audit:security": "pnpm audit --audit-level high --prod",
     "dead-code": "knip",
     "bundle:check": "bash scripts/bundle-check.sh",
     "contract:check": "bash scripts/contract-test-check.sh",

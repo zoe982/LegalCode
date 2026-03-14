@@ -1218,6 +1218,85 @@ describe('TemplateSession', () => {
     });
   });
 
+  describe('POST /suggestion-event', () => {
+    it('broadcasts MSG_SUGGESTION to connected clients', async () => {
+      // Connect two editors
+      const req1 = createUpgradeRequest({
+        'X-User-Id': 'user-1',
+        'X-User-Email': 'user1@example.com',
+      });
+      await session.fetch(req1);
+
+      const req2 = createUpgradeRequest({
+        'X-User-Id': 'user-2',
+        'X-User-Email': 'user2@example.com',
+      });
+      await session.fetch(req2);
+
+      const serverWs1 = (ctx.acceptWebSocket as Mock).mock.calls[0]?.[0] as MockWebSocket;
+      const serverWs2 = (ctx.acceptWebSocket as Mock).mock.calls[1]?.[0] as MockWebSocket;
+      serverWs1.send.mockClear();
+      serverWs2.send.mockClear();
+
+      // POST to /suggestion-event
+      const req = new Request('http://fake-host/suggestion-event', {
+        method: 'POST',
+        body: JSON.stringify({ type: 'suggestion_changed' }),
+      });
+      const res = await session.fetch(req);
+
+      expect(res.status).toBe(200);
+      // Both clients should receive the broadcast
+      expect(serverWs1.send).toHaveBeenCalledTimes(1);
+      expect(serverWs2.send).toHaveBeenCalledTimes(1);
+
+      // Verify the message contains MSG_SUGGESTION (3) as first varuint
+      const sentData = serverWs1.send.mock.calls[0]?.[0] as Uint8Array;
+      expect(sentData).toBeInstanceOf(Uint8Array);
+      // First byte should be MSG_SUGGESTION = 3
+      expect(sentData[0]).toBe(3);
+    });
+
+    it('returns 200 with no connections', async () => {
+      // Don't connect any editors, but initialize the session first
+      const wsReq = createUpgradeRequest();
+      await session.fetch(wsReq);
+
+      // Disconnect the editor
+      const serverWs = (ctx.acceptWebSocket as Mock).mock.calls[0]?.[0] as MockWebSocket;
+      await session.webSocketClose(serverWs as unknown as WebSocket);
+
+      const req = new Request('http://fake-host/suggestion-event', {
+        method: 'POST',
+        body: JSON.stringify({ type: 'suggestion_changed' }),
+      });
+      const res = await session.fetch(req);
+      expect(res.status).toBe(200);
+    });
+
+    it('handles send failure on closed socket gracefully', async () => {
+      const req1 = createUpgradeRequest({
+        'X-User-Id': 'user-1',
+        'X-User-Email': 'user1@example.com',
+      });
+      await session.fetch(req1);
+
+      const serverWs1 = (ctx.acceptWebSocket as Mock).mock.calls[0]?.[0] as MockWebSocket;
+      serverWs1.send.mockClear();
+      serverWs1.send.mockImplementation(() => {
+        throw new Error('WebSocket closed');
+      });
+
+      const req = new Request('http://fake-host/suggestion-event', {
+        method: 'POST',
+        body: JSON.stringify({ type: 'suggestion_changed' }),
+      });
+      // Should not throw
+      const res = await session.fetch(req);
+      expect(res.status).toBe(200);
+    });
+  });
+
   describe('POST /invalidate', () => {
     it('clears checkpoint storage and returns 200 when session is initialized', async () => {
       // Initialize session
@@ -1335,6 +1414,28 @@ describe('TemplateSession', () => {
       // Verify the first varuint in the sent message is 2
       const sentData = serverWs.send.mock.calls[0]?.[0] as Uint8Array;
       expect(sentData[0]).toBe(2);
+    });
+  });
+
+  describe('MSG_SUGGESTION constant', () => {
+    it('MSG_SUGGESTION equals 3', async () => {
+      // Connect an editor
+      const req1 = createUpgradeRequest();
+      await session.fetch(req1);
+
+      const serverWs = (ctx.acceptWebSocket as Mock).mock.calls[0]?.[0] as MockWebSocket;
+      serverWs.send.mockClear();
+
+      // Trigger suggestion broadcast
+      const req = new Request('http://fake-host/suggestion-event', {
+        method: 'POST',
+        body: JSON.stringify({ type: 'suggestion_changed' }),
+      });
+      await session.fetch(req);
+
+      // Verify the first varuint in the sent message is 3
+      const sentData = serverWs.send.mock.calls[0]?.[0] as Uint8Array;
+      expect(sentData[0]).toBe(3);
     });
   });
 

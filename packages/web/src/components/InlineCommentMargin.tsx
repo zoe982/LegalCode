@@ -1,9 +1,11 @@
 import { useState, useMemo, useRef, useLayoutEffect, useCallback } from 'react';
 import { Box, Button } from '@mui/material';
 import type { CommentThread } from '../types/comments.js';
+import type { Suggestion } from '../types/suggestions.js';
 import { useCommentPositions } from '../hooks/useCommentPositions.js';
 import { InlineCommentCard } from './InlineCommentCard.js';
 import { NewCommentCard } from './NewCommentCard.js';
+import { InlineSuggestionCard } from './InlineSuggestionCard.js';
 
 const PENDING_COMMENT_ID = '__pending__';
 
@@ -23,6 +25,13 @@ export interface InlineCommentMarginProps {
   authorEmail?: string | undefined;
   isCreating?: boolean | undefined;
   pendingCommentTop?: number | undefined;
+  suggestions?: Suggestion[] | undefined;
+  activeSuggestionId?: string | null | undefined;
+  onSuggestionClick?: ((suggestionId: string) => void) | undefined;
+  onAcceptSuggestion?: ((suggestionId: string) => void) | undefined;
+  onRejectSuggestion?: ((suggestionId: string) => void) | undefined;
+  onDeleteSuggestion?: ((suggestionId: string) => void) | undefined;
+  canDeleteSuggestion?: ((suggestion: Suggestion) => boolean) | undefined;
 }
 
 export function InlineCommentMargin({
@@ -40,6 +49,13 @@ export function InlineCommentMargin({
   authorEmail,
   isCreating,
   pendingCommentTop,
+  suggestions,
+  activeSuggestionId,
+  onSuggestionClick,
+  onAcceptSuggestion,
+  onRejectSuggestion,
+  onDeleteSuggestion,
+  canDeleteSuggestion,
 }: InlineCommentMarginProps) {
   const [showResolved, setShowResolved] = useState(false);
   const [cardHeights, setCardHeights] = useState<Map<string, number>>(new Map());
@@ -175,6 +191,35 @@ export function InlineCommentMargin({
                 onDelete={onDelete}
                 onReply={onReply}
                 isActive={isActive}
+              />
+            </Box>
+          );
+        })}
+
+        {/* Suggestion cards — interleaved with comment cards */}
+        {(suggestions ?? []).map((suggestion, idx) => {
+          const top =
+            (parseInt(suggestion.anchorFrom, 10) || 0) * 1.5 + (visibleThreads.length + idx) * 100;
+          const isActive = activeSuggestionId === suggestion.id;
+          return (
+            <Box
+              key={suggestion.id}
+              sx={{
+                position: 'absolute',
+                top,
+                left: 0,
+                right: 0,
+                transition: 'top 250ms cubic-bezier(0.4, 0, 0.2, 1)',
+              }}
+            >
+              <InlineSuggestionCard
+                suggestion={suggestion}
+                isActive={isActive}
+                onAccept={onAcceptSuggestion ?? (() => undefined)}
+                onReject={onRejectSuggestion ?? (() => undefined)}
+                onDelete={onDeleteSuggestion}
+                onClick={onSuggestionClick}
+                {...(canDeleteSuggestion != null && { canDelete: canDeleteSuggestion(suggestion) })}
               />
             </Box>
           );
