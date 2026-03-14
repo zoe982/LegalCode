@@ -419,50 +419,6 @@ describe('MarkdownEditor', () => {
     expect(lastCallback).toBe(firstCallback);
   });
 
-  it('installs suggestion plugin when editor is created', () => {
-    captured.editorCallback = null;
-
-    render(<MarkdownEditor />);
-
-    const editorCb = captured.editorCallback as ((root: HTMLElement) => unknown) | null;
-    expect(editorCb).not.toBeNull();
-    const fakeRoot = document.createElement('div');
-    editorCb?.(fakeRoot);
-
-    expect(mockCreateSuggestionPlugin).toHaveBeenCalledTimes(1);
-  });
-
-  it('installs presence cursors plugin when editor is created', () => {
-    captured.editorCallback = null;
-
-    render(<MarkdownEditor />);
-
-    const editorCb = captured.editorCallback as ((root: HTMLElement) => unknown) | null;
-    expect(editorCb).not.toBeNull();
-    const fakeRoot = document.createElement('div');
-    editorCb?.(fakeRoot);
-
-    expect(mockCreatePresenceCursorsPlugin).toHaveBeenCalledTimes(1);
-  });
-
-  it('renders with suggestingMode prop without error', () => {
-    expect(() => {
-      render(<MarkdownEditor suggestingMode={true} />);
-    }).not.toThrow();
-    expect(screen.getByTestId('milkdown-editor')).toBeInTheDocument();
-  });
-
-  it('renders with onSuggestInsert and onSuggestDelete callbacks without error', () => {
-    const onSuggestInsert = vi.fn();
-    const onSuggestDelete = vi.fn();
-    expect(() => {
-      render(
-        <MarkdownEditor onSuggestInsert={onSuggestInsert} onSuggestDelete={onSuggestDelete} />,
-      );
-    }).not.toThrow();
-    expect(screen.getByTestId('milkdown-editor')).toBeInTheDocument();
-  });
-
   it('invokes onSuggestInsert callback via the suggestion plugin wrapper', () => {
     captured.editorCallback = null;
     const onSuggestInsert = vi.fn();

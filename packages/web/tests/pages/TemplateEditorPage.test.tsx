@@ -4274,6 +4274,27 @@ describe('TemplateEditorPage', () => {
       expect(resolveSuggestionAnchors).toHaveBeenCalledWith([mockSuggestion], 999999);
     });
 
+    it('handleAcceptSuggestion calls acceptSuggestion with templateId and suggestionId', async () => {
+      const mockAcceptSuggestion = vi.fn();
+      mockUseSuggestions.mockReturnValue({
+        suggestions: [],
+        isLoading: false,
+        error: null,
+        createSuggestion: vi.fn(),
+        acceptSuggestion: mockAcceptSuggestion,
+        rejectSuggestion: vi.fn(),
+        deleteSuggestion: vi.fn(),
+        isCreating: false,
+      });
+
+      const user = userEvent.setup();
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      await user.click(screen.getByTestId('margin-accept-suggestion'));
+
+      expect(mockAcceptSuggestion).toHaveBeenCalledWith({ templateId: 't1', suggestionId: 's1' });
+    });
+
     it('handleRejectSuggestion calls rejectSuggestion with templateId and suggestionId', async () => {
       const mockRejectSuggestion = vi.fn();
       mockUseSuggestions.mockReturnValue({

@@ -354,4 +354,110 @@ describe('useSuggestions data flow', () => {
       expect(getRefetchCount).toBeGreaterThan(refetchBefore);
     });
   });
+
+  it('handles 400 validation error on create', async () => {
+    const user = userEvent.setup();
+
+    server.use(
+      http.post(`/api/templates/${TEMPLATE_ID}/suggestions`, () =>
+        HttpResponse.json({ error: 'Validation failed' }, { status: 400 }),
+      ),
+    );
+
+    render(
+      <Wrapper>
+        <SuggestionsHarness templateId={TEMPLATE_ID} />
+      </Wrapper>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('loading')).toHaveTextContent('false');
+    });
+
+    // Should not crash when clicking create with a 400 response
+    await act(async () => {
+      await user.click(screen.getByTestId('create'));
+    });
+
+    // Component should still be rendered (no crash)
+    expect(screen.getByTestId('count')).toBeInTheDocument();
+  });
+
+  it('handles 403 forbidden error on accept', async () => {
+    const user = userEvent.setup();
+
+    server.use(
+      http.patch(`/api/templates/${TEMPLATE_ID}/suggestions/sug-1/accept`, () =>
+        HttpResponse.json({ error: 'Forbidden' }, { status: 403 }),
+      ),
+    );
+
+    render(
+      <Wrapper>
+        <SuggestionsHarness templateId={TEMPLATE_ID} />
+      </Wrapper>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('loading')).toHaveTextContent('false');
+    });
+
+    await act(async () => {
+      await user.click(screen.getByTestId('accept'));
+    });
+
+    expect(screen.getByTestId('count')).toBeInTheDocument();
+  });
+
+  it('handles 409 conflict error on reject', async () => {
+    const user = userEvent.setup();
+
+    server.use(
+      http.patch(`/api/templates/${TEMPLATE_ID}/suggestions/sug-1/reject`, () =>
+        HttpResponse.json({ error: 'Already resolved' }, { status: 409 }),
+      ),
+    );
+
+    render(
+      <Wrapper>
+        <SuggestionsHarness templateId={TEMPLATE_ID} />
+      </Wrapper>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('loading')).toHaveTextContent('false');
+    });
+
+    await act(async () => {
+      await user.click(screen.getByTestId('reject'));
+    });
+
+    expect(screen.getByTestId('count')).toBeInTheDocument();
+  });
+
+  it('handles 500 server error on delete', async () => {
+    const user = userEvent.setup();
+
+    server.use(
+      http.delete(`/api/templates/${TEMPLATE_ID}/suggestions/sug-1`, () =>
+        HttpResponse.json({ error: 'Internal error' }, { status: 500 }),
+      ),
+    );
+
+    render(
+      <Wrapper>
+        <SuggestionsHarness templateId={TEMPLATE_ID} />
+      </Wrapper>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('loading')).toHaveTextContent('false');
+    });
+
+    await act(async () => {
+      await user.click(screen.getByTestId('delete'));
+    });
+
+    expect(screen.getByTestId('count')).toBeInTheDocument();
+  });
 });

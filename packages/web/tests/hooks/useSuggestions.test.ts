@@ -278,4 +278,96 @@ describe('useSuggestions', () => {
       expect(result.current.isCreating).toBe(true);
     });
   });
+
+  it('handles createSuggestion mutation error gracefully', async () => {
+    getSuggestionsFn.mockResolvedValue([]);
+    createSuggestionFn.mockRejectedValue(new Error('Network error'));
+
+    const wrapper = createWrapper();
+    const { result } = renderHook(() => useSuggestions('tpl-1'), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    act(() => {
+      result.current.createSuggestion({
+        templateId: 'tpl-1',
+        type: 'insert',
+        anchorFrom: '10',
+        anchorTo: '10',
+        originalText: '',
+        replacementText: 'new text',
+      });
+    });
+
+    await waitFor(() => {
+      expect(createSuggestionFn).toHaveBeenCalled();
+    });
+
+    // Mutation should not leave isCreating stuck as true
+    await waitFor(() => {
+      expect(result.current.isCreating).toBe(false);
+    });
+  });
+
+  it('handles acceptSuggestion mutation error gracefully', async () => {
+    getSuggestionsFn.mockResolvedValue([mockSuggestion]);
+    acceptSuggestionFn.mockRejectedValue(new Error('Conflict'));
+
+    const wrapper = createWrapper();
+    const { result } = renderHook(() => useSuggestions('tpl-1'), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    act(() => {
+      result.current.acceptSuggestion({ templateId: 'tpl-1', suggestionId: 's1' });
+    });
+
+    await waitFor(() => {
+      expect(acceptSuggestionFn).toHaveBeenCalledWith('tpl-1', 's1');
+    });
+  });
+
+  it('handles rejectSuggestion mutation error gracefully', async () => {
+    getSuggestionsFn.mockResolvedValue([mockSuggestion]);
+    rejectSuggestionFn.mockRejectedValue(new Error('Server error'));
+
+    const wrapper = createWrapper();
+    const { result } = renderHook(() => useSuggestions('tpl-1'), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    act(() => {
+      result.current.rejectSuggestion({ templateId: 'tpl-1', suggestionId: 's1' });
+    });
+
+    await waitFor(() => {
+      expect(rejectSuggestionFn).toHaveBeenCalledWith('tpl-1', 's1');
+    });
+  });
+
+  it('handles deleteSuggestion mutation error gracefully', async () => {
+    getSuggestionsFn.mockResolvedValue([mockSuggestion]);
+    deleteSuggestionFn.mockRejectedValue(new Error('Not found'));
+
+    const wrapper = createWrapper();
+    const { result } = renderHook(() => useSuggestions('tpl-1'), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    act(() => {
+      result.current.deleteSuggestion({ templateId: 'tpl-1', suggestionId: 's1' });
+    });
+
+    await waitFor(() => {
+      expect(deleteSuggestionFn).toHaveBeenCalledWith('tpl-1', 's1');
+    });
+  });
 });
