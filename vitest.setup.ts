@@ -1,7 +1,9 @@
 import { afterEach } from 'vitest';
-import { cleanup } from '@testing-library/react';
-import '@testing-library/jest-dom/vitest';
 
-afterEach(() => {
-  cleanup();
-});
+if (typeof document !== 'undefined') {
+  const { cleanup } = await import('@testing-library/react');
+  await import('@testing-library/jest-dom/vitest');
+  afterEach(() => {
+    cleanup();
+  });
+}

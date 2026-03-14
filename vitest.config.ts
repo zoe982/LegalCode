@@ -16,6 +16,19 @@ export default defineConfig({
     setupFiles: ['./vitest.setup.ts'],
     passWithNoTests: true,
     include: ['packages/**/tests/**/*.test.{ts,tsx}', 'packages/**/*.test.{ts,tsx}'],
+    pool: 'threads',
+    poolOptions: {
+      threads: {
+        maxThreads: 4,
+        minThreads: 1,
+      },
+    },
+    environmentMatchGlobs: [
+      ['packages/api/**/*.test.ts', 'node'],
+      ['packages/shared/**/*.test.ts', 'node'],
+    ],
+    teardownTimeout: 5000,
+    forceRerunTriggers: ['**/vitest.config.*', '**/vitest.setup.*'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html', 'lcov'],

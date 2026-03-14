@@ -83,9 +83,9 @@ pnpm monorepo: `packages/api` (Hono/Cloudflare Worker), `packages/web` (React/Vi
 - `pnpm lint` — ESLint (strict-type-checked, zero warnings)
 - `pnpm format` — Prettier format
 - `pnpm typecheck` — TypeScript check (tsc -b)
-- `pnpm test` — Vitest (95% coverage threshold)
+- `pnpm test` — Vitest (fast, no coverage)
+- `pnpm test:coverage` — Vitest with 95% per-file coverage thresholds
 - `pnpm test:watch` — Vitest watch mode
-- `pnpm test:coverage` — Coverage report
 - `pnpm test:e2e` — Playwright (Chrome, runs against production)
 - `pnpm db:generate` — Generate Drizzle migrations
 
@@ -127,7 +127,7 @@ pnpm monorepo: `packages/api` (Hono/Cloudflare Worker), `packages/web` (React/Vi
 - Unit/Integration: Vitest + React Testing Library + MSW
 - E2E: Playwright (Chrome only)
 - Use accessibility-first queries (getByRole, getByLabelText)
-- **`pnpm test` always runs with `--coverage`** — per-file thresholds are enforced on every run, not just in CI
+- **`pnpm test` runs without coverage** for fast TDD cycles. **`pnpm test:coverage`** enforces per-file 95% thresholds and is used by the deploy script.
 
 ### Per-File Coverage (MANDATORY)
 
