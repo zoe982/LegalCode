@@ -82,3 +82,4 @@ export interface Company {
 
 export * from './auth.js';
 export * from './errors.js';
+export * from './variables.js';
