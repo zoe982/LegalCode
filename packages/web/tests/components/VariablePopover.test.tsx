@@ -194,9 +194,14 @@ describe('VariablePopover', () => {
     renderPopover();
     await openFirstKebab(user);
     await user.click(screen.getByRole('menuitem', { name: /rename/i }));
-    // Wait for inline edit TextField to appear (async re-render after menu closes)
-    const renameInput = await screen.findByDisplayValue('Party Name');
-    expect(renameInput).toBeInTheDocument();
+    // After clicking Rename, a TextField with the variable's name appears for editing
+    // The search textbox is always present; after rename there should be 2 textboxes
+    const textboxes = await screen.findAllByRole('textbox');
+    // At minimum: search input + rename input
+    expect(textboxes.length).toBeGreaterThanOrEqual(2);
+    // One of them should contain the variable name
+    const renameInput = textboxes.find((el) => (el as HTMLInputElement).value === 'Party Name');
+    expect(renameInput).toBeDefined();
   });
 
   it('saving rename calls onRenameVariable with new name', async () => {
@@ -205,7 +210,11 @@ describe('VariablePopover', () => {
     renderPopover({ onRenameVariable });
     await openFirstKebab(user);
     await user.click(screen.getByRole('menuitem', { name: /rename/i }));
-    const renameInput = await screen.findByDisplayValue('Party Name');
+    // Wait for the rename input to appear (2nd textbox after the search input)
+    const textboxes = await screen.findAllByRole('textbox');
+    const renameInput = textboxes.find((el) => (el as HTMLInputElement).value === 'Party Name');
+    expect(renameInput).toBeDefined();
+    if (!renameInput) return;
     await user.clear(renameInput);
     await user.type(renameInput, 'Counterparty');
     await user.keyboard('{Enter}');
