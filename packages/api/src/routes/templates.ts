@@ -98,7 +98,7 @@ templateRoutes.post('/', requireRole('admin', 'editor'), async (c) => {
   const body: unknown = await c.req.json();
   const parsed = createTemplateSchema.safeParse(body);
   if (!parsed.success) {
-    return c.json({ error: 'Invalid input', details: parsed.error.flatten() }, 400);
+    return c.json({ error: 'Invalid input' }, 400);
   }
   const db = getDb(c.env.DB);
   const user = c.get('user');
@@ -122,7 +122,7 @@ templateRoutes.patch('/:id', requireRole('admin', 'editor'), async (c) => {
   const body: unknown = await c.req.json();
   const parsed = updateTemplateSchema.safeParse(body);
   if (!parsed.success) {
-    return c.json({ error: 'Invalid input', details: parsed.error.flatten() }, 400);
+    return c.json({ error: 'Invalid input' }, 400);
   }
   const db = getDb(c.env.DB);
   const id = c.req.param('id');
@@ -161,7 +161,7 @@ templateRoutes.patch('/:id/autosave', requireRole('admin', 'editor'), async (c) 
   const body: unknown = await c.req.json();
   const parsed = autosaveSchema.safeParse(body);
   if (!parsed.success) {
-    return c.json({ error: 'Invalid input', details: parsed.error.flatten() }, 400);
+    return c.json({ error: 'Invalid input' }, 400);
   }
   const db = getDb(c.env.DB);
   const id = c.req.param('id');

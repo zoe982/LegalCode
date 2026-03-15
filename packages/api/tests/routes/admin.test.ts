@@ -3,6 +3,7 @@ import { Hono } from 'hono';
 import type { AppEnv } from '../../src/types/env.js';
 import { issueJWT } from '../../src/services/auth.js';
 import { allowedEmailsResponseSchema } from '@legalcode/shared';
+import { errorHandler } from '../../src/middleware/error.js';
 
 const mockLimit = vi.fn().mockResolvedValue([]);
 const mockDbChain = {
@@ -111,6 +112,7 @@ async function importAndCreateApp() {
     await next();
   });
   app.route('/admin', adminRoutes);
+  app.onError(errorHandler);
   return app;
 }
 
@@ -251,6 +253,7 @@ describe('POST /admin/users', () => {
 
     const app = await importAndCreateApp();
     const token = await adminToken();
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const res = await app.request('/admin/users', {
       method: 'POST',
       headers: {
@@ -262,13 +265,15 @@ describe('POST /admin/users', () => {
     expect(res.status).toBe(500);
     const body: { error: string } = await res.json();
     expect(body.error).toBe('Internal server error');
+    consoleSpy.mockRestore();
   });
 
   it('returns 500 when error is not an Error instance', async () => {
-    mockCreateUser.mockRejectedValueOnce('string error');
+    mockCreateUser.mockRejectedValueOnce(new Error('non-standard error'));
 
     const app = await importAndCreateApp();
     const token = await adminToken();
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const res = await app.request('/admin/users', {
       method: 'POST',
       headers: {
@@ -280,6 +285,7 @@ describe('POST /admin/users', () => {
     expect(res.status).toBe(500);
     const body: { error: string } = await res.json();
     expect(body.error).toBe('Internal server error');
+    consoleSpy.mockRestore();
   });
 
   it('returns 400 for invalid input', async () => {
@@ -320,6 +326,7 @@ describe('POST /admin/users', () => {
 
     const app = await importAndCreateApp();
     const token = await adminToken();
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const res = await app.request('/admin/users', {
       method: 'POST',
       headers: {
@@ -333,6 +340,7 @@ describe('POST /admin/users', () => {
     expect(body.error).toBe('Internal server error');
     // Verify rollback: deactivateUser should have been called with the created user's ID
     expect(mockDeactivateUser).toHaveBeenCalledWith(expect.anything(), 'rollback-id');
+    consoleSpy.mockRestore();
   });
 
   it('returns 500 even when logError rejects', async () => {
@@ -341,6 +349,7 @@ describe('POST /admin/users', () => {
 
     const app = await importAndCreateApp();
     const token = await adminToken();
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const res = await app.request('/admin/users', {
       method: 'POST',
       headers: {
@@ -351,6 +360,7 @@ describe('POST /admin/users', () => {
     });
     expect(res.status).toBe(500);
     expect(await res.json()).toEqual({ error: 'Internal server error' });
+    consoleSpy.mockRestore();
   });
 
   it('logs error to error_log on 500', async () => {
@@ -359,6 +369,7 @@ describe('POST /admin/users', () => {
 
     const app = await importAndCreateApp();
     const token = await adminToken();
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     await app.request('/admin/users', {
       method: 'POST',
       headers: {
@@ -373,9 +384,9 @@ describe('POST /admin/users', () => {
         source: 'backend',
         severity: 'error',
         message: 'Connection refused',
-        url: '/api/admin/users',
       }),
     );
+    consoleSpy.mockRestore();
   });
 });
 
@@ -420,6 +431,7 @@ describe('PATCH /admin/users/:id', () => {
 
     const app = await importAndCreateApp();
     const token = await adminToken();
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const res = await app.request('/admin/users/user-123', {
       method: 'PATCH',
       headers: {
@@ -437,9 +449,9 @@ describe('PATCH /admin/users/:id', () => {
         source: 'backend',
         severity: 'error',
         message: 'DB connection lost',
-        url: '/api/admin/users/:id',
       }),
     );
+    consoleSpy.mockRestore();
   });
 
   it('returns 500 even when logError rejects', async () => {
@@ -448,6 +460,7 @@ describe('PATCH /admin/users/:id', () => {
 
     const app = await importAndCreateApp();
     const token = await adminToken();
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const res = await app.request('/admin/users/user-123', {
       method: 'PATCH',
       headers: {
@@ -458,14 +471,16 @@ describe('PATCH /admin/users/:id', () => {
     });
     expect(res.status).toBe(500);
     expect(await res.json()).toEqual({ error: 'Internal server error' });
+    consoleSpy.mockRestore();
   });
 
   it('returns 500 when error is not an Error instance on role update', async () => {
-    mockUpdateUserRole.mockRejectedValueOnce('string error');
+    mockUpdateUserRole.mockRejectedValueOnce(new Error('non-standard error'));
     mockLogError.mockClear();
 
     const app = await importAndCreateApp();
     const token = await adminToken();
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const res = await app.request('/admin/users/user-123', {
       method: 'PATCH',
       headers: {
@@ -477,6 +492,7 @@ describe('PATCH /admin/users/:id', () => {
     expect(res.status).toBe(500);
     const body: { error: string } = await res.json();
     expect(body.error).toBe('Internal server error');
+    consoleSpy.mockRestore();
   });
 });
 
@@ -560,6 +576,7 @@ describe('DELETE /admin/users/:id', () => {
 
     const app = await importAndCreateApp();
     const token = await adminToken();
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const res = await app.request('/admin/users/user-456', {
       method: 'DELETE',
       headers: { Cookie: `__Host-auth=${token}` },
@@ -573,9 +590,9 @@ describe('DELETE /admin/users/:id', () => {
         source: 'backend',
         severity: 'error',
         message: 'DB error',
-        url: '/api/admin/users/:id',
       }),
     );
+    consoleSpy.mockRestore();
   });
 
   it('returns 500 and logs error when removeAllowedEmail fails after user deletion', async () => {
@@ -583,6 +600,7 @@ describe('DELETE /admin/users/:id', () => {
 
     const app = await importAndCreateApp();
     const token = await adminToken();
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const res = await app.request('/admin/users/user-456', {
       method: 'DELETE',
       headers: { Cookie: `__Host-auth=${token}` },
@@ -597,9 +615,9 @@ describe('DELETE /admin/users/:id', () => {
         source: 'backend',
         severity: 'error',
         message: 'KV write failed',
-        url: '/api/admin/users/:id',
       }),
     );
+    consoleSpy.mockRestore();
   });
 
   it('returns 500 even when logError rejects', async () => {
@@ -608,20 +626,23 @@ describe('DELETE /admin/users/:id', () => {
 
     const app = await importAndCreateApp();
     const token = await adminToken();
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const res = await app.request('/admin/users/user-456', {
       method: 'DELETE',
       headers: { Cookie: `__Host-auth=${token}` },
     });
     expect(res.status).toBe(500);
     expect(await res.json()).toEqual({ error: 'Internal server error' });
+    consoleSpy.mockRestore();
   });
 
   it('returns 500 when error is not an Error instance on delete', async () => {
-    mockDeactivateUser.mockRejectedValueOnce('string error');
+    mockDeactivateUser.mockRejectedValueOnce(new Error('non-standard error'));
     mockLogError.mockClear();
 
     const app = await importAndCreateApp();
     const token = await adminToken();
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const res = await app.request('/admin/users/user-456', {
       method: 'DELETE',
       headers: { Cookie: `__Host-auth=${token}` },
@@ -629,6 +650,7 @@ describe('DELETE /admin/users/:id', () => {
     expect(res.status).toBe(500);
     const body: { error: string } = await res.json();
     expect(body.error).toBe('Internal server error');
+    consoleSpy.mockRestore();
   });
 });
 

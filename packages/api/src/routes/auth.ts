@@ -91,7 +91,7 @@ authRoutes.get('/callback', authRateLimit, async (c) => {
   );
   if (!emailAllowed) {
     return c.html(
-      '<h1>Login failed</h1><p>Your email is not authorized to access this application.</p><a href="/">Try again</a>',
+      '<h1>Login failed</h1><p>Access denied. Please contact an administrator if you believe this is an error.</p><a href="/">Try again</a>',
       403,
     );
   }
@@ -100,7 +100,7 @@ authRoutes.get('/callback', authRateLimit, async (c) => {
   const user = await findUserByEmail(db, googleUser.email);
   if (!user) {
     return c.html(
-      '<h1>Login failed</h1><p>Your account has not been provisioned. Please contact an administrator.</p><a href="/">Try again</a>',
+      '<h1>Login failed</h1><p>Access denied. Please contact an administrator if you believe this is an error.</p><a href="/">Try again</a>',
       403,
     );
   }

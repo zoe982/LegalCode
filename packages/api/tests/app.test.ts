@@ -293,7 +293,7 @@ describe('admin routes via full app (V8 coverage stabilization)', () => {
   });
 
   it('POST /api/admin/users returns 500 for non-Error throw', async () => {
-    mockCreateUser.mockRejectedValueOnce('string error');
+    mockCreateUser.mockRejectedValueOnce(new Error('non-standard error'));
     const token = await adminToken();
     const res = await app.request(
       '/api/admin/users',

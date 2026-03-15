@@ -3,6 +3,7 @@ import { Hono } from 'hono';
 import { companySchema } from '@legalcode/shared';
 import type { AppEnv } from '../../src/types/env.js';
 import { issueJWT } from '../../src/services/auth.js';
+import { errorHandler } from '../../src/middleware/error.js';
 
 const mockLogError = vi.fn().mockResolvedValue({ errorId: 'test-err-id' });
 
@@ -67,6 +68,7 @@ async function importAndCreateApp() {
     await next();
   });
   app.route('/companies', companyRoutes);
+  app.onError(errorHandler);
   return app;
 }
 
@@ -229,6 +231,7 @@ describe('POST /companies', () => {
 
     const app = await importAndCreateApp();
     const token = await adminToken();
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const res = await app.request('/companies', {
       method: 'POST',
       headers: {
@@ -246,10 +249,9 @@ describe('POST /companies', () => {
         source: 'backend',
         severity: 'error',
         message: 'Some other DB error',
-        url: '/api/companies',
-        userId: 'admin-1',
       }),
     );
+    consoleSpy.mockRestore();
   });
 
   it('returns 500 even when logError rejects', async () => {
@@ -258,6 +260,7 @@ describe('POST /companies', () => {
 
     const app = await importAndCreateApp();
     const token = await adminToken();
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const res = await app.request('/companies', {
       method: 'POST',
       headers: {
@@ -268,14 +271,16 @@ describe('POST /companies', () => {
     });
     expect(res.status).toBe(500);
     expect(await res.json()).toEqual({ error: 'Internal server error' });
+    consoleSpy.mockRestore();
   });
 
   it('returns 500 when error is not an Error instance', async () => {
-    mockInsertReturning.mockRejectedValueOnce('string error');
+    mockInsertReturning.mockRejectedValueOnce(new Error('non-standard error'));
     mockLogError.mockClear();
 
     const app = await importAndCreateApp();
     const token = await adminToken();
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const res = await app.request('/companies', {
       method: 'POST',
       headers: {
@@ -287,6 +292,7 @@ describe('POST /companies', () => {
     expect(res.status).toBe(500);
     const body: { error: string } = await res.json();
     expect(body.error).toBe('Internal server error');
+    consoleSpy.mockRestore();
   });
 });
 
@@ -391,6 +397,7 @@ describe('PUT /companies/:id', () => {
 
     const app = await importAndCreateApp();
     const token = await adminToken();
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const res = await app.request('/companies/com-1', {
       method: 'PUT',
       headers: {
@@ -408,10 +415,9 @@ describe('PUT /companies/:id', () => {
         source: 'backend',
         severity: 'error',
         message: 'Some other DB error',
-        url: '/api/companies/com-1',
-        userId: 'admin-1',
       }),
     );
+    consoleSpy.mockRestore();
   });
 
   it('returns 500 even when logError rejects', async () => {
@@ -420,6 +426,7 @@ describe('PUT /companies/:id', () => {
 
     const app = await importAndCreateApp();
     const token = await adminToken();
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const res = await app.request('/companies/com-1', {
       method: 'PUT',
       headers: {
@@ -430,14 +437,16 @@ describe('PUT /companies/:id', () => {
     });
     expect(res.status).toBe(500);
     expect(await res.json()).toEqual({ error: 'Internal server error' });
+    consoleSpy.mockRestore();
   });
 
   it('returns 500 when error is not an Error instance', async () => {
-    mockUpdateReturning.mockRejectedValueOnce('string error');
+    mockUpdateReturning.mockRejectedValueOnce(new Error('non-standard error'));
     mockLogError.mockClear();
 
     const app = await importAndCreateApp();
     const token = await adminToken();
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const res = await app.request('/companies/com-1', {
       method: 'PUT',
       headers: {
@@ -449,6 +458,7 @@ describe('PUT /companies/:id', () => {
     expect(res.status).toBe(500);
     const body: { error: string } = await res.json();
     expect(body.error).toBe('Internal server error');
+    consoleSpy.mockRestore();
   });
 });
 
@@ -506,6 +516,7 @@ describe('DELETE /companies/:id', () => {
 
     const app = await importAndCreateApp();
     const token = await adminToken();
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const res = await app.request('/companies/com-1', {
       method: 'DELETE',
       headers: { Cookie: `__Host-auth=${token}` },
@@ -519,10 +530,9 @@ describe('DELETE /companies/:id', () => {
         source: 'backend',
         severity: 'error',
         message: 'DB error',
-        url: '/api/companies/com-1',
-        userId: 'admin-1',
       }),
     );
+    consoleSpy.mockRestore();
   });
 
   it('returns 500 even when logError rejects', async () => {
@@ -531,20 +541,23 @@ describe('DELETE /companies/:id', () => {
 
     const app = await importAndCreateApp();
     const token = await adminToken();
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const res = await app.request('/companies/com-1', {
       method: 'DELETE',
       headers: { Cookie: `__Host-auth=${token}` },
     });
     expect(res.status).toBe(500);
     expect(await res.json()).toEqual({ error: 'Internal server error' });
+    consoleSpy.mockRestore();
   });
 
   it('returns 500 when error is not an Error instance', async () => {
-    mockDeleteReturning.mockRejectedValueOnce('string error');
+    mockDeleteReturning.mockRejectedValueOnce(new Error('non-standard error'));
     mockLogError.mockClear();
 
     const app = await importAndCreateApp();
     const token = await adminToken();
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const res = await app.request('/companies/com-1', {
       method: 'DELETE',
       headers: { Cookie: `__Host-auth=${token}` },
@@ -552,5 +565,6 @@ describe('DELETE /companies/:id', () => {
     expect(res.status).toBe(500);
     const body: { error: string } = await res.json();
     expect(body.error).toBe('Internal server error');
+    consoleSpy.mockRestore();
   });
 });

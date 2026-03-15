@@ -534,7 +534,6 @@ describe('POST /templates', () => {
     expect(res.status).toBe(400);
     const body: Record<string, unknown> = await res.json();
     expect(body.error).toBe('Invalid input');
-    expect(body.details).toBeDefined();
   });
 
   it('POST success response matches createTemplateResponseSchema', async () => {

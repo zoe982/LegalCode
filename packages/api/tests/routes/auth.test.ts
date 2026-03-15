@@ -148,7 +148,7 @@ describe('GET /auth/callback', () => {
     const res = await app.request('/auth/callback?code=auth-code&state=valid-state');
     expect(res.status).toBe(403);
     const text = await res.text();
-    expect(text).toContain('not authorized');
+    expect(text).toContain('Access denied');
   });
 
   it('returns 403 when user is not provisioned in DB', async () => {
@@ -170,7 +170,7 @@ describe('GET /auth/callback', () => {
     const res = await app.request('/auth/callback?code=auth-code&state=valid-state');
     expect(res.status).toBe(403);
     const text = await res.text();
-    expect(text).toContain('not been provisioned');
+    expect(text).toContain('Access denied');
   });
 
   it('sets cookies and redirects on successful callback', async () => {

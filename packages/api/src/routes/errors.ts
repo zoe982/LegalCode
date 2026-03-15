@@ -12,7 +12,7 @@ errorRoutes.post('/report', async (c) => {
   const body: unknown = await c.req.json();
   const result = reportErrorSchema.safeParse(body);
   if (!result.success) {
-    return c.json({ error: 'Invalid input', details: result.error.flatten() }, 400);
+    return c.json({ error: 'Invalid input' }, 400);
   }
   const { errorId } = await logError(c.env.DB, {
     ...result.data,
