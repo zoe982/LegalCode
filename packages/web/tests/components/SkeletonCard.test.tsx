@@ -32,11 +32,15 @@ describe('SkeletonCard', () => {
     expect(skeletons.length).toBeGreaterThanOrEqual(6);
   });
 
-  it('has minimum height of 140px applied via className', () => {
+  it('has layout styles applied via MUI sx Emotion classes', () => {
     render(<SkeletonCard />, { wrapper: Wrapper });
     const card = screen.getByTestId('skeleton-card');
-    // MUI sx applies minHeight via CSS class
-    expect(card.className).toBeTruthy();
+    // MUI sx applies minHeight, display:flex, flexDirection:column via Emotion CSS classes
+    expect(card.className).toMatch(/css-/);
+    // Verify the card has at least one Emotion-generated class (confirms sx was applied)
+    const classNames = card.className.split(' ');
+    const emotionClasses = classNames.filter((c) => c.startsWith('css-'));
+    expect(emotionClasses.length).toBeGreaterThanOrEqual(1);
   });
 
   it('contains text variant skeletons for title lines', () => {

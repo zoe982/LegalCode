@@ -21,10 +21,6 @@ export function OfflineBar() {
     };
   }, []);
 
-  if (!isOffline) {
-    return null;
-  }
-
   return (
     <>
       <Box
@@ -37,9 +33,13 @@ export function OfflineBar() {
           height: '3px',
           backgroundColor: '#B8860B',
           zIndex: 70,
+          visibility: isOffline ? 'visible' : 'hidden',
+          opacity: isOffline ? 1 : 0,
+          pointerEvents: isOffline ? 'auto' : 'none',
         }}
       />
       <Box
+        data-testid="offline-banner"
         sx={{
           position: 'fixed',
           top: '3px',
@@ -51,6 +51,9 @@ export function OfflineBar() {
           justifyContent: 'center',
           backgroundColor: '#F7F0E6',
           zIndex: 70,
+          visibility: isOffline ? 'visible' : 'hidden',
+          opacity: isOffline ? 1 : 0,
+          pointerEvents: isOffline ? 'auto' : 'none',
         }}
       >
         <Typography

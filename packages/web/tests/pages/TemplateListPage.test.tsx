@@ -1418,22 +1418,22 @@ describe('TemplateListPage', () => {
       render(<TemplateListPage />, { wrapper: Wrapper });
 
       // MUI applies sx via Emotion CSS classes, not inline styles.
-      // We verify the element is rendered and has MUI-generated class names,
+      // We verify the element is rendered and has MUI-generated Emotion class names,
       // confirming the sx prop (including width:'100%') is applied.
       const container = screen.getByTestId('template-list-container');
       expect(container).toBeInTheDocument();
-      expect(container.className).toBeTruthy();
+      expect(container.className).toMatch(/css-/);
     });
 
     it('card-grid renders with MUI-generated class for display:grid', () => {
       render(<TemplateListPage />, { wrapper: Wrapper });
 
       // MUI applies sx via Emotion CSS classes, not inline styles.
-      // We verify the element is rendered and has MUI-generated class names,
+      // We verify the element is rendered and has MUI-generated Emotion class names,
       // confirming the sx prop (including display:'grid') is applied.
       const grid = screen.getByTestId('card-grid');
       expect(grid).toBeInTheDocument();
-      expect(grid.className).toBeTruthy();
+      expect(grid.className).toMatch(/css-/);
     });
 
     it('card-grid renders with cards when templates are present', () => {
@@ -1449,11 +1449,11 @@ describe('TemplateListPage', () => {
       render(<TemplateListPage />, { wrapper: Wrapper });
 
       // MUI applies sx via Emotion CSS classes, not inline styles.
-      // We verify the element is rendered and has MUI-generated class names,
+      // We verify the element is rendered and has MUI-generated Emotion class names,
       // confirming the sx prop (including minWidth:0) is applied.
       const grid = screen.getByTestId('card-grid');
       expect(grid).toBeInTheDocument();
-      expect(grid.className).toBeTruthy();
+      expect(grid.className).toMatch(/css-/);
     });
   });
 });

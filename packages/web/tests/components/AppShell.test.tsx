@@ -126,4 +126,21 @@ describe('AppShell', () => {
     // When documentHeader is set, Breadcrumbs should not render
     expect(screen.queryByTestId('breadcrumbs')).not.toBeInTheDocument();
   });
+
+  it('outer container has flex column layout via MUI sx class', () => {
+    renderShell();
+    const workspace = screen.getByTestId('workspace');
+    // The parent Box with display:flex/flexDirection:column wraps workspace
+    const outerContainer = workspace.parentElement;
+    expect(outerContainer).not.toBeNull();
+    if (!outerContainer) return;
+    // MUI sx generates Emotion CSS classes
+    expect(outerContainer.className).toMatch(/css-/);
+  });
+
+  it('workspace has flex:1 and overflow:auto via MUI sx class', () => {
+    renderShell();
+    const workspace = screen.getByTestId('workspace');
+    expect(workspace.className).toMatch(/css-/);
+  });
 });

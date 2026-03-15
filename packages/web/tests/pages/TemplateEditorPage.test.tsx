@@ -794,12 +794,15 @@ vi.mock('../../src/components/MarginCommentTrigger.js', () => ({
     top: number | null;
     visible: boolean;
     onClick: () => void;
-  }) =>
-    visible ? (
-      <button data-testid="margin-comment-trigger" onClick={onClick}>
-        Comment
-      </button>
-    ) : null,
+  }) => (
+    <button
+      data-testid="margin-comment-trigger"
+      onClick={onClick}
+      style={{ visibility: visible ? 'visible' : 'hidden' }}
+    >
+      Comment
+    </button>
+  ),
 }));
 
 // Store the latest DocumentHeader props so tests can trigger callbacks
