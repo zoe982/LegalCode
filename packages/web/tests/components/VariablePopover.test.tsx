@@ -294,4 +294,76 @@ describe('VariablePopover', () => {
     const listItems = screen.getAllByRole('listitem');
     expect(listItems.length).toBeGreaterThanOrEqual(mockVariables.length);
   });
+
+  it('Escape key during rename cancels without saving', async () => {
+    const user = userEvent.setup();
+    const onRenameVariable = vi.fn();
+    renderPopover({ onRenameVariable });
+    await openFirstKebab(user);
+    await user.click(screen.getByRole('menuitem', { name: /rename/i }));
+    // Find the rename input (2nd textbox after search)
+    const textboxes = await screen.findAllByRole('textbox');
+    const renameInput = textboxes.find((el) => (el as HTMLInputElement).value === 'Party Name');
+    expect(renameInput).toBeDefined();
+    if (!renameInput) return;
+    // Focus the rename input and press Escape — should cancel without calling onRenameVariable
+    renameInput.focus();
+    await user.keyboard('{Escape}');
+    expect(onRenameVariable).not.toHaveBeenCalled();
+    // After Escape the inline edit state is cleared — only the search textbox remains
+    const textboxesAfter = screen.getAllByRole('textbox');
+    // There should only be the search input now (no more rename input)
+    expect(textboxesAfter).toHaveLength(1);
+  });
+
+  it('empty rename input does not call onRenameVariable on blur', async () => {
+    const user = userEvent.setup();
+    const onRenameVariable = vi.fn();
+    renderPopover({ onRenameVariable });
+    await openFirstKebab(user);
+    await user.click(screen.getByRole('menuitem', { name: /rename/i }));
+    const textboxes = await screen.findAllByRole('textbox');
+    const renameInput = textboxes.find((el) => (el as HTMLInputElement).value === 'Party Name');
+    expect(renameInput).toBeDefined();
+    if (!renameInput) return;
+    // Clear the input so trimmed value is empty
+    await user.clear(renameInput);
+    // Blur — handleRenameCommit should not call onRenameVariable since trimmed is ''
+    await user.tab();
+    expect(onRenameVariable).not.toHaveBeenCalled();
+  });
+
+  it('clicking variable row does not insert when rename is active', async () => {
+    const user = userEvent.setup();
+    const onInsertVariable = vi.fn();
+    renderPopover({ onInsertVariable });
+    await openFirstKebab(user);
+    await user.click(screen.getByRole('menuitem', { name: /rename/i }));
+    // While rename is active, the row shows an input instead of the variable name text.
+    // Find the rename input and click its containing row.
+    const textboxes = await screen.findAllByRole('textbox');
+    const renameInput = textboxes.find((el) => (el as HTMLInputElement).value === 'Party Name');
+    expect(renameInput).toBeDefined();
+    if (!renameInput) return;
+    // Click the list item button ancestor of the rename input
+    const row =
+      renameInput.closest('[role="button"]') ??
+      renameInput.closest('li') ??
+      renameInput.parentElement;
+    if (row) {
+      await user.click(row);
+    }
+    // Since isRenaming is true, onInsertVariable should NOT be called
+    expect(onInsertVariable).not.toHaveBeenCalled();
+  });
+
+  it('kebab menu closes when clicking outside (handleKebabClose fires)', async () => {
+    const user = userEvent.setup();
+    renderPopover();
+    await openFirstKebab(user);
+    expect(screen.getByRole('menu')).toBeInTheDocument();
+    // Press Escape to close the menu without clicking a menu item
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+  });
 });

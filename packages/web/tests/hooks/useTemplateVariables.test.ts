@@ -551,6 +551,66 @@ describe('useTemplateVariables', () => {
       expect(injected).toContain('Signing Date');
       expect(injected).toContain('New Field');
     });
+
+    it('returns body as-is when variables are empty and storedFrontmatter has only variables key', () => {
+      // Strip frontmatter that has only a variables list, then delete all variables
+      const markdownWithOnlyVars = `---
+variables:
+  - id: "to-delete-aaaa"
+    name: "To Delete"
+    type: "text"
+---
+Just the body.
+`;
+      const { result } = renderHook(() => useTemplateVariables());
+
+      act(() => {
+        result.current.stripFrontmatter(markdownWithOnlyVars);
+      });
+
+      // Delete all variables so variables.length === 0
+      const varId = result.current.variables[0]?.id ?? '';
+      act(() => {
+        result.current.deleteVariable(varId);
+      });
+
+      expect(result.current.variables).toHaveLength(0);
+
+      let injected: string | undefined;
+      act(() => {
+        injected = result.current.injectFrontmatter('Just the body.');
+      });
+
+      // storedFrontmatter has only 'variables' key, no other keys → return body as-is
+      expect(injected).toBe('Just the body.');
+    });
+
+    it('preserves other frontmatter keys when variables are emptied', () => {
+      // Strip frontmatter with title + variables, then delete all variables
+      const { result } = renderHook(() => useTemplateVariables());
+
+      act(() => {
+        result.current.stripFrontmatter(MARKDOWN_WITH_EXTRA_FRONTMATTER);
+      });
+
+      // Delete all variables
+      const varId = result.current.variables[0]?.id ?? '';
+      act(() => {
+        result.current.deleteVariable(varId);
+      });
+
+      expect(result.current.variables).toHaveLength(0);
+
+      let injected: string | undefined;
+      act(() => {
+        injected = result.current.injectFrontmatter('Body content here.');
+      });
+
+      // storedFrontmatter has 'title' key in addition to 'variables' → inject frontmatter
+      expect(injected).toContain('title:');
+      expect(injected).toContain('My Template');
+      expect(injected).toContain('Body content here.');
+    });
   });
 
   // ── Round-trip ─────────────────────────────────────────────────────

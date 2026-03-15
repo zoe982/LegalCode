@@ -205,4 +205,35 @@ describe('NewVariableDialog', () => {
     await user.click(screen.getByRole('button', { name: /create/i }));
     expect(onCreateVariable).toHaveBeenCalledWith('Total Amount', 'currency', undefined);
   });
+
+  it('passes undefined customType when type is custom but customType is empty string', async () => {
+    const user = userEvent.setup();
+    const onCreateVariable = vi.fn();
+    renderDialog({ onCreateVariable });
+    await user.type(screen.getByLabelText(/name/i), 'My Var');
+    await user.click(screen.getByRole('combobox', { name: /type/i }));
+    await user.click(screen.getByRole('option', { name: TYPE_LABELS.custom }));
+    // Do NOT fill in the custom type label — leave it empty
+    await user.click(screen.getByRole('button', { name: /create/i }));
+    // customType is '' which is falsy so `customType || undefined` → undefined
+    expect(onCreateVariable).toHaveBeenCalledWith('My Var', 'custom', undefined);
+  });
+
+  it('handleCreate does nothing when called with name that is only whitespace', async () => {
+    const user = userEvent.setup();
+    const onCreateVariable = vi.fn();
+    renderDialog({ onCreateVariable });
+    // Type whitespace — button should remain disabled since name.trim() === ''
+    await user.type(screen.getByLabelText(/name/i), '   ');
+    expect(screen.getByRole('button', { name: /create/i })).toBeDisabled();
+    expect(onCreateVariable).not.toHaveBeenCalled();
+  });
+
+  it('isNameEmpty is false when name has whitespace around text (button enabled)', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    await user.type(screen.getByLabelText(/name/i), '  X  ');
+    // ' X '.trim() !== '' so button should be enabled
+    expect(screen.getByRole('button', { name: /create/i })).toBeEnabled();
+  });
 });

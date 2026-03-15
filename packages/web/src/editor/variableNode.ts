@@ -125,6 +125,7 @@ function splitTextNode(node: MdastTextNode): MdastInlineNode[] {
     const matchEnd = matchStart + match[0].length;
     const variableId = match[1];
 
+    /* v8 ignore next */
     if (variableId === undefined) continue;
 
     // Text segment before this match

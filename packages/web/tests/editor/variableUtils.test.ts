@@ -135,6 +135,80 @@ Body.`;
     expect(frontmatter).toBeNull();
     expect(body).toBe('');
   });
+
+  it('returns null frontmatter when opening --- is present but closing delimiter is missing', () => {
+    const md = '---\ntitle: test\nno closing delimiter';
+    const { frontmatter, body } = parseFrontmatter(md);
+    expect(frontmatter).toBeNull();
+    expect(body).toBe(md);
+  });
+
+  it('parses YAML list where empty line terminates the list before EOF', () => {
+    // An empty line inside a list should break out and stop accumulating items
+    const md = `---
+variables:
+  - id: "a"
+    name: "Alpha"
+    type: "text"
+
+title: "After Empty Line"
+---
+Body.`;
+    const { frontmatter } = parseFrontmatter(md);
+    // The empty line should have ended the list; title parsed afterwards
+    const vars = frontmatter?.variables as unknown[];
+    expect(vars).toHaveLength(1);
+    expect(frontmatter?.title).toBe('After Empty Line');
+  });
+
+  it('parses list stopped by new top-level key (no empty line separator)', () => {
+    // A new top-level key (no leading spaces) immediately after list items
+    const md = `---
+variables:
+  - id: "b"
+    name: "Beta"
+    type: "date"
+author: "Alice"
+---
+Doc.`;
+    const { frontmatter } = parseFrontmatter(md);
+    const vars = frontmatter?.variables as unknown[];
+    expect(vars).toHaveLength(1);
+    expect(frontmatter?.author).toBe('Alice');
+  });
+
+  it('parses YAML with bare dash list items (bare "-" with no field content)', () => {
+    // A bare "-" on its own creates an empty list item
+    const md = `---
+variables:
+  -
+  - id: "c"
+    name: "Charlie"
+    type: "text"
+---
+Body.`;
+    const { frontmatter } = parseFrontmatter(md);
+    // The bare "-" creates an empty item followed by the real item
+    const vars = frontmatter?.variables as unknown[];
+    expect(Array.isArray(vars)).toBe(true);
+    expect(vars.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('parses multi-line list items (fields on separate lines within same item)', () => {
+    // Fields indented under a "- field: value" item parsed as continuation lines
+    const md = `---
+variables:
+  - id: "party-name"
+    name: "Party Name"
+    type: "text"
+    customType: "LegalEntity"
+---
+Body.`;
+    const { frontmatter } = parseFrontmatter(md);
+    const vars = frontmatter?.variables as Record<string, string>[];
+    expect(vars).toHaveLength(1);
+    expect(vars[0]?.customType).toBe('LegalEntity');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -185,6 +259,53 @@ describe('serializeFrontmatter', () => {
     };
     const result = serializeFrontmatter(frontmatter, '');
     expect(result).toContain('customType: "ISO 8601"');
+  });
+
+  it('serializes top-level number value without quotes', () => {
+    const result = serializeFrontmatter({ count: 5 }, 'Body.');
+    expect(result).toContain('count: 5');
+    // Should NOT be quoted
+    expect(result).not.toContain('count: "5"');
+  });
+
+  it('serializes top-level boolean value without quotes', () => {
+    const result = serializeFrontmatter({ enabled: true }, 'Body.');
+    expect(result).toContain('enabled: true');
+  });
+
+  it('serializes number field value inside array items without quotes', () => {
+    const frontmatter = {
+      items: [{ id: 'x', count: 42 }],
+    };
+    const result = serializeFrontmatter(frontmatter, 'Body.');
+    expect(result).toContain('count: 42');
+  });
+
+  it('serializes boolean field value inside array items without quotes', () => {
+    const frontmatter = {
+      items: [{ id: 'x', active: false }],
+    };
+    const result = serializeFrontmatter(frontmatter, 'Body.');
+    expect(result).toContain('active: false');
+  });
+
+  it('skips non-primitive (nested object) values inside array items', () => {
+    // A nested object value is not a string, number, or boolean — should be skipped
+    const frontmatter = {
+      items: [{ id: 'x', nested: { deep: 'value' } }],
+    };
+    const result = serializeFrontmatter(frontmatter, 'Body.');
+    // 'nested' key should not appear in output since it's an object
+    expect(result).not.toContain('nested');
+  });
+
+  it('skips undefined field values inside array items', () => {
+    const frontmatter = {
+      items: [{ id: 'x', optional: undefined }],
+    };
+    const result = serializeFrontmatter(frontmatter, 'Body.');
+    // undefined values are skipped
+    expect(result).not.toContain('optional');
   });
 });
 

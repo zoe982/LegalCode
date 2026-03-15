@@ -183,6 +183,21 @@ describe('variableSchemaPlugin', () => {
     expect(text).toBe('{{effective-date}}');
   });
 
+  it('toDOM handles undefined variableId attribute gracefully (falls back to empty string)', () => {
+    const plugin = variableSchemaPlugin as unknown as {
+      schema: {
+        toDOM: (node: { attrs: Record<string, unknown> }) => unknown[];
+      };
+    };
+    // Pass a node with attrs.variableId = undefined to trigger the `?? ''` branch
+    const result = plugin.schema.toDOM({ attrs: {} });
+    expect(result).toEqual([
+      'span',
+      { 'data-variable-id': '', class: 'variable-chip', contenteditable: 'false' },
+      '{{}}',
+    ]);
+  });
+
   describe('parseMarkdown', () => {
     it('matches nodes with type "variableRef"', () => {
       const plugin = variableSchemaPlugin as unknown as {
@@ -699,6 +714,26 @@ describe('remarkVariablePlugin', () => {
     const para = children[1] as { children: unknown[] };
     const ch = para.children as { type: string; variableId?: string }[];
     expect(ch[0]).toEqual({ type: 'variableRef', variableId: 'skip-test' });
+  });
+
+  it('handles null entries in children array (null guard in visitInlineContainers)', () => {
+    // Pass null explicitly as a child entry to trigger the `if (child == null) continue` branch
+    const children = [
+      null,
+      {
+        type: 'paragraph',
+        children: [{ type: 'text', value: '{{var:null-guard-test}}' }],
+      },
+    ] as unknown[];
+    const tree = { type: 'root', children };
+
+    expect(() => {
+      runPlugin(tree);
+    }).not.toThrow();
+
+    const para = children[1] as { children: unknown[] };
+    const ch = para.children as { type: string; variableId?: string }[];
+    expect(ch[0]).toEqual({ type: 'variableRef', variableId: 'null-guard-test' });
   });
 
   it('handles variable ids with underscores and digits', () => {
