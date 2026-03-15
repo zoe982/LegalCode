@@ -209,6 +209,55 @@ Body.`;
     expect(vars).toHaveLength(1);
     expect(vars[0]?.customType).toBe('LegalEntity');
   });
+
+  it('parses bare dash after existing item (pushes previous item before creating new)', () => {
+    // This covers the branch where currentItem !== null when bare "-" is encountered
+    const md = `---
+items:
+  - name: "first"
+  -
+---
+Body.`;
+    const { frontmatter } = parseFrontmatter(md);
+    const items = frontmatter?.items as Record<string, string>[];
+    expect(Array.isArray(items)).toBe(true);
+    // First item should be pushed, then bare dash creates a new empty item
+    expect(items.length).toBe(2);
+    expect(items[0]?.name).toBe('first');
+    // Second item is empty (from bare dash)
+    expect(Object.keys(items[1] ?? {}).length).toBe(0);
+  });
+
+  it('skips top-level lines without colons (no key-value)', () => {
+    // A top-level line like "hello" with no colon is skipped
+    const md = `---
+title: "Hello"
+this line has no colon
+other: "world"
+---
+Body.`;
+    const { frontmatter } = parseFrontmatter(md);
+    expect(frontmatter?.title).toBe('Hello');
+    expect(frontmatter?.other).toBe('world');
+    // The line without a colon is silently skipped
+    expect(Object.keys(frontmatter ?? {}).length).toBe(2);
+  });
+
+  it('skips top-level lines starting with spaces/tabs/dashes (else branch)', () => {
+    // Lines that start with indent or dash at top level are skipped
+    const md = `---
+title: "Hello"
+  indented line at top level
+- bare dash at top level
+\ttab line at top level
+other: "world"
+---
+Body.`;
+    const { frontmatter } = parseFrontmatter(md);
+    // Only title and other should be parsed; indented/dash lines are skipped
+    expect(frontmatter?.title).toBe('Hello');
+    expect(frontmatter?.other).toBe('world');
+  });
 });
 
 // ---------------------------------------------------------------------------

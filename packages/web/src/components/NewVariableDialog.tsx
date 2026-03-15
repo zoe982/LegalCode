@@ -40,6 +40,7 @@ export function NewVariableDialog({ open, onClose, onCreateVariable }: NewVariab
   };
 
   const handleCreate = () => {
+    /* v8 ignore next -- defensive guard; Create button is disabled when name is empty */
     if (!name.trim()) return;
     onCreateVariable(name.trim(), type, type === 'custom' ? customType || undefined : undefined);
     resetForm();

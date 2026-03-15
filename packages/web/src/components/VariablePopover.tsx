@@ -172,8 +172,10 @@ export function VariablePopover({
   const handleRenameStart = () => {
     const varId = activeKebabId.current;
     activeKebabId.current = null;
+    /* v8 ignore next -- defensive guard; activeKebabId always set by handleKebabOpen before menu item click */
     if (!varId) return;
     const variable = variables.find((v) => v.id === varId);
+    /* v8 ignore next -- defensive fallback; variable always found since kebab is only shown for existing variables */
     setInlineEdit({ variableId: varId, value: variable?.name ?? '' });
     setKebabMenu({ anchorEl: null, variableId: null });
   };
@@ -198,6 +200,7 @@ export function VariablePopover({
   const handleChangeTypeStart = () => {
     const varId = activeKebabId.current;
     activeKebabId.current = null;
+    /* v8 ignore next -- defensive guard; activeKebabId always set by handleKebabOpen before menu item click */
     if (!varId) return;
     setInlineRetype({ variableId: varId });
     setKebabMenu({ anchorEl: null, variableId: null });
@@ -212,6 +215,7 @@ export function VariablePopover({
   const handleDeleteClick = () => {
     const varId = activeKebabId.current;
     activeKebabId.current = null;
+    /* v8 ignore next -- defensive guard; activeKebabId always set by handleKebabOpen before menu item click */
     if (!varId) return;
     onDeleteVariable(varId);
     setKebabMenu({ anchorEl: null, variableId: null });
