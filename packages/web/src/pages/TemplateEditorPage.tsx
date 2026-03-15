@@ -1079,7 +1079,6 @@ export function TemplateEditorPage() {
                     contentRef={sourceContentRef}
                     activeCommentId={activeCommentId}
                     onCommentClick={handleCommentClick}
-                    templateId={id}
                     onResolve={handleMarginResolve}
                     onDelete={handleMarginDelete}
                     onReply={handleMarginReply}

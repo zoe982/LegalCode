@@ -613,7 +613,6 @@ vi.mock('../../src/components/InlineCommentMargin.js', () => ({
     contentRef: unknown;
     activeCommentId?: string | null;
     onCommentClick?: (id: string) => void;
-    templateId?: string;
     onResolve: (id: string) => void;
     onDelete: (id: string) => void;
     onReply: (parentId: string, content: string) => void;

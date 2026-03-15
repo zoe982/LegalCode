@@ -14,7 +14,6 @@ export interface InlineCommentMarginProps {
   contentRef: React.RefObject<HTMLElement | null>;
   activeCommentId?: string | null;
   onCommentClick?: (commentId: string) => void;
-  templateId?: string | undefined;
   onResolve: (commentId: string) => void;
   onDelete: (commentId: string) => void;
   onReply: (parentId: string, content: string) => void;
