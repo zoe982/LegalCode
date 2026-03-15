@@ -90,6 +90,26 @@ Playwright tests exist for critical user flows:
 
 Flag any missing E2E tests.
 
+### 10. CSS Layout Assertion Coverage
+
+- Every component with layout CSS (grid, flex, position) has tests asserting computed style values
+- Grid containers: `display`, `gridTemplateColumns`, `gap` tested
+- Absolute/fixed positioned elements: `position`, `top`/`left` tested
+- Width constraints: `width`, `maxWidth`, `minWidth` tested
+- Flag any layout component with only "element exists" tests
+
+### 11. Prop Passthrough Chain Coverage
+
+- Every prop that flows through 2+ components has an integration test at the endpoint
+- The test verifies behavior, not just prop presence
+- Flag any prop declared in an interface but never consumed downstream
+
+### 12. DOM Stability Coverage
+
+- Every conditionally rendered element near scroll/layout containers uses visibility toggle, not conditional render
+- Test that DOM element count doesn't change on state transitions
+- Flag any `visible ? <X/> : null` pattern in layout-sensitive areas
+
 ## Key Distinction from QA Engineer
 
 QA Engineer focuses on **code quality** (TS strictness, security, error handling).
@@ -112,6 +132,9 @@ Testing Engineer focuses exclusively on **test comprehensiveness** across unit, 
 | 7 | Integration test coverage | PASS/FAIL | ...      |
 | 8 | MSW mock accuracy         | PASS/FAIL | ...      |
 | 9 | E2E test coverage         | PASS/FAIL | ...      |
+| 10 | CSS layout assertion coverage | PASS/FAIL | ...   |
+| 11 | Prop passthrough chain coverage | PASS/FAIL | ... |
+| 12 | DOM stability coverage    | PASS/FAIL | ...      |
 
 ### Files Audited
 [list of files reviewed]
