@@ -10,6 +10,7 @@ import { indexToLabel } from '../editor/legalListUtils.js';
 import type { LegalListType } from '../editor/legalListUtils.js';
 import { resolveAnchors } from '../editor/commentAnchors.js';
 import { commentPluginKey } from '../editor/commentPlugin.js';
+import { suggestionPluginKey } from '../editor/suggestionPlugin.js';
 import { scanForConversions } from '../editor/importCleanup.js';
 import type { DetectedConversion } from '../editor/importCleanup.js';
 import { ImportCleanupDialog } from '../components/ImportCleanupDialog.js';
@@ -205,6 +206,23 @@ export function TemplateEditorPage() {
       // Editor may not be ready yet
     }
   }, [activeCommentId]);
+
+  // Sync editingMode to suggestion plugin state
+  useEffect(() => {
+    const crepe = crepeRef.current;
+    if (!crepe) return;
+    try {
+      crepe.editor.action((ctx) => {
+        const view = ctx.get(editorViewCtx);
+        const tr = view.state.tr.setMeta(suggestionPluginKey, {
+          suggestingMode: editingMode === 'suggesting',
+        });
+        view.dispatch(tr);
+      });
+    } catch {
+      // Editor may not be ready yet
+    }
+  }, [editingMode]);
 
   // Outline tree hook
   const { entries: outlineEntries, refreshTree } = useOutlineTree(crepeRef);

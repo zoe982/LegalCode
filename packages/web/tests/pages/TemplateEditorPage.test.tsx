@@ -159,6 +159,11 @@ vi.mock('../../src/editor/commentPlugin.js', () => ({
   commentPluginKey: { getState: vi.fn() },
 }));
 
+vi.mock('../../src/editor/suggestionPlugin.js', () => ({
+  createSuggestionPlugin: vi.fn(),
+  suggestionPluginKey: { key: 'suggestionPlugin' },
+}));
+
 const mockScanForConversions = vi.fn().mockReturnValue([]);
 vi.mock('../../src/editor/importCleanup.js', () => ({
   scanForConversions: (...args: unknown[]) => mockScanForConversions(...args) as unknown,
@@ -4213,6 +4218,96 @@ describe('TemplateEditorPage', () => {
       render(<TemplateEditorPage />, { wrapper: Wrapper });
       // In edit mode, onLegalList is undefined
       expect(screen.queryByTestId('toolbar-legal-list')).not.toBeInTheDocument();
+    });
+
+    it('dispatches suggestionPluginKey meta when editingMode changes to suggesting', async () => {
+      const user = userEvent.setup();
+      const mockDispatch = vi.fn();
+      const mockSetMeta = vi.fn().mockReturnValue({ mock: 'transaction' });
+
+      mockEditorAction.mockImplementation(
+        (cb: (ctx: { get: (key: unknown) => unknown }) => void) => {
+          cb({
+            get: () => ({
+              state: {
+                tr: { setMeta: mockSetMeta },
+              },
+              dispatch: mockDispatch,
+            }),
+          });
+        },
+      );
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      // Clear any setup calls
+      mockEditorAction.mockClear();
+      mockSetMeta.mockClear();
+      mockDispatch.mockClear();
+
+      // Switch to suggesting mode
+      await user.click(screen.getByTestId('toolbar-set-suggesting'));
+
+      // The useEffect should dispatch a transaction with suggestionPluginKey meta
+      const setMetaCalls = mockSetMeta.mock.calls;
+      const suggestionCall = setMetaCalls.find((call: unknown[]) => {
+        const key = call[0];
+        return (
+          key &&
+          typeof key === 'object' &&
+          'key' in key &&
+          (key as { key: string }).key === 'suggestionPlugin'
+        );
+      });
+
+      expect(suggestionCall).toBeDefined();
+      expect(suggestionCall?.[1]).toEqual({ suggestingMode: true });
+    });
+
+    it('dispatches suggestingMode=false when editingMode changes back to editing', async () => {
+      const user = userEvent.setup();
+      const mockDispatch = vi.fn();
+      const mockSetMeta = vi.fn().mockReturnValue({ mock: 'transaction' });
+
+      mockEditorAction.mockImplementation(
+        (cb: (ctx: { get: (key: unknown) => unknown }) => void) => {
+          cb({
+            get: () => ({
+              state: {
+                tr: { setMeta: mockSetMeta },
+              },
+              dispatch: mockDispatch,
+            }),
+          });
+        },
+      );
+
+      render(<TemplateEditorPage />, { wrapper: Wrapper });
+
+      // Switch to suggesting mode first
+      await user.click(screen.getByTestId('toolbar-set-suggesting'));
+
+      // Clear calls after switching to suggesting
+      mockSetMeta.mockClear();
+      mockDispatch.mockClear();
+
+      // Switch back to editing mode
+      await user.click(screen.getByTestId('toolbar-set-editing'));
+
+      // The useEffect should dispatch a transaction with suggestingMode: false
+      const setMetaCalls = mockSetMeta.mock.calls;
+      const suggestionCall = setMetaCalls.find((call: unknown[]) => {
+        const key = call[0];
+        return (
+          key &&
+          typeof key === 'object' &&
+          'key' in key &&
+          (key as { key: string }).key === 'suggestionPlugin'
+        );
+      });
+
+      expect(suggestionCall).toBeDefined();
+      expect(suggestionCall?.[1]).toEqual({ suggestingMode: false });
     });
 
     it('wires createSuggestion via handleSuggestInsert when onSuggestInsert fires', () => {
