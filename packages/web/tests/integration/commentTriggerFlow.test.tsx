@@ -1,6 +1,6 @@
 /// <reference types="@testing-library/jest-dom/vitest" />
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, act } from '@testing-library/react';
+import { render, screen, act, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ThemeProvider } from '@mui/material/styles';
 import { theme } from '../../src/theme/index.js';
@@ -65,9 +65,11 @@ describe('MarginCommentTrigger + useEditorComments integration', () => {
     expect(screen.getByTestId('pending-anchor')).toHaveTextContent('null');
     expect(screen.getByTestId('has-selection')).toHaveTextContent('false');
 
-    // Set selection — trigger becomes visible
+    // Set selection — trigger becomes visible after debounce settles
     await user.click(screen.getByTestId('set-selection'));
-    expect(screen.getByTestId('has-selection')).toHaveTextContent('true');
+    await waitFor(() => {
+      expect(screen.getByTestId('has-selection')).toHaveTextContent('true');
+    });
 
     // Click the visible trigger
     const trigger = screen.getByTestId('margin-comment-trigger');
@@ -86,12 +88,16 @@ describe('MarginCommentTrigger + useEditorComments integration', () => {
 
     // Set selection so editorSelectionRef is populated
     await user.click(screen.getByTestId('set-selection'));
-    expect(screen.getByTestId('has-selection')).toHaveTextContent('true');
+    await waitFor(() => {
+      expect(screen.getByTestId('has-selection')).toHaveTextContent('true');
+    });
 
     // Clear selection — this simulates the race condition where mousedown steals focus,
     // ProseMirror fires a selection-change event with no selection, and the ref is wiped.
     await user.click(screen.getByTestId('clear-selection'));
-    expect(screen.getByTestId('has-selection')).toHaveTextContent('false');
+    await waitFor(() => {
+      expect(screen.getByTestId('has-selection')).toHaveTextContent('false');
+    });
 
     // Trigger is now hidden (visible=false). Call startComment directly via the exposed button.
     // This reproduces the scenario where startComment fires after the ref has been cleared.
@@ -107,9 +113,11 @@ describe('MarginCommentTrigger + useEditorComments integration', () => {
     const user = userEvent.setup();
     render(<TestHarness />, { wrapper: Wrapper });
 
-    // Set selection — makes trigger visible
+    // Set selection — makes trigger visible after debounce settles
     await user.click(screen.getByTestId('set-selection'));
-    expect(screen.getByTestId('has-selection')).toHaveTextContent('true');
+    await waitFor(() => {
+      expect(screen.getByTestId('has-selection')).toHaveTextContent('true');
+    });
 
     const trigger = screen.getByTestId('margin-comment-trigger');
 

@@ -24,11 +24,20 @@ export function useEditorComments(): UseEditorCommentsReturn {
   });
   const [pendingAnchor, setPendingAnchor] = useState<CapturedAnchor | null>(null);
   const editorSelectionRef = useRef<EditorSelection | null>(null);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const onSelectionChange = useCallback(
     (info: SelectionInfo, editorSelection?: EditorSelection) => {
-      setSelectionInfo(info);
+      // Update ref immediately — used by startComment, should not be delayed
       editorSelectionRef.current = editorSelection ?? null;
+      // Debounce state update to prevent layout thrash on rapid selection changes (e.g. double-click)
+      if (debounceTimerRef.current !== null) {
+        clearTimeout(debounceTimerRef.current);
+      }
+      debounceTimerRef.current = setTimeout(() => {
+        setSelectionInfo(info);
+        debounceTimerRef.current = null;
+      }, 50);
     },
     [],
   );

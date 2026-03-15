@@ -11,9 +11,7 @@ export interface MarginCommentTriggerProps {
 }
 
 export function MarginCommentTrigger({ top, visible, onClick }: MarginCommentTriggerProps) {
-  if (!visible || top === null) {
-    return null;
-  }
+  const isHidden = !visible || top === null;
 
   return (
     <Box
@@ -26,8 +24,11 @@ export function MarginCommentTrigger({ top, visible, onClick }: MarginCommentTri
       }}
       sx={{
         position: 'absolute',
-        top: `${String(top)}px`,
+        top: top !== null ? `${String(top)}px` : '0px',
         right: '-18px',
+        visibility: isHidden ? 'hidden' : 'visible',
+        opacity: isHidden ? 0 : 1,
+        pointerEvents: isHidden ? 'none' : 'auto',
         transform: 'translateY(-50%)',
         zIndex: 10,
         display: 'inline-flex',

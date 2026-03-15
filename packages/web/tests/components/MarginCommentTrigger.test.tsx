@@ -37,17 +37,23 @@ describe('MarginCommentTrigger', () => {
 
   it('does not render when visible is false', () => {
     renderTrigger({ visible: false });
-    expect(screen.queryByTestId('margin-comment-trigger')).not.toBeInTheDocument();
+    const trigger = screen.getByTestId('margin-comment-trigger');
+    expect(trigger).toBeInTheDocument();
+    expect(trigger).toHaveStyle({ visibility: 'hidden' });
   });
 
   it('does not render when top is null', () => {
     renderTrigger({ top: null });
-    expect(screen.queryByTestId('margin-comment-trigger')).not.toBeInTheDocument();
+    const trigger = screen.getByTestId('margin-comment-trigger');
+    expect(trigger).toBeInTheDocument();
+    expect(trigger).toHaveStyle({ visibility: 'hidden' });
   });
 
   it('does not render when visible is false and top is null', () => {
     renderTrigger({ visible: false, top: null });
-    expect(screen.queryByTestId('margin-comment-trigger')).not.toBeInTheDocument();
+    const trigger = screen.getByTestId('margin-comment-trigger');
+    expect(trigger).toBeInTheDocument();
+    expect(trigger).toHaveStyle({ visibility: 'hidden' });
   });
 
   it('calls onClick when clicked', async () => {
@@ -122,5 +128,36 @@ describe('MarginCommentTrigger', () => {
     const mousedownEvent = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
     const prevented = !trigger.dispatchEvent(mousedownEvent);
     expect(prevented).toBe(true);
+  });
+
+  it('always renders a DOM element even when visible=false', () => {
+    renderTrigger({ visible: false });
+    const trigger = screen.getByTestId('margin-comment-trigger');
+    expect(trigger).toBeInTheDocument();
+    expect(trigger).toHaveStyle({ visibility: 'hidden', opacity: '0', pointerEvents: 'none' });
+  });
+
+  it('does not add/remove DOM elements when visibility toggles', () => {
+    const onClick = vi.fn();
+    const { rerender } = render(
+      <ThemeProvider theme={theme}>
+        <MarginCommentTrigger top={100} visible={true} onClick={onClick} />
+      </ThemeProvider>,
+    );
+    const triggerBefore = screen.getByTestId('margin-comment-trigger');
+    rerender(
+      <ThemeProvider theme={theme}>
+        <MarginCommentTrigger top={100} visible={false} onClick={onClick} />
+      </ThemeProvider>,
+    );
+    const triggerAfter = screen.getByTestId('margin-comment-trigger');
+    expect(triggerAfter).toBeInTheDocument();
+    expect(triggerBefore).toBe(triggerAfter);
+  });
+
+  it('has position:absolute styling when visible', () => {
+    renderTrigger({ visible: true, top: 50 });
+    const trigger = screen.getByTestId('margin-comment-trigger');
+    expect(trigger).toHaveStyle({ position: 'absolute' });
   });
 });

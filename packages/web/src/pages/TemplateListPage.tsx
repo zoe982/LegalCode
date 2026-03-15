@@ -107,6 +107,7 @@ export function TemplateListPage() {
     <Box
       data-testid="template-list-container"
       sx={{
+        width: '100%',
         maxWidth: '1120px',
         mx: 'auto',
         px: '32px',
@@ -599,6 +600,7 @@ export function TemplateListPage() {
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
             gap: '16px',
+            minWidth: 0,
           }}
         >
           {templates.map((template) => (
